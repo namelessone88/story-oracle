@@ -2981,7 +2981,12 @@ function buildTranscriptTurns(ctx, s) {
         return {
             role: m.is_user ? 'user' : 'assistant',
             name: m.name || (m.is_user ? ctx.name1 : ctx.name2),
-            text,
+            // v1.14.5：主聊天消息里嵌着的 <UpdateVariable> 是【增量】不是【状
+            // 态】——普通/参谋模式的模型看到「好感度+5」这种碎片、又没有权威
+            // 基线，就会自信地推算出离谱数值。除诊断模式外（读这些区块正是诊
+            // 断的本职），一律从喂给神谕的剧情记录里剥掉。整条消息只剩区块时
+            // 会变成空串，被下方的过滤器自然丢弃。
+            text: diagnoseMode ? text : stripMechanismBlocks(text),
         };
     });
 
@@ -2999,8 +3004,9 @@ function buildTranscript(ctx, s) {
 // 主聊天毫无意义的机制区块（“Variables remain unchanged”之类）。主聊天里这
 // 些区块由 MVU 自己的管线消化隐藏，神谕没有那条管线，所以原样可见，还会写进
 // 神谕历史让后续回合越锁越死。普通 / 参谋模式下从显示与历史两头剥掉它；诊断
-// 模式绝不剥（读这些区块正是诊断的本职），世界书模式不动（不在该症状路径上，
-// 且求稳不碰 <LorebookEdit> 周边的文本处理）。
+// 模式绝不剥（读这些区块正是诊断的本职）。
+// v1.14.5 起也用于【喂入神谕的主聊天剧情记录】（见 buildTranscriptTurns）：
+// 消息里的更新区块是增量不是状态，留着只会诱导模型瞎报数值。
 function stripMechanismBlocks(text) {
     let out = String(text || '');
     out = out.replace(/<UpdateVariable>[\s\S]*?<\/UpdateVariable>/gi, '');
