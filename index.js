@@ -103,7 +103,7 @@ key: 关键词1, 关键词2
 content>>>
 </LorebookEdit>
 
-· patch（局部修改已有条目）—— 修改已有条目时【优先用它】，不必重发整条：
+· patch（局部修改已有条目的正文）—— 修改条目【正文 content】时【优先用它】，不必重发整条。注意：patch 只在【正文】里按锚点替换，锚点也只在正文里查找——它【改不到关键词或任何元信息字段】（要改关键词 key、标题 comment、常驻 constant 等，请改用 edit 或 create，见下）：
 anchor 用来定位要替换的原文；新文本放进 <<<replace … replace>>>。anchor 有两种写法，【优先用单锚点】：
 · 单锚点（首选）：要替换的是一段【连续】原文时，把这段原文【一字不差】地照抄进 anchor 就行——改名、替换词句、改写短句几乎都用它。例：把「红色斗篷」改成「蓝色斗篷」，anchor 写 红色斗篷，replace 写 蓝色斗篷。
 · 区间锚点（start || end）：仅当要替换的范围【很长】、整段照抄不便时才用——范围【开头】3-4 个字 +「 || 」+ 范围【结尾】3-4 个字，圈出从开头到结尾（含首尾）的整段。开头与结尾这两小段【必须互不相同、互不重叠】：绝不能写成同一段文字，也不能让结尾那几个字落在开头那几个字之内，否则锚点会对不上。
@@ -149,6 +149,7 @@ uid: 7
 </LorebookEdit>
 
 可用的元信息键：comment（标题）、key / keysecondary（关键词，用逗号分隔）、constant（常驻，true/false）、disable（禁用，true/false）、selective（关键词触发，true/false）、excludeRecursion（非递归，true/false）、preventRecursion（不触发后续递归，true/false）、order（顺序，数字）、position（位置，数字）、depth（深度，数字）。其它键会被忽略。
+改这些元信息（含关键词 key / keysecondary）时：已有条目用 action: edit、新建用 create，【不要用 patch】——patch 只改正文，碰不到这些字段（把关键词写进 patch 的 anchor，会因正文里找不到而整批跳过）。另外：写 key / keysecondary 是把该字段【整体替换】掉、不是追加；想在现有关键词基础上【新增】（例如给中文关键词补上英文别名），必须把现有关键词连同新词一并照抄列出（旧词＋新词全部写上），漏掉的旧词会被删除。
 
 规则：
 - book 与 uid 必须照抄上面列出的条目，绝不要自己编造，也绝不要去动没有列出的条目。书名里若带《》「」【】<> 等符号，请连同符号一字不差地照抄（这些最容易被漏写）。
@@ -1211,11 +1212,18 @@ function parseOneLorebookBlock(inner) {
     const rFence = extractFence(text, 'replace'); text = rFence.rest;
 
     const headers = {};
+    // 多行 anchor：弱模型常把跨行的一段原文【整段照抄】进 anchor（而不用 start || end）。
+    // 把 anchor: 之后紧跟的续行（直到空行或下一个 header）并入 anchor，好让 lbFuzzyReplace
+    // 拿到完整片段、整段命中，而不是只取首行（首行只换一半 = 静默的部分替换）。
+    // 【仅限 anchor】：真正的「键: 值」header 行会终止吸收（绝不吞掉任何字段），其它字段后面
+    // 的自由文本仍按原样丢弃。
+    let absorb = null;
     for (const rawLine of text.split('\n')) {
         const line = rawLine.trim();
-        if (!line) continue;
         const mm = line.match(/^([A-Za-z_]+)\s*[:：]\s*(.*)$/);
-        if (mm) headers[mm[1]] = mm[2];
+        if (mm) { headers[mm[1]] = mm[2]; absorb = (mm[1] === 'anchor') ? 'anchor' : null; continue; }
+        if (!line) { absorb = null; continue; }
+        if (absorb) headers[absorb] += '\n' + line;
     }
 
     const action = (headers.action || '').trim().toLowerCase();
