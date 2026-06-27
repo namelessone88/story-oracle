@@ -613,6 +613,10 @@
        只能小幅放大（手机上仍要排得下），主要靠加大间距防误触。消息操作按钮也加大点击区。 */
     .so-iconbtn { width: 40px; height: 40px; }
     #so-header-btns .so-iconbtn { width: 33px; height: 33px; }
+    /* 但「⋯」下拉里的菜单项也是 #so-header-btns 内的 .so-iconbtn 后代，会被上面那条 33px 规则连带
+       压成小方块（文字溢出框外、只剩图标可点 —— 用户反馈「⋯ 难按」的真正原因）。这里用同等特异性
+       （#id + .class）、排在其后的规则把它们拉回「图标 + 文字」整行，并把行高撑到 44px 触摸目标。 */
+    #so-header-btns .so-tools-item { width: auto; height: auto; min-height: 44px; padding: 8px 12px; }
     #so-header-btns { gap: 3px; }
     .so-hdr-div { margin: 6px 2px; }
     #so-send { width: 44px; height: 44px; }
