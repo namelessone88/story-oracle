@@ -742,7 +742,7 @@ let fixCardBlock = '';     // 校正：角色卡块（送 prompt 前在异步 pr
 let fixContextBlock = '';  // 校正：前文上下文块
 let fixWorldBlock = '';    // 校正：激活世界书块
 let fixSummaryBlock = '';  // 校正：📜剧情概要块（手动默认带 / 自动可选；buildFixEnvelope 包成 <story_summary>）
-let fixExtraKeep = '';
+let fixExtraKeep = [];      // 排除·保留区抠出的块数组（composeFixedReply 据 ⟦SO_KEEP_n⟧ 标记按位置还原回原位）
 let fixTightenActive = true;   // ✨ 收紧 toggle 生效值（captureFixContext 经 resolveFixModeCfg 设：手动恒 false，自动按 fixA_tighten）；on → buildFixPrompt 用 FIX_SYSTEM_PROMPT_TIGHTEN
 let fixActiveMode = 'manual';  // 当前校正调用是哪套（captureFixContext 设）：'manual' → buildFixPrompt 用 FIX_SYSTEM_PROMPT_MANUAL；'auto' → FIX_SYSTEM_PROMPT(_TIGHTEN)
 let advStatData = '';       // stringified current MVU stat_data for advisor sends
@@ -3849,6 +3849,11 @@ function addSwipeToMessage(m, text, info) {
     m.swipe_info.push(info || {});
     m.swipe_id = m.swipes.length - 1;
     m.mes = m.swipes[m.swipe_id];
+    // Bug 3：换到新 swipe 后，作废渲染器写在 extra.display_text 上的【旧回复渲染缓存】。ST 的 updateMessageBlock
+    // 渲染的是 extra.display_text ?? mes——小白X（LittleWhiteBox，本卡正用它）/ 翻译扩展会把渲染稿写进
+    // display_text，不清掉它屏幕就停在旧回复，要用户点一下/划一下才切到校正稿（用户反馈：「自动修正后要调出界面
+    // 才切到修正后的回复」）。对齐 ST 原生 swipe 的 loadFromSwipeId → clearMessageData（同样 delete display_text）。
+    if (m.extra && typeof m.extra === 'object') delete m.extra.display_text;
     return m.swipe_id;
 }
 
@@ -3864,22 +3869,36 @@ function parseExcludeTagNames(str) {
         .filter(Boolean);
 }
 
-// 纯函数：从 reply 里抠出用户指定的"排除区"。keep 标签的 <tag>…</tag> 块（含截断未闭合）抠出后收进 keep 串（原样放回用）；
-// drop 标签的块抠出后丢弃。返回 { prose, keep } —— prose 送去校正，keep 是要原样接回的串。可单测。
+// 排除·保留区占位标记：keep 块从 prose 里抠走时，原位留下 ⟦SO_KEEP_n⟧ 作锚点（n = 该块在 keepBlocks 里的下标），
+// 让 composeFixedReply 能把原块还原【回原位】，而不是一律接到末尾（用户报的「保留块被挪到故事结尾」bug）。⟦⟧ 是罕见
+// 数学括号，正文几乎不可能自然出现；模型被 buildFixPrompt 提示原样保留，万一弄丢由 composeFixedReply 兜底接回（不丢内容）。
+const FIX_KEEP_MARK = '⟦SO_KEEP_';
+function fixKeepPlaceholder(i) { return FIX_KEEP_MARK + i + '⟧'; }
+function stripFixKeepMarks(t) { return String(t == null ? '' : t).replace(new RegExp(FIX_KEEP_MARK + '\\d+⟧', 'g'), ''); }
+
+// 纯函数：从 reply 里抠出用户指定的"排除区"。keep 标签的 <tag>…</tag> 块（含截断未闭合）抠出后【原位留下占位标记 ⟦SO_KEEP_n⟧】
+// 并把原块收进 keepBlocks（composeFixedReply 据标记还原回原位）；drop 标签的块抠出后直接丢弃（无标记）。两者都从 prose
+// （送去校正的正文）里移除。返回 { prose, keep, keepBlocks } —— prose 送去校正，keepBlocks 是要按位置接回的块数组。可单测。
 function extractExcludedSections(reply, keepStr, dropStr) {
     let prose = String(reply || '');
-    const keepParts = [];
+    const keepBlocks = [];
     const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const nb = '(?![A-Za-z0-9_\\u4e00-\\u9fa5-])';   // 标签名后不得再跟名字字符（避免 <plan> 误匹配 <planning>；兼容中文标签）
     const pull = (name, collect) => {
         const n = esc(name);
-        prose = prose.replace(new RegExp('<' + n + nb + '[^>]*>[\\s\\S]*?<\\/' + n + nb + '[^>]*>', 'gi'), (m) => { if (collect) keepParts.push(m); return ''; });
-        prose = prose.replace(new RegExp('<' + n + nb + '[^>]*>[\\s\\S]*$', 'i'), (m) => { if (collect) keepParts.push(m); return ''; });
+        const repl = (m) => {
+            if (!collect) return '';                              // drop：直接抠掉，不留痕
+            const ph = fixKeepPlaceholder(keepBlocks.length);     // keep：原位留下带下标的占位标记
+            keepBlocks.push(m);
+            return ph;
+        };
+        prose = prose.replace(new RegExp('<' + n + nb + '[^>]*>[\\s\\S]*?<\\/' + n + nb + '[^>]*>', 'gi'), repl);
+        prose = prose.replace(new RegExp('<' + n + nb + '[^>]*>[\\s\\S]*$', 'i'), repl);
     };
     for (const name of parseExcludeTagNames(keepStr)) pull(name, true);
     for (const name of parseExcludeTagNames(dropStr)) pull(name, false);
     prose = prose.replace(/\n{3,}/g, '\n\n').trim();
-    return { prose, keep: keepParts.join('\n\n') };
+    return { prose, keep: keepBlocks.join('\n\n'), keepBlocks };
 }
 
 /* ------------------------------------------------------------------ *
@@ -4006,12 +4025,24 @@ function renderDiffCard(before, after) {
 
 // 纯函数：把原回复里的机制块（<UpdateVariable> + 状态栏占位符）原样接回校正稿，让校正后的 swipe
 // 仍携带 MVU 更新 + 触发状态栏。CoT 不接回——那是原回复的推理，与校正无关。幂等。可单测。
-// keepSections（用户「排除·保留」区）原样接回，先于机制块。
-function composeFixedReply(fixedProse, originalReply, keepSections) {
+// keepBlocks（用户「排除·保留」区抠出的块）：数组形态按 ⟦SO_KEEP_n⟧ 标记还原到【原位】（模型弄丢则兜底接到
+// 末尾，不丢内容）；字符串形态（旧调用）整体接到末尾。两者都先于机制块。
+function composeFixedReply(fixedProse, originalReply, keepBlocks) {
     let out = String(fixedProse || '').trim();
     const orig = String(originalReply || '');
-    const keep = String(keepSections || '').trim();
-    if (keep && !out.includes(keep)) out = out.trimEnd() + '\n\n' + keep;   // 用户"排除·保留"区原样接回（先于机制块）
+    // 第三参可为【数组】(新：按占位标记 ⟦SO_KEEP_n⟧ 把保留块还原到【原位】) 或【字符串】(旧调用：整体接到末尾，向后兼容)。
+    const blocks = Array.isArray(keepBlocks)
+        ? keepBlocks
+        : (String(keepBlocks || '').trim() ? [String(keepBlocks).trim()] : []);
+    const tail = [];
+    blocks.forEach((blk, i) => {
+        const b = String(blk == null ? '' : blk);
+        const ph = fixKeepPlaceholder(i);
+        if (out.includes(ph)) out = out.replace(ph, () => b);     // 还原到占位标记的原始位置（只换第一个；重复标记交给下面的扫除）
+        else if (b && !out.includes(b)) tail.push(b);             // 标记被模型弄丢 → 兜底接到末尾（不丢内容）
+    });
+    out = stripFixKeepMarks(out);                                 // 清掉残留 / 重复 / 臆造的孤儿占位标记，绝不让标记漏进正文
+    if (tail.length) out = out.trimEnd() + '\n\n' + tail.join('\n\n');
     const block = extractUpdateBlock(orig);
     if (block && !out.includes(block)) out = out.trimEnd() + '\n\n' + block;
     if (orig.includes(STATUS_PLACEHOLDER) && !out.includes(STATUS_PLACEHOLDER)) out = out.trimEnd() + '\n\n' + STATUS_PLACEHOLDER;
@@ -4321,6 +4352,9 @@ async function selectSwipe(idx, swipeId) {
     if (!m || !Array.isArray(m.swipes) || typeof m.swipes[swipeId] !== 'string') return false;
     m.swipe_id = swipeId;
     m.mes = m.swipes[swipeId];
+    // Bug 3（同 addSwipeToMessage）：切到另一条已存在 swipe（用原文 / 用校正稿）也要作废 extra.display_text 的旧
+    // 渲染缓存，否则 updateMessageBlock 会渲染旧 display_text 而不是切过去的 mes。对齐 ST 原生 swipe。
+    if (m.extra && typeof m.extra === 'object') delete m.extra.display_text;
     try { if (typeof ctx.saveChat === 'function') await ctx.saveChat(); }
     catch (e) { console.warn('[Story Oracle] 校正写入 swipe 后保存失败：', e); return false; }
     try { if (typeof ctx.updateMessageBlock === 'function') ctx.updateMessageBlock(idx, m); }
@@ -4510,7 +4544,7 @@ function addAutoFixControls(wrap, info) {
     let diffCard = null;
     diffBtn.addEventListener('click', () => {
         if (!diffCard) {
-            diffCard = renderDiffCard(info.before, info.after);
+            diffCard = renderDiffCard(stripFixKeepMarks(info.before), stripFixKeepMarks(info.after));   // 别把 ⟦SO_KEEP_n⟧ 锚点露进「看改动」
             wrap.appendChild(diffCard);
         } else {
             diffCard.hidden = !diffCard.hidden;
@@ -7747,7 +7781,12 @@ function buildFixPrompt(ctx, s) {
     }
     const reply = fixTargetProse || '（未捕获到待校正的回复——请确认主聊天里已有一条 AI 回复）';
     const envelope = buildFixEnvelope({ card: fixCardBlock, world: fixWorldBlock, summary: fixSummaryBlock, context: fixContextBlock, reply });
-    return subst(base) + '\n\n' + envelope;
+    let prompt = subst(base) + '\n\n' + envelope;
+    // 排除·保留区：正文里嵌了 ⟦SO_KEEP_n⟧ 占位锚点时，明确要求模型原样留在原位（弄丢了由 composeFixedReply 兜底接回）。
+    if (Array.isArray(fixExtraKeep) && fixExtraKeep.length) {
+        prompt += '\n\n【保留区锚点】<text_to_transform> 里形如 ⟦SO_KEEP_数字⟧ 的标记是系统占位锚点（用户「保留区」的内容已被抽走，稍后会按标记位置原样接回）：必须【原样保留、留在它出现的位置】，绝不改写、移动、合并或删除——它不是要校正的内容；正文其余照常校正。';
+    }
+    return prompt;
 }
 
 // 无状态版诊断提示词构建器（用入参而非模块变量）——这样「自动诊断」后台运行能自建提示词、
@@ -8565,7 +8604,7 @@ async function captureFixContext(s, { mode = 'manual' } = {}) {
     fixOriginalReply = latest.text;
     const ex = extractExcludedSections(latest.text, norm.keepTags, norm.dropTags);   // 排除区（仅自动）；思考块去留由用户「保留/丢弃」决定
     fixTargetProse = stripMechanismBlocks(ex.prose);   // 仍自动剥离 MVU 机制块（<UpdateVariable>，composeFixedReply 会原样接回）
-    fixExtraKeep = ex.keep;
+    fixExtraKeep = ex.keepBlocks;   // 保留区块数组（composeFixedReply 按 ⟦SO_KEEP_n⟧ 位置还原，而非接到末尾）
     fixSummaryBlock = norm.includeSummary ? getSummary() : '';   // 📜剧情概要（手动默认带、自动可选）；buildFixEnvelope 包成 <story_summary>
     fixTightenActive = norm.tighten;   // ✨ 收紧：手动恒 false（单稿省时间）；自动按 ✂️收紧 开关（默认开）
     fixActiveMode = mode;              // buildFixPrompt 据此选系统提示：手动 → FIX_SYSTEM_PROMPT_MANUAL；自动 → FIX_SYSTEM_PROMPT(_TIGHTEN)
@@ -9320,7 +9359,7 @@ function addFixApplyControls(assistantEl, parsed, originalReply, targetIdx, keep
     let diffCard = null;
     diffBtn.addEventListener('click', () => {
         if (!diffCard) {
-            diffCard = renderDiffCard(stripMechanismBlocks(String(originalReply || '')), parsed.fixed);
+            diffCard = renderDiffCard(stripMechanismBlocks(String(originalReply || '')), stripFixKeepMarks(parsed.fixed));
             bubble.appendChild(diffCard);
         } else {
             diffCard.hidden = !diffCard.hidden;
