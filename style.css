@@ -1441,7 +1441,16 @@
 #so-plan-float.so-collapsed {
     width: auto;
     border-radius: 999px;
+    /* 用户反馈（白鳥三津枝）：折叠的罗盘小药丸会挡住下面的正文。静息时做成半透明，尽量不遮字；
+       一旦交互——桌面悬停 / 手机触摸按住 / 拖动——立刻回满不透明，看清在抓什么。过渡很短，
+       prefers-reduced-motion 下被上面的减动效块统一压成瞬时（不影响半透明本身）。 */
+    opacity: 0.5;
+    transition: opacity 0.18s ease;
 }
+#so-plan-float.so-collapsed:hover,
+#so-plan-float.so-collapsed:active { opacity: 1; }
+/* 正在编译节拍（罗盘转圈）时它在后台干活，别太隐身 —— 提到接近满不透明 */
+#so-plan-float.so-collapsed.so-arc-busy { opacity: 0.9; }
 #so-plan-float.so-collapsed #so-plan-float-slot { display: none; }
 #so-plan-float.so-collapsed #so-plan-float-head {
     border-bottom: none;

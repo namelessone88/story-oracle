@@ -6832,8 +6832,10 @@ function ensurePlanFloat() {
         save();
         applyPlanFloatCollapsed();
     });
+    // 折叠成罗盘药丸后，整张可点面就是那颗按钮 —— 放行「从按钮起拖」，否则手机上只剩 3px 外圈可拖（拖不动）。
     makeDraggable(planFloat, planFloat.querySelector('#so-plan-float-head'),
-        { left: 'planFloatLeft', top: 'planFloatTop' });
+        { left: 'planFloatLeft', top: 'planFloatTop' },
+        { dragFromButtons: () => planFloat.classList.contains('so-collapsed') });
     // Restore the saved position, clamped to the current viewport.
     const s = getSettings();
     if (Number.isFinite(s.planFloatLeft) && Number.isFinite(s.planFloatTop)) {
@@ -9859,13 +9861,41 @@ function scheduleEnsureInView() {
 
 // Drag the window by its header. Pointer events cover mouse + touch + pen in one
 // path; pointer capture keeps tracking even when the finger leaves the header.
-function makeDraggable(panel, handle, keys = { left: 'winLeft', top: 'winTop' }) {
-    let sx, sy, sl, st, pid = null;
+// 拖动 vs 轻点判定（纯函数，单测钉 plan-float-drag.test.mjs）：
+// dragShouldBegin —— 一次 pointerdown 该不该开始拖动。落在按钮 / .so-iconbtn 上时默认不拖（让它响应点击）；
+//   但折叠态的「指南针小药丸」整张可点面就是那颗罗盘按钮（#so-plan-float-collapse），靠 dragFromButtons=true
+//   放行「在按钮上也能起拖」，再用下面的位移阈值区分轻点（展开）/拖动（移动）。真机 bug 修复点（Discord 白鳥三津枝）。
+// dragExceededThreshold —— 指针自按下点的位移是否已超过「这是拖动而非轻点」的阈值（按 hypot 距离，避免手指微抖被当拖动）。
+const DRAG_THRESHOLD = 6;  // 像素：超过它，一次按压才从「轻点」升级为「拖动」
+function dragShouldBegin({ onButton, secondaryButton, dragFromButtons }) {
+    if (secondaryButton) return false;               // 鼠标右键 / 中键不拖
+    if (onButton && !dragFromButtons) return false;  // 普通：让按钮自己响应点击
+    return true;
+}
+function dragExceededThreshold(dx, dy) {
+    return (dx * dx + dy * dy) > (DRAG_THRESHOLD * DRAG_THRESHOLD);
+}
+// 一次性吞掉「拖动后浏览器仍会补发的那一下 click」—— 否则在按钮上拖完会顺带触发它
+// （如把折叠药丸拖一下，松手又被那颗罗盘的 click 展开）。捕获阶段挂在把手（按钮的祖先）上抢先拦下；
+// 300ms 后自动撤除，绝不误吞之后一次正经的轻点。
+function suppressNextClick(el) {
+    const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+    el.addEventListener('click', swallow, { capture: true, once: true });
+    setTimeout(() => el.removeEventListener('click', swallow, { capture: true }), 300);
+}
+
+function makeDraggable(panel, handle, keys = { left: 'winLeft', top: 'winTop' }, opts = {}) {
+    // opts.dragFromButtons: () => boolean —— pointerdown 时若为 true，落在按钮上也可起拖（折叠药丸专用，
+    //   它整张面就是那颗按钮）；配合位移阈值，没动够阈值仍算轻点，按钮自己的 click 照常触发。
+    let sx, sy, sl, st, pid = null, moved = false, fromButton = false;
     handle.style.touchAction = 'none';   // stop the page scrolling under a drag
     handle.addEventListener('pointerdown', (e) => {
-        if (e.target.closest('button') || e.target.closest('.so-iconbtn')) return; // let buttons tap
-        if (e.button != null && e.button > 0) return;       // primary / touch only
+        const onButton = !!(e.target.closest('button') || e.target.closest('.so-iconbtn'));
+        const dragFromButtons = typeof opts.dragFromButtons === 'function' && opts.dragFromButtons();
+        if (!dragShouldBegin({ onButton, secondaryButton: e.button != null && e.button > 0, dragFromButtons })) return;
         pid = e.pointerId;
+        moved = false;
+        fromButton = onButton;            // 起手就在按钮上 → 真拖完要吞那下补发的 click
         const r = panel.getBoundingClientRect();
         sx = e.clientX; sy = e.clientY; sl = r.left; st = r.top;
         panel.style.right = 'auto';
@@ -9874,6 +9904,8 @@ function makeDraggable(panel, handle, keys = { left: 'winLeft', top: 'winTop' })
     });
     handle.addEventListener('pointermove', (e) => {
         if (e.pointerId !== pid) return;
+        if (!moved && !dragExceededThreshold(e.clientX - sx, e.clientY - sy)) return; // 阈值内仍算轻点，先不动
+        moved = true;
         const nl = Math.max(0, Math.min(window.innerWidth - 60, sl + e.clientX - sx));
         const nt = Math.max(0, Math.min(window.innerHeight - 40, st + e.clientY - sy));
         panel.style.left = `${nl}px`;
@@ -9884,6 +9916,8 @@ function makeDraggable(panel, handle, keys = { left: 'winLeft', top: 'winTop' })
         try { handle.releasePointerCapture(pid); } catch (_) { /* ignore */ }
         pid = null;
         document.body.style.userSelect = '';
+        if (!moved) { fromButton = false; return; }  // 只是轻点：放行 click（如展开），位置没变就不保存
+        if (fromButton) { suppressNextClick(handle); fromButton = false; } // 拖动起于按钮 → 吞掉补发的 click
         const s = getSettings();
         s[keys.left] = parseInt(panel.style.left, 10);
         s[keys.top] = parseInt(panel.style.top, 10);
