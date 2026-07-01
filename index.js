@@ -156,6 +156,8 @@ uid: 7
 - 新建条目默认就是「非递归 + 不触发后续递归」；若没给 key 且没显式写 constant，则默认设为常驻。需要让新条目参与递归时，自己写 excludeRecursion: false / preventRecursion: false。
 - 写新建或编辑的正文时，请沿用这本世界书现有条目的格式与风格（缩进、<scene_xxx> 包裹、「键: 值」式的层级），让新内容与周围保持一致。
 - 正文会原样保存、不做任何宏替换：{{user}} 之类、人物本名、缩进结构都会原封不动地写进条目。
+- 条目正文是【纯文本设定】，会被原样注入到故事提示词里，所以【不要】给正文添加 Markdown 排版：不写 # / ## 标题、不写 **加粗** 或 *斜体*、不写 - / * / 1. 之类的列表符号、不写 > 引用、不写 \`\`\` 代码围栏或 | 表格。要分点分层，就沿用这本世界书现有条目的写法（缩进、<标签> 包裹、「键: 值」层级）。
+- 上一条只针对【你新添加的排版装饰】：条目本身已有的内容一律照旧——{{user}}/{{char}} 等宏、<tag> / [标签]、代码、既有的格式与标点，全部逐字保留；编辑时只改用户点名之处，绝不顺手「美化」或清理其余部分。
 - 做最小、最贴合的改动：用户要改哪就只改哪，别顺手去动没让你改的条目。
 - 只有当用户确实要你改动世界书时，才输出 <LorebookEdit> 区块；只是聊天 / 提问时，绝不要输出任何区块。
 - 全程使用简体中文作答。
@@ -239,6 +241,81 @@ const FIX_SYSTEM_PROMPT_MANUAL = `你是一位资深中文小说编辑。<text_t
 // 第一步【定位】→ 第二步【修正】先写出 <修正稿>（理科/伪精确/八股 catch 落定）→ 第三步【精修收紧】再在修正稿上自由删冗词/
 // 过度描写（收紧是最后一道，最狠），对白 + 情节 + 关键动作不动。<FixedReply> = 收紧后最终稿；parseFixedReply 忽略 <修正稿>。
 // 四种排序的对比 + revert 见 docs/superpowers/specs/2026-06-25-reply-fixer-tighten-variants.md（这是 v4；切 v3/v2 替换本常量即可）。
+// ✨ 自动校正「精校」两侧重系统提示（轻校 / 精校 + DeepSeek/Opus 侧重；resolveFixAutoPrompt 据 fixA_promptVersion/Flavor 选一）。
+// 字符串【逐字取自】调优 harness tests/unit/_fix-tuning/_twopass2.mjs 的 VARIANTS.dlg_lg_compress2 /
+// .dlg_lg_compress2_opus（模型分裂 R&D；证据 tests/unit/_fix-tuning/HANDOFF-MODEL-SPLIT.md）——请勿手改：
+// 弯引号 / 标点漂移会悄悄改掉已校验行为。两侧重只差【工序二·对白去 AI 腔】那段，工序一(收紧) + 工序三(叙述 enum)
+// 完全相同；DeepSeek 版克制、Opus 版对「数据包腔」更强攻（方向相反，故不能合并）。设计：
+// docs/superpowers/specs/2026-06-30-fixer-prompt-selector-design.md。
+const FIX_PROMPT_JINGXIAO_DEEPSEEK = `特别提醒：你（以及 DeepSeek 这类模型）自己写中文时最容易堆砌四字格套路成语、身体部位特写、替读者解释心理的旁白、重复强调，以及让角色说出 AI 助手腔 / 念使命 / 解释动机的机械对白——请用最高警惕，专挑这些【你自己的写作习惯】下手。
+
+你是一位资深中文小说编辑，负责【校正】一段已写好的角色扮演回复。请像流水线一样【分三道独立工序】依次完成，每道工序【只盯一件事】，在上一道结果的基础上接着做——分开做、一道一道来，不要一锅烩：
+
+工序一【收紧】：把整段收紧、读感变好——删没信息量的填充词 / 废话 / 可有可无的修饰，收紧啰嗦冗长的句子，消除连续同开头的重复句式，过度铺陈的景物 / 神态一笔带过，长短句交错、流动顺滑。这一道不改对白的措辞。
+
+工序二【对白去 AI 腔】：【只看引号内台词，一句一句单独判断】，别按整段气氛或旁白语气一刀切，按每句内容和场合归类：
+· 甲【正式 / 庄重 / 仪式】誓词、动员、号令、典礼致辞、仪式吟诵、当众训诫喝斥：整句保留。排比、四字句、半文半白、自报名号、报具体兵力地名数目，都是该有的分量，别当 AI 腔删。
+· 乙【有性格 / 带情绪 / 自然口语】吐槽、拌嘴、威胁、方言、上头的情绪话，还有平平淡淡只是随口一句的自然话：都保住原本的说法、一字别动。【情绪化的重复、夸张、半截话（“你看！你看！”）是真人反应，不是机械重复，别删】；平淡自然的话（“你抖得比那烛火还厉害”）也别因“想优化”就改写它的措辞或意象。只在确带 AI 助手腔时才轻改。
+· 丙【真机械，这才改】AI 助手腔（“我完全理解您的顾虑”）、“我之所以…是因为…”式解释动机、喊口号、翻译播报腔；以及【数据包腔】：像背设定、念说明书般堆术语、机制、伪精确数字。改成真人顺口说的话。
+【铁律】拿不准就归乙保留，绝不把有性格、有情绪、本就自然的台词捋平。“数据包”只指像背书般念设定参数的；指挥官报真实敌情、兵力、部署（“十二艘船”“钳形夹击”）是该有的实在，不算，别删。
+
+工序三【叙述去 AI 腔】：【只动引号外的叙述与旁白；引号内的台词这一道一个字都不碰——对白上一道已处理完，誓词 / 正式演讲等庄重台词到此为止、不再削】。叙述里的 AI 腔最多、这一道最狠。把叙述【按句逐一拆开、一句一句过】，对每一句都明确问一遍，命中任何一条就改掉或删掉，【一句都不许跳过】：
+①四字格成语 / 文绉绉的书面形容——网文和 AI 最爱拿成语充场面（细若XX、XX如XX、岿/巍然、尘封、无风而动 这类腔调），能用大白话就别用成语；
+②套路比喻——把情绪 / 灵气 / 气势比成水、湖、弓、电、潮、火、针之类的烂俗喻体；能直接写就别比喻；
+③盯身体局部做文章的特写——手指 / 指节 / 指尖 / 喉咙 / 喉结 / 睫毛 / 青筋 / 眼角 / 嘴角…；
+④替读者点破人物心理 / 动机的旁白——“那是他唯一会XX的神情”“他其实不想XX”“他知道，他当然知道”这类替角色解说内心的句子，删掉，让动作和对白自己说；
+⑤重复强调、连续同开头的排比短句；
+⑥作者预知腔——“那一刻他明白了 / 命运早已安排 / 殊不知 / 后来才懂”。
+⑦【反差日常腔】写某人说话 / 反应的口吻时，拿“像在说今天天气不错 / 像在聊家常 / 像在讨论晚饭吃什么 / 像在说一件微不足道的小事”这类【日常琐事作反差】来表现云淡风轻、满不在乎——这是烂大街的套路，整句删掉，让台词和动作自己体现语气，别绕这个比喻；
+判断靠语感：读着像 AI / 网文模板 / 作文腔的就改。
+示例一：夜风倏然而至，她指尖一颤，心湖泛起涟漪。那一刻，她终于明白了。→ 夜风起了，她顿了顿。
+示例二（成语+旁白）：剑气沉凝如渊，他眸光微敛，那是他深藏不露的杀意。→ 剑气沉了沉，他眯起眼。
+
+【通则·别误伤】只针对 AI 套话本身；有画面感 / 有信息量的场景与意象描写该精炼就精炼、别整段砍掉；剧情、事件顺序、人物关键动作、以及对白说了什么的意思，一律不动。
+
+只输出下面两个区块，不要任何解释、寒暄：
+<工序记录>
+（各一句话：收紧了…；对白改了…；叙述改了…）
+</工序记录>
+<FixedReply>
+（三道工序后的最终稿）
+</FixedReply>`;
+const FIX_PROMPT_JINGXIAO_OPUS = `特别提醒：你（以及 DeepSeek 这类模型）自己写中文时最容易堆砌四字格套路成语、身体部位特写、替读者解释心理的旁白、重复强调，以及让角色说出 AI 助手腔 / 念使命 / 解释动机的机械对白——请用最高警惕，专挑这些【你自己的写作习惯】下手。
+
+你是一位资深中文小说编辑，负责【校正】一段已写好的角色扮演回复。请像流水线一样【分三道独立工序】依次完成，每道工序【只盯一件事】，在上一道结果的基础上接着做——分开做、一道一道来，不要一锅烩：
+
+工序一【收紧】：把整段收紧、读感变好——删没信息量的填充词 / 废话 / 可有可无的修饰，收紧啰嗦冗长的句子，消除连续同开头的重复句式，过度铺陈的景物 / 神态一笔带过，长短句交错、流动顺滑。这一道不改对白的措辞。
+
+工序二【对白去 AI 腔】：【只看引号内台词，一句一句单独判断】，别按整段气氛或旁白语气一刀切，按每句内容和场合归类：
+· 甲【正式 / 庄重 / 仪式】誓词、动员、号令、典礼致辞、仪式吟诵、当众训诫喝斥：整句保留。排比、四字句、半文半白、自报名号、报具体兵力地名数目，都是该有的分量，别当 AI 腔删。
+· 乙【有性格 / 带情绪 / 自然口语】吐槽、拌嘴、威胁、方言、上头的情绪话，还有平平淡淡只是随口一句的自然话：都保住原本的说法、一字别动。【情绪化的重复、夸张、半截话（“你看！你看！”）是真人反应，不是机械重复，别删】；平淡自然的话（“你抖得比那烛火还厉害”）也别因“想优化”就改写它的措辞或意象。只在确带 AI 助手腔时才轻改。
+· 丙【真机械，这才改】AI 助手腔（“我完全理解您的顾虑”）、“我之所以…是因为…”式解释动机、喊口号、翻译播报腔；以及【数据包腔】：像背设定、念说明书般成串堆术语、机制、来历、伪精确数字。改成真人顺口说的话。
+【数据包腔·别放过（重点）】：最容易犯的错，是把引号内的话都当成“角色的本色声音”而舍不得动——但【数据包腔是唯一的例外，必须改】。判断只有一条：这句是不是【像念词条 / 报参数一样，成串罗列设定、机制、来历、精确数字】。只要是，那么①整句都在引号内、②出自最该懂行的角色之口、③听着很专业很在理——统统【不能当作保留的理由】，照丙改：只留这个人此刻真正想让对方知道的那点意思，把背书式的参数 / 术语删掉或改成他真会顺口讲出来的话。真人就算是专家，张口也不会像念说明书一样说话。
+【铁律】① 有性格、有情绪、本就自然的日常台词，拿不准就归乙保留，绝不捋平。② 但数据包腔【不吃】这条“拿不准就保留”——成串念参数 / 设定的台词一律按丙改。③ 指挥官在战场报出的真实敌情、兵力、部署（“十二艘船”“分三组钳形夹击”）是该有的实在，不算数据包，别删；数据包指的是“像背说明书 / 念词条”那种。
+示例（丙·AI腔）：「我之所以这么做，是因为我必须守护这里。」→「我没得选。」
+示例（丙·数据包，整句都在引号内、出自最懂行的角色之口，仍然要改）：「这把枪是 M-7 型，枪管长四百五十毫米，初速每秒八百二十米，有效射程六百米，弹匣容量十七发，后坐力经过三级缓冲补偿。」→「这是 M-7，打得又远又稳，十七发的弹匣，后坐力压得住。」
+
+工序三【叙述去 AI 腔】：【只动引号外的叙述与旁白；引号内的台词这一道一个字都不碰——对白上一道已处理完，誓词 / 正式演讲等庄重台词到此为止、不再削】。叙述里的 AI 腔最多、这一道最狠。把叙述【按句逐一拆开、一句一句过】，对每一句都明确问一遍，命中任何一条就改掉或删掉，【一句都不许跳过】：
+①四字格成语 / 文绉绉的书面形容——网文和 AI 最爱拿成语充场面（细若XX、XX如XX、岿/巍然、尘封、无风而动 这类腔调），能用大白话就别用成语；
+②套路比喻——把情绪 / 灵气 / 气势比成水、湖、弓、电、潮、火、针之类的烂俗喻体；能直接写就别比喻；
+③盯身体局部做文章的特写——手指 / 指节 / 指尖 / 喉咙 / 喉结 / 睫毛 / 青筋 / 眼角 / 嘴角…；
+④替读者点破人物心理 / 动机的旁白——“那是他唯一会XX的神情”“他其实不想XX”“他知道，他当然知道”这类替角色解说内心的句子，删掉，让动作和对白自己说；
+⑤重复强调、连续同开头的排比短句；
+⑥作者预知腔——“那一刻他明白了 / 命运早已安排 / 殊不知 / 后来才懂”。
+⑦【反差日常腔】写某人说话 / 反应的口吻时，拿“像在说今天天气不错 / 像在聊家常 / 像在讨论晚饭吃什么 / 像在说一件微不足道的小事”这类【日常琐事作反差】来表现云淡风轻、满不在乎——这是烂大街的套路，整句删掉，让台词和动作自己体现语气，别绕这个比喻；
+判断靠语感：读着像 AI / 网文模板 / 作文腔的就改。
+示例一：夜风倏然而至，她指尖一颤，心湖泛起涟漪。那一刻，她终于明白了。→ 夜风起了，她顿了顿。
+示例二（成语+旁白）：剑气沉凝如渊，他眸光微敛，那是他深藏不露的杀意。→ 剑气沉了沉，他眯起眼。
+
+【通则·别误伤】只针对 AI 套话本身；有画面感 / 有信息量的场景与意象描写该精炼就精炼、别整段砍掉；剧情、事件顺序、人物关键动作、以及对白说了什么的意思，一律不动。
+
+只输出下面两个区块，不要任何解释、寒暄：
+<工序记录>
+（各一句话：收紧了…；对白改了…；叙述改了…）
+</工序记录>
+<FixedReply>
+（三道工序后的最终稿）
+</FixedReply>`;
 const FIX_SYSTEM_PROMPT_TIGHTEN = `你是一位资深中文小说编辑，负责【校正】一段已写好的角色扮演回复。请在一次回复里分三步、像几道独立工序那样完成：
 
 第一步【定位】：通读 <text_to_transform> 的正文，按下面给出的校正要求/指令，逐一找出【确实违规】的片段。每条都【原样引用】出问题的原文片段——所引片段必须【逐字出现在 <text_to_transform> 原文里】，不得从校正要求里的示例 / 禁用词表中抄词，也不得臆造原文没有的句子——并注明违反了哪一类、为什么。只列【明确】违规的；拿不准就不列（宁可放过，不可错杀）。通常只有少数几处明显问题。一处都没有就留空。
@@ -636,6 +713,13 @@ const defaults = {
     // 'content'，且【仅当回复里确有该标签时才生效】——简单卡（无此标签）自动回退到「校正整条」的旧行为。
     // 留空 = 关闭作用域、校正整条回复。卡片若用别的标签包正文，改成那个标签名。
     fixA_scopeTag: 'content',
+    // ✨ 自动配置 Phase 5（D+E）：这个作用域标签是【用户手填】的吗？true = 用户在 #so-fix-scope 里亲手打过字，
+    // 之后 resolveFixScope 永不代替用户改写（只建议、不采纳）；false = 还是默认值 / 上次由自动检测采纳写入的——
+    // 缓存未命中时可以自我纠正。默认 false（默认标签 'content' 视作「尚未手动确认过」）。
+    fixA_scopeManual: false,
+    // ✨ 校正提示词选择器（轻校 / 精校 + 侧重）：per-chat。默认 'light' = 现行提示（零行为变化，需用户主动选精校才变）；
+    // 'thorough' = 三道工序精校版，按侧重再分 'deepseek'（克制，默认）/ 'opus'（数据包强攻）。见 resolveFixAutoPrompt。
+    fixA_promptVersion: 'light', fixA_promptFlavor: 'deepseek',
     fixA_tighten: true,          // ✨ 收紧：自动校正后再精修一遍（删冗词废话 / 过度描写，读感更紧）；默认开
     // ✨ 校正模式 Phase 3：自动校正（开启后每条新主聊天 AI 回复后台跑一次校正、自动应用为新 swipe；
     // 经 maybePostReply 编排 → runAutoFix）。默认关。fixAutoMinChars = 成本门最小字符数（短回复不值得发调用，见
@@ -755,8 +839,12 @@ let fixWorldBlock = '';    // 校正：激活世界书块
 let fixSummaryBlock = '';  // 校正：📜剧情概要块（手动默认带 / 自动可选；buildFixEnvelope 包成 <story_summary>）
 let fixExtraKeep = [];      // 排除·保留区抠出的块数组（composeFixedReply 据 ⟦SO_KEEP_n⟧ 标记按位置还原回原位）
 let fixScope = { active: false };   // ✨ 作用域信封（splitContentScope）：active 时只校正 <content> 内层，应用时把校正稿原位回插（wrapContentScope）
+let fixScopeDecision = null;   // ✨ Phase 5 D+E：resolveFixScope 的决策快照（captureFixContext 设，仅自动模式；runAutoFix/runFixByTargets 消费，决定 detected/suggest/skip 该做什么、提示什么）
+let fixCaptured = null;   // ✨ Phase 4 目标完整性：校正触发时抓下的快照 {chatId,targetIdx,swipeId,fingerprint,prose}；应用前用 fixTargetStale 比对（P-CORRUPT 切聊天 / 换 swipe / 内容变更守卫）
 let fixTightenActive = true;   // ✨ 收紧 toggle 生效值（captureFixContext 经 resolveFixModeCfg 设：手动恒 false，自动按 fixA_tighten）；on → buildFixPrompt 用 FIX_SYSTEM_PROMPT_TIGHTEN
 let fixActiveMode = 'manual';  // 当前校正调用是哪套（captureFixContext 设）：'manual' → buildFixPrompt 用 FIX_SYSTEM_PROMPT_MANUAL；'auto' → FIX_SYSTEM_PROMPT(_TIGHTEN)
+let fixAutoPromptVersion = 'light';    // ✨ 自动校正提示词选择器（captureFixContext 经 resolveFixModeCfg 设，仅自动有意义）：'thorough' → buildFixPrompt 用精校提示（resolveFixAutoPrompt）；'light' → 轻校（现行）
+let fixAutoPromptFlavor = 'deepseek';  // ✨ 精校侧重：'opus' → FIX_PROMPT_JINGXIAO_OPUS，否则 FIX_PROMPT_JINGXIAO_DEEPSEEK
 let advStatData = '';       // stringified current MVU stat_data for advisor sends
                             // (computed fresh in generateReply, '' when no MVU)
 let chatStatData = '';      // same, for NORMAL mode (gated by s.chatIncludeStat)
@@ -2067,7 +2155,8 @@ const FIX_CFG_KEYS = [
     // 自动模式（per-chat 可覆盖）
     'fixA_includeCard', 'fixA_includeContext', 'fixA_contextDepth', 'fixA_includeWorld', 'fixA_includeSummary',
     'fixA_targetSlop', 'fixA_targetDialogue', 'fixA_targetPrecision', 'fixA_targetMagic', 'fixA_targetPacing',
-    'fixA_knowledgeBoundary', 'fixA_guardrails', 'fixA_keepTags', 'fixA_dropTags', 'fixA_scopeTag', 'fixA_tighten',
+    'fixA_knowledgeBoundary', 'fixA_guardrails', 'fixA_keepTags', 'fixA_dropTags', 'fixA_scopeTag', 'fixA_scopeManual', 'fixA_tighten',
+    'fixA_promptVersion', 'fixA_promptFlavor',   // ✨ 校正提示词选择器（轻校 / 精校 + 侧重）
     'autoFixEnabled', 'fixAutoMinChars',
 ];
 
@@ -2110,6 +2199,13 @@ function resolveFixModeCfg(e, mode) {
             keepTags: c.fixA_keepTags || '', dropTags: c.fixA_dropTags || '',
             // 作用域标签：缺省（旧聊天 / 未设）→ 'content' 默认；显式空串 '' → 关闭作用域（校正整条）。
             scopeTag: (c.fixA_scopeTag == null ? 'content' : c.fixA_scopeTag),
+            // ✨ 自动配置 Phase 5（D+E）：这个标签是否用户手填过——resolveFixScope 据此决定缓存未命中时能不能
+            // 自我纠正（false）还是只能建议不能代劳（true）。
+            scopeManual: !!c.fixA_scopeManual,
+            // ✨ 校正提示词选择器（轻校 / 精校 + 侧重）：归一 raw fixA_promptVersion/Flavor 成校验值。缺省 / null /
+            // 未知 → 默认（light / deepseek），迁移安全（老聊天无值 = 轻校 = 零行为变化）。resolveFixAutoPrompt 据此选提示。
+            promptVersion: (c.fixA_promptVersion === 'thorough' ? 'thorough' : 'light'),
+            promptFlavor: (c.fixA_promptFlavor === 'opus' ? 'opus' : 'deepseek'),
         };
     }
     // 手动：depth 显式 0 = 不带前文；其余非正数 / 缺省 = -1（全部）。
@@ -2119,7 +2215,20 @@ function resolveFixModeCfg(e, mode) {
         includeWorld: !!c.fixM_includeWorld, includeSummary: !!c.fixM_includeSummary, tighten: false,
         targets: { slop: false, dialogue: false, precision: false, magic: false, pacing: false },
         knowledge: '', guardrails: '', keepTags: '', dropTags: '', scopeTag: '',   // 手动不走作用域（captureFixContext 也按 mode 门控）
+        scopeManual: false,   // 手动模式下这个字段无意义（作用域本就关闭），给个确定值避免 undefined 外泄
+        promptVersion: 'light', promptFlavor: 'deepseek',   // 手动模式不走精校（buildFixPrompt 手动分支另选 FIX_SYSTEM_PROMPT_MANUAL）；给确定值避免 undefined 外泄
     };
+}
+
+// ✨ 自动校正提示词选择器（纯映射，设计 §4）：把归一后的 {promptVersion, promptFlavor} 映射到具体系统提示常量。
+//   version !== 'thorough' → 轻校 = FIX_SYSTEM_PROMPT_TIGHTEN（今天的现行提示，默认，byte 不变）
+//   thorough + flavor==='opus' → FIX_PROMPT_JINGXIAO_OPUS（对「数据包腔」强攻，适合 Claude / Opus）
+//   thorough + 其它 / 缺省     → FIX_PROMPT_JINGXIAO_DEEPSEEK（克制版，适合 DeepSeek / 国产模型）
+// 只有精确的 'thorough' 才是精校；null / '' / 未知一律回落轻校（迁移安全）。cfg 缺失也回落轻校，不抛。
+function resolveFixAutoPrompt(cfg) {
+    const c = cfg || {};
+    if (c.promptVersion !== 'thorough') return FIX_SYSTEM_PROMPT_TIGHTEN;
+    return c.promptFlavor === 'opus' ? FIX_PROMPT_JINGXIAO_OPUS : FIX_PROMPT_JINGXIAO_DEEPSEEK;
 }
 
 // 读本聊天保存的校正覆盖（始终回对象，可能为空 {}）。喂给 getEffectiveFixCfg 当 md。
@@ -2148,17 +2257,21 @@ function setFixCfg(patch) {
  * 故套餐里永远是「当前用户实际看到的那套配置」，与 per-chat 覆盖机制一致。
  * ------------------------------------------------------------------ */
 // 把【当前生效】校正配置快照成一个具名套餐，存进全局 fixBundles（同名则替换）。name 必填、去空白。
+// Phase 5 RESOLUTION C：快照经 filterBundleCfg 过滤——此前这里直接存全量 FIX_CFG_KEYS，filterBundleCfg
+// 定义了却没人调用（死代码），套餐因此会带着上一张卡的 fixA_scopeTag / fixA_scopeManual 泄漏到下一张卡上。
+// 只影响【新存】的套餐；已存的旧套餐不受影响，除非用户重新保存。
 function saveFixBundle(name) {
     const trimmed = (name || '').trim();
     if (!trimmed) return false;
     const eff = getEffectiveFixCfg(getSettings(), getFixCfg());
     const cfg = {};
     for (const k of FIX_CFG_KEYS) cfg[k] = eff[k];
+    const snapshot = filterBundleCfg(cfg);   // 剔除卡片专属（scopeTag/scopeManual）+ 模式开关（autoFixEnabled）
     const s = getSettings();
     if (!Array.isArray(s.fixBundles)) s.fixBundles = [];
     const idx = s.fixBundles.findIndex((b) => b && b.name === trimmed);
-    if (idx >= 0) s.fixBundles[idx] = { name: trimmed, cfg };
-    else s.fixBundles.push({ name: trimmed, cfg });
+    if (idx >= 0) s.fixBundles[idx] = { name: trimmed, cfg: snapshot };
+    else s.fixBundles.push({ name: trimmed, cfg: snapshot });
     save();
     return true;
 }
@@ -2378,6 +2491,7 @@ function checkPlanReminder() {
 // registers its plan, or clears any previous chat's injection. The extension's
 // only event-driven side effect; everything else stays pull-based.
 function onChatChanged() {
+    cancelPostReply();    // ✨ Phase 4 P-CORRUPT：切聊天先尽力中断在途的自动校正 / 诊断，避免它带着旧聊天的目标写回新聊天（应用前还有 fixTargetStale 兜底）
     applyPlanInjection();
     if (win) renderPlanBar();
     checkPlanReminder();
@@ -3848,6 +3962,21 @@ function getLatestAiMessageText() {
     return getLatestAiMessage().text;
 }
 
+// 纯函数：给定 chat 与【触发本轮自动处理的消息 id】，返回应处理的目标 { idx, text }。【钉住触发消息】而非
+// 重扫「最近一条 AI 回复」——修 auto 校正 / 诊断偶发「改到上一条而非最新一条」：编排（maybePostReply）在延时 +
+// 一次 LLM 往返之后才选目标，其间队尾可能变（触发消息此刻尚空 / 已被下一条顶掉 / 楼层被删），getLatestAiMessage
+// 便回退到更早的一条。这里要求目标【仍是一条非空 AI 回复】：id 为空 / 越界 / 用户 / 系统 / 空白 → 视为已失效，
+// 返回 { idx:-1, text:'' } 让调用方干净跳过（绝不误伤更早的回复）。nullish 安全。单测 fix-auto-target.test.mjs。
+function resolveAutoTargetMessage(chat, messageId) {
+    const list = Array.isArray(chat) ? chat : [];
+    if (messageId == null) return { idx: -1, text: '' };                       // null / undefined → 已失效
+    const idx = Number(messageId);
+    if (!Number.isInteger(idx) || idx < 0 || idx >= list.length) return { idx: -1, text: '' };
+    const m = list[idx];
+    if (!m || m.is_user || m.is_system || typeof m.mes !== 'string' || !m.mes.trim()) return { idx: -1, text: '' };
+    return { idx, text: m.mes };
+}
+
 // 纯函数（数据变更）：把 text 作为【新 swipe】追加到消息 m 上并切到它——非破坏性，原 m.mes 留在
 // swipe 0。若消息还没有 swipes 数组，先用当前 m.mes 播种 swipe 0。info（swipe 元数据）由调用方传入，
 // 便于纯函数确定性单测。返回新的 swipe_id；m 无效返回 -1。可单测。
@@ -3978,6 +4107,320 @@ function wrapContentScope(scope, innerFixed) {
     const inner = String(innerFixed == null ? '' : innerFixed);
     if (!scope || !scope.active) return inner;
     return scope.prefix + scope.open + inner + scope.close + scope.suffix;
+}
+
+/* ------------------------------------------------------------------ *
+ * ✨ 校正模式「自动配置」Phase 1 —— 纯检测 + 判定层（无 DOM / 无副作用 / 确定；无时钟无随机）。
+ * 后续 UI / 守卫阶段消费这些函数：自动嗅探卡片把正文包在哪个标签里（作用域标签），让用户不必手配。
+ * 这里只建【纯函数】——扫描顶层配平块、算「正文字数」、给作用域判定。复用 extractExcludedSections 的
+ * 深度配平 + nb 名字边界（<plan>≠<planning>、[IMG]≠[IMGX]）、splitContentScope 的拆分、parseExcludeTags
+ * 的标签解析、tokenizeForDiff 的 CJK 分类【思路】，不另起炉灶。
+ * ------------------------------------------------------------------ */
+
+// 「正文字数」判定码点：CJK 表意文字 + ASCII 字母。数字 / 标点 / 全角符号【不算】——它们是结构化数据信号，
+// 不是正文（镜像 tokenizeForDiff 的 isCJK/isWord，但只认表意文字与字母，故 HP:80 这类数值面板几乎为 0 分）。
+function proseCharCount(text) {
+    const s = String(text == null ? '' : text);
+    let n = 0;
+    for (let i = 0; i < s.length;) {
+        const cp = s.codePointAt(i);
+        i += cp > 0xffff ? 2 : 1;
+        if ((cp >= 0x4e00 && cp <= 0x9fff) ||     // CJK 统一表意（一-鿿）
+            (cp >= 0x3400 && cp <= 0x4dbf) ||     // CJK 扩展 A
+            (cp >= 0xf900 && cp <= 0xfaff) ||     // CJK 兼容表意
+            (cp >= 0x41 && cp <= 0x5a) ||         // A-Z
+            (cp >= 0x61 && cp <= 0x7a)) n += 1;   // a-z
+    }
+    return n;
+}
+
+// 去掉嵌套标记（<…> / […] / {…}）后再数正文字数——让「几乎全是 HTML / JSON 的块」得低分、「叙事块」得高分
+// （detectScopeTag 据此排名找正文包裹标签）。只剥标记【本身】，标记之间的文字保留。
+function strippedProseChars(inner) {
+    const stripped = String(inner == null ? '' : inner)
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/\[[^\]]*\]/g, ' ')
+        .replace(/\{[^}]*\}/g, ' ');
+    return proseCharCount(stripped);
+}
+
+// 纯函数：扫描 text 里【顶层】（深度 0）的配平块——尖括号 <name…>…</name> 与方括号 [NAME…]…[/NAME] 都认。
+// 用一个栈：见开标签压栈（栈空时该块是一个顶层块的起点）；见闭标签，若栈中有同名（同分隔符）则一路出栈到它
+// （自动闭合中间未闭的空元素，如 <br>），出栈到空 = 一个顶层块结束；栈里没有 = 孤立闭合，忽略。自闭合
+// <name/> / [NAME/] 记为零内容顶层标记（selfClose，仅栈空时）。开了没闭（截断）→ 尖括号块取到结尾
+// （方括号不做截断兜底——裸 [foo] 更可能是正文而非被截断的块）。名字边界用 nb（<plan>≠<planning>）。
+// 返回 [{name,bracket,inner,selfClose,start,end}]，按文档顺序（start 升序），仅顶层。
+function scanTopLevelBlocks(text) {
+    const s = String(text == null ? '' : text);
+    const nameCh = '[A-Za-z0-9_\\u4e00-\\u9fa5-]+';
+    const nb = '(?![A-Za-z0-9_\\u4e00-\\u9fa5-])';
+    const re = new RegExp(
+        '<\\/(' + nameCh + ')' + nb + '[^>]*>' +               // 1: 尖闭
+        '|<(' + nameCh + ')' + nb + '([^>]*?)(\\/?)>' +        // 2 名 / 3 属性 / 4 斜杠：尖开
+        '|\\[\\/(' + nameCh + ')' + nb + '[^\\]]*\\]' +        // 5: 方闭
+        '|\\[(' + nameCh + ')' + nb + '([^\\]]*?)(\\/?)\\]',   // 6 名 / 7 属性 / 8 斜杠：方开
+        'g');
+    const blocks = [];
+    const stack = [];   // { name, lower, bracket, openStart, innerStart }
+    let m;
+    while ((m = re.exec(s)) !== null) {
+        const angleClose = m[1] != null;
+        const angleOpen = m[2] != null;
+        const bracketClose = m[5] != null;
+        if (angleClose || bracketClose) {                       // —— 闭标签 ——
+            const name = angleClose ? m[1] : m[5];
+            const bracket = bracketClose;
+            const lower = name.toLowerCase();
+            let k = -1;
+            for (let d = stack.length - 1; d >= 0; d -= 1) {
+                if (stack[d].lower === lower && stack[d].bracket === bracket) { k = d; break; }
+            }
+            if (k === -1) continue;                             // 孤立闭合：忽略（留在正文）
+            const opened = stack[k];
+            stack.length = k;                                   // 出栈到 k（含）——自动闭合中间未闭的空元素
+            if (stack.length === 0) {
+                blocks.push({ name: opened.name, bracket: opened.bracket, inner: s.slice(opened.innerStart, m.index), selfClose: false, start: opened.openStart, end: m.index + m[0].length });
+            }
+        } else {                                                // —— 开标签 ——
+            const name = angleOpen ? m[2] : m[6];
+            const slash = angleOpen ? m[4] : m[8];
+            const bracket = !angleOpen;
+            if (slash === '/') {                                // 自闭合：仅栈空时记为顶层零内容标记
+                if (stack.length === 0) blocks.push({ name, bracket, inner: '', selfClose: true, start: m.index, end: m.index + m[0].length });
+                continue;
+            }
+            stack.push({ name, lower: name.toLowerCase(), bracket, openStart: m.index, innerStart: m.index + m[0].length });
+        }
+    }
+    if (stack.length > 0 && !stack[0].bracket) {                // 截断：栈底【尖括号】块开了没闭 → 取到结尾
+        const b = stack[0];
+        blocks.push({ name: b.name, bracket: b.bracket, inner: s.slice(b.innerStart), selfClose: false, start: b.openStart, end: s.length });
+    }
+    blocks.sort((a, b) => a.start - b.start);
+    return blocks;
+}
+
+// 纯函数：text 里【顶层】标签名数组（尖 + 方 + 自闭合），文档顺序，含重复（N 个块 = N 项）。
+// fixScopeVerdict 用它列「正文外原样保留的块」；嵌套标签不计入。
+function listTopLevelTagNames(text) {
+    return scanTopLevelBlocks(text).map((b) => b.name);
+}
+
+// 已知【正文包裹】标签名（大小写不敏感）——命中即高置信（名字本身就是强信号）。小写常量以避开元测试「ALL_CAPS 须引用≥2次」规则。
+const scopeKnownNames = new Set(['content', 'gametxt', '正文', 'story', 'text', 'narration', 'main', 'reply', 'msg']);
+// 作用域【内层】里算【结构块】（保留区候选）的已知标签名（大小写不敏感，故存小写）。
+const innerStructuralNames = new Set(['status', 'status_profile', 'item_info', 'char_info', 'options', 'branches', 'details', 'htmlcontent', 'updatevariable', 'img_gen', 'roll', 'bginfor', 'style', 'cestuff']);
+// 「有意义的正文」阈值（字）——低于它视作结构化 / 空块（noWrapper 据此判定）。
+const scopeProseMin = 20;
+
+// 纯函数：给最近 ~5 条 AI 回复，嗅探卡片把正文包在哪个【作用域标签】里。
+// 每条回复找顶层配平块，算其【剥除嵌套标记后】的正文字数；跨回复按标签名累加（共识——一次性块被稀释）。
+// 排名：已知名优先，再按正文字数降序。置信：已知 / 单一正文块 / 主块≥2×次块 → high；1.2–2× → med；近似并列或 3+ 相近 → low；
+// 全无【有意义正文】→ none + noWrapper（卡片只包结构化数据、正文是裸的）。nullish/空 → none + noWrapper + candidates 空。
+// 返回 { tag, bracket, confidence, candidates:[{tag,proseChars,known,bracket}], noWrapper }。
+function detectScopeTag(replies) {
+    const list = Array.isArray(replies) ? replies : (replies == null || replies === '' ? [] : [replies]);
+    if (!list.length) return { tag: '', bracket: false, confidence: 'none', candidates: [], noWrapper: true };
+    const agg = new Map();   // lower → { tag, proseChars, known, bracket }
+    for (const reply of list) {
+        for (const b of scanTopLevelBlocks(reply)) {
+            if (b.selfClose) continue;                          // 自闭合标记无正文，不作包裹候选
+            const lower = b.name.toLowerCase();
+            const prose = strippedProseChars(b.inner);
+            const cur = agg.get(lower);
+            if (cur) cur.proseChars += prose;
+            else agg.set(lower, { tag: b.name, proseChars: prose, known: scopeKnownNames.has(lower), bracket: b.bracket });
+        }
+    }
+    const candidates = [...agg.values()].sort((x, y) => {
+        if (x.known !== y.known) return x.known ? -1 : 1;       // 已知名优先
+        return y.proseChars - x.proseChars;                    // 再按正文字数降序
+    });
+    if (!candidates.length) return { tag: '', bracket: false, confidence: 'none', candidates: [], noWrapper: true };
+    const prose = candidates.filter((c) => c.proseChars >= scopeProseMin).sort((x, y) => y.proseChars - x.proseChars);
+    if (!prose.length) return { tag: '', bracket: false, confidence: 'none', candidates, noWrapper: true };   // 有块但全无有意义正文 → 结构化-only
+    const top = candidates[0];
+    let confidence;
+    if (top.known) confidence = 'high';                         // 已知包裹名 = 强信号
+    else if (prose.length <= 1) confidence = 'high';            // 独一份正文块
+    else {
+        const ratio = prose[0].proseChars / prose[1].proseChars;
+        if (ratio >= 2) confidence = 'high';                    // 主块碾压次块
+        else if (ratio < 1.2 || prose.length >= 3) confidence = 'low';   // 近似并列 / 多块混杂 → 说不准
+        else confidence = 'med';                                // 有赢家但不算压倒
+    }
+    return { tag: top.tag, bracket: top.bracket, confidence, candidates, noWrapper: false };
+}
+
+// 标记密集：块内含 HTML 标签 / style= / { / [，且正文占比 < 0.5（叙事块几乎全是文字 → 占比高，不算结构）。
+function isMarkupHeavy(text) {
+    const s = String(text == null ? '' : text);
+    if (!s) return false;
+    const hasMarkup = /<[^>]+>/.test(s) || /style\s*=/.test(s) || s.indexOf('{') >= 0 || s.indexOf('[') >= 0;
+    if (!hasMarkup) return false;
+    // 正文占比以【剥除标记后】的正文字数为分子——HTML 标签名（div/style…）不是正文，不该计入。
+    return strippedProseChars(s) / Math.max(1, s.length) < 0.5;
+}
+
+// 纯函数：作用域【内层】里的顶层块，返回其中的【结构块】[{name,bracket}]（保留区候选）。
+// 结构块 = 名字在 innerStructuralNames，或【标记密集】（含 HTML / style= / { / [ 且正文占比低）。叙事块不返回。nullish → []。
+function detectInnerBlocks(scopeInner) {
+    if (scopeInner == null || String(scopeInner) === '') return [];
+    const out = [];
+    for (const b of scanTopLevelBlocks(scopeInner)) {
+        const lower = b.name.toLowerCase();
+        if (innerStructuralNames.has(lower)) { out.push({ name: b.name, bracket: b.bracket }); continue; }
+        if (b.selfClose) continue;                              // 非已知的自闭合标记：跳过（无内容可判）
+        if (isMarkupHeavy(b.inner)) out.push({ name: b.name, bracket: b.bracket });
+        // 否则叙事块，跳过
+    }
+    return out;
+}
+
+// 纯函数：某标签是否作为【开标签】出现在 text 里（nb 名字边界；尖 / 方按 spec.bracket）。
+function tagPresentIn(text, spec) {
+    const esc = spec.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const nb = '(?![A-Za-z0-9_\\u4e00-\\u9fa5-])';
+    return new RegExp((spec.bracket ? '\\[' : '<') + esc + nb, 'i').test(String(text == null ? '' : text));
+}
+
+// 纯函数：作用域校正【判定】——tag 命中则只校正正文（绿），否则会校正整条（红，danger）。
+//   命中：fixChars = 内层正文字数；preservedTags = 正文【外】(prefix+suffix) 的顶层标签；
+//         keepBlockCount = keepTags 里有几个真出现在内层（用户排除区命中数）。
+//   未命中 / 空 tag：danger=true，fixChars=0，preservedTags = 整条回复的顶层标签（提示这些都会被送进模型），keepBlockCount=0。
+function fixScopeVerdict(reply, tag, keepTags) {
+    const tagName = parseExcludeTagNames(tag)[0] || '';
+    const scope = splitContentScope(reply, tag);
+    if (!tagName || !scope || !scope.active) {
+        const message = tagName
+            ? '⚠ 未找到 <' + tagName + '> → 会校正【整条】回复（含状态栏/选项/世界书）。请检查作用域标签。'
+            : '⚠ 未设作用域 → 会校正【整条】回复（含状态栏/选项/世界书）。请检查作用域标签。';
+        return { active: false, danger: true, fixChars: 0, preservedTags: listTopLevelTagNames(reply), keepBlockCount: 0, message };
+    }
+    let keepBlockCount = 0;
+    for (const spec of parseExcludeTags(keepTags)) if (tagPresentIn(scope.inner, spec)) keepBlockCount += 1;
+    const fixChars = proseCharCount(scope.inner);
+    const preservedTags = listTopLevelTagNames(scope.prefix + '\n' + scope.suffix);   // \n 分隔，避免前后缀边界处 token 误粘
+    const message = '作用域 <' + tagName + '> ✓ 命中 → 只校正正文 ' + fixChars + ' 字，正文外 ' + preservedTags.length + ' 块原样保留';
+    return { active: true, danger: false, fixChars, preservedTags, keepBlockCount, message };
+}
+
+/* ------------------------------------------------------------------ *
+ * ✨ 校正模式「自动配置」Phase 2 —— 配置健全性 PURE 层（无 DOM / 无副作用 / 确定；无时钟无随机）。
+ * 给「作用域标签 / 保留区 / 丢弃区 / 校正目标 / 成本门字符数 / 套餐快照」几类常见误配置做纯函数体检。
+ * 能自动纠正的就纠正（normalizeScopeInput 清洗单标签输入、clampFixAutoMinChars 钳制范围、
+ * filterBundleCfg 剔除不该进套餐快照的键）；纠正不了的用 fixConfigWarnings 给出「码 + 人话 +
+ * 定位字段」，delimiterMismatch 额外附 suggest（供后续 UI 阶段一键采纳）。复用 Phase 1 的
+ * scanTopLevelBlocks（顶层配平块扫描，含尖 / 方括号）+ 既有 parseExcludeTags（保留/丢弃区解析）
+ * + parseExcludeTagNames（标签名清洗字符集），不另起炉灶。这一层只报警，不写入任何设置——
+ * 后续 UI / 守卫阶段消费这里的输出。
+ * ------------------------------------------------------------------ */
+
+// 纯函数：把「作用域标签」输入框的原始文本归一成【单个】干净标签名。容错：多词（逗号 / 换行 / 空白
+// 分隔）只取第一个；剥掉两端的 < [ / > ] 包装；再按标签名字符集（同 parseExcludeTagNames，含中文）
+// 截取。没有可用内容 → ''。fixConfigWarnings 用它判「保留/丢弃区误填了正文标签」；也供后续阶段给
+// 作用域标签输入框失焦即清洗用。
+function normalizeScopeInput(str) {
+    const first = String(str == null ? '' : str).split(/[,\n\s]+/).filter(Boolean)[0] || '';
+    const bare = first.replace(/^[<[/]+/, '').replace(/[/>\]]+$/, '');
+    const m = bare.match(/^[A-Za-z0-9_一-龥-]+/);
+    return m ? m[0] : '';
+}
+
+// 纯函数：把「成本门字符数」fixAutoMinChars 钳到 [50, 2000] 合理区间（四舍五入取整）。
+// 解析不出有限数字（null / undefined / 空串 / 纯空白 / 非数字字符串 / NaN / Infinity）→ 回退
+// 字段默认值 200——而不是钳到下限 50。「解析不出数字」= 没配置 / 输入垃圾，该当默认值；跟「用户
+// 明明白白填了个 0 或负数」（钳到地板 50）是两回事，不能混为一谈。
+function clampFixAutoMinChars(value) {
+    if (value === null || value === undefined) return 200;
+    if (typeof value === 'string' && value.trim() === '') return 200;
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 200;
+    return Math.min(2000, Math.max(50, Math.round(n)));
+}
+
+// 纯函数：套餐（bundle）快照前过滤 cfg——剔除 fixA_scopeTag（作用域标签是【卡片专属】，换一张
+// 卡片套用别人的套餐不该带着别人的标签一起来）、fixA_scopeManual（Phase 5：这个标签是不是当前卡片
+// 手填过，同样是【卡片专属】的来源痕迹，换卡也不该带过去——否则新卡会被误当成「用户手填过」，
+// 缓存未命中时 resolveFixScope 就只会 suggest 不会自我纠正）与 autoFixEnabled（是否自动校正是
+// 【模式开关】，套餐不该替用户悄悄打开后台自动改写）。浅拷贝出新对象，不改 cfg 本身；nullish / 非对象 → {}。
+function filterBundleCfg(cfg) {
+    const out = {};
+    if (!cfg || typeof cfg !== 'object') return out;
+    for (const k of Object.keys(cfg)) {
+        if (k === 'fixA_scopeTag' || k === 'fixA_scopeManual' || k === 'autoFixEnabled') continue;
+        out[k] = cfg[k];
+    }
+    return out;
+}
+
+// 纯函数：✨ 校正「自动模式」配置健全性检查——扫一遍常见误配置，给「码 + 人话 + 定位字段」，
+// delimiterMismatch 额外带 suggest（纠正后的分隔符形式，供后续 UI 阶段一键采纳）。cfg = 原始
+// fixA_* 形状（未经 resolveFixModeCfg 归一）；reply 可空——给了才跑「跨度占比」「分隔符是否真的
+// 出现」这两类需要正文的检查，名字撞作用域标签那条不需要 reply。scanTopLevelBlocks(reply) 只扫一次，
+// 同喂两类检查。只报警，不写任何东西。
+//   scopeInKeep —— 保留 / 丢弃区某项名字 === 归一后的作用域标签（大小写不敏感），或者（给了 reply
+//     时）它本身是回复里一个顶层配平块、且跨度 ≥ wrapperRatioMin（回复的大半个身子）——多半是正文
+//     外壳本身被错填进了保留 / 丢弃区，而不是真正想排除的一小块。
+//   zeroTargetAuto —— 自动校正开着，但 5 个校正目标 + 角色知识边界 / 剧情护栏两条约束全空，跑了
+//     也是空转。field 固定为哨兵 'targets'（UI 据此整体置灰运行按钮，不是指某一个目标勾选框）。
+//   delimiterMismatch —— 保留 / 丢弃区某项按它填的分隔符（尖 / 方括号）在回复顶层找不到同名块，
+//     换个分隔符却有——多半是尖括号方括号打错了，suggest 给纠正后的形式。
+function fixConfigWarnings(cfg, reply) {
+    const c = cfg || {};
+    const warnings = [];
+    const wrapperRatioMin = 0.6;   // 顶层块跨度 / 回复总长 ≥ 此值 → 判定为「正文外壳」而非真正的排除小块
+    const targetKeys = ['fixA_targetSlop', 'fixA_targetDialogue', 'fixA_targetPrecision', 'fixA_targetMagic', 'fixA_targetPacing'];
+
+    const hasReply = reply != null && reply !== '';
+    const replyLen = hasReply ? String(reply).length : 0;
+    const scopeName = normalizeScopeInput(c.fixA_scopeTag).toLowerCase();
+    // 外壳占比检查看【整条回复】的顶层块（rawBlocks，需原始偏移量算跨度）。分隔符检查看的块集合 keepBlocks =
+    // 顶层同级块 + 作用域命中时的内层直接子块——后者与运行时 extractExcludedSections 跑在 fixScope.inner 上一致，
+    // 故能看见埋在 <gametxt> 里的 [IMG_GEN] 等；前者兼顾正文外壳之外的同级块。只做「名+分隔符」存在性判断，重复无害。
+    const rawBlocks = hasReply ? scanTopLevelBlocks(reply) : [];
+    const scope = (hasReply && scopeName) ? splitContentScope(reply, scopeName) : null;
+    const keepBlocks = (scope && scope.active) ? rawBlocks.concat(scanTopLevelBlocks(scope.inner)) : rawBlocks;
+
+    for (const field of ['fixA_keepTags', 'fixA_dropTags']) {
+        for (const spec of parseExcludeTags(c[field])) {
+            const lower = spec.name.toLowerCase();
+
+            const nameHitsScope = !!scopeName && lower === scopeName;
+            const isWrapperBlock = hasReply && rawBlocks.some((b) =>
+                b.bracket === spec.bracket && b.name.toLowerCase() === lower && (b.end - b.start) / replyLen >= wrapperRatioMin);
+            if (nameHitsScope || isWrapperBlock) {
+                warnings.push({ code: 'scopeInKeep', field, message: '这个是正文标签，应填到上面『只校正此标签内』，不是保留区' });
+                continue;   // 已经因为这条目报过警，不必再查它的分隔符
+            }
+
+            if (hasReply) {
+                const sameBracketHit = keepBlocks.some((b) => b.bracket === spec.bracket && b.name.toLowerCase() === lower);
+                if (!sameBracketHit) {
+                    const oppo = keepBlocks.find((b) => b.bracket !== spec.bracket && b.name.toLowerCase() === lower);
+                    if (oppo) {
+                        const typedForm = spec.bracket ? ('[' + spec.name + ']') : ('<' + spec.name + '>');
+                        const actualForm = oppo.bracket ? ('[' + oppo.name + ']') : ('<' + oppo.name + '>');
+                        warnings.push({
+                            code: 'delimiterMismatch', field,
+                            message: '你填的是 ' + typedForm + '，但回复里实际出现的是 ' + actualForm + '——分隔符不匹配，这条保留/丢弃不会生效',
+                            suggest: actualForm,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    if (c.autoFixEnabled) {
+        const noTargets = targetKeys.every((k) => !c[k]);
+        const noConstraints = !String(c.fixA_knowledgeBoundary || '').trim() && !String(c.fixA_guardrails || '').trim();
+        if (noTargets && noConstraints) {
+            warnings.push({ code: 'zeroTargetAuto', field: 'targets', message: '没勾任何校正目标，自动校正不会做事' });
+        }
+    }
+
+    return warnings;
 }
 
 /* ------------------------------------------------------------------ *
@@ -4218,8 +4661,8 @@ async function maybePostReply(messageId) {
         for (const step of plan) {
             if (postReplyCancelled) break;                      // 用户已中断 → 跳过剩余步骤（如校正被中断后不再自动诊断）
             try {
-                if (step === 'fix') await runAutoFix(ctx, s);
-                else await runAutoDiagnose(ctx, s);
+                if (step === 'fix') await runAutoFix(ctx, s, idx);
+                else await runAutoDiagnose(ctx, s, idx);
             } catch (e) {
                 if (postReplyCancelled) break;                  // 用户点「中断」导致的 abort → 静默收尾，不当报错
                 console.warn(`[Story Oracle] 自动${step === 'fix' ? '校正' : '诊断'}失败：`, e);
@@ -4239,7 +4682,7 @@ async function maybePostReply(messageId) {
 }
 
 // 后台诊断主体：自建诊断提示词 → 调模型 → 解析出修正区块 → 仅在确有改动时经 MVU 应用。
-async function runAutoDiagnose(ctx, s) {
+async function runAutoDiagnose(ctx, s, targetId) {
     const Mvu = await getMvu();
     if (!Mvu) return;                                       // 没有 MVU 就没什么可诊断
     // 连接没配好就静默退出——别让每条回复都报错（开自动模式的人一般已配好直连 / 配置文件）。
@@ -4258,8 +4701,12 @@ async function runAutoDiagnose(ctx, s) {
     }
     const stat = await getMvuStatData();
     const statStr = stat ? JSON.stringify(stat, null, 2) : '';
-    const { idx: aiIdx, text: latestReply } = getLatestAiMessage();
-    if (!latestReply.trim()) return;                        // 没有可分析的 AI 回复
+    // 钉住触发本轮的消息（maybePostReply 传入 targetId）：避免延时 + 调用窗口内队尾变化时诊断落到上一条；
+    // 无 id（不应发生，防御性）→ 回退最近一条，保持旧行为。
+    const { idx: aiIdx, text: latestReply } = (targetId != null)
+        ? resolveAutoTargetMessage(ctx.chat, targetId)
+        : getLatestAiMessage();
+    if (!latestReply.trim()) return;                        // 没有可分析的 AI 回复（或触发消息已失效 → 干净跳过）
     const latestBlock = extractUpdateBlock(latestReply);
     // 关键：正文里没有内联 <UpdateVariable> 也【不退出】——此时自动诊断改为据回复正文【推导】本回合
     // 的更新，充当 MVU「额外模型解析」的替代（用户要的正是这个：不开额外模型解析，靠自动诊断补出更新）。
@@ -4506,10 +4953,30 @@ function autoFixNoteContent({ status, problems, stamp }) {
     const t = stamp ? ' · ' + stamp : '';
     if (status === 'fixed') {
         const body = (problems && String(problems).trim()) ? `\n发现并修正：\n${String(problems).trim()}` : '';
-        return `✨ 自动校正${t} —— 已校正最新回复，并作为新 swipe 应用（向左划可看原文）。${body}`;
+        return `✨ 自动校正${t} —— 已校正最新回复，并作为新 swipe 应用。原文还在——向左划看原文，或点下方「看改动」对比。${body}`;
     }
     if (status === 'failed') {
         return `⚠️ 自动校正${t} —— 跑完了，但没能从模型回复里解析出校正稿（已跳过，未改动回复）。`;
+    }
+    // Phase 4：P-TRUNC 截断 —— 模型回复被中转 / max_tokens 砍成半句，未应用（半句稿会腰斩回复）。
+    if (status === 'truncated') {
+        return `⚠️ 自动校正${t} —— 模型回复像是被截断了（没写完就断了），未应用（把「最大 token 数」调大些再试）。`;
+    }
+    // Phase 4：P-CORRUPT 陈旧 —— LLM 返回后聊天 / 目标已变，跳过写入。reason 经 problems 槽传入、映射成人话。
+    if (status === 'stale') {
+        const why = {
+            chatSwitched: '聊天已切换（避免写到别的对话）',
+            contentChanged: '这条回复已发生变化（避免覆盖新内容）',
+            swipeChanged: '这条回复已切到别的 swipe',
+            gone: '目标回复已不在了',
+        }[problems] || '目标已失效';
+        return `⏭️ 自动校正${t} —— 已跳过：${why}，未改动这条回复。`;
+    }
+    // ✨ Phase 5 D+E：作用域懒检测 / 记忆 / 静默兜底——problems 槽这次装的是 resolveFixScope 的 note 描述符
+    // （{code,cachedTag,detectedTag} 对象，不是字符串），交给 fixScopeNoteText 转成人话；emoji 由它给，不用前缀的✨。
+    if (status === 'scope') {
+        const e = fixScopeNoteText(problems);
+        return `${e.emoji} 自动校正${t} —— ${e.body}`;
     }
     return `✨ 自动校正${t} —— 已检查最新回复，无需校正（未改动）。`;   // nochange
 }
@@ -4685,6 +5152,39 @@ function injectWandButton() {
         toggleWindow(true);
     });
     menu.appendChild(item);
+
+    // 手机专属救援入口：紧随其后放一个「窗口归位（居中）」项。手机用户把窗口拖丢 / 拖到屏外时，这是【永远够得到】
+    // 的复位入口——它在 ST 常驻的魔棒菜单里、不在那个可能已不可见的窗口里。桌面用 CSS @media 隐藏（见 style.css）。
+    const rc = document.createElement('div');
+    rc.id = 'so-wand-recenter';
+    rc.className = 'list-group-item flex-container flexGap5 interactable';
+    rc.tabIndex = 0;
+    rc.innerHTML = `<i class="fa-solid fa-arrows-to-dot"></i><span>神谕窗口归位（居中）</span>`;
+    rc.addEventListener('click', () => recenterWindow());
+    menu.appendChild(rc);
+}
+
+// 手机「窗口归位」：把窗口复位到【居中 + 默认尺寸 380×540（夹进可见视口）】并存档。经魔棒菜单常驻项触发，故窗口
+// 即便被拖到屏外也救得回来（写绝对居中坐标、与当前位置无关；reset 用默认尺寸而非当前可能已拖坏的尺寸）。桌面项被
+// CSS 隐藏、不会触发。
+function recenterWindow() {
+    toggleWindow(true);                       // 关着 / 在屏外都先确保开着
+    if (!win) return;
+    const vv = window.visualViewport;
+    const c = centeredWindowBox({
+        w: (vv && vv.width) || window.innerWidth,
+        h: (vv && vv.height) || window.innerHeight,
+        offX: (vv && vv.offsetLeft) || 0,
+        offY: (vv && vv.offsetTop) || 0,
+    });                                       // 无 opts → 默认 380×540（reset 语义：撤销被拖坏的尺寸）
+    win.style.left = `${c.left}px`;
+    win.style.top = `${c.top}px`;
+    win.style.width = `${c.width}px`;
+    win.style.height = `${c.height}px`;
+    win.style.right = 'auto';
+    const s = getSettings();                  // 存档：复位持久化（后续开窗不再回到坏位置 / 坏尺寸）
+    s.winLeft = c.left; s.winTop = c.top; s.winWidth = c.width; s.winHeight = c.height;
+    save();
 }
 
 // 用户功能请求：在 ST 聊天输入栏（#leftSendForm，紧挨 ☰ 菜单键）放一个一键开 / 关神谕侧窗的小按钮（🌙）。
@@ -4942,6 +5442,9 @@ function buildWindow() {
                         <label class="so-check so-lb-check"><input id="so-fixa-preset" type="checkbox"><span>经自定义补全预设发送（破限 / 越狱用）</span></label>
                         <label class="so-check so-lb-check"><span>只校正此标签内的正文</span>&nbsp;<input id="so-fix-scope" type="text" placeholder="content" style="width:110px;"></label>
                         <div class="so-hint">填卡片包裹【正文】的标签名（默认 <code>content</code>）：只校正 &lt;content&gt;…&lt;/content&gt; 之间的正文，正文【外】的所有块（状态栏 / 选项 / 世界书 / htmlcontent 地图 / 变量更新 / 占位符…）原样保留、<strong>原位不动</strong>。回复里没有该标签则自动校正整条（简单卡不受影响）。<strong>留空</strong> = 校正整条回复。卡片若用别的标签包正文，就改成那个标签名（如 &lt;正文&gt; 就填 <code>正文</code>）。</div>
+                        <div id="so-fix-verdict" class="so-fix-verdict" hidden></div>
+                        <button type="button" id="so-fix-scan" class="so-fix-run-btn"><i class="fa-solid fa-magnifying-glass"></i> 扫描本卡正文标签（自动填好）</button>
+                        <div id="so-fix-scan-panel" class="so-fix-scan-panel" hidden></div>
                         <div class="so-fix-targets-head">校正目标</div>
                         <label class="so-check so-lb-check"><input id="so-fix-tgt-slop" type="checkbox"><span>AI 八股 / 套话</span></label>
                         <label class="so-check so-lb-check"><input id="so-fix-tgt-dialogue" type="checkbox"><span>对话机械 / 不自然</span></label>
@@ -4954,6 +5457,9 @@ function buildWindow() {
                         <textarea id="so-fix-know" rows="2" placeholder="角色知识边界（可空）：例如「主角不知道自己的真实身世」"></textarea>
                         <textarea id="so-fix-guard" rows="2" placeholder="剧情护栏 / 自定义（可空）：例如「保持慢热，不要时间跳跃」"></textarea>
                         <label class="so-check so-lb-check"><input id="so-fix-tighten" type="checkbox"><span>✂️ 收紧（默认开）：校正后再精修一遍（删冗词废话 / 过度描写，读感更紧）。</span></label>
+                        <label class="so-check so-lb-check"><span>校正提示词</span>&nbsp;<select id="so-fix-prompt-version" title="轻校＝现行提示词（较克制）；精校＝更彻底的三道工序校正"><option value="light">轻校（现行 · 默认）</option><option value="thorough">精校（三道工序）</option></select></label>
+                        <label class="so-check so-lb-check" id="so-fix-prompt-flavor-row"><span>精校侧重</span>&nbsp;<select id="so-fix-prompt-flavor" title="按你用的模型选侧重：DeepSeek / 国产模型选 DeepSeek 类；Claude / Opus 选 Opus 类"><option value="deepseek">DeepSeek 类（默认）</option><option value="opus">Opus 类</option></select></label>
+                        <div class="so-hint">轻校＝现行提示词（较克制）。精校＝更彻底的三道工序校正（<strong>已含收紧</strong>）；按你用的模型选侧重：DeepSeek / 国产模型选「DeepSeek 类」，Claude / Opus 选「Opus 类」。默认轻校，不选精校则行为不变。</div>
                         <details class="so-mode-collapse" id="so-fix-ctx-adv">
                             <summary class="so-fix-targets-head" style="cursor:pointer;">上下文（默认关，点开）</summary>
                             <div class="so-hint">⚠ 默认关闭以省时间。仅当你的「知识边界 / 剧情护栏」需要参考前文 / 角色卡 / 世界书才能判断时，才勾选。</div>
@@ -4970,6 +5476,8 @@ function buildWindow() {
                             <button type="button" id="so-fix-bundle-del" class="so-fix-run-btn">删除</button>
                         </div>
                         <div class="so-hint">套餐＝把当前这套自动校正配置（目标 / 约束 / 上下文 / 收紧）存成一个名字（如「硬核西幻」），换聊天后一键加载回来。</div>
+                        <button type="button" id="so-fix-reset" class="so-fix-run-btn"><i class="fa-solid fa-rotate-left"></i> 恢复推荐设置</button>
+                        <div class="so-hint">把本聊天的自动校正设置一键还原成推荐值：作用域 = <code>content</code>、默认校正目标、排除区清空、收紧开、自动关。</div>
                     </div>
                 </div>
             </details>
@@ -5139,9 +5647,11 @@ function buildWindow() {
                 <div id="so-fixwarn-head"><i class="fa-solid fa-circle-info"></i> 自动校正：只改你的故事正文</div>
                 <div id="so-fixwarn-body">
                     <p><strong>自动校正</strong>会把你的<strong>故事正文</strong>交给模型重写一遍（去掉 AI 腔 / 套话、收紧读感），并作为<strong>新的一条 swipe</strong> 应用——原回复留在左滑，随时能滑回去，<strong>不破坏存档</strong>。</p>
+                    <p><strong>校正只做</strong>：去 AI 腔、收紧读感。<strong>不</strong>翻译、<strong>不</strong>改设定、<strong>不</strong>算数值、<strong>不</strong>修卡片本身的问题——那些不归校正管。</p>
                     <p class="so-autowarn-danger">默认它<strong>只改 &lt;content&gt; 标签里的正文</strong>。你卡片正文<strong>之外</strong>的一切——状态栏、选项菜单、世界书、图片、变量面板——都会<strong>原样保留、原位不动</strong>，你不用做任何设置。</p>
                     <p><strong>唯一要确认的一点：</strong>如果你的卡片不是用 &lt;content&gt; 包正文，而是别的标签（例如 &lt;gametxt&gt;），把下面「<strong>只校正此标签内的正文</strong>」那一栏改成你卡片用的标签名就行。（留空 = 校正整条回复。）</p>
-                    <p class="so-autowarn-note">进阶（多数卡用不到）：如果正文<strong>里面</strong>还夹着你想原样保住的小块（某个面板 / 折叠块 / 图片指令），把它的<strong>起始标记</strong>加进「排除区 · 保留」。正文<strong>外</strong>的东西不用管。</p>
+                    <p class="so-autowarn-note">进阶（多数卡用不到）：如果正文<strong>里面</strong>还夹着你想原样保住的小块（某个面板 / 折叠块 / 图片指令），把它的<strong>起始标记</strong>加进「排除区 · 保留」（也可以用上面的「扫描本卡正文标签」一键勾选加入）。正文<strong>外</strong>的东西不用管。</p>
+                    <p class="so-autowarn-note">成本：自动模式<strong>每条新回复都会多发一次模型请求</strong>，会慢一点、多费点 token；很短 / 很干净的回复会自动跳过、不发请求。</p>
                 </div>
                 <label class="so-autowarn-check"><input type="checkbox" id="so-fixwarn-never"><span>不再提示</span></label>
                 <div id="so-fixwarn-btns">
@@ -5162,7 +5672,11 @@ function buildWindow() {
     enhanceIconButtonA11y();
     loadSettingsIntoForm();
     planBarEl = win.querySelector('#so-plan-bar');
-    makeDraggable(win, win.querySelector('#so-header'));
+    // 手机：整条标题栏（含 8 个按钮）都能起拖——按钮太多、留给拖动的空隙太少（用户反馈「手机拖不动」）。
+    // 复用折叠药丸那套（1.17.5）：dragFromButtons 放行「在按钮上起拖」，再用 6px 位移阈值区分轻点/拖动，
+    // suppressNextClick 吞掉拖完补发的一下 click，所以轻点按钮照常触发、拖动才移动窗口。桌面（≥600）不传、行为不变。
+    makeDraggable(win, win.querySelector('#so-header'), { left: 'winLeft', top: 'winTop' },
+        { dragFromButtons: () => window.innerWidth < 600 });
     makeResizable(win, win.querySelector('#so-resize-grip'));
     renderEmptyState();
     renderPlanBar();
@@ -5508,18 +6022,30 @@ function bindControls() {
     bindFix('#so-fix-tgt-precision', 'fixA_targetPrecision');
     bindFix('#so-fix-tgt-magic', 'fixA_targetMagic');
     bindFix('#so-fix-tgt-pacing', 'fixA_targetPacing');
-    win.querySelector('#so-fix-scope').addEventListener('input', (e) => { setFixCfg({ fixA_scopeTag: e.target.value }); });   // ✨ 作用域标签（per-chat）
-    win.querySelector('#so-fix-keep').addEventListener('input', (e) => { setFixCfg({ fixA_keepTags: e.target.value }); });
+    // ✨ 作用域标签（per-chat）。Phase 5（D+E）：用户在这里亲手打字 = 明确表达了意图，标记 fixA_scopeManual:true——
+    // 之后 resolveFixScope 缓存未命中时永不代替用户改写，只会建议（suggest），不会自作主张 detected 采纳新标签。
+    win.querySelector('#so-fix-scope').addEventListener('input', (e) => { setFixCfg({ fixA_scopeTag: e.target.value, fixA_scopeManual: true }); updateFixVerdict(); });
+    win.querySelector('#so-fix-keep').addEventListener('input', (e) => { setFixCfg({ fixA_keepTags: e.target.value }); updateFixVerdict(); });
     win.querySelector('#so-fix-drop').addEventListener('input', (e) => { setFixCfg({ fixA_dropTags: e.target.value }); });
     win.querySelector('#so-fix-know').addEventListener('input', (e) => { setFixCfg({ fixA_knowledgeBoundary: e.target.value }); });
     win.querySelector('#so-fix-guard').addEventListener('input', (e) => { setFixCfg({ fixA_guardrails: e.target.value }); });
     bindFix('#so-fix-tighten', 'fixA_tighten');
+    // ✨ 校正提示词选择器（轻校 / 精校 + 侧重）：写 per-chat；切版本时即时显隐侧重行。归一在此就地做（只认 thorough / opus）。
+    win.querySelector('#so-fix-prompt-version')?.addEventListener('change', (e) => {
+        setFixCfg({ fixA_promptVersion: e.target.value === 'thorough' ? 'thorough' : 'light' });
+        applyFixFlavorView();
+    });
+    win.querySelector('#so-fix-prompt-flavor')?.addEventListener('change', (e) => {
+        setFixCfg({ fixA_promptFlavor: e.target.value === 'opus' ? 'opus' : 'deepseek' });
+    });
     bindFix('#so-fix-card', 'fixA_includeCard');
     bindFix('#so-fix-ctx', 'fixA_includeContext');
     bindFix('#so-fix-ctx-depth', 'fixA_contextDepth', depthParse);
     bindFix('#so-fix-world', 'fixA_includeWorld');
     bindFix('#so-fixa-summary', 'fixA_includeSummary');
     win.querySelector('#so-fix-run').addEventListener('click', () => { runFixByTargets(); });
+    win.querySelector('#so-fix-scan')?.addEventListener('click', () => { scanFixScope(); });   // ✨ Phase 6：扫描本卡正文标签
+    win.querySelector('#so-fix-reset')?.addEventListener('click', () => { resetFixCfg(); });   // ✨ Phase 7（M4）：恢复推荐设置
     bindFix('#so-fix-auto', 'autoFixEnabled');   // 自动校正每条新回复（message_received 编排读 cfg.autoFixEnabled）
     win.querySelector('#so-fix-auto')?.addEventListener('change', updateFixButtonVisual);   // 改开关 → ✨ 金色指示即时对齐
     // ✨ 校正 Phase 4：全局命名套餐库——加载 / 保存为… / 删除（saveFixBundle / loadFixBundle / deleteFixBundle + populateFixBundles）。
@@ -5593,6 +6119,8 @@ function bindControls() {
             onSend();
         }
     });
+    inputEl.addEventListener('input', autoGrowInput);                                                      // #4 输入框随内容自动增高
+    messagesEl.addEventListener('scroll', () => { if (!soProgScroll) soFollowStream = nearBottom(); });    // #1 用户滚动更新「是否跟随到底部」
 
     // 用户功能请求：反映持久化的自动诊断状态（重载后若 AUTO 仍开着，按钮显示红色 + AUTO）。
     updateDiagButtonVisual();
@@ -6432,6 +6960,7 @@ const MODE_EMPTY = {
     fix: {
         icon: 'fa-wand-magic-sparkles',
         lead: '手动：在下方输入框直接说要改哪里，只改这一条回复（快、单稿）。<br>自动：每条新回复后台自动清 AI 味——「校正设置」切到「自动」、开「自动校正每条新回复」。',
+        sub: '校正只去 AI 腔 / 收紧读感——不翻译、不改设定、不算数值、不修卡片本身的问题。',
         chips: ['这个角色不该知道这件事，重写他的对话', '这个事件的日期不对，回看上下文改正', '这个角色的台词太机械，重写得更像真人', '扩写这一段，补充更多剧情细节'],
     },
 };
@@ -7648,6 +8177,137 @@ function applyFixModeView() {
     const auto = win.querySelector('#so-fix-auto-wrap');
     if (man) man.style.display = (view === 'manual') ? '' : 'none';
     if (auto) auto.style.display = (view === 'auto') ? '' : 'none';
+    applyFixFlavorView();   // ✨ 精校侧重行仅在选了「精校」时显示
+    updateFixVerdict();   // ✨ Phase 6：切到自动视图 / 刷新时更新作用域判定预览
+}
+
+// ✨ 校正提示词选择器：「精校侧重」行仅在版本 === 'thorough'（精校）时显示，轻校时隐藏（镜像作用域 / 排除区的条件显隐）。
+// 读【本聊天】生效配置为准（非 DOM select 值），故 seed 顺序无关。窗口未建好时静默跳过。
+function applyFixFlavorView() {
+    if (!win) return;
+    const cfg = getEffectiveFixCfg(getSettings(), getFixCfg());
+    const row = win.querySelector('#so-fix-prompt-flavor-row');
+    if (row) row.style.display = (cfg.fixA_promptVersion === 'thorough') ? '' : 'none';
+}
+
+// ✨ 校正模式「自动配置」Phase 6（B）——作用域判定预览行：对【最新一条回复】跑 resolveFixScope（= 自动模式此刻
+// 会怎么处理这条），渲染成一行人话（命中→只校正正文 N 字 / 会切标签 / 会跳过 / 整条校正）。仅自动视图显示；textContent 安全。
+function updateFixVerdict() {
+    if (!win) return;
+    const el = win.querySelector('#so-fix-verdict');
+    if (!el) return;
+    if (getSettings().fixSettingsView !== 'auto') { el.hidden = true; return; }   // 作用域是自动模式专属
+    el.hidden = false;
+    const latest = getLatestAiMessage();
+    if (latest.idx < 0) {
+        el.className = 'so-fix-verdict so-fix-verdict-neutral';
+        el.textContent = 'ⓘ 还没有可预览的回复——主聊天里发一条后，这里会显示这条回复的校正范围。';
+        return;
+    }
+    const cfg = getEffectiveFixCfg(getSettings(), getFixCfg());
+    const a = resolveFixModeCfg(cfg, 'auto');
+    const dec = resolveFixScope({ cachedTag: a.scopeTag, scopeManual: a.scopeManual, reply: latest.text, replies: recentAiReplies(getCtx().chat, 5) });
+    if (dec.action === 'cache') {
+        const v = fixScopeVerdict(latest.text, a.scopeTag, a.keepTags);
+        el.className = 'so-fix-verdict so-fix-verdict-ok';
+        el.textContent = '✓ 命中 <' + a.scopeTag + '> → 只校正正文 ' + v.fixChars + ' 字，正文外 ' + v.preservedTags.length + ' 块原样保留'
+            + (v.keepBlockCount ? ('（含你指定保留的 ' + v.keepBlockCount + ' 块）') : '');
+    } else if (dec.action === 'fallbackWhole') {
+        el.className = 'so-fix-verdict so-fix-verdict-neutral';
+        el.textContent = a.scopeTag
+            ? 'ⓘ 这条回复没有包裹标签（整条都是正文）→ 会校正整条回复。'
+            : 'ⓘ 没设作用域 → 会校正整条回复（适合没有状态栏 / 选项等结构块的简单卡）。';
+    } else if (dec.action === 'detected') {
+        el.className = 'so-fix-verdict so-fix-verdict-warn';
+        el.textContent = '✨ 这条回复用的是 <' + dec.note.detectedTag + '>（不是 <' + a.scopeTag + '>）→ 自动会切到 <' + dec.note.detectedTag + '> 再校正。';
+    } else if (dec.action === 'suggest') {
+        el.className = 'so-fix-verdict so-fix-verdict-warn';
+        el.textContent = dec.note.detectedTag
+            ? '⚠️ 你设的 <' + a.scopeTag + '> 不在这条回复里；可能是 <' + dec.note.detectedTag + '>（点扫描采纳，或手动改）——这条会被跳过、不动。'
+            : '⚠️ 你设的 <' + a.scopeTag + '> 不在这条回复里 → 这条会被跳过、不动（避免误改整条）。';
+    } else {   // skip（anomaly / uncertain）
+        el.className = 'so-fix-verdict so-fix-verdict-warn';
+        el.textContent = '⏭️ 这条回复里没有 <' + a.scopeTag + '> → 自动会跳过、不动它（可能这条格式特殊，或卡片换了标签——点扫描看看）。';
+    }
+}
+
+// ✨ Phase 6（C）——扫描按钮：对最近几条 AI 回复跑 detectScopeTag + detectInnerBlocks，出「采纳标签 / 加入保留区」建议。
+// 标签名受 scanTopLevelBlocks 字符集约束（[A-Za-z0-9_一-龥-]，无 HTML 元字符）→ 直插 innerHTML 无注入风险。
+function scanFixScope() {
+    if (!win) return;
+    const panel = win.querySelector('#so-fix-scan-panel');
+    if (!panel) return;
+    panel.hidden = false;
+    const chat = getCtx().chat;
+    const replies = recentAiReplies(chat, 8);
+    if (!replies.length) { panel.innerHTML = '<div class="so-hint">还没有 AI 回复可供扫描——先在主聊天里生成几条回复再来。</div>'; return; }
+    const det = detectScopeTag(replies);
+    if (det.noWrapper) {
+        panel.innerHTML = '<div class="so-scan-row">这几条回复的正文是【裸的】——没有包裹标签。</div>'
+            + '<div class="so-hint">→ 把上面的「只校正此标签内」<strong>留空</strong>即可，会校正整条回复（简单卡的正常情况）。</div>'
+            + '<button type="button" id="so-scan-clear" class="so-fix-run-btn">留空作用域</button>';
+        const cb = win.querySelector('#so-scan-clear');
+        if (cb) cb.addEventListener('click', () => applyScopeFromScan(''));
+        return;
+    }
+    const conf = det.confidence;
+    const confLabel = (conf === 'high') ? '很可能' : (conf === 'med' ? '可能' : '不太确定');
+    let html = '<div class="so-scan-row">检测到正文标签：<code>&lt;' + det.tag + '&gt;</code> <span class="so-scan-conf so-scan-conf-' + conf + '">' + confLabel + '</span></div>';
+    if (conf === 'high') {
+        html += '<button type="button" class="so-fix-run-btn" data-scan-adopt="' + det.tag + '">采纳 &lt;' + det.tag + '&gt; 作为作用域</button>';
+    } else {
+        html += '<div class="so-hint">不太确定，从下面挑一个（点一下就填上），或直接手动填：</div><div class="so-scan-cands">';
+        for (const c of det.candidates.slice(0, 5)) html += '<button type="button" class="so-scan-cand" data-scan-adopt="' + c.tag + '">&lt;' + c.tag + '&gt;</button>';
+        html += '</div>';
+    }
+    const inner = (splitContentScope(replies[replies.length - 1], det.tag).inner) || '';
+    const blocks = detectInnerBlocks(inner);
+    if (blocks.length) {
+        html += '<div class="so-scan-row" style="margin-top:6px;">正文里还嵌着这些结构块——勾选后加入保留区，校正时会原样留住：</div><div class="so-scan-blocks">';
+        for (const b of blocks) {
+            const form = b.bracket ? ('[' + b.name + ']') : ('&lt;' + b.name + '&gt;');
+            html += '<label class="so-check"><input type="checkbox" class="so-scan-block" data-bn="' + b.name + '" data-bb="' + (b.bracket ? '1' : '0') + '" checked>&nbsp;<span>' + form + '</span></label>';
+        }
+        html += '</div><button type="button" id="so-scan-keep" class="so-fix-run-btn">把勾选的加入保留区</button>';
+    }
+    panel.innerHTML = html;
+    panel.querySelectorAll('[data-scan-adopt]').forEach((b) => b.addEventListener('click', () => applyScopeFromScan(b.getAttribute('data-scan-adopt'))));
+    const keepBtn = win.querySelector('#so-scan-keep');
+    if (keepBtn) keepBtn.addEventListener('click', () => {
+        const picks = [...panel.querySelectorAll('.so-scan-block:checked')].map((c) => ({ name: c.getAttribute('data-bn'), bracket: c.getAttribute('data-bb') === '1' }));
+        if (!picks.length) { if (typeof toastr !== 'undefined') toastr.info('没勾选任何块'); return; }
+        const keepEl = win.querySelector('#so-fix-keep');
+        const merged = mergeKeepTags(keepEl.value, picks);
+        keepEl.value = merged;
+        setFixCfg({ fixA_keepTags: merged });
+        updateFixVerdict();
+        if (typeof toastr !== 'undefined') toastr.success('已把 ' + picks.length + ' 个结构块加入保留区');
+    });
+}
+
+// 采纳扫描建议的作用域标签（写 per-chat 配置，scopeManual=false —— 这是「接受检测建议」非用户手填，之后仍可自纠）+ 刷新输入框 / 判定。
+function applyScopeFromScan(tag) {
+    setFixCfg({ fixA_scopeTag: tag, fixA_scopeManual: false });
+    const el = win && win.querySelector('#so-fix-scope');
+    if (el) el.value = tag;
+    updateFixVerdict();
+    const panel = win && win.querySelector('#so-fix-scan-panel');
+    if (panel) panel.hidden = true;
+    if (typeof toastr !== 'undefined') toastr.success(tag ? ('作用域已设为 <' + tag + '>') : '作用域已留空（校正整条）');
+}
+
+// ✨ 校正模式「自动配置」Phase 7（M4）——把【本聊天】的自动校正设置一键还原成推荐值（作用域 content / 默认目标 /
+// 排除区清空 / 收紧开 / 自动关 / scopeManual 清掉）。只动自动那套（fixA_* + autoFixEnabled），手动 fixM_* 不碰。
+function resetFixCfg() {
+    setFixCfg({
+        fixA_scopeTag: 'content', fixA_scopeManual: false,
+        fixA_targetSlop: true, fixA_targetDialogue: true, fixA_targetPrecision: true, fixA_targetMagic: false, fixA_targetPacing: true,
+        fixA_keepTags: '', fixA_dropTags: '', fixA_knowledgeBoundary: '', fixA_guardrails: '',
+        fixA_tighten: true, autoFixEnabled: false,
+    });
+    seedFixControls();        // 回填控件（含 applyFixModeView → updateFixVerdict）
+    updateFixButtonVisual();  // autoFixEnabled 归 false → ✨ 金色指示对齐
+    if (typeof toastr !== 'undefined') toastr.success('已恢复本聊天的推荐校正设置');
 }
 
 // 经【自定义补全预设】发送时（fixM_/fixA_usePreset，手动 / 自动各自独立），角色卡 / 世界书由预设的 charDescription / worldInfo 标记提供 →
@@ -7695,6 +8355,8 @@ function seedFixControls() {
     set('#so-fix-know', 'value', cfg.fixA_knowledgeBoundary || '');
     set('#so-fix-guard', 'value', cfg.fixA_guardrails || '');
     set('#so-fix-tighten', 'checked', cfg.fixA_tighten !== false);
+    set('#so-fix-prompt-version', 'value', (cfg.fixA_promptVersion === 'thorough') ? 'thorough' : 'light');   // ✨ 校正提示词（轻校 / 精校）
+    set('#so-fix-prompt-flavor', 'value', (cfg.fixA_promptFlavor === 'opus') ? 'opus' : 'deepseek');           // ✨ 精校侧重（DeepSeek / Opus）
     set('#so-fix-card', 'checked', !!cfg.fixA_includeCard);
     set('#so-fix-ctx', 'checked', !!cfg.fixA_includeContext);
     set('#so-fix-ctx-depth', 'value', cfg.fixA_contextDepth);
@@ -7928,9 +8590,12 @@ function buildFixEnvelope(blocks) {
 // 校正系统提示 = 基础规则（可被 s.fixSystemPrompt 覆盖，空 = 用内置常量）+ 内嵌的【待校正正文】。
 function buildFixPrompt(ctx, s) {
     const override = (s.fixSystemPrompt || '').trim();
+    // 自动分支：精校（thorough）时用 resolveFixAutoPrompt 选侧重提示；轻校（light，默认）时保持现行「收紧 toggle」行为不变。
     const base = override || (fixActiveMode === 'manual'
         ? FIX_SYSTEM_PROMPT_MANUAL
-        : (fixTightenActive ? FIX_SYSTEM_PROMPT_TIGHTEN : FIX_SYSTEM_PROMPT));
+        : (fixAutoPromptVersion === 'thorough'
+            ? resolveFixAutoPrompt({ promptVersion: fixAutoPromptVersion, promptFlavor: fixAutoPromptFlavor })
+            : (fixTightenActive ? FIX_SYSTEM_PROMPT_TIGHTEN : FIX_SYSTEM_PROMPT)));
     let subst = (t) => t;
     if (ctx && typeof ctx.substituteParams === 'function') {
         subst = (t) => { try { return ctx.substituteParams(t); } catch (e) { return t; } };
@@ -8248,6 +8913,23 @@ function applyOutputRegex(text, forPrompt) {
 // path main chat uses — so display-stage regex, markdown, and HTML/CSS widgets
 // (e.g. a status-bar beautifier) render identically here. Returns null if the
 // formatter isn't available, signaling the caller to fall back to plain text.
+let soMdConverter = null;
+// 只渲染 Markdown（不跑 ST 正则引擎）——用于普通聊天【关闭「应用正则」】时的显示。showdown + DOMPurify 均由 ST 挂在 window 上。
+// 拿不到库时返回 null，调用方回退纯文本（jsdom 无这两个库 → null → textContent，安全）。
+function renderMarkdownOnly(text) {
+    try {
+        if (!soMdConverter && typeof window !== 'undefined' && window.showdown) {
+            soMdConverter = new window.showdown.Converter({ simpleLineBreaks: true, strikethrough: true, tables: false, literalMidWordUnderscores: true });
+        }
+        if (soMdConverter && typeof window !== 'undefined' && window.DOMPurify) {
+            const html = window.DOMPurify.sanitize(soMdConverter.makeHtml(String(text || '')));
+            if (typeof html === 'string' && html) return html;
+        }
+    } catch (e) {
+        console.warn('[Story Oracle] markdown render failed; showing raw text.', e);
+    }
+    return null;
+}
 function renderReplyHtml(text) {
     const ctx = getCtx();
     try {
@@ -8513,6 +9195,7 @@ async function onSend() {
     }
 
     inputEl.value = '';
+    autoGrowInput();                                        // #4 清空后把输入框收回下限高度
     const entry = { id: ++cidSeq, role: 'user', content: text };
     convo.push(entry);
     persistConvo();
@@ -8571,6 +9254,8 @@ async function generateReply() {
     } else if (fixMode) {
         // 校正模式（手动 / 引导式：在输入框直接说要改什么）：抓待校正回复 + 手动那套上下文（卡 / 世界书 / 概要 / 全部前文）。
         await captureFixContext(s, { mode: 'manual' });
+        // R2 双重校正（手动）：目标当前 swipe 已是校正结果 → 提醒；仍继续（在其基础上再校正）。
+        if (isFixSwipe((getCtx().chat || [])[fixTargetIdx])) addSystemNote('这条回复当前显示的已是一次校正结果；将在其基础上再次校正（如需校正原文请先左滑回原文）。');
     } else if (presetCurationActive(s)) {
         // Faithful assembly needs WI split into the Before/After-Char-Defs slots.
         const split = await buildWorldInfoSplit();
@@ -8633,7 +9318,7 @@ async function generateReply() {
                 finalText = await streamDirect(url, s.apiKey, body, abortCtl.signal, (delta) => {
                     clearTyping();
                     contentEl.textContent += delta;
-                    scrollToBottom();
+                    if (soFollowStream) scrollToBottom();   // #1 只在用户跟随到底部时才自动滚
                 });
                 contentEl.classList.remove('so-streaming');
             } else {
@@ -8648,7 +9333,7 @@ async function generateReply() {
                 finalText = await callProfileStream(s.profileId, messages, effMaxTokens, override, abortCtl.signal, (full) => {
                     clearTyping();
                     contentEl.textContent = full;
-                    scrollToBottom();
+                    if (soFollowStream) scrollToBottom();   // #1 只在用户跟随到底部时才自动滚
                 });
                 contentEl.classList.remove('so-streaming');
             } else {
@@ -8698,11 +9383,15 @@ async function generateReply() {
             // Never for the plain textarea prompt, never in Diagnose mode (which
             // needs the raw <UpdateVariable> block intact), never in Advisor mode
             // (the raw <StoryPlan> blocks must survive for the adopt cards).
-            const useOutputRegex = !diagnoseMode && !lorebookMode && !advisorMode && presetCurationActive(s) && s.applyRegex;
+            // 普通聊天定稿渲染（#2 Markdown）：开「应用正则」→ 走 ST 自己的 messageFormatting（正则=全局+当前角色+
+            // 当前选中预设 + Markdown + HTML 挂件，与主聊天一致）；关正则 → 只渲染 Markdown（showdown+DOMPurify，不碰
+            // 正则引擎）。历史仍存干净文本（仅精选预设+正则时存 prompt 阶段正则后的拷贝，与原行为一致）。诊断/世界书/参谋/校正 不在此渲染。
+            const isPlainChat = !diagnoseMode && !lorebookMode && !advisorMode && !fixMode;
+            const useOutputRegex = isPlainChat && presetCurationActive(s) && s.applyRegex;
             let historyText = cleanText;
-            if (useOutputRegex) {
-                historyText = applyOutputRegex(cleanText, /*forPrompt*/ true);
-                const html = renderReplyHtml(cleanText);
+            if (useOutputRegex) historyText = applyOutputRegex(cleanText, /*forPrompt*/ true);
+            if (isPlainChat) {
+                const html = s.applyRegex ? renderReplyHtml(cleanText) : renderMarkdownOnly(cleanText);
                 if (html != null) {
                     contentEl.innerHTML = html;
                     contentEl.classList.add('so-rendered');
@@ -8749,29 +9438,251 @@ async function generateReply() {
     }
 }
 
+/* ------------------------------------------------------------------ *
+ * ✨ 校正模式 Phase 4 —— 目标完整性守卫（M1）+ 两个数据完整性缺陷。PURE 层（无 DOM / 无副作用 / 确定）
+ * 外加两个读 getCtx 的运行时薄封装（fixChatKey / fixCurrentSnapshot）。把「这份校正稿到底该不该写进这条
+ * 回复」的判据抠成可单测的纯函数：
+ *   · P-CORRUPT（切聊天跨聊天写）：捕获触发时的聊天身份 + 目标快照；应用前若聊天已切 / 目标已变 → 不写、记一条。
+ *   · P-TRUNC（截断稿被应用）：模型回复被中转 / max_tokens 截断 → 半句稿会腰斩回复 → 不应用、记一条。
+ * ------------------------------------------------------------------ */
+
+// 纯函数：陈旧判定真值表。captured/current 均为普通对象 {chatId,targetIdx,swipeId,fingerprint,prose}（current 另带
+// exists?:boolean）。优先级【自上而下】：缺任一 → gone；chatId 变 → chatSwitched（P-CORRUPT，压过一切）；目标
+// 消失（exists:false / targetIdx 空 / <0）→ gone；swipe 变 → swipeChanged；指纹变 → contentChanged；否则 ok。
+// prose 只随行、【不参与】判定。可单测（fix-target-integrity.test.mjs）。
+function fixTargetStale(captured, current) {
+    if (!captured || !current) return { stale: true, reason: 'gone' };
+    if (current.chatId !== captured.chatId) return { stale: true, reason: 'chatSwitched' };
+    if (current.exists === false || current.targetIdx == null || current.targetIdx < 0) return { stale: true, reason: 'gone' };
+    if (current.swipeId !== captured.swipeId) return { stale: true, reason: 'swipeChanged' };
+    if (current.fingerprint !== captured.fingerprint) return { stale: true, reason: 'contentChanged' };
+    return { stale: false, reason: 'ok' };
+}
+
+// 纯函数：便宜确定性指纹——长度 + djb2 滚动哈希（36 进制）。对【整条 m.mes】取；捕获与应用两端比对以检测这条
+// 回复是否在校正往返期间被编辑 / 换 swipe。不追求抗碰撞，只要「同文同指纹、异文极大概率异指纹」。nullish 安全。
+function fixFingerprint(text) {
+    const s = String(text == null ? '' : text);
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = (((h << 5) + h) + s.charCodeAt(i)) | 0;   // h*33 + c，逐步夹在 32 位
+    return s.length + ':' + (h >>> 0).toString(36);
+}
+
+// 纯函数：截断检测。finish==='length'（上游 finish_reason，或 R1 合成：<FixedReply> 开了没闭）→ 权威判截断；
+// 空成品 → empty。启发式【三条全中才算截断】：成品末尾无终止标点 且 原文收尾干净 且 成品散文字数 < 原文一半——
+// 单看任一条都会误伤（✂️收紧本就合法缩短；RP 片段本就常无标点收尾），保守 AND 才不挡合法校正。终止标点正则与
+// 0.5 比例【就地内联】（不设常量）。复用 proseCharCount。可单测。
+function fixOutputTruncated(fixedText, finish, originalText) {
+    if (finish === 'length') return { truncated: true, reason: 'length' };
+    const fixed = String(fixedText == null ? '' : fixedText).trim();
+    if (!fixed) return { truncated: true, reason: 'empty' };
+    const orig = String(originalText == null ? '' : originalText).trim();
+    const term = /[。．.！!？?…⋯~〜」』】）)"”’\]]$/;   // CJK + ASCII 终止 / 收尾标点
+    const fixedMidSentence = !term.test(fixed);
+    if (fixedMidSentence && term.test(orig) && proseCharCount(fixed) < 0.5 * proseCharCount(orig)) {
+        return { truncated: true, reason: 'midSentenceShort' };
+    }
+    if (fixedMidSentence) return { truncated: false, reason: 'midSentenceOnly' };   // 断句但不短 → 放行
+    return { truncated: false, reason: 'ok' };
+}
+
+// 纯函数：目标消息【当前】swipe 是否已是一次校正结果（applyFixAsSwipe 在 swipe_info[...].extra.story_oracle_fix
+// 打了 true）。只看当前 swipe（防止在校正稿上再叠一层）。nullish 安全。可单测。
+function isFixSwipe(m) {
+    return m?.swipe_info?.[m.swipe_id]?.extra?.story_oracle_fix === true;
+}
+
+// 运行时薄封装（读 getCtx；导出以便测试 stub SillyTavern.getContext）：聊天身份键 groupId::chatId。
+// 【排除 characterId】（R4）——群聊生成中它被改写成应答成员，纳入会在同一群聊里误报 chatSwitched。getContext
+// 不可用 / 抛错 → 退化成 '::'（空键；捕获与应用两端一致时仍相等，不假性触发陈旧）。
+function fixChatKey() {
+    try {
+        const ctx = getCtx();
+        return String((ctx && ctx.groupId) || '') + '::' + String((ctx && ctx.chatId) || '');
+    } catch (e) {
+        return '::';
+    }
+}
+
+// 运行时薄封装（非导出）：读【当前】getCtx() 造出 current 快照供 fixTargetStale 比对。复用 resolveAutoTargetMessage
+// 的「仍是非空 AI 回复」判据（失效 → idx:-1 → exists:false → gone）；指纹取当前 m.mes；swipe 取当前 swipe_id。
+function fixCurrentSnapshot(idx) {
+    const ctx = getCtx();
+    const chat = (ctx && ctx.chat) || [];
+    const t = resolveAutoTargetMessage(chat, idx);
+    const exists = t.idx >= 0;
+    const m = exists ? chat[t.idx] : null;
+    return {
+        chatId: fixChatKey(),
+        targetIdx: t.idx,
+        swipeId: exists ? ((m && m.swipe_id) | 0) : -1,
+        fingerprint: fixFingerprint(m ? m.mes : ''),
+        exists,
+        prose: '',
+    };
+}
+
+/* ------------------------------------------------------------------ *
+ * ✨ 校正模式「自动配置」Phase 5 —— 按聊天懒检测 + 记忆 + 静默兜底（D+E）。PURE 决策层
+ * （无 DOM / 无副作用 / 确定；无时钟无随机；不发 LLM 调用）。复用 Phase 1 的 detectScopeTag /
+ * fixScopeVerdict，不重新扫描——这里只把「这条回复该用哪个作用域标签、要不要出提示」的判断收拢成
+ * 一张可单测的决策表：
+ *   缓存命中（cachedTag 在这条回复里找得到）→ 直接用、不重检测（省 detectScopeTag 的开销）。
+ *   缓存未命中 → 按来源分流：自动（用户没手填过）→ 高置信就采纳新标签并记住（下次就是缓存命中）；
+ *     中低置信 / 检测出来的还是同一个标签（这条只是个例）→ 静默跳过这条，不瞎猜也不整条校正（D）。
+ *   手动（用户明确填过）→ 永不代替用户改写，只在侧聊建议、原样跳过这条（E）。
+ *   两种来源有一个共同例外：这条回复压根没有任何信封结构（noWrapper）→ 校正整条回复本就安全、正确
+ *   （D 的例外——没有结构可保护，就没有「误伤」这回事）。
+ * ------------------------------------------------------------------ */
+
+// 纯函数：给定 chat，取【最近 n 条非空 AI 回复】原文，供 detectScopeTag 当嗅探语料。排除 chat[0]
+// （开场白 / 问候语可能不代表卡片真实回复形态，见设计 §3「懒检测」）；跳过用户 / 系统消息与空白/非字符串；
+// 按时间顺序（旧→新）返回，条数不足 n 也不补齐。nullish / 非数组 chat → []。可单测。
+function recentAiReplies(chat, n = 5) {
+    const list = Array.isArray(chat) ? chat : [];
+    const lim = Math.max(1, Number(n) || 5);
+    const picked = [];
+    for (let i = list.length - 1; i >= 1 && picked.length < lim; i -= 1) {   // 止步于下标 1：排除 chat[0]
+        const m = list[i];
+        if (!m || m.is_user || m.is_system || typeof m.mes !== 'string' || !m.mes.trim()) continue;
+        picked.push(m.mes);
+    }
+    return picked.reverse();   // 出栈顺序是新→旧，翻回旧→新（与 buildTranscriptTurns 等「前文数组」的惯例一致）
+}
+
+// 纯函数：D+E 决策核。reply = 已【钉住】的待校正回复原文（cache-hit 用 fixScopeVerdict 判在场；钉住来自
+// resolveAutoTargetMessage，未必是「最新一条」——刻意与 replies 分开传参，两者合并会重犯 1.17.12
+// 「改到上一条」那次教训）；replies = 供 detectScopeTag 嗅探用的最近 AI 回复语料（不含 reply 本身也没关系——
+// 嗅探要的是【卡片的一般形态】，不是这一条本身）。
+//   action:
+//     'fallbackWhole' —— 用户主动留空作用域【或】这条回复所在的语料压根没有信封结构（noWrapper，D 的
+//                        例外）→ 校正整条回复；tag 回空串，active:false。
+//     'cache'         —— 缓存的 cachedTag 在这条回复里找得到 → 直接用，不重检测；tag 原样回传，active:true。
+//     'detected'      —— 缓存未命中 + 自动来源 + 高置信 + 检测出的标签≠缓存 → 采纳新标签（调用方负责
+//                        setFixCfg 写回 + 缓存，本函数只判断不写状态）；tag 换成检测到的标签，active:true。
+//     'skip'          —— 缓存未命中，但不该猜：自动来源且检测结果就是缓存本身（这条是个例，note 码
+//                        skipAnomaly）；或置信不够（note 码 skipUncertain）→ 跳过这条，不改、不整条校正；
+//                        tag 原样回传（仅供参考），active:false。
+//     'suggest'       —— 缓存未命中 + 手动来源（用户明确填过标签，永不代替用户改写）→ 只建议、不采纳；
+//                        tag 原样回传，active:false。
+//   note: null | { code, cachedTag, detectedTag }，code ∈ 'detected'|'suggest'|'skipAnomaly'|'skipUncertain'。
+//   标签比较大小写不敏感（cache-hit 判定复用 fixScopeVerdict/splitContentScope 内建的不敏感匹配；
+//   det.tag ↔ cachedTag 的「是否同一个标签」比较本函数自己转小写再比）。nullish 安全（各参数缺省视作
+//   空/关闭，委托 fixScopeVerdict / detectScopeTag 自身的 nullish 兜底）。可单测。
+function resolveFixScope({ cachedTag, scopeManual, reply, replies }) {
+    const cached = (cachedTag == null) ? '' : String(cachedTag);
+    if (!cached.trim()) return { tag: '', active: false, action: 'fallbackWhole', note: null };   // 用户主动关闭作用域（opt-out）
+
+    const verdict = fixScopeVerdict(reply, cached, '');
+    if (!verdict.danger) return { tag: cached, active: true, action: 'cache', note: null };   // 缓存命中——无需重检测
+
+    const det = detectScopeTag(replies);
+    if (det.noWrapper) return { tag: '', active: false, action: 'fallbackWhole', note: null };   // D 例外：无信封可保护，整条本就安全
+
+    const manual = !!scopeManual;
+    if (!manual) {
+        if (det.confidence === 'high') {
+            const same = det.tag.toLowerCase() === cached.toLowerCase();
+            if (same) return { tag: cached, active: false, action: 'skip', note: { code: 'skipAnomaly', cachedTag: cached, detectedTag: det.tag } };
+            return { tag: det.tag, active: true, action: 'detected', note: { code: 'detected', cachedTag: cached, detectedTag: det.tag } };
+        }
+        return { tag: cached, active: false, action: 'skip', note: { code: 'skipUncertain', cachedTag: cached, detectedTag: '' } };
+    }
+    const detectedTag = (det.confidence === 'high') ? det.tag : '';   // 只在高置信时才给出候选，认不准就不瞎猜
+    return { tag: cached, active: false, action: 'suggest', note: { code: 'suggest', cachedTag: cached, detectedTag } };
+}
+
+// 纯函数：resolveFixScope 的 note 码 → 人话文案表（仿 fixEnvNote / autoDiagNoteContent 的 reason→人话查表）。
+// emoji：detected ✨（采纳新标签）/ suggest ⚠️（提醒但不代劳）/ skipAnomaly、skipUncertain 都是 ⏭️（跳过）。
+// nullish-safe：note 为空 / 非对象 / 无法识别的 code → 都回 { emoji:'', body:'' }（调用方据此自然不出提示）。
+function fixScopeNoteText(note) {
+    if (!note || typeof note !== 'object') return { emoji: '', body: '' };
+    const cachedTag = String(note.cachedTag || '');
+    const detectedTag = String(note.detectedTag || '');
+    if (note.code === 'detected') {
+        return { emoji: '✨', body: `检测到本卡正文标签是 <${detectedTag}>，已自动切换（原设 <${cachedTag}> 这条回复里没找到）。` };
+    }
+    if (note.code === 'suggest') {
+        const body = detectedTag
+            ? `你设的 <${cachedTag}> 不在这条回复里；检测到的可能是 <${detectedTag}>，要改就去校正设置里改（已跳过、未动这条回复）。`
+            : `你设的 <${cachedTag}> 不在这条回复里，也没能猜出别的候选；已跳过、未动这条回复——去校正设置里检查一下作用域标签。`;
+        return { emoji: '⚠️', body };
+    }
+    if (note.code === 'skipAnomaly') {
+        return { emoji: '⏭️', body: `这条回复没找到 <${cachedTag}>，但最近其它回复都还在用它——像是这条的个例，已跳过、未动它（没有误改整条）。` };
+    }
+    if (note.code === 'skipUncertain') {
+        return { emoji: '⏭️', body: `这条回复没找到 <${cachedTag}>，也认不准换成了哪个标签；已跳过、未动这条回复，避免误改整条。` };
+    }
+    return { emoji: '', body: '' };
+}
+
+// ✨ 校正模式「自动配置」Phase 6（B+C 扫描面板用）——纯函数：把扫描出的结构块并入用户现有【保留区】标签串。
+// 去重按「名 + 分隔符」大小写不敏感；existing 内容在前、新增块按传入顺序每行一个追加；existing 里已有的不重复加。
+// blocks = detectInnerBlocks 的 [{name,bracket}]。existing/blocks nullish 安全。复用 parseExcludeTags 解析已有串。
+function mergeKeepTags(existing, blocks) {
+    const cur = String(existing == null ? '' : existing);
+    const have = new Set(parseExcludeTags(cur).map((sp) => (sp.bracket ? '[' : '<') + sp.name.toLowerCase()));
+    const add = [];
+    for (const b of (Array.isArray(blocks) ? blocks : [])) {
+        if (!b || !b.name) continue;
+        const key = (b.bracket ? '[' : '<') + String(b.name).toLowerCase();
+        if (have.has(key)) continue;
+        have.add(key);
+        add.push(b.bracket ? ('[' + b.name + ']') : ('<' + b.name + '>'));
+    }
+    if (!add.length) return cur;
+    return cur + ((cur && !cur.endsWith('\n')) ? '\n' : '') + add.join('\n');
+}
+
 // 抓取待校正回复 + 按开关备好上下文块。含前文用 buildTranscriptTurns 多取一条再去掉末条——末条就是待校正回复本身
 // （已在 <text_to_transform>，不重复喂；与 recast 的 slice(-(N+1),-1) 同理）。generateReply 的 fixMode 分支与 runFixByTargets 共用。
 // mode='manual'（在输入框直接说要改什么）或 'auto'（按目标校正按钮 / 每条新回复自动校正）。两套设置经
 // resolveFixModeCfg 归一后彻底独立：手动=上下文丰富 / 无目标 / 不收紧 / 无排除区；自动=按 fixA_* 的目标 + 上下文 +
 // 排除区 + 收紧。排除区仅自动有（手动 keepTags/dropTags 恒空）；MVU 机制块两模式都自动剥离（composeFixedReply 原样接回）。
-async function captureFixContext(s, { mode = 'manual' } = {}) {
+async function captureFixContext(s, { mode = 'manual', targetId } = {}) {
     const ctx = getCtx();
     // 走【本聊天】生效值（per-chat 覆盖全局 s），再按 mode 归一成手动 / 自动各自的一套——绝不直读 fixM_/fixA_ 原始键。
     const norm = resolveFixModeCfg(getEffectiveFixCfg(s, getFixCfg()), mode);
-    const latest = getLatestAiMessage();
+    // 自动·事件驱动（runAutoFix 经 maybePostReply 传入触发消息 id）→ 钉住那条；手动 / 「按目标校正」按钮无 id → 仍取最近一条。
+    const latest = (targetId != null) ? resolveAutoTargetMessage(ctx.chat, targetId) : getLatestAiMessage();
     fixTargetIdx = latest.idx;
     // ✨ 作用域（仅自动；用户功能请求）：若设了正文标签（默认 content）且回复里确有该标签 → 只校正 <content> 内层，
     // 正文外的所有块作为【信封】逐字保留、原位回插（应用时 wrapContentScope）。找不到该标签 / 留空 → active:false，
     // baseText 回退整条回复（旧行为，简单卡不受影响）。后续 extractExcludedSections / 机制块剥离 / 看改动 都基于 baseText。
-    fixScope = (mode === 'auto') ? splitContentScope(latest.text, norm.scopeTag) : { active: false };
+    // ✨ Phase 5（D+E）：不再直接 splitContentScope(norm.scopeTag) —— 缓存的标签可能已经不在这条回复里了（卡片
+    // 格式变了 / 这条回复是个例）。resolveFixScope 先判「缓存是否命中」，未命中再按来源（自动可自纠 / 手动只建议）
+    // 决定用哪个标签、要不要出提示；本函数只负责【决策 + 落状态】，不写配置也不发通知——那是 runAutoFix /
+    // runFixByTargets（D+E 门）的事，这里保持 captureFixContext「只搭建上下文」的既有契约。手动模式没有作用域
+    // （resolveFixModeCfg 早把 scopeTag 归一成 ''），fixScopeDecision 置空，行为与之前完全一致。
+    if (mode === 'auto') {
+        const dec = resolveFixScope({ cachedTag: norm.scopeTag, scopeManual: norm.scopeManual, reply: latest.text, replies: recentAiReplies(ctx.chat, 5) });
+        fixScopeDecision = dec;
+        fixScope = dec.active ? splitContentScope(latest.text, dec.tag) : { active: false };
+    } else {
+        fixScopeDecision = null;
+        fixScope = { active: false };
+    }
     const baseText = fixScope.active ? fixScope.inner : latest.text;
     fixOriginalReply = baseText;   // 机制块接回 + 看改动「before」基于作用域内层（作用域外的块在信封里、不参与校正与差异）
     const ex = extractExcludedSections(baseText, norm.keepTags, norm.dropTags);   // 排除区（仅自动）；思考块去留由用户「保留/丢弃」决定
     fixTargetProse = stripMechanismBlocks(ex.prose);   // 仍自动剥离 MVU 机制块（<UpdateVariable>，composeFixedReply 会原样接回）
     fixExtraKeep = ex.keepBlocks;   // 保留区块数组（composeFixedReply 按 ⟦SO_KEEP_n⟧ 位置还原，而非接到末尾）
+    // ✨ Phase 4 目标完整性：抓下这次校正的【身份 + 目标快照】。应用前（尤其手动卡「应用」的延迟点击、以及自动
+    // 在 LLM 往返后）用 fixTargetStale 比对，聊天已切（P-CORRUPT）/ 目标换 swipe / 内容变更 / 目标消失 → 不写、记一条。
+    // 指纹取整条 m.mes（换 swipe 后 mes 也变，两端不一致即拦下）；prose 存去机制块正文，供 addFixApplyControls 廉价截断复检。
+    fixCaptured = {
+        chatId: fixChatKey(),
+        targetIdx: latest.idx,
+        swipeId: (ctx.chat[latest.idx]?.swipe_id) | 0,
+        fingerprint: fixFingerprint(ctx.chat[latest.idx]?.mes),
+        prose: fixTargetProse,
+    };
     fixSummaryBlock = norm.includeSummary ? getSummary() : '';   // 📜剧情概要（手动默认带、自动可选）；buildFixEnvelope 包成 <story_summary>
     fixTightenActive = norm.tighten;   // ✨ 收紧：手动恒 false（单稿省时间）；自动按 ✂️收紧 开关（默认开）
     fixActiveMode = mode;              // buildFixPrompt 据此选系统提示：手动 → FIX_SYSTEM_PROMPT_MANUAL；自动 → FIX_SYSTEM_PROMPT(_TIGHTEN)
+    fixAutoPromptVersion = norm.promptVersion;   // ✨ 精校版本（仅自动生效；手动 norm 恒 'light'）；'thorough' → buildFixPrompt 用精校
+    fixAutoPromptFlavor = norm.promptFlavor;     // ✨ 精校侧重（'deepseek' / 'opus'）
     if (norm.includeContext) {
         const depth = norm.contextDepth | 0;              // -1（或任何非正数）= 全部前文
         const fetchDepth = depth > 0 ? depth + 1 : -1;    // 多取 1 条以便下面去掉待校正回复；非正数→-1 取全部
@@ -8806,6 +9717,10 @@ function renderFixCard(assistantEl, contentEl, aEntry, finalText) {
     // 手动宽容 / 自动严格：路由归一成 status；非 ok（'truncated' / 'unparseable'）原样回传给调用点出对应提示。
     const r = parseFixReply(finalText, fixActiveMode);
     if (r.status !== 'ok') return r.status;
+    // P-TRUNC：解析成功但成品像是被截断（<FixedReply> 开了没闭 / 末尾断句且明显偏短）→ 当截断处理，回传
+    // 'truncated' 让调用点提示「调大 token / 重试」并【不出应用按钮】——半句稿会腰斩这条回复。
+    const finishHint = (/<FixedReply\b[^>]*>/i.test(finalText) && !/<\/FixedReply\s*>/i.test(finalText)) ? 'length' : undefined;
+    if (fixOutputTruncated(r.fixed, finishHint, fixTargetProse).truncated) return 'truncated';
     const parsed = { fixed: r.fixed, problems: r.problems };   // 保持下游 parsed.fixed / parsed.problems / addFixApplyControls 契约不变
     aEntry.content = parsed.fixed;   // 历史里存干净的校正正文，而非原始 <FixedReply> 标签
     persistConvo();
@@ -8833,7 +9748,8 @@ function renderFixCard(assistantEl, contentEl, aEntry, finalText) {
         // 「发现并修正」note 挂在 .so-bubble 层（同 addApplyControls 的做法），落在 .so-content 下方而非混进正文。
         assistantEl.querySelector('.so-bubble')?.appendChild(note);
     }
-    addFixApplyControls(assistantEl, parsed, fixOriginalReply, fixTargetIdx, fixExtraKeep, fixScope);
+    // 把捕获快照 fixCaptured 一并传给应用控件：延迟点击「应用」时用它做陈旧守卫（P-CORRUPT 主要面）。
+    addFixApplyControls(assistantEl, parsed, fixOriginalReply, fixTargetIdx, fixExtraKeep, fixScope, fixCaptured);
     return 'ok';
 }
 
@@ -8846,6 +9762,22 @@ async function runFixByTargets() {
     if (s.mode === 'profile' && !s.profileId) { addSystemNote('请先在设置里选择一个连接配置档。'); return; }
     await captureFixContext(s, { mode: 'auto' });   // 「按目标校正」= 自动那套（双稿 / 目标 / 上下文按 fixA_*），手动触发一次
     if (!fixTargetProse.trim()) { addSystemNote('没找到可校正的 AI 回复（主聊天里要先有一条 AI 回复）。'); return; }
+    // R2 双重校正（一次性手动触发）：目标当前 swipe 已是校正结果 → 提醒会在其基础上再校正，随后继续（不静默改基准）。
+    if (isFixSwipe((getCtx().chat || [])[fixTargetIdx])) addSystemNote('这条回复当前显示的已是一次校正结果；将在其基础上再次校正（如需校正原文请先左滑回原文）。');
+    // ✨ Phase 5 D+E 门：与 runAutoFix 同一套判断（RESOLUTION A——这个按钮走的也是「自动」那套配置，理应遵守
+    // 同一份 D 静默兜底），只是这里是一次性、有人盯着屏幕的手动触发，所以走 addSystemNote 通道（普通侧聊提示），
+    // 不是 addAutoFixNote 的持久记录；suggest / skip 时直接 return，不出校正卡（呼应下面「没找到可校正的
+    // AI 回复」那类提前退出，不留下一张会误导的卡片）。
+    const scopeDec = fixScopeDecision;
+    if (scopeDec && scopeDec.action === 'detected') {
+        setFixCfg({ fixA_scopeTag: scopeDec.tag, fixA_scopeManual: false });
+        const scopeEl = win && win.querySelector('#so-fix-scope');
+        if (scopeEl) scopeEl.value = scopeDec.tag;
+        addSystemNote(fixScopeNoteText(scopeDec.note).body);
+    } else if (scopeDec && (scopeDec.action === 'suggest' || scopeDec.action === 'skip')) {
+        addSystemNote(fixScopeNoteText(scopeDec.note).body);
+        return;
+    }
     // 自动模式配置（per-chat 覆盖全局，再经 resolveFixModeCfg 归一）。
     const a = resolveFixModeCfg(getEffectiveFixCfg(s, getFixCfg()), 'auto');
     const directive = compileFixTargets(
@@ -8865,8 +9797,11 @@ async function runFixByTargets() {
     const contentEl = assistantEl.querySelector('.so-content');
     const clearTyping = showTyping(contentEl);
     setGenerating(true);
-    const ctl = new AbortController();
-    const timer = setTimeout(() => { try { ctl.abort(); } catch (e) { /* ignore */ } }, 120000);
+    // 用【模块级】abortCtl（与 generateReply / stopGeneration / 停止按钮同一个）：setGenerating(true) 已把发送键变成
+    // 「停止」键，点它经 onSend → stopGeneration 中断的正是 abortCtl。此前这里用【本地】ctl，停止键够不着 →「按目标
+    // 校正最新回复」一旦发出就无法中断（只能等 120s 超时 / 重载）。改用 abortCtl 后停止键即时生效（用户反馈修复）。
+    abortCtl = new AbortController();
+    const timer = setTimeout(() => { try { abortCtl?.abort(); } catch (e) { /* ignore */ } }, 120000);
     try {
         const effMaxTokens = Math.max(s.maxTokens, 4096);
         let finalText = '';
@@ -8876,19 +9811,19 @@ async function runFixByTargets() {
             if (s.sendTemperature) body.temperature = s.temperature;
             if (s.stream) {
                 contentEl.classList.add('so-streaming');
-                finalText = await streamDirect(url, s.apiKey, body, ctl.signal, (delta) => { clearTyping(); contentEl.textContent += delta; scrollToBottom(); });
+                finalText = await streamDirect(url, s.apiKey, body, abortCtl.signal, (delta) => { clearTyping(); contentEl.textContent += delta; if (soFollowStream) scrollToBottom(); });
                 contentEl.classList.remove('so-streaming');
             } else {
-                finalText = await callDirect(url, s.apiKey, body, ctl.signal);
+                finalText = await callDirect(url, s.apiKey, body, abortCtl.signal);
             }
         } else {
             const override = s.sendTemperature ? { temperature: s.temperature } : {};
             if (s.stream) {
                 contentEl.classList.add('so-streaming');
-                finalText = await callProfileStream(s.profileId, messages, effMaxTokens, override, ctl.signal, (full) => { clearTyping(); contentEl.textContent = full; scrollToBottom(); });
+                finalText = await callProfileStream(s.profileId, messages, effMaxTokens, override, abortCtl.signal, (full) => { clearTyping(); contentEl.textContent = full; if (soFollowStream) scrollToBottom(); });
                 contentEl.classList.remove('so-streaming');
             } else {
-                finalText = await callProfile(s.profileId, messages, effMaxTokens, override, ctl.signal);
+                finalText = await callProfile(s.profileId, messages, effMaxTokens, override, abortCtl.signal);
             }
         }
         clearTyping();
@@ -8898,11 +9833,16 @@ async function runFixByTargets() {
         }
     } catch (e) {
         clearTyping();
-        contentEl.textContent = '校正失败：' + (e?.message || e);
-        contentEl.classList.add('so-hint-error');
+        if (isUserAbort(e)) {
+            contentEl.textContent = '(已停止)';                       // 用户点停止键中断 → 平静收尾，不当报错（与 generateReply 一致）
+        } else {
+            contentEl.textContent = '校正失败：' + (e?.message || e);
+            contentEl.classList.add('so-hint-error');
+        }
     } finally {
         clearTimeout(timer);
         setGenerating(false);
+        abortCtl = null;                                             // 交还共享中断器（与 generateReply 一致）
         scrollToBottom();
     }
 }
@@ -8932,18 +9872,111 @@ function addAutoFixNote(status, problems, fix = null) {
     } catch (e) { console.warn('[Story Oracle] 自动校正记录写入侧聊失败：', e); }
 }
 
+/* ------------------------------------------------------------------ *
+ * ✨ 校正模式「自动配置」Phase 3 —— 环境自检 PURE 层（无 DOM / 无副作用 / 确定；无时钟无随机）。
+ * 校正结果偶尔让人费解，真正原因常常出在【外部环境】——弱模型 / 中转拒绝或吐垃圾、连接没配好、这条回复
+ * 压根没用 MVU——而不是校正本身的问题。这里只建纯检测 + 人话文案，供后续集成阶段调用：
+ * fixFailureReason（把模型调用的失败分类成人话原因，港 arcFailureReason 的形状——权威 API 信号优先，
+ * 文本启发式兜底）/ fixEnvNote（连接未配置 / MVU 缺失两种运行时条件的静态文案）/ replyExpectsMvu
+ * （这条回复是否带 MVU 状态栏标记的纯谓词，供判断 mvuAbsent 提示该不该出——没用 MVU 的卡片不该被
+ * 瞎报「状态栏不显示」）。真正读 window.Mvu / 设置的判断留给后续集成阶段；这一层只出文案 + 判定。
+ * ------------------------------------------------------------------ */
+
+// 纯函数：把模型调用的失败分类成人话原因。finish = 上游 finish_reason（今天实践中通常是 undefined，
+// 这里先接住以便日后接入，不强求）。按权威信号优先、文本启发式兜底的顺序：
+//   1. finish==='content_filter' → refusal（无条件，甚至先于「空回复」判断——这是 API 给的确凿信号）。
+//   2. text 是 null/undefined（缺内容），或整条 trim 后是空串 → empty（= 空回复）。注意：模型【回复正文本身】
+//      恰好是字面串 'null'/'[object Object]' 这类（序列化泄漏 = 有内容但是垃圾）仍走分支 4(d)——那是文本内容，不是缺内容。
+//   3. refusal：命中常见破限/审查话术（中英，大小写不敏感），且没有可用的 <FixedReply> 尝试——哪怕
+//      模型先道了个歉，只要还给出一份 <FixedReply>，就还有可用内容，不算拒绝（不按长度砍，只看这一个闸门）。
+//   4. garbage：明显不是模型的叙事校正输出——中转/网关的 JSON 错误体（{...} 且带 error 键）、HTML 错误页
+//      （<!DOCTYPE/<html 开头）、语言运行时调用栈（JS "at foo (file:12:34)" / Python Traceback）、整串
+//      字面 undefined/null/NaN/[object Object]、连续 3+ 个 U+FFFD 替换字符（编码乱码）。刻意不做「同字符
+//      连续重复」的启发式——正文里「啊啊啊啊」「哈哈哈哈」是正常 RP 语气，会被错杀。
+//   5. 否则 → ok（放行；「解析不出校正稿」的通用兜底文案已由调用方的 autoFixNoteContent('failed') 承担，这里不重复）。
+// 返回 {kind:'refusal'|'empty'|'garbage'|'ok', message}。可单测。
+function fixFailureReason(text, finish) {
+    const refusalMsg = '模型像是拒绝了这次校正，可试试勾『经自定义补全预设发送』破限';
+    if (finish === 'content_filter') return { kind: 'refusal', message: refusalMsg };
+    const trimmed = text == null ? '' : String(text).trim();
+    if (!trimmed) return { kind: 'empty', message: '中转返回空回复' };
+
+    const refusalPattern = /抱歉|很遗憾|对不起|无法(协助|完成|生成)|不能(提供|生成|协助)|违反[^\n]{0,10}(政策|准则)|内容政策|i'm sorry|i cannot|i can'?t (assist|help|comply|provide)|i won'?t|as an ai|content policy/i;
+    if (refusalPattern.test(trimmed) && !trimmed.includes('<FixedReply')) {
+        return { kind: 'refusal', message: refusalMsg };
+    }
+
+    let jsonError = false;
+    if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        try {
+            const obj = JSON.parse(trimmed);
+            if (obj && typeof obj === 'object' && !Array.isArray(obj) && Object.prototype.hasOwnProperty.call(obj, 'error')) jsonError = true;
+        } catch (e) { /* 不是合法 JSON，不算命中 */ }
+    }
+    const lower = trimmed.toLowerCase();
+    const isGarbage = jsonError
+        || /^<!doctype|^<html/i.test(trimmed)
+        || /\bat\s+\S+\s*\([^)]*:\d+:\d+\)/.test(trimmed)
+        || trimmed.includes('Traceback (most recent call last)')
+        || lower === 'undefined' || lower === 'null' || lower === 'nan' || lower === '[object object]'
+        || /�{3,}/.test(trimmed);
+    if (isGarbage) return { kind: 'garbage', message: '模型回复异常' };
+
+    return { kind: 'ok', message: '' };
+}
+
+// 纯函数：环境自检提示文案——静态 kind→string 查表，供后续集成阶段在对应运行时条件成立时展示。
+//   connectionUnset —— 自动校正开着，但连接（直连端点/模型，或配置档）没配好，所以不会运行。
+//   mvuAbsent —— 这条回复带 MVU 状态栏标记，但当前环境检测不到 window.Mvu，状态栏不显示是环境问题，与校正无关。
+// 其余 / nullish → ''（不出提示）。
+function fixEnvNote(kind) {
+    if (kind === 'connectionUnset') return '自动校正已开，但还没配置连接（端点/模型 或 配置档），所以不会运行——去设置里配一下。';
+    if (kind === 'mvuAbsent') return '状态栏由 MVU 渲染，当前没检测到 MVU，状态栏不显示与校正无关。';
+    return '';
+}
+
+// 纯谓词：这条回复文本是否【期待】MVU 渲染状态栏（带 STATUS_PLACEHOLDER 占位符，或 <UpdateVariable> 更新块）。
+// nullish → false。刻意不走 Phase 1 的 listTopLevelTagNames——那只看【顶层】块，标记若嵌在别的标签内部
+// （如埋在 <content>/<gametxt> 里）会被漏判；这里就是要在整条文本里【任意位置】找，嵌套也要认得出来。
+function replyExpectsMvu(text) {
+    if (text == null) return false;
+    const s = String(text);
+    return s.includes(STATUS_PLACEHOLDER) || /<UpdateVariable\b/i.test(s);
+}
+
 // 自动校正【运行步】（仿 runAutoDiagnose）：对最新一条主聊天 AI 回复用【勾选目标 + 约束】跑一次两段式校正，
 // 解析成功且确有改动则自动【作为新 swipe】应用（非破坏性，原文留在 swipe 0），每跑一轮在侧聊留一条记录。
 // 后台操作：自建上下文、不碰窗口共享态、不 setGenerating、不出问答气泡（与手动 runFixByTargets 的区别）。
 // 【不】自管锁 / settle——编排（Task 5 的 message_received 监听）持锁；本函数只负责「跑这一次」。
 // 一次性非流式调用（own AbortController + 120s 超时）。
-async function runAutoFix(ctx, s) {
+async function runAutoFix(ctx, s, targetId) {
     // 连接没配好就静默退出——别让每条回复都报错（开自动模式的人一般已配好直连 / 配置档）。
     if (s.mode === 'direct' && (!s.endpoint || !s.model)) return;
     if (s.mode === 'profile' && !s.profileId) return;
 
-    await captureFixContext(s, { mode: 'auto' });               // 自动模式：双稿 / 目标 / 上下文按 fixA_*（收紧仍受 ✂️收紧 开关）
+    await captureFixContext(s, { mode: 'auto', targetId });     // 自动模式：双稿 / 目标 / 上下文按 fixA_*（收紧仍受 ✂️收紧 开关）；targetId 钉住触发消息
     if (!fixTargetProse.trim()) return;                         // 没有可校正的 AI 回复正文
+    // R2 双重校正（自动）：目标当前 swipe 已是一次校正结果 → 跳过 + 记一条 nochange（防止在校正稿上再叠一层、越改越偏）。
+    if (isFixSwipe((ctx.chat || [])[fixTargetIdx])) { addAutoFixNote('nochange'); return; }
+
+    // ✨ Phase 5 D+E 门：captureFixContext 已经决策好这条回复该拿哪个作用域标签、要不要出提示（fixScopeDecision）；
+    // 这里只负责【落地】——写配置 / 出提示 / 决定继续还是跳过。位置刻意排在上面的 R2 双重校正之后（那条已经
+    // return 掉的情形不该再叠加一条作用域提示）、成本门 fixPreFilter 之前（省一次可能白花的 LLM 调用）。
+    //   detected → 采纳新标签：写回 per-chat 配置（缓存，且 scopeManual 仍是 false——这不是用户手填的）+
+    //     顺手同步一下设置面板里的 #so-fix-scope 输入框（如果窗口开着，用户正好能看见变化），继续往下走。
+    //   suggest / skip → D 的静默兜底：只留一条侧聊记录，绝不整条回复瞎改，本轮直接结束。
+    //   cache / fallbackWhole → 无需任何动作，直接往下走（fixScope 已经在 captureFixContext 里按决策设好了）。
+    const scopeDec = fixScopeDecision;
+    if (scopeDec && scopeDec.action === 'detected') {
+        setFixCfg({ fixA_scopeTag: scopeDec.tag, fixA_scopeManual: false });
+        const scopeEl = win && win.querySelector('#so-fix-scope');
+        if (scopeEl) scopeEl.value = scopeDec.tag;   // 单字段回填；el.value= 不触发 'input' 事件，scopeManual 不会被误置 true
+        addAutoFixNote('scope', scopeDec.note);
+        if (typeof toastr !== 'undefined') toastr.success(fixScopeNoteText(scopeDec.note).body, '', { timeOut: 6000 });   // ✨ M4：一次性自动切标签——窗口关着也看得见（skip/suggest 每条都弹会烦，故只 detected 弹）
+    } else if (scopeDec && (scopeDec.action === 'suggest' || scopeDec.action === 'skip')) {
+        addAutoFixNote('scope', scopeDec.note);
+        return;   // D 静默兜底：跳过这条，绝不整条误改
+    }
 
     // 自动模式配置（per-chat 覆盖全局，再归一）；fixAutoMinChars = 成本门最小字符数（自动专属，不进归一）。
     const cfg = getEffectiveFixCfg(s, getFixCfg());
@@ -8985,10 +10018,18 @@ async function runAutoFix(ctx, s) {
     const parsed = parseFixedReply(finalText);
     if (!parsed) { addAutoFixNote('failed'); return; }          // 解析不出 <FixedReply> 校正稿
     if (fixNoOp(fixTargetProse, parsed.fixed)) { addAutoFixNote('nochange'); return; }   // 校正稿与原文除空白外无差 → 无操作
+    // R1 P-TRUNC 截断守卫：原始回复里 <FixedReply> 开了没闭 → 合成 finish='length'；否则靠启发式（末尾断句 + 原文
+    // 收尾干净 + 明显偏短）。截断稿会把回复腰斩成半句 → 不应用、记一条 truncated（不落 swipe）。
+    const finishHint = (/<FixedReply\b[^>]*>/i.test(finalText) && !/<\/FixedReply\s*>/i.test(finalText)) ? 'length' : undefined;
+    if (fixOutputTruncated(parsed.fixed, finishHint, fixTargetProse).truncated) { addAutoFixNote('truncated'); return; }
 
     // 接回原回复的机制块（<UpdateVariable> + 状态栏占位符）+ 用户「排除·保留」区，再作为【新 swipe】应用。
     const innerFixed = composeFixedReply(parsed.fixed, fixOriginalReply, fixExtraKeep);
     const finalText2 = wrapContentScope(fixScope, innerFixed);   // ✨ 作用域：把校正后的内层回插信封原位（inactive 时为无操作）
+    // P-CORRUPT 权威网：LLM 返回后聊天可能已切走 / 这条回复已换 swipe / 被编辑 / 被删——写入前再核对捕获快照，
+    // 失效则不写、记一条 stale（原因经 problems 槽映射人话）。这是「切聊天发生在 LLM 返回之后」的最后一道闸。
+    const st = fixTargetStale(fixCaptured, fixCurrentSnapshot(fixTargetIdx));
+    if (st.stale) { addAutoFixNote('stale', st.reason); return; }
     await applyFixAsSwipe(fixTargetIdx, finalText2);
     // 抓【应用后】落点的 swipe_id（addSwipeToMessage 把新 swipe 设为当前），给记录的「用原文 ↔ 用校正稿」
     // 开关用；原文留在 swipe 0。before = 去机制块的原文 prose（fixTargetProse）；after 必须也是【纯散文】
@@ -9336,7 +10377,13 @@ function addMessage(role, content, entry) {
     }
 
     messagesEl.appendChild(wrap);
-    scrollToBottom();
+    if (role === 'assistant' && content === '') {
+        soFollowStream = false;                  // #1 新流式回复：固定顶部、默认不跟随，让用户从开头读
+        scrollBubbleToTop(wrap);
+    } else {
+        soFollowStream = true;                   // 用户发言 / 有内容的消息：滚到底并恢复跟随
+        scrollToBottom();
+    }
     return wrap;
 }
 
@@ -9503,7 +10550,15 @@ function addApplyControls(assistantEl, patchBlock) {
 
 // 校正卡的「应用到回复」按钮条（仿 addApplyControls）。应用 = 把校正稿（接回原文机制块后）作为新
 // swipe 写入目标消息；原文留在左滑。Phase 1 只做应用（撤销 = 左滑回 swipe 0）。
-function addFixApplyControls(assistantEl, parsed, originalReply, targetIdx, keepSections, scope) {
+// ✨ Phase 4：校正「应用」被陈旧守卫拦下时给手动卡片 status span 的人话文案（P-CORRUPT 切聊天 / 内容变更 / 换 swipe / 目标消失）。
+function staleMsg(reason) {
+    if (reason === 'chatSwitched') return '聊天已切换，未把校正写入这条回复（避免写到别的对话）。';
+    if (reason === 'contentChanged') return '这条回复已发生变化，未应用（避免覆盖新内容）。请重新校正。';
+    if (reason === 'swipeChanged') return '这条回复已切到别的 swipe，未应用。请切回后重新校正。';
+    return '目标回复已不在了，未应用。';   // gone（含未知原因兜底）
+}
+
+function addFixApplyControls(assistantEl, parsed, originalReply, targetIdx, keepSections, scope, captured) {
     const bar = document.createElement('div');
     bar.className = 'so-apply-bar';
     const btn = document.createElement('button');
@@ -9545,6 +10600,22 @@ function addFixApplyControls(assistantEl, parsed, originalReply, targetIdx, keep
         btn.disabled = true;
         status.textContent = '正在应用…';
         try {
+            // P-CORRUPT（主要面 = 延迟点击「应用」）：写入前再核对捕获快照。这段时间里可能切了聊天、划了 swipe、
+            // 或编辑了这条回复——失效则不写、给人话原因、把按钮放回去让用户重新校正（绝不写到别的对话 / 覆盖新内容）。
+            const st = fixTargetStale(captured, fixCurrentSnapshot(targetIdx));
+            if (st.stale) {
+                status.textContent = staleMsg(st.reason);
+                status.classList.add('so-hint-error');
+                btn.disabled = false;
+                return;
+            }
+            // P-TRUNC 廉价复检：成品（parsed.fixed）像是半句且明显短于原文 → 不写入（半句稿会腰斩回复）。
+            if (fixOutputTruncated(parsed.fixed, undefined, captured && captured.prose).truncated) {
+                status.textContent = '校正稿似乎被截断了，未应用。请点 ↻ 重试或调大「最大 token 数」后重新校正。';
+                status.classList.add('so-hint-error');
+                btn.disabled = false;
+                return;
+            }
             const innerFixed = composeFixedReply(parsed.fixed, originalReply, keepSections);
             const finalText = wrapContentScope(scope, innerFixed);   // ✨ 作用域：校正稿回插信封原位（inactive 时为无操作）
             const ok = await applyFixAsSwipe(targetIdx, finalText);
@@ -9974,8 +11045,38 @@ function updateSummaryIndicator(text) {
     if (count) count.textContent = t.trim() ? `${t.length} 字` : '（空——不会注入）';
 }
 
+// 流式滚动策略（用户反馈：流式时被一直拽到底、读不了开头）：新回复气泡出现时把它的【顶部】对到可视区顶部，
+// 让用户从头读；流式过程中默认【不】跟随，只有当用户自己滚到底部（soFollowStream=true）时才跟随最新输出。
+// soProgScroll 标记「我们自己触发的滚动」，避免被 scroll 监听器误当成用户操作。
+let soFollowStream = false;
+let soProgScroll = false;
+function nearBottom() {
+    return messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 40;
+}
 function scrollToBottom() {
+    soProgScroll = true;
     messagesEl.scrollTop = messagesEl.scrollHeight;
+    try { requestAnimationFrame(() => { soProgScroll = false; }); } catch (e) { soProgScroll = false; }
+}
+// 把某条气泡的顶部对到消息区顶部（留 6px），让流式回复从开头开始读。
+function scrollBubbleToTop(el) {
+    if (!el) return;
+    soProgScroll = true;
+    const cRect = messagesEl.getBoundingClientRect();
+    const eRect = el.getBoundingClientRect();
+    messagesEl.scrollTop = Math.max(0, messagesEl.scrollTop + (eRect.top - cRect.top) - 6);
+    try { requestAnimationFrame(() => { soProgScroll = false; }); } catch (e) { soProgScroll = false; }
+}
+// 输入框自动增高（用户反馈：粘贴大段文字时输入框太小）：高度随内容增长，最多到神谕窗口高度的一半，再内部滚动。
+function computeInputHeight(scrollH, winH, minH = 46) {
+    const cap = Math.max(minH, Math.round((Number(winH) || 0) * 0.5));
+    return Math.max(minH, Math.min(Number(scrollH) || minH, cap));
+}
+function autoGrowInput() {
+    if (!inputEl) return;
+    inputEl.style.height = 'auto';
+    const winH = (win && win.clientHeight) || window.innerHeight || 540;
+    inputEl.style.height = computeInputHeight(inputEl.scrollHeight, winH) + 'px';
 }
 
 /* ------------------------------------------------------------------ *
@@ -9995,8 +11096,17 @@ function applyInitialGeometry(s) {
         win.style.top = `${Math.max(0, Math.min(window.innerHeight - 40, s.winTop))}px`;
         win.style.right = 'auto';
     } else if (window.innerWidth < 600) {
-        win.style.left = `${Math.max(margin, Math.round((window.innerWidth - w) / 2))}px`;
-        win.style.top = '56px';
+        // 手机首次开窗（无存档几何）：居中（含纵向），标题栏不再贴顶被状态栏 / 刘海挡住
+        //（用户反馈：手机版按钮挤在最顶上、不好戳）。仅无存档几何时；用户拖过就尊重其位置。
+        const vv = window.visualViewport;
+        const c = centeredWindowBox(
+            { w: (vv && vv.width) || window.innerWidth, h: (vv && vv.height) || window.innerHeight, offX: (vv && vv.offsetLeft) || 0, offY: (vv && vv.offsetTop) || 0 },
+            { width: w, height: h },
+        );
+        win.style.left = `${c.left}px`;
+        win.style.top = `${c.top}px`;
+        win.style.width = `${c.width}px`;
+        win.style.height = `${c.height}px`;
         win.style.right = 'auto';
     } // else: desktop keeps the CSS default (top:70px right:20px)
 }
@@ -10014,11 +11124,28 @@ function clampWindowBox(box, view) {
     return { left, top, width, height };
 }
 
+// 纯函数：把一个盒子【居中】进【可见】视口并把尺寸夹进视口，返回 {left,top,width,height}（CSS 像素）。
+// clampWindowBox 的姊妹（同 margin/minW/minH），但这里是【主动居中到默认几何】而非就地夹取：用于手机
+// 首次开窗居中（applyInitialGeometry）与魔棒菜单「窗口归位」一键复位（recenterWindow）。view={w,h,offX,offY}
+//（offX/offY = 软键盘弹出时 visualViewport 偏移，缺省 0）；opts.width/height 缺省 380×540（与初始默认一致）。
+// 单测 window-recenter.test.mjs。
+function centeredWindowBox(view, opts) {
+    const margin = 8, minW = 300, minH = 320;
+    const v = view || {};
+    const vw = v.w || 0, vh = v.h || 0, offX = v.offX || 0, offY = v.offY || 0;
+    const width = Math.max(minW, Math.min((opts && opts.width) || 380, vw - margin * 2));
+    const height = Math.max(minH, Math.min((opts && opts.height) || 540, vh - margin * 2));
+    const left = offX + Math.max(margin, Math.round((vw - width) / 2));
+    const top = offY + Math.max(margin, Math.round((vh - height) / 2));
+    return { left, top, width, height };
+}
+
 // 把当前窗口重新夹回可见视口（开窗 / 旋屏 / 键盘弹收时调用）。宽高基准取「用户存的几何」或与
 // applyInitialGeometry 一致的默认（380×540），这样键盘压扁后收起还能长回原尺寸。【不 save()】——
 // 这只是临时贴合显示，不覆盖用户拖 / 拽存下来的几何。
 function ensureWindowInView() {
     if (!win || win.style.display === 'none') return;
+    autoGrowInput();                                        // #4 窗口尺寸变化时重算输入框高度上限（上限=窗口高度一半）
     const s = getSettings();
     const vv = window.visualViewport;
     const view = {

@@ -535,7 +535,8 @@
     padding: 9px 12px;
     font-family: inherit;
     line-height: 1.4;
-    max-height: 140px;
+    min-height: 46px;              /* #4 两行下限；高度由 JS autoGrowInput 控制，最多到窗口一半再内部滚动 */
+    overflow-y: auto;
     transition: border-color 0.15s, box-shadow 0.15s;
 }
 #so-input:focus {
@@ -604,8 +605,12 @@
 }
 #so-resize-grip:hover { opacity: 0.8; }
 
+/* 手机专属：魔棒菜单里的「窗口归位」救援项——桌面隐藏，下面的 @media 在手机显示（救援拖丢的窗口，见 index.js recenterWindow）。 */
+#so-wand-recenter { display: none; }
+
 @media (max-width: 600px) {
     #so-window { max-height: 85vh; }
+    #so-wand-recenter { display: flex; }   /* 手机：显示「窗口归位」救援项 */
     /* bigger grab target on touch screens */
     #so-resize-grip { width: 32px; height: 32px; opacity: 0.6; }
     #so-header { touch-action: none; }
@@ -788,6 +793,27 @@
 .so-fix-bundle-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
 .so-fix-bundle-row #so-fix-bundle { flex: 1 1 120px; min-width: 100px; }
 .so-fix-bundle-row .so-fix-run-btn { margin-top: 0; padding: 5px 9px; flex: 0 0 auto; }
+
+/* ✨ 校正 Phase 6（B）：作用域判定预览行——命中(绿) / 会切标签·会跳过(琥珀) / 整条(中性淡)。 */
+.so-fix-verdict { font-size: 0.82em; line-height: 1.45; padding: 5px 8px; border-radius: var(--so-r-md, 8px);
+    border: 1px solid transparent; margin-top: 2px; }
+.so-fix-verdict-ok { background: color-mix(in srgb, #3fb950 15%, transparent); border-color: color-mix(in srgb, #3fb950 40%, transparent); }
+.so-fix-verdict-warn { background: color-mix(in srgb, #d29922 16%, transparent); border-color: color-mix(in srgb, #d29922 42%, transparent); }
+.so-fix-verdict-neutral { opacity: 0.7; }
+/* ✨ 校正 Phase 6（C）：扫描结果面板——检测到的标签 / 置信度徽标 / 候选 chip / 内层结构块勾选。 */
+.so-fix-scan-panel { display: flex; flex-direction: column; gap: 5px; padding: 8px; margin-top: 2px;
+    border: 1px dashed color-mix(in srgb, var(--so-accent) 45%, transparent); border-radius: var(--so-r-md, 8px);
+    background: color-mix(in srgb, var(--so-accent) 6%, transparent); font-size: 0.85em; }
+.so-scan-row { line-height: 1.5; }
+.so-scan-conf { font-size: 0.82em; padding: 1px 7px; border-radius: 999px; margin-left: 4px; }
+.so-scan-conf-high { background: color-mix(in srgb, #3fb950 22%, transparent); }
+.so-scan-conf-med { background: color-mix(in srgb, #d29922 22%, transparent); }
+.so-scan-conf-low { background: color-mix(in srgb, #f85149 20%, transparent); }
+.so-scan-cands, .so-scan-blocks { display: flex; flex-wrap: wrap; gap: 6px; }
+.so-scan-cand { padding: 3px 9px; cursor: pointer; border-radius: 999px; border: 1px solid var(--so-accent);
+    background: color-mix(in srgb, var(--so-accent) 12%, transparent); color: inherit; font-size: 0.92em; }
+.so-scan-cand:hover { background: color-mix(in srgb, var(--so-accent) 24%, transparent); }
+.so-scan-blocks .so-check { flex: 0 0 auto; }
 
 /* 模式工具栏折叠：诊断 / 世界书的配置栏整条可折叠成一行标题，给聊天区让出竖向空间（手机上尤其重要）。
    复用设置分组的 <summary> ▸ 机制，染上当前模式的主题色（世界书=羊皮纸暖色；诊断里 --so-lb-accent 被改写为蓝）。 */
