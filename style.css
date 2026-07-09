@@ -268,6 +268,10 @@
 .so-hint-error { color: var(--crimson70a, #e07c7c); opacity: 0.95; }
 
 .so-hint { font-size: 0.78em; opacity: 0.55; line-height: 1.4; }
+/* 手动校正高上下文告警：比普通 hint 更醒目的 subtle amber（弱模型高上下文认不准目标楼层，用户反馈） */
+.so-fixm-warn { color: color-mix(in srgb, #e0a23a 72%, var(--SmartThemeBodyColor, #e6e6e6)); opacity: 0.9; }
+/* 近抄警示（Tier 0 ①，1.25.0）：校正结果里稿子几乎没改时的琥珀提示（比普通 hint 更醒目，出现在应用条上方） */
+.so-fix-nearcopy-warn { margin: 4px 0 2px; font-size: 0.82em; line-height: 1.4; color: color-mix(in srgb, #e0a23a 80%, var(--SmartThemeBodyColor, #e6e6e6)); opacity: 0.95; }
 
 /* ---------- messages ---------- */
 #so-messages {
@@ -455,6 +459,12 @@
 .so-assistant .so-role-label { opacity: 0.5; }
 
 .so-actions { display: flex; align-items: center; gap: 1px; flex: 0 0 auto; }
+/* A2：消息操作按钮（复制 / 重生 / 编辑 / 删除）默认渲染在气泡【底部】而非挤在角色行——
+   底部一行右对齐，桌面仍靠 .so-msg-btn 的 hover 显影。原生化自二创 actions-bottom（用户已在用）。 */
+.so-bubble > .so-actions { justify-content: flex-end; margin-top: 5px; }
+/* A6：连接预设 UI —— 下拉 + 加载 / 删除 / 保存图标钮成一行；下拉 / 名称输入撑满。 */
+.so-conn-preset-row { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
+.so-conn-preset-row > select, .so-conn-preset-row > input { flex: 1 1 auto; min-width: 0; }
 
 .so-msg-btn {
     appearance: none;
@@ -704,6 +714,16 @@
     color: var(--so-fix-auto-gold, #e3b341);
     opacity: 1;
 }
+/* ✨ 自动校正「等你确认一次」（Option B「kill the silence」，2026-07-07）：这张卡是散文+结构混排的 bare
+   形态，还没确认过一次，runAutoFix 正被 pending 分支逐条静默跳过 —— 把图标染成琥珀 + 轻脉冲，让关着设置
+   面板的用户也一目了然（金 = 正常自动跑，琥珀脉冲 = 等你点一次确认）。与 .so-fix-auto 互斥（按钮只处一态）。 */
+#so-fix-btn.so-fix-pending {
+    color: var(--so-fix-pending-amber, #d98324);
+    opacity: 1;
+    animation: so-fix-pending-pulse 1.6s ease-in-out infinite;
+}
+@keyframes so-fix-pending-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+@media (prefers-reduced-motion: reduce) { #so-fix-btn.so-fix-pending { animation: none; } }
 /* 进入校正模式时给标题栏一抹淡金，和 advisor / lorebook / diagnose 一样让整窗染上模式色。 */
 #so-window.so-fix-on #so-header {
     background: linear-gradient(180deg,
@@ -1332,6 +1352,22 @@
 #so-window.so-plan-on #so-plan-bar { display: flex; }
 #so-window.so-settings-open #so-plan-bar { display: none; }
 
+/* 引导条默认收起以省纵向空间（用户反馈：停靠时挡聊天视图）：收起态只留标题行
+   （罗盘 + 引导中 + 目标 + 箭头），其余行（进度 / 强度 / 说明 / 弧线节奏 / 动作 / 注入内容）隐藏。
+   仅在【停靠窗口内】(#so-window > …) 生效——浮窗版有自己的折叠成小药丸机制，并隐藏其停靠箭头。 */
+#so-window > #so-plan-bar.so-plan-collapsed > :not(.so-plan-head) { display: none !important; }
+#so-window > #so-plan-bar.so-plan-collapsed #so-plan-goal {
+    flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.so-plan-collapse-btn {
+    margin-left: auto; flex: 0 0 auto; align-self: center;
+    background: none; border: none; cursor: pointer; padding: 2px 5px;
+    color: var(--so-adv-accent); opacity: 0.7; font-size: 0.82em; line-height: 1;
+    border-radius: 6px; transition: opacity 0.15s, background-color 0.15s;
+}
+.so-plan-collapse-btn:hover { opacity: 1; background: rgba(255, 255, 255, 0.08); }
+#so-plan-float #so-plan-bar .so-plan-collapse-btn { display: none; }
+
 .so-plan-head {
     display: flex;
     align-items: baseline;
@@ -1858,10 +1894,16 @@
     font-size: 1.02em;
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 8px;
     margin-bottom: 10px;
+    flex: 0 0 auto;   /* 标题行（含逃生 ✕）不被 flex 压缩，始终留在卡片顶部、在屏内 */
 }
-#so-autowarn-head > i, #so-fixwarn-head > i { color: var(--so-auto-red, #d9534f); }
+.so-warn-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.so-warn-title > i { color: var(--so-auto-red, #d9534f); }
+/* 顶部逃生 ✕：叠层盖住了标题栏 ✕ 和缩放把手，手机窄视口下底部按钮又会被压出屏——这个始终在屏内的
+   顶部出口（配合点遮罩关闭）保证任何情况下都能退出，不至于把整个神谕窗口锁死到只能刷新。 */
+.so-warn-x { flex: 0 0 auto; }
 #so-autowarn-body, #so-fixwarn-body {
     font-size: 0.84em;
     line-height: 1.6;
@@ -1901,6 +1943,50 @@
     font-size: 0.86em;
 }
 #so-autowarn-btns button:hover, #so-fixwarn-btns button:hover { background: rgba(255, 255, 255, 0.12); }
+
+/* ✂️ 选段校正卡（1.27.0，Part C）：复用 #so-fixwarn 的 inset:0 骨架（手机遮罩防锁死：卡片 max-height 封顶、
+   正文内滚、.so-warn-x 逃生 + 点遮罩关闭）。只读回复 textarea 划选定位字符偏移；失焦后 overlay 画持久黄高亮。 */
+#so-fixsel {
+    display: none; position: absolute; inset: 0; z-index: 60;
+    align-items: center; justify-content: center; padding: 16px; box-sizing: border-box;
+    background: rgba(8, 9, 12, 0.84); backdrop-filter: blur(4px);
+}
+#so-fixsel.open { display: flex; }
+#so-fixsel-card {
+    display: flex; flex-direction: column; width: 100%; max-width: 560px; max-height: 100%; min-height: 0;
+    box-sizing: border-box; border-radius: 12px; border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+    background-color: #1b1d23; box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.7); padding: 16px 18px;
+}
+#so-fixsel-head {
+    font-weight: 700; font-size: 1.0em; display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; margin-bottom: 10px; flex: 0 0 auto;   /* 标题行含逃生 ✕，不被压缩、始终在屏内 */
+}
+#so-fixsel-body { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
+/* 只读回复文本 + 高亮 overlay：两层严格同样式同位置叠放（GG 式），划选在 textarea、失焦后 overlay 画持久高亮 */
+.so-fixsel-wrap { position: relative; }
+.so-fixsel-text, .so-fixsel-overlay {
+    width: 100%; box-sizing: border-box; margin: 0; border-radius: 8px; padding: 8px 10px;
+    font: inherit; font-size: 0.86em; line-height: 1.55; white-space: pre-wrap; word-break: break-word;
+    min-height: 180px; max-height: 42vh;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+}
+.so-fixsel-text { position: relative; resize: vertical; overflow-y: auto; background: rgba(0, 0, 0, 0.22); color: var(--SmartThemeBodyColor, #e6e6e6); }
+.so-fixsel-overlay { position: absolute; inset: 0; z-index: 1; overflow-y: auto; pointer-events: none; color: transparent; background: transparent; display: none; }
+.so-fixsel-hl { background: rgba(224, 162, 58, 0.42); border-radius: 2px; color: transparent; }
+.so-fixsel-info { flex: 0 0 auto; }
+.so-fixsel-instr {
+    width: 100%; box-sizing: border-box; border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 0.86em;
+    background: rgba(0, 0, 0, 0.22); color: var(--SmartThemeBodyColor, #e6e6e6); resize: vertical;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+}
+#so-fixsel-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; flex: 0 0 auto; }
+#so-fixsel-btns button {
+    padding: 7px 14px; border-radius: 8px; border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.2));
+    background: rgba(255, 255, 255, 0.06); color: var(--SmartThemeBodyColor, #ddd); cursor: pointer; font-size: 0.86em;
+}
+#so-fixsel-btns button:hover { background: rgba(255, 255, 255, 0.12); }
+.so-fixsel-go:not(:disabled) { background: var(--so-auto-red, #d9534f) !important; border-color: transparent !important; color: #fff !important; font-weight: 600; }
+.so-fixsel-go:disabled { opacity: 0.45; cursor: not-allowed; }
 #so-autowarn-ok {
     background: var(--so-auto-red, #d9534f) !important;
     border-color: var(--so-auto-red, #d9534f) !important;
@@ -1927,3 +2013,41 @@
 /* ✨ 1.18.3 新手优先重排：校正目标两列排布（手机窄屏回落单列）；进阶折叠沿用 so-mode-collapse。 */
 .so-fix-tgt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 8px; }
 @media (max-width: 600px) { .so-fix-tgt-grid { grid-template-columns: 1fr; } }
+
+/* 角色工坊模式（第 6 模式）配置栏 —— 校正块的拷贝，s/fix/bld/。本任务只搭空壳，内容由后续任务填充。 */
+#so-window { --so-bld-accent: color-mix(in srgb, var(--so-accent) 45%, #b07cc6 55%); }
+#so-builder-btn.so-bld-active { color: var(--so-bld-accent); background-color: color-mix(in srgb, var(--so-bld-accent) 16%, transparent); opacity: 1; }
+#so-window.so-bld-on #so-header { background: linear-gradient(180deg, color-mix(in srgb, var(--so-bld-accent) 22%, transparent), transparent); }
+#so-bld-bar { --so-lb-accent: var(--so-bld-accent); display: none; flex: 0 0 auto; flex-direction: column; gap: 6px; padding: 9px 12px; border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,0.1)); background: color-mix(in srgb, var(--so-bld-accent) 7%, transparent); max-height: 50%; overflow-y: auto; }
+#so-window.so-bld-on #so-bld-bar { display: flex; }
+#so-window.so-settings-open #so-bld-bar { display: none; }
+/* 草稿部分 chips 行：一排可点亮的部分标签（BUILDER_SECTIONS）。 */
+.so-stream-cue { font-size: 11px; opacity: .55; padding: 2px 8px 6px; text-align: center; }
+.so-bld-chips-row { display: flex; align-items: flex-start; gap: 6px; flex-wrap: wrap; font-size: 12px; }
+.so-bld-chips-label { flex: 0 0 auto; opacity: 0.7; padding-top: 2px; }
+#so-bld-chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.so-bld-chip { border: 1px solid color-mix(in srgb, var(--so-bld-accent) 55%, transparent); border-radius: 10px; padding: 1px 8px; cursor: pointer; opacity: .55; background: transparent; color: inherit; font-size: 12px; }
+.so-bld-chip.on { opacity: 1; background: color-mix(in srgb, var(--so-bld-accent) 18%, transparent); }
+.so-bld-chip.adv { border-style: dashed; }   /* #2：进阶三件——虚线边示意「按需勾选」，与图例虚线呼应 */
+#so-bld-chips .so-bld-chips-advtag { flex-basis: 100%; opacity: .6; font-size: 11px; margin-top: 3px; }   /* #2：进阶三件前的分组标签，另起一行 */
+/* 角色工坊选书 / 选条目器用原生 <details>（非世界书那套 .so-lb-entries.open 机制），故显式补：
+   给 details 一层与 .so-lb-bookpick 一致的边框 / summary 去三角，并在展开时恢复被
+   .so-lb-entries-tools 默认 display:none 藏掉的工具行。 */
+.so-lb-books { border: 1px solid var(--SmartThemeBorderColor, #444); border-radius: var(--so-r-md, 6px); padding: 2px 6px; }
+.so-lb-books > summary { cursor: pointer; list-style: none; padding: 2px 0; font-size: 0.9em; }
+.so-lb-books > summary::-webkit-details-marker { display: none; }
+.so-lb-books[open] .so-lb-entries-tools { display: flex; }
+#so-bld-book-list { max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+#so-bld-entry-list { display: flex; flex-direction: column; max-height: 168px; overflow-y: auto; gap: 1px; margin-top: 4px; }
+#so-bld-ent-filter { flex: 1 1 100%; margin-top: 2px; }
+/* 草稿常驻卡（Task 6）——遮罩卡地雷模式：flex 列 + 可滚动正文，防止移动端两端裁切。 */
+#so-bld-card { display: flex; flex-direction: column; max-height: 40vh; border: 1px solid color-mix(in srgb, var(--so-bld-accent) 55%, transparent); border-radius: 8px; padding: 6px 8px; gap: 4px; }
+#so-bld-card .so-bld-card-body { overflow-y: auto; white-space: pre-wrap; font-size: 12px; }
+#so-bld-card .so-bld-card-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* 角色工坊：章节说明（? 按钮 + 移动端可用的图例面板） */
+#so-bld-chips-help { border: 1px solid color-mix(in srgb, var(--so-bld-accent) 55%, transparent); border-radius: 50%; width: 16px; height: 16px; line-height: 13px; padding: 0; font-size: 11px; cursor: pointer; background: transparent; color: inherit; opacity: .7; vertical-align: 1px; }
+#so-bld-chips-help:hover { opacity: 1; background: color-mix(in srgb, var(--so-bld-accent) 18%, transparent); }
+#so-bld-chips-legend { font-size: 12px; line-height: 1.5; padding: 6px 8px; border: 1px dashed color-mix(in srgb, var(--so-bld-accent) 45%, transparent); border-radius: 8px; max-height: 30vh; overflow-y: auto; }
+#so-bld-chips-legend .so-bld-legend-row b { color: var(--so-bld-accent); }
+#so-bld-chips-legend .so-bld-legend-guide { opacity: .9; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px dashed color-mix(in srgb, var(--so-bld-accent) 30%, transparent); }
