@@ -15382,7 +15382,7 @@ function renderEmptyState() {
 async function clearConversation() {
     // 清空会连带删除本聊天已保存的侧聊历史（含自动诊断记录），无法撤销——与本扩展其它破坏性
     // 操作（清空概要 / 重置提示词 / 退出弧线）保持一致，先确认再执行。空对话则无需打扰直接返回。
-    const where = convoStreamKey === 'main' ? '本聊天的侧聊历史' : (streamCueLabel(convoStreamKey, getSettings()) || '本模式的侧聊记录');
+    const where = convoStreamKey === 'main' ? '本聊天（普通聊天）的侧聊记录' : (streamCueLabel(convoStreamKey, getSettings()) || '本模式的侧聊记录');
     if (convo.length && !(await uiConfirm(`确定清空${where}吗？此操作会删除已保存的记录，无法撤销。`))) return;
     convo = [];
     persistConvo();   // 用户功能请求：手动清空也清掉本聊天保存的历史（删元数据键）
