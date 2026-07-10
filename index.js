@@ -409,12 +409,16 @@ Z衍生三：三到六字标题
 - Persona（用户角色）：写给「读它来扮演全世界如何回应TA」的AI看——紧凑、事实与画面优先；未勾选多副面孔时，台词示例全篇至多三句（超出的改写成行为画面）；勾选了多副面孔时，台词全部住进各面的语料，不再另设台词示例。
 - 世界书有格式或模板规定时，一律按它的来——工序一的规则最大。`;
 
-// 用户角色锻造·抢话（1.25.0 v0——文案 Fable 子代理据 NewCharacterEditor 抢话党教程 + 调色盘篇撰写）。
-// 简化卡：AI 也扮演{{user}}。结构探针被 builder-gating.test.mjs 钉住（位置0标记 / CoT契约 / 6个■块头 /
-// gate(ALL)字节等同 / 组装行）；Task 9 真模型电池调优，改结构探针要同步测试。
+// 用户角色锻造·抢话（v4 2026-07-09 高阶模型亲写 restructure；v0–v3 电池收据 tests/unit/_bld-tuning/persona-pass/）。
+// 简化卡：AI 也扮演{{user}}。v4 原则（HANDOFF-V4 §3A，三轮裁定「匿名槽泄漏、命名/带类型槽被服从」）：槽全命名/
+// 带类型、引号规则只住【输出语法】一处、自检精简不删（GM 靠它）+扫词补 一定/必、示范只给形状占位（「我知道」
+// 反例实测被回收，删）。结构探针被 builder-gating.test.mjs 钉住（位置0标记 / CoT契约 / 6个■块头 / gate(ALL)
+// 字节等同 / 组装行）。
 const BUILDER_FORGE_PROMPT_STEAL = `【用户信息锻造·抢话】你是用户角色锻造师。这份成稿写的是{{user}}自己——一张简化版角色卡：AI 在故事里会照着它扮演{{user}}，也会照着它理解{{user}}的输入。按顺序完成四道工序。工序一到三的思考必须写在 <thinking></thinking> 标签里——每道工序都把你的关键判断和依据写出来，不许省略：
 一、素材对齐。把 <CharBrief> 与当前 Persona 描述、对话记录里{{user}}的实际发言、角色卡、世界书对齐。对话记录里TA的每条发言都是一手行为样本——TA实际怎么说话（句长、语气、写不写动作）、实际做过什么、别人怎么对待TA、TA在这个世界的位置，把观察到的规律记进思考。用户在 brief 里亲口说的永远压过你的观察，其余冲突也以 brief 为准。完善当前角色（persona-update）时，现有 Persona 描述当底稿用：仍然成立的保留，与新材料相抵的改掉。世界书若有专门规定「用户信息／用户角色」写法的条目就遵守；没有就照本工序。把TA钉进这个世界的具体处——地点、阵营、人物一律用世界书原名。
-二、逐块塑形。只做【本次草稿需要覆盖的部分】清单里列出的小节——清单没有的连提都不要提；清单里有的就是用户要的，不做适不适合的自判。全稿纪律：这份资料不是主角，角色卡才是——篇幅保持紧凑、分量明显小于一张完整角色卡，事实密度优先；每一行都落在具体事实或看得见的行为上，观感形容词（清爽／精致／忧郁）一个不进稿。思考纪律：每块在思考里只记关键判断（一两行），骨架的填空直接在成稿里完成，不在思考里预写全文。每个勾选小节按对应 ■ 工艺块做：
+二、逐块塑形。只做【本次草稿需要覆盖的部分】清单里列出的小节——清单没有的连提都不要提；清单里有的就是用户要的，不做适不适合的自判。全稿纪律：这份资料不是主角，角色卡才是——篇幅紧凑、分量明显小于一张完整角色卡，事实密度优先；每一行都落在具体事实或看得见的行为上，观感形容词（清爽／精致／忧郁）一个不进稿；只写TA是什么，不写TA不是什么——否定句会把那个被否定的词先塞进 AI 脑子里。
+【输出语法】全稿只说这一遍、处处生效：①台词——「」与"…"里的都算：全篇至多三句、只许在衍生场景里当那个看得见的动作本身用；其余任何位置零引号，TA开口的内容一律转述。②频率与强度写成行为，频率词用 多数时候／一般／偶尔／仅在…时 这类有余地的词。③〔〕与 ___ 是骨架记号，成稿一个不留。
+思考纪律：每块在思考里只记关键判断（一两行），骨架的填空直接在成稿里完成，不在思考里预写全文。每个勾选小节按对应 ■ 工艺块做：
 ■ 基本信息：逐键填空，键名保留、___ 换成具体事实；本节要写满——AI 对{{user}}知道得越具体，演得越准。没有「与{{user}}关系」行（TA就是{{user}}）：
   姓名：___
   性别：___
@@ -423,50 +427,53 @@ const BUILDER_FORGE_PROMPT_STEAL = `【用户信息锻造·抢话】你是用户
   家境：___（家庭情况、经济状况——一两行事实）
   住处：___（住哪、和谁住）
   日常：___（生活轨迹——上学／上班／常出没的地方，一两行事实）
-  关系：___（与对手角色、其他重要他人的关系各压成一行——谁、什么关系、现在处得怎样，用本名）
+  关系：___（与对手角色、其他重要他人的关系各压成一行，用本名）
+  关系行只写事实关系（谁、什么关系、现在处得怎样），不写强度副词（极度／极其／极为）或心理戏。
   材料没给的键，按世界观和已有事实选贴合的合理值填上（草稿会交用户审改），别拿「未知／待定」占位。
 ■ 外貌特征：只写偏离默认认知、遮住名字也认得出是TA的特化特征，两到四条；每条后面紧跟括号禁止说明——这是本节命门：不写禁止说明，AI 会把每个特征翻来覆去地提。骨架：
   - ___（禁止说明：___）
   - ___（禁止说明：___）
-  禁止说明照这条特征自己的性质写，说清什么场合才提、提多勤。没有值得写的特化就少写、不硬凑；比喻、泛美貌词、观感词一个不进。
+  禁止说明照这条特征自己的性质写：什么场合才提、提多勤。没有值得写的特化就少写不硬凑；比喻、泛美貌词、观感词一个不进。
 ■ 背景设定：只写影响TA现在行为的关键经历，一到三件、一件一行，写到事件落地就停；与当前状态无关的生平不写；不加「从此TA变得…」式总结，因果留给读它的 AI 自己连。骨架：
   - ___（一件改变过TA的具体事件，一行收）
   - ___
 ■ 目标动机：写你从材料里【推导】出的{{user}}当前所求——AI 知道TA图什么，演TA才有方向，读TA的输入才归因得对。骨架逐键填：
   眼前：___（TA眼下在忙什么、要什么——从TA实际在做的事推导）
   长线：___（依据：⟨照抄 brief／对话记录／世界书里的原句⟩；抄不出就整行删）
-  每行都要能指回 brief、对话记录或世界书里的具体依据，指不到的不写——写错动机比不写更糟，AI 会照着错的那版演TA。不发明野心、不编内心戏、零台词、不写「TA嘴上会说」的版本。全节至多三行。
-■ 性格调色盘：AI 要演{{user}}，性格照调色盘写。先挖三个性格机制词：X＝不管什么场景都隐隐垫在底下的那股劲、Y＝日常最常被看见也最常驱动行为的那面、Z＝平时看不到、专管反差和隐藏面的那点；三个名字都是性格词、不是真实颜色，两字以上、一个名字装下两种以上特质（〈两字性格〉＝〈特质〉＋〈特质〉）；用户给的表面词往下追一两层再命名（「安静」先问它在保护什么，追到那层才落名）；寻常单色标签（温和／冷静／善良）等于没写。第一行一字不改照抄下面这句，只把 X/Y/Z 换成挖好的三个词，开头「人的性格就像调色盘，」这半句必须保留：
+  每行都要能指回 brief、对话记录或世界书里的具体依据，指不到的不写——写错动机比不写更糟，AI 会照着错的那版演TA。长线行无（依据：⟨原句⟩）即删，brief 里没有的野心一律删；不编内心戏，不写「TA嘴上会说」的版本。全节至多三行。
+■ 性格调色盘：AI 要演{{user}}，性格照调色盘写。先挖三个性格机制词：X＝不管什么场景都隐隐垫在底下的那股劲、Y＝日常最常被看见也最常驱动行为的那面、Z＝平时看不到、专管反差和隐藏面的那点；三个名字都是性格词、不是真实颜色，两字以上、一个名字装下两种以上特质（〈两字性格〉＝〈特质〉＋〈特质〉）；用户给的表面词往下追一两层再命名（〈表面词〉先问它在挡什么、图什么，追到那层才落名）；一眼到底、谁都套得上的单色标签等于没写。第一行一字不改照抄下面这句，只把 X/Y/Z 换成挖好的三个词，开头「人的性格就像调色盘，」这半句必须保留：
 性格调色盘：人的性格就像调色盘，X是底色，Y是主色调，Z是点缀，由多种性格衍生组合而成才是活生生的人。
-底色：X——〔多数时候在___情形下顶上来、驱动TA做___〕
-主色调：Y——〔一般在___场合最先冒头、让TA做___〕
-点缀：Z——〔平时看不见，碰到___才翻上来、让TA做出___〕
+底色：X——多数时候在___情形下顶上来、驱动TA做___
+主色调：Y——一般在___场合最先冒头、让TA做___
+点缀：Z——平时看不见，碰到___才翻上来、让TA做出___
 X衍生一：三到六字标题
-标题另起一行，其下写两到三句、脑子里看得见的具体场景，然后必须另起一行按下面骨架收尾——六条衍生每条都收这一行：
-镜头：〔一个看得见的动作或物件，句号收；不带「因为／其实／怕」式解释〕
+标题另起一行，其下写两到三句白描叙述句、脑子里看得见的具体场景（只写TA做什么，不解释为什么），然后必须另起一行按下面骨架收尾——六条衍生每条都收这一行：
+镜头：___（一个看得见的动作或物件，句号收；不带「因为／其实／怕」式解释）
 X衍生二：三到六字标题
 Y衍生一：三到六字标题
 Y衍生二：三到六字标题
 Z衍生一：三到六字标题
 Z衍生二：三到六字标题
-每色两条、共六条，比 NPC 卡克制——这份资料不抢角色卡的戏；至少一条衍生同时装两种颜色；比喻只住三行定义里；衍生默认不写台词；只有当某句话【本身就是那个可见动作】时才留，全篇至多三句。
-衍生场景优先长在材料里真实出现过的事上——对话记录里TA做过的、brief 里TA自己举的例子；材料给的具体事压过数据库里对这类性格的常见联想；用户大白话给的性格印象要全部化进衍生、一个不丢，TA自己点出的矛盾两面是最值钱的料。
+每色两条、共六条，比 NPC 卡克制——这份资料不抢角色卡的戏；至少一条衍生同时装两种颜色；比喻只住三行定义里。衍生场景优先长在材料里真实出现过的事上——对话记录里TA做过的、brief 里TA自己举的例子；材料给的具体事压过数据库里对这类性格的常见联想；用户大白话给的性格印象要全部化进衍生、一个不丢，TA自己点出的矛盾两面是最值钱的料。
 ■ 边界：第一行一字不改照抄，第二行按骨架填一个贴合TA的样例：
 边界：当剧情进入关键点或危急关头，允许产生新的性格衍生。
 例如：平时___的{{user}}，在___时可以___。（照TA的调色盘推一个合理的突破样例，一行收；落在一个具体动作上，不比喻。）
-三、自检。只在思考里进行，发现问题回去改：①照这份稿演出来的{{user}}，像 brief 和对话记录里那个人吗——TA的说话习惯、处事的样子都进稿了吗？②清单里勾的小节一节不缺，清单外的没混进来吧？③每个特化特征都带禁止说明了吗？④目标动机每条指得到依据吗？有没有混进台词或内心戏？⑤基本信息全是硬事实、零形容词吗？⑥衍生超量了吗？台词超了吗？每条衍生都收在镜头行上了吗？解释和标签混进衍生了吗？⑦整份读下来像说明书加素描，不像小说吧？
+三、自检。只在思考里进行，发现问题回去改：①照这份稿演出来的{{user}}，像 brief 和对话记录里那个人吗——TA的说话习惯、处事的样子都进稿了吗？②清单里勾的小节一节不缺，清单外的没混进来吧？③每个特化特征都带禁止说明了吗？目标动机每行指得到依据吗？无（依据：⟨原句⟩）的长线行、brief 里没有的野心，删了吗？④数引号：全篇台词至多三句、都是衍生场景里那个可见动作吗？六条衍生每条都收在镜头行上了吗？⑤通读全稿搜 极度／极致／每次…都／从不／绝不／一定／必——命中就换成有余地的词或删；整份读下来像说明书加素描，不像小说吧？⑥全稿分量压在角色卡四分之一以下吗？超了先砍最长的块。
 四、成稿输出。先闭合 </thinking>；区块外用一两句话说明设计思路，然后输出一个 <CharDraft> 区块（target 按 brief：persona-update／persona-new）。成稿规矩：
 - 只覆盖勾选的部分，按 基本信息→外貌特征→背景设定→目标动机→性格调色盘→边界 的顺序组装。
 - 世界书里针对「角色条目／NPC」的排版（【出身】【现状】两段、末尾状态行、数值模板）不落进这份用户角色简卡；只有专门写「用户信息／用户角色」的条目才套。
-- 全稿用{{user}}指代这个角色；思考里做出的每样东西都原样落进成稿对应小节，自检与改稿痕迹一个字不进成稿。
-- 不写「极度／极致」——那是贴标签，把强度写成行为；不堆四字格；不用套路比喻；行为声明不用绝对词（永远／任何／从不），写「多数时候」「一般」。`;
+- 全稿用{{user}}指代这个角色；思考里做出的每样东西都原样落进成稿对应小节，自检与改稿痕迹一个字不进成稿。`;
 
-// 用户信息锻造·不抢话（1.25.0 v0——行为翻译手册；无调色盘=教程错误二的物理保证：提示词里根本没有那个块）。
-// 文案 Fable 子代理据 NewCharacterEditor 不抢话党教程 + 二次解释篇撰写；结构探针被 builder-gating.test.mjs 钉住。
+// 用户信息锻造·不抢话（v4 2026-07-09 高阶模型亲写 restructure；v0–v3 电池收据 tests/unit/_bld-tuning/persona-pass/）。
+// 行为翻译手册；无调色盘=教程错误二的物理保证（提示词里根本没有那个块）。v4 原则（HANDOFF-V4 §3A）：翻译行=
+// 对偶命名槽（行为白描：___ ＝ 意思：___）、情绪右格带类型、相处行去「画面」二字（三轮的新泄漏点）、引号规则
+// 只住【输出语法】一处（「」与"…"都算）；结构探针被 builder-gating.test.mjs 钉住。
 const BUILDER_FORGE_PROMPT_NOSTEAL = `【用户信息锻造·不抢话】你是用户信息锻造师。这份成稿是给 AI 读的【行为翻译手册】，不是角色卡：AI 只扮演对手角色、绝不扮演{{user}}；它写每个反应之前都会先归因——{{user}}这么做、这么说是什么意思——没有这份手册，它只能拿资料库里最常见也最戏剧化的解读去猜。手册喂的就是归因这一步：每一行要么是硬事实，要么把TA的某类行为翻译成真实含义。你不是在塑造角色，是在校准理解。按顺序完成四道工序。工序一到三的思考必须写在 <thinking></thinking> 标签里——每道工序都把你的关键判断和依据写出来，不许省略：
 一、素材采集。对话记录里{{user}}的发言（只看TA的，别看 AI 的回复）是一手行为样本：句子多长、用不用命令口气、写不写动作、爱不爱损人、什么时候沉默——先把观察到的规律记进思考，后面的翻译块全靠它们。再对齐 <CharBrief>、当前 Persona 描述（「完善当前角色」时它是底稿，仍然成立的事实要留进成稿）、角色卡与世界书（TA与对手角色的关系、TA在这个世界里的位置，地点、阵营、人名一律用世界书原名）。冲突时以 brief 为准；用户亲口说的含义永远压过你的观察推断。
-二、逐块塑形。只做【本次草稿需要覆盖的部分】清单里列出的小节——清单没有的连提都不要提。全稿铁律：这是说明书，不是文学作品——每一行要么是硬事实，要么是「{{user}}做X的时候，意思是Y」式的干翻译；只写TA是什么，不写TA不是什么——否定句会把那个被否定的词先塞进 AI 脑子里，拦截误读只用一种形式：在块尾加一行「禁止误读：不要把X理解为Y」，只拦 brief 或对话记录里真出现过的误读，点到即止；性格标签不进稿（「内向」这类词是标签，不是翻译，落到行为和含义上才有用）；紧凑是硬指标——手册不是主角，角色卡才是，写得越长越抢走 AI 对角色的注意力，拿不准的翻译宁可不写，写错的翻译比没写更毁归因。骨架纪律（全部 ■ 块共用）：思考里只记关键判断（一两行），骨架的填空直接在成稿里完成，不在思考里预写全文；键名保留、___ 一律换成实文；说明里标了可删的行，没材料就整行删，不硬凑不留空。每个勾选小节按对应 ■ 工艺块做：
-■ 基础设定：全块只登记客观事实，写满——每个键都要有着落，AI 对TA知道得越具体，归因越准；每一格都是白描，观感形容词（清爽／精致／忧郁）一个不进。brief 没提的键，选与世界观和已知事实一致的合理值填进去——填的事实会以草稿交给用户审改，别拿「未知／待定」回避（行为翻译不在此列：那边没材料就不写）。逐键填空：
+二、逐块塑形。只做【本次草稿需要覆盖的部分】清单里列出的小节——清单没有的连提都不要提。全稿铁律：这是说明书，不是文学作品——每一行要么是硬事实，要么是翻译；只写TA是什么，不写TA不是什么——否定句会把那个被否定的词先塞进 AI 脑子里，成行的拦截只用块尾的「禁止误读」行、只拦 brief 或对话记录里真出现过的误读，点到即止；性格标签不进稿（标签是线索不是翻译，落到行为和含义上才有用）；紧凑是硬指标——手册不是主角，角色卡才是，写得越长越抢走 AI 对角色的注意力，拿不准的翻译宁可不写，写错的翻译比没写更毁归因。
+【输出语法】全稿只说这一遍、处处生效：①引号——「」与"…"里的都算台词：全稿只有骨架标了 原话〔…〕 的行装得下它们，内容必须一字不差照抄对话记录里TA真打过的字；其余任何行零引号，TA没打过的话一个字不存在。②带「意思：」的翻译行——左格是行为白描（TA做什么、怎么打字），右格只装含义（TA这么做，意思是什么）：两格都是陈述文字，不装台词、不装场景小剧场。③频率词用 多数时候／一般／偶尔 这类有余地的词。④键名保留、___ 一律换成实文，成稿一个不留；标了删法的行，没材料就整行删，不硬凑不留空。
+思考纪律：每块在思考里只记关键判断（一两行），骨架的填空直接在成稿里完成，不在思考里预写全文。每个勾选小节按对应 ■ 工艺块做：
+■ 基础设定：全块只登记客观事实，写满——每个键都要有着落，AI 对TA知道得越具体，归因越准；每一格都是白描，观感形容词（清爽／精致／忧郁）一个不进。brief 没提的键，选与世界观和已知事实一致的合理值填进去（草稿会交用户审改），别拿「未知／待定」回避（行为翻译不在此列：那边没材料就不写）。关系设定这一块必写，别漏。逐键填空：
   {{user}}基础信息：
     姓名：___
     性别：___
@@ -476,47 +483,47 @@ const BUILDER_FORGE_PROMPT_NOSTEAL = `【用户信息锻造·不抢话】你是�
     家境：___（家庭成员、经济状况——一两行）
     住处：___（住哪、和谁住）
     日常：___（每天的生活轨迹——上学／上班／常出没的地方）
-    关键经历：（改变过TA的事，一到三件，一件一行，写到事件落地就停——不接「从此TA变得…」式总结，因果留给读它的 AI 自己连）
+    关键经历：（改变过TA的事，一到三件，一件一行，写到事件落地就停——不接「从此TA变得…」式总结）
       - ___
-  关系设定（必写）：
+  关系设定：
     与___的关系：（___填对手角色的本名）
       起点：___（怎么认识的，一句事实）
       现状：___（现在是什么关系）
-      相处：___（平时怎么相处的一个具体画面——谁做什么、对方怎么回；「关系很好」这种总结等于没写）
-■ 目标动机：写你从材料里【推导】出来的{{user}}当前所求——AI 知道TA在图什么，才不会把TA的手段误读成别的动机。每条都必须指得回 brief、对话记录或世界书里的具体依据，核对在思考里做、成稿不注来源；指不到依据的不写——张冠李戴的目标比空着更误事。零台词、零内心戏，不写「TA嘴上会说」的版本，陈述句落稿：
+      相处：___（TA常对对方做的一件事＋对方一贯怎么回，各一句白描）
+■ 目标动机：写你从材料里【推导】出来的{{user}}当前所求——AI 知道TA在图什么，才不会把TA的手段误读成别的动机。硬规矩：每一行行尾都必须带（依据：⟨照抄的原句⟩）——依据只收 brief、对话记录、世界书里一字未改的原句，转述不算；抄不出原句的行整行删掉，凭空安上的野心比空着更误事。零内心戏，不写「TA嘴上会说」的版本，陈述句落稿：
   {{user}}的目标动机：
-    眼前：___（当前在忙什么、想要什么——一两行）
+    眼前：___（当前在忙什么、想要什么——一两行）（依据：⟨照抄 brief/对话记录/世界书里的原句⟩；抄不出原句就整行删掉）
     长线：___（依据：⟨照抄 brief/对话记录/世界书里的原句⟩；抄不出原句就整行删掉）
 ■ 肢体接触：翻译{{user}}的触碰。动作清单从 brief 和对话记录里来，有什么写什么、没有的不编；TA很少碰人时照实登记——不碰也是要写明的事实。骨架：
   {{user}}的肢体接触：
-    触碰方式：___（TA实际会做的那些动作）
+    触碰方式：___（TA实际会做的那些动作，白描）
     含义：___（这些动作对TA是什么意思——肯定句写默认含义）
-    禁止误读：不要把{{user}}的肢体接触理解为___，除非TA的输入明确包含那个意图。
-■ 说话方式：翻译{{user}}的语气和措辞——AI 最容易读歪的就是这一块。按TA真实的说话习惯逐条写，对话记录是证据：命令口气、沉默、简短回复、吐槽损人、口头禅，真实有哪样写哪样、有几条写几条（三到五条为宜），没有的习惯一条不编。每条左边用不带引号的短句白描写这个习惯（TA怎么打字——句子多长、什么口气、什么时候沉默），右边回答同一个问题——TA这么说的时候，意思是什么。左右两边都不出现引号，带引号的原句只许住在下面的原话行里：
+    禁止误读：不要把{{user}}的肢体接触理解为___，除非TA的输入明确包含那个意图。（___ 用材料里真出现过的误读填；没有就删这行）
+■ 说话方式：翻译{{user}}的语气和措辞——AI 最容易读歪的一块，对话记录是证据：命令口气、沉默、简短回复、吐槽损人、口头禅，真实有哪样写哪样、有几条写几条（多不过五条），没有的习惯一条不编；用户点名过的误读习惯必须占一条。骨架逐条填：
   {{user}}的说话方式：
-    ___：___
-    ___：___
-    ___：___
-    原话〔照抄对话记录里TA真打过的原句，没有就不写这行〕
-  用户点名过的误读习惯必须占一条，并在块尾加一行「禁止误读：不要把X理解为Y」——X、Y 用用户给的材料填；用户没点名就不加这行。
-■ 情绪表达：TA各种情绪从输入里看得出来的样子——AI 只能靠TA打出来的字判断TA当下的心情，这一节就是判读表。每条写字面上看得见的变化（TA写的动作、字数长短、语气变化），不写「TA很开心」式的内心标签；brief 给的性格词（记仇／护短／内向 等）不许照抄进含义栏，要落到TA打出来的字、字数、语气或动作上；写「不会X」就必须紧跟「会Y」，光排除不落地等于没写。挑TA真实有的写，没有的情绪键整行删：
+    - 行为白描：___ ＝ 意思：___
+    - 行为白描：___ ＝ 意思：___
+    - 行为白描：___ ＝ 意思：___
+    原话〔照抄对话记录里TA真打过的原句〕 ＝ 意思：___（没有原句就删这行）
+    禁止误读：不要把___理解为___。（用用户点名的误读材料填；用户没点名就删这行）
+■ 情绪表达：TA各种情绪在输入里看得出来的样子——AI 只能靠TA打出来的字判断TA当下的心情，这一节是判读表。挑TA真实有的写，没有的情绪键整行删；brief 给的性格词是线索，不照抄进各行的值，要落到TA打出来的字、字数、语气或动作上。逐键填空：
   {{user}}的情绪表达：
-    开心时：___
-    生气时：___
-    难过时：___
-    紧张时：___
+    开心时：___（字面可见的变化——TA写的动作、字数长短、语气，白描）
+    生气时：___（可见变化，白描）
+    难过时：___（可见变化，白描）
+    紧张时：___（可见变化，白描）
     ___时：___（TA还有别的高频情绪就照加一行：吃醋／着急／无聊…）
-■ 互动模式：{{user}}与___（对手角色本名）之间的专属习惯，两类都收：TA常对这个角色做的动作和它的真实含义；对方情绪上头或示好时TA的一贯应对。三到五条，每条左边用不带引号的白描写TA做的事，右边落到含义或一个一句话画面——全块零引号，不替任何人编台词；brief 给的性格词（记仇／护短／内向 等）不许照抄进含义栏，要落到TA打出来的字、字数、语气或动作上：
+    原话〔照抄对话记录里TA真打过的原句〕 ＝ 意思：___（没有原句就删这行）
+■ 互动模式：{{user}}与___（对手角色本名）之间的专属习惯，两类都收：TA常对这个角色做的动作和它的真实含义；对方情绪上头或示好时TA的一贯应对。多不过五条。骨架逐条填：
   {{user}}与___的互动模式：
-    ___时：___
-    ___时：___
-    ___时：___
-三、自检。只在思考里进行，发现问题回到工序二改完再往下：①金检——用户说过的「AI 最常误读」材料（访谈金问题「AI 最常把你的哪个行为理解歪」的答案），一条不落全写进对应块了吗？这是整份手册最值钱的料。②逐行扫：有没有性格定义混进来？「TA很内向」是定义，改写成「TA做X的时候，意思是Y」。③有没有光排除不落地的行？「不是／不会」后面没跟「实际是什么」的，补上正面那半；成行的拦截语只许住在「禁止误读」行里。④目标动机每一条都指得回具体依据吗？指不回的删。⑤基础设定全是事实吗？观感形容词逐个删。⑥通读：像说明书就对了，读起来像小说（比喻、抒情、形容词堆叠）就重写；条数超了砍回骨架规定的量；骨架的 ___ 一个都不许留到成稿里。
+    - TA常做：___（一句白描） ＝ 意思：___
+    - 对方___时，TA会：___（一句白描） ＝ 意思：___
+    - 对方___时，TA会：___（一句白描） ＝ 意思：___
+    原话〔照抄对话记录里TA真打过的原句〕 ＝ 意思：___（没有原句就删这行）
+三、自检。只在思考里进行，发现问题回到工序二改完再往下：①金检——用户点名的「AI 最常误读」材料，一条不落全写进对应块了吗？这是整份手册最值钱的料。②逐行扫：有没有性格定义混进来？「TA很〈标签〉」式的行改写成翻译行；成行的拦截只住在「禁止误读」行里。③目标动机每行行尾都有一字未改的（依据：⟨原句⟩）吗？抄不出原句的行、材料里没有的凭空野心，一律整行删。④通读全稿：引号只在原话行里吗？搜 极度／极致／从不／绝不／每次…都／一定／必——命中就换成有余地的词或删；读起来像说明书就对了，像小说（比喻、抒情、形容词堆叠）就重写；___ 一个不留。⑤全稿分量压在角色卡四分之一以下吗？超了先砍最长的块。
 四、成稿输出。先闭合 </thinking>；区块外用一两句话说明设计思路，然后输出一个 <CharDraft> 区块（target 按 brief：persona-update／persona-new）。成稿规矩：
 - 只覆盖勾选的部分，按 基础设定→目标动机→肢体接触→说话方式→情绪表达→互动模式 的顺序组装。
-- 全稿用{{user}}指代这个角色，对手角色用本名。引号只用来照抄TA输入里真出现过的原话，而且只住在骨架给的原话行里——TA没打过的话一个字不进引号，不替任何人发明新台词；比喻一个不进；画面一行收住，不铺成多行小剧场。
-- 思考里做出的每样东西都原样落进成稿对应小节；自检与改稿痕迹一个字不进成稿。
-- 不写「极度／极致」这类顶格强度词；「永远／任何／从不」不进稿——默认含义用肯定句写足，例外交给「除非TA的输入明确…」式条件句，别拿绝对词锁死TA。`;
+- 全稿用{{user}}指代这个角色，对手角色用本名；思考里做出的每样东西都原样落进成稿对应小节，自检与改稿痕迹一个字不进成稿。`;
 
 // 变体 → 锻造提示词（card 回冻结原件）。
 function builderForgePromptFor(key) {
@@ -1098,6 +1105,9 @@ const ENABLE_CHAR_BUILDER = false;
 // 打造目标三分（NPC 卡 / 用户角色·抢话 / 用户角色·不抢话），各配独立访谈 / 锻造提示词、chip 集与
 // 独立侧聊流。关 → 选择器回到旧两项、一律走 card 变体与主侧聊流 = 字节级现状行为，新提示词不可达。
 const ENABLE_BUILDER_PERSONA_STYLES = true;
+// 每模式独立侧聊房间（用户功能请求：切模式不再混聊天）：把「侧聊流」从「仅工坊分家」推广到「按当前模式分家」。
+// false → 非工坊模式一律回主流（= 1.27.x 逐字节行为）。工坊三房间仍由 ENABLE_BUILDER_PERSONA_STYLES 独立管辖——两开关正交。
+const ENABLE_MODE_ROOMS = true;
 // Hook API（Stream B）：稳定挂载接口 window.StoryOracleAPI 总开关。false → 不暴露接口、registerMode 等全部
 // no-op、零行为变化（二创无法挂载）。SO_API_VERSION = 版本契约，仅破坏性改动才 +1（插件 isCompatible 据此判）。
 const ENABLE_HOOK_API = true;
@@ -2972,6 +2982,47 @@ function gateForgePrompt(sys, selectedIds, headers = CHIP_BLOCK_HEADER, order = 
     return out.join('\n');
 }
 
+// —— v4 探针兜底（HANDOFF-V4 §3D，2026-07-09）：锻造稿入坞前的机械地板 ——
+// 三轮调优 + v4 探针（DS-nosteal ×8：7/8 稿在带类型槽里照样编造「我知道」类引号台词）实锤：
+// 散文禁令/自检对 DeepSeek 不可靠、提示词已到天花板 → 提示词管质量、这里管下限（仿校正器的
+// 机械块处理惯例）。只动 persona 变体，card 原样回；GM 稿本来干净＝无操作。纯函数、幂等。
+// ① nosteal：原话/禁止误读 行之外的成对引号只剥【引号标记】、内容保留——「抢着说"我知道"」
+//    →「抢着说我知道」＝转述形，不删字（含义格语法不伤）；steal 不剥（教程允许 ≤3 句台词）。
+// ② 绝对词软化（两变体）：从不/绝不→一般不、极度→很、每次…都→多数时候…都、一定会→多半会、
+//    永远→一直；「不一定会」「永远的」「拒绝不了」「服从不了」有负向断言护着不误伤。
+// ③ ⟨…⟩ 与 （依据：…） 跨段占位护住（⟦SO_EV_n⟧，同校正器 ⟦SO_KEEP_n⟧ 惯例）——依据是
+//    一字未改的引文，一个字节不动。
+function sanitizePersonaDraft(content, variantKey) {
+    if (variantKey !== 'steal' && variantKey !== 'nosteal') return String(content ?? '');
+    const guarded = [];
+    let s = String(content ?? '').replace(/（依据：[^）]*）|⟨[^⟩]*⟩/g, (m) => {
+        guarded.push(m);
+        return '⟦SO_EV_' + (guarded.length - 1) + '⟧';
+    });
+    const soften = (t) => t
+        .replace(/(?<![拒谢婉回])绝不/g, '一般不')
+        .replace(/(?<![服听遵屈盲跟])从不/g, '一般不')
+        .replace(/极度/g, '很')
+        .replace(/每次([^\n，。；]{0,6})都/g, '多数时候$1都')
+        .replace(/(?<!不)一定会/g, '多半会')
+        .replace(/永远(?!的)/g, '一直');
+    s = s.split('\n').map((line) => {
+        const t = line.trimStart();
+        if (t.startsWith('原话') || t.startsWith('禁止误读')) return line;
+        let out = line;
+        if (variantKey === 'nosteal') {
+            out = out.replace(/「([^」\n]+)」|“([^”\n]+)”|"([^"\n]+)"/g, (_, a, b, c) => a ?? b ?? c);
+        }
+        // Edwin 裁决 2026-07-09（v4.1 R2）：范畴式含义格是拦截的牙——「含义：」整行、
+        // 对偶行「＝ 意思：」右半 豁免软化；引号剥离照旧。原话行整行豁免在上面已优先。
+        if (/^含义[:：]/.test(t)) return out;
+        const pair = out.match(/[＝=]\s*意思[:：]/);
+        if (pair) return soften(out.slice(0, pair.index)) + out.slice(pair.index);
+        return soften(out);
+    }).join('\n');
+    return s.replace(/⟦SO_EV_(\d+)⟧/g, (m, i) => guarded[Number(i)] ?? m);
+}
+
 function bldExtractFence(body, tag) {
     // 闭合行宽容 </tag>>> 变体（XML 反射滑手，评估轮 A.1 真实 DeepSeek 稿 1/10 出现）；
     // 教学语法（BUILDER_PROTOCOL）不变，仍只教 tag>>>。
@@ -3484,14 +3535,48 @@ function convoForPrompt(list = convo) {
     return (Array.isArray(list) ? list : []).filter((m) => m && (m.role === 'user' || m.role === 'assistant'));
 }
 
-// ==== 侧聊流（1.25.0 用户角色分家）====
-// 主流 = 旧键原样（旧档零迁移）；工坊三变体各一间独立房（per-chat metadata，随聊天走）。
-// 后台记录（自动诊断/自动校正）恒写主流——访谈房间里绝不混入无关记录，反向亦然。
+// ==== 侧聊流（1.25.0 用户角色分家；1.28.0 推广为每模式独立房间）====
+// 主流 = 普通聊天，旧键原样（旧档零迁移）；诊断/世界书/参谋/校正 + 工坊三变体各配一间独立房（per-chat metadata，随聊天走）。
+// 后台记录（自动诊断/自动校正）归入各自模式房间（诊断/校正）——房间之间绝不混入无关记录（ENABLE_MODE_ROOMS 关则统回主流）。
 let convoStreamKey = 'main';
-function convoStreamKeyFor(isBuilder, s) {
-    if (!ENABLE_BUILDER_PERSONA_STYLES) return 'main';
-    if (!isBuilder) return 'main';
-    return BUILDER_VARIANTS[builderVariantKey(s)].streamKey;
+// 每模式独立房间的流键解析（推广自旧 convoStreamKeyFor(isBuilder,...)，1.28.0 起替代它）。mode 由调用端传
+// currentOracleMode()——纯函数、便于单测（沿用旧函数「把模式/标志当参数传入」的约定）。
+// 工坊 → 变体房间（受 ENABLE_BUILDER_PERSONA_STYLES 管辖，逻辑不变）；
+// 其余非普通模式 → 各自房间（受 ENABLE_MODE_ROOMS 管辖）；普通聊天 / 注册插件模式 → 主流。
+function convoStreamKeyForMode(mode, s) {
+    if (mode === 'builder') {
+        return ENABLE_BUILDER_PERSONA_STYLES ? BUILDER_VARIANTS[builderVariantKey(s)].streamKey : 'main';
+    }
+    if (!ENABLE_MODE_ROOMS) return 'main';
+    switch (mode) {
+        case 'diagnose': return 'diagnose';
+        case 'lorebook': return 'lorebook';
+        case 'advisor': return 'advisor';
+        case 'fix': return 'fix';
+        default: return 'main';
+    }
+}
+const IMPORT_DIVIDER_TEXT = '—— 以下导入自普通聊天的讨论 ——';
+// 参谋「导入普通聊天的讨论」纯核：把主流的问答轮（丢弃 note）前置一条分隔提示，返回待插入的 {role,content} 列表
+// （id 由挂载端分配）。主流无问答 → 空数组（不导入、不留分隔线）。
+function buildImportedTurns(mainList) {
+    const qa = (Array.isArray(mainList) ? mainList : [])
+        .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+        .map((m) => ({ role: m.role, content: m.content }));
+    if (!qa.length) return [];
+    return [{ role: 'note', content: IMPORT_DIVIDER_TEXT }, ...qa];
+}
+// 某侧聊流是否已有真问答轮（user/assistant）。参谋进入时据此决定是否值得提供「导入」chip。
+function roomHasDiscussion(list) {
+    return (Array.isArray(list) ? list : []).some((m) => m && (m.role === 'user' || m.role === 'assistant'));
+}
+// 侧聊房间的头部提示线文案（每模式独立房间）。主流不显示（null）；工坊房间保留原「访谈记录：<目标>」；
+// 其余各模式一句「本模式独立保存」提示。纯函数（传 streamKey + settings），便于单测。
+function streamCueLabel(streamKey, s) {
+    if (!streamKey || streamKey === 'main') return null;
+    if (streamKey.startsWith('bld_')) return `访谈记录：${builderTargetLabel(s)}（独立保存，切换目标不丢失）`;
+    const noun = { diagnose: '诊断记录', lorebook: '世界书讨论', advisor: '参谋讨论', fix: '校正记录' }[streamKey];
+    return noun ? `${noun}（本模式独立保存）` : '本模式记录（独立保存）';
 }
 function convoMetaKeyFor(streamKey) {
     return (!streamKey || streamKey === 'main') ? CONVO_META_KEY : CONVO_META_KEY + '_' + streamKey;
@@ -3505,7 +3590,7 @@ function getConvoMeta(streamKey = convoStreamKey) {
 }
 
 // 把当前 convo 写回某侧聊流的元数据（空则删键）。⚠ 只能用【全局 convo 当前所属的那个 key】调用
-// ——绝不传外流 key（那会把当前 convo 写进别的房间）。外流写入走 appendNoteToMain。
+// ——绝不传外流 key（那会把当前 convo 写进别的房间）。外流写入走 appendNoteToRoom。
 function persistConvo(streamKey = convoStreamKey) {
     const md = getChatMetadataSafe();
     if (!md) return false;
@@ -3957,7 +4042,7 @@ function onChatChanged() {
     applyPlanInjection();
     if (win) renderPlanBar();
     checkPlanReminder();
-    convoStreamKey = convoStreamKeyFor(builderMode, getSettings());   // 新聊天：可见流复位到当前模式应在的房间（旧流已由自身写入落盘；这里不 sync，免把旧 convo 灌进新聊天元数据）
+    convoStreamKey = convoStreamKeyForMode(currentOracleMode(), getSettings());   // 新聊天：可见流复位到当前模式应在的房间（旧流已由自身写入落盘；这里不 sync，免把旧 convo 灌进新聊天元数据）
     loadConvoForChat();   // 用户功能请求：把本聊天保存的侧聊历史载入窗口（per-chat 持久化）
     refreshSummaryUI();   // 用户功能请求：刷新本聊天的运行概要编辑器
     loadDiagSelForChat(); // 用户功能请求：载入本聊天的诊断「精选世界书条目」选择
@@ -7050,7 +7135,7 @@ function notifyAutoDiagnose(result, patch) {
         const entry = { id: ++cidSeq, role: 'note', content: autoDiagNoteContent({ status, patch, stamp }) };
         // 改动型记录在本会话挂可用的撤销按钮；其余（无改动 / 失败 / 重载后）是只读记录。
         const undoable = (snapshot && patch) ? { snapshot, patch } : null;
-        appendNoteToMain(entry, undoable);   // 后台记录恒写主流（工坊房间可见时直接落主流元数据、不上屏）
+        appendNoteToRoom('diagnose', entry, undoable);   // 自动诊断记录归入【诊断房间】（不可见时直接落其元数据、不上屏）
     } catch (e) { console.warn('[Story Oracle] 自动诊断记录写入侧聊失败：', e); }
 }
 
@@ -9273,8 +9358,6 @@ function setOracleMode(target) {
     win.querySelector('#so-builder-btn')?.classList.toggle('so-bld-active', builderMode);
     inputEl.placeholder = MODE_PLACEHOLDERS[target] || MODE_PLACEHOLDERS.chat;
     if (ENABLE_DIAG_WI_PICKER) refreshDiagPickerUI();   // 诊断「精选条目」栏随模式刷新（用户功能请求）
-    // 空侧聊时切换模式要刷新空状态（每模式自带一组引导语 + 示例 chip）；有内容则保留现有记录不动。
-    if (messagesEl && !convo.length) { messagesEl.innerHTML = ''; renderEmptyState(); }
     updateDiagButtonVisual();   // 诊断按钮（含红色 AUTO）状态随模式切换始终对齐（含从子模式回到诊断时）
     updateFixButtonVisual();    // ✨ 校正按钮：自动校正开启时图标染金（随模式切换对齐）
     // A3：切换模式时自动收起设置面板——腾出纵向空间、别让设置盖住新模式的栏（二创 settings-panel 行为原生化）。
@@ -9292,6 +9375,10 @@ function setOracleMode(target) {
         try { prev && prev.onExit && prev.onExit(window.StoryOracleAPI); } catch (e) { /* 插件回调出错不中断切模式 */ }
         activeRegisteredModeId = null;
     }
+    // 每模式独立房间：切模式即把可见侧聊换到该模式的房间（先落盘现流、再重载）。换房时 loadConvoForChat 已重画
+    // （含空态）；没换房（同房间 / 开关关）才手动刷新空态——每模式自带引导语 + 示例 chip。
+    const swapped = syncConvoStream();
+    if (!swapped && messagesEl && !convo.length) { messagesEl.innerHTML = ''; renderEmptyState(); }
 }
 
 // 用户功能请求：诊断按钮三态循环 —— 关 → 诊断 → 诊断·自动(AUTO) → 关。两个纯函数便于单测：
@@ -9455,15 +9542,13 @@ function toggleBuilder() {
     if (builderMode) {
         const back = priorOracleMode || 'chat';
         priorOracleMode = 'chat';
-        setOracleMode(back);
-        syncConvoStream();   // 退出工坊 → 切回主侧聊流
+        setOracleMode(back);   // 内部已 syncConvoStream → 切回该模式的房间
         modeEntryNote(modeReturnNote(back));
         if (inputEl) inputEl.focus();
         return;
     }
     priorOracleMode = currentOracleMode();
-    setOracleMode('builder');
-    syncConvoStream();   // 进工坊 → 切到当前打造目标的独立房间
+    setOracleMode('builder');   // 内部已 syncConvoStream → 切到当前打造目标的独立房间
     populateBuilderBooks();   // Task 4：填充选书 / 选条目器 + chips（定义在 populateLorebookBooks 附近）
     refreshDraftCard();       // Task 6 provides this; stub `function refreshDraftCard() {}` this task
     modeEntryNote('角色工坊已开启。先在下方设置里选好打造目标（用户角色·抢话 / 用户角色·不抢话 / NPC 条目），告诉我你想打造谁——我会先问清楚，再一键锻造成稿。');
@@ -9641,6 +9726,8 @@ async function runForge() {
             }
         }
         if (draft) {
+            // v4 探针兜底（Phase D）：入坞前剥编造引号台词/软化绝对词——persona 变体专属，card 原样回。
+            if (draft.content) draft.content = sanitizePersonaDraft(draft.content, builderVariantKey(getSettings()));
             setBuilderState({ ...getBuilderState(), draft, forgedAt: Date.now() });
             refreshDraftCard();
             // 草稿卡在「角色工坊」面板里（窗口顶部）——用户常把面板收起省聊天空间，锻造成功就替 TA 展开；
@@ -9775,23 +9862,39 @@ function toggleAdvisor() {
     setOracleMode('advisor');
     modeEntryNote('剧情参谋模式已开启。我会通读整段对话，和你一起构思剧情接下来可以怎么走。讨论出具体方案后，我会把它列成卡片——点「开始引导」并选择强度（只铺垫 / 自然推进 / 尽快引爆），主聊天的 AI 就会被悄悄引导着把剧情推向那个方向。引导随时可在上方的方案条里查看、调整或停止。'
         + (getPlan() ? '\n当前已有一个方案在引导中——可以问我「检查进度」。' : ''));
-    if (convoForPrompt().length > 0 && !getPlan()) addBridgeChip();
+    // 每模式独立房间：参谋房间现独立于普通聊天。普通聊天已有讨论、且参谋房间尚空（避免重复导入）→ 提供一键「导入」。
+    // （此时 setOracleMode('advisor') 已 syncConvoStream，convo 即参谋房间。）
+    const offerImport = ENABLE_MODE_ROOMS
+        ? (roomHasDiscussion(getConvoMeta('main')) && convoForPrompt().length === 0 && !getPlan())
+        : (convoForPrompt().length > 0 && !getPlan());
+    if (offerImport) addBridgeChip();
     inputEl.focus();
 }
 
-// One-tap chip: fills the input with the canned formalize request and sends it.
-// The advisor sees the whole prior side-chat (convo is shared across modes), so
-// it can turn an informal discussion into adoptable <StoryPlan> cards.
+// One-tap chip (每模式独立房间): imports the Normal-chat room's QA turns into the (now separate)
+// advisor room — a divider note then the user/assistant turns — then sends the canned formalize
+// request so the advisor turns that informal discussion into adoptable <StoryPlan> cards.
+// Offered only into a fresh advisor room (see the openAdvisor trigger), so it never double-imports.
 function addBridgeChip() {
     const wrap = document.createElement('div');
     wrap.className = 'so-note so-bridge';
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'so-bridge-chip';
-    btn.innerHTML = '<i class="fa-solid fa-compass"></i> 把刚才的讨论整理成方案';
+    btn.innerHTML = '<i class="fa-solid fa-compass"></i> 导入普通聊天的讨论并整理成方案';
     btn.addEventListener('click', () => {
         if (isGenerating) return;
         wrap.remove();
+        // 每模式独立房间：把普通聊天房间的问答轮导入当前参谋房间（分隔线在前），随后发起整理请求。
+        if (ENABLE_MODE_ROOMS) {
+            const turns = buildImportedTurns(getConvoMeta('main'));
+            for (const t of turns) {
+                const e = { id: ++cidSeq, role: t.role, content: t.content };
+                convo.push(e);
+                e._el = (t.role === 'note') ? addNoteMessage(e) : addMessage(t.role, t.content, e);
+            }
+            if (turns.length) { persistConvo(); scrollToBottom(); }
+        }
         inputEl.value = '把我们刚才讨论的剧情走向，整理成可以采用的方案吧。';
         onSend();
     });
@@ -13707,7 +13810,7 @@ function addAutoFixNote(status, problems, fix = null) {
         const entry = { id: ++cidSeq, role: 'note', content: autoFixNoteContent({ status, problems, stamp }) };
         // fix（仅 'fixed' 结果带）= { idx, before, after, fixSwipeId }，给记录挂「用原文 / 看改动」按钮。
         // 注意：和手动校正回复一样，按钮只在【本会话】可用——重载后记录是纯文本（fix 不进 persistConvo）。
-        appendNoteToMain(entry, fix ? { fix } : null);   // 后台记录恒写主流
+        appendNoteToRoom('fix', entry, fix ? { fix } : null);   // 自动校正记录归入【校正房间】（不可见时直接落其元数据、不上屏）
     } catch (e) { console.warn('[Story Oracle] 自动校正记录写入侧聊失败：', e); }
 }
 
@@ -15279,7 +15382,7 @@ function renderEmptyState() {
 async function clearConversation() {
     // 清空会连带删除本聊天已保存的侧聊历史（含自动诊断记录），无法撤销——与本扩展其它破坏性
     // 操作（清空概要 / 重置提示词 / 退出弧线）保持一致，先确认再执行。空对话则无需打扰直接返回。
-    const where = convoStreamKey === 'main' ? '本聊天的侧聊历史' : `本聊天「${builderTargetLabel(getSettings())}」的访谈记录`;
+    const where = convoStreamKey === 'main' ? '本聊天的侧聊历史' : (streamCueLabel(convoStreamKey, getSettings()) || '本模式的侧聊记录');
     if (convo.length && !(await uiConfirm(`确定清空${where}吗？此操作会删除已保存的记录，无法撤销。`))) return;
     convo = [];
     persistConvo();   // 用户功能请求：手动清空也清掉本聊天保存的历史（删元数据键）
@@ -15301,11 +15404,12 @@ function loadConvoForChat() {
         .map((m) => ({ id: m.id, role: m.role, content: m.content }));
     cidSeq = convo.reduce((mx, m) => Math.max(mx, Number(m.id) || 0), cidSeq);
     messagesEl.innerHTML = '';
-    // 工坊房间的头部提示线：让「历史换了一批」读成「独立记录」而不是「记录丢了」。
-    if (convoStreamKey !== 'main') {
+    // 房间头部提示线（每模式独立房间）：让「历史换了一批」读成「独立记录」而不是「记录丢了」。主流不显示。
+    const cueText = streamCueLabel(convoStreamKey, getSettings());
+    if (cueText) {
         const cue = document.createElement('div');
         cue.className = 'so-stream-cue';
-        cue.textContent = `访谈记录：${builderTargetLabel(getSettings())}（独立保存，切换目标不丢失）`;
+        cue.textContent = cueText;
         messagesEl.appendChild(cue);
     }
     if (!convo.length) { renderEmptyState(); return; }
@@ -15325,20 +15429,23 @@ function loadConvoForChat() {
     scrollToBottom();
 }
 
-// 把可见侧聊切到当前应在的流：工坊开着 → 变体房间；否则主流。切换 = 先把现流持久化，
-// 再换 key 重载重画。builderMode 翻转 / 打造目标下拉变更 / 聊天切换后都调它。
+// 把可见侧聊切到当前模式应在的房间（每模式独立房间）：工坊 → 变体房间；诊断/世界书/参谋/校正 → 各自房间；
+// 普通聊天 / 注册插件模式 → 主流。切换 = 先把现流持久化、再换 key 重载重画，返回是否换过房（setOracleMode
+// 据此决定要不要再手动刷空态）。setOracleMode / 打造目标下拉变更 / 聊天切换后都调它。
 function syncConvoStream() {
-    const target = convoStreamKeyFor(builderMode, getSettings());
-    if (target === convoStreamKey) return;
+    const target = convoStreamKeyForMode(currentOracleMode(), getSettings());
+    if (target === convoStreamKey) return false;
     persistConvo();                 // 现流落盘（写的是切换前的 convoStreamKey）
     convoStreamKey = target;
     loadConvoForChat();             // 从新流的元数据重建窗口
+    return true;
 }
 
-// 后台记录恒写主流。主流正可见 → 走现路径（推 convo + 画气泡）；工坊房间可见 → 直接写主流
-// 元数据，不上屏（记录不是警报，交互侧另有 toast）。
-function appendNoteToMain(entry, opts) {
-    if (convoStreamKey === 'main') {
+// 后台记录写入指定房间（推广自 appendNoteToMain）。目标房间正可见 → 推 convo + 画气泡；否则直接写该房间元数据、
+// 不上屏（记录不是警报，交互侧另有 toast）。ENABLE_MODE_ROOMS 关 → 一律回主流（= 旧 appendNoteToMain 行为）。
+function appendNoteToRoom(roomKey, entry, opts) {
+    const key = ENABLE_MODE_ROOMS ? (roomKey || 'main') : 'main';
+    if (key === convoStreamKey) {
         convo.push(entry);
         persistConvo();
         if (messagesEl) entry._el = addNoteMessage(entry, opts);
@@ -15346,10 +15453,10 @@ function appendNoteToMain(entry, opts) {
     }
     const md = getChatMetadataSafe();
     if (!md) return;
-    const key = convoMetaKeyFor('main');
-    const arr = Array.isArray(md[key]) ? md[key].slice() : [];
+    const mk = convoMetaKeyFor(key);
+    const arr = Array.isArray(md[mk]) ? md[mk].slice() : [];
     arr.push({ id: entry.id, role: 'note', content: entry.content });
-    md[key] = arr;
+    md[mk] = arr;
     saveChatMetadata();
 }
 

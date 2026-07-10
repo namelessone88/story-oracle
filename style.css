@@ -1155,6 +1155,7 @@
     border-radius: 12px;
     border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
     background-color: #1b1d23;
+    color: #e6e6e6;   /* 1.27.1: 恒深色策展卡 → 钉死浅色文字（同 autowarn/fixwarn），浅色主题防深字压深底 */
     background-image: linear-gradient(180deg, color-mix(in srgb, var(--so-accent) 9%, transparent), transparent 140px);
     box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.7);
 }
@@ -1265,7 +1266,7 @@
     border-radius: 8px;
     border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
     background: rgba(255, 255, 255, 0.04);
-    color: var(--SmartThemeBodyColor, #e6e6e6);
+    color: #e6e6e6;   /* 恒深色策展卡：钉死浅色文字，理由见 #so-cur-card */
     font-family: inherit;
     font-size: 0.82em;
 }
@@ -1885,6 +1886,7 @@
     border-radius: 12px;
     border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
     background-color: #1b1d23;
+    color: #e6e6e6;   /* 1.27.1: 恒深色警告卡 → 文字色钉死浅色（不跟随主题）；否则浅色主题下 var(--SmartThemeBodyColor) 变深字＝深字压深底＝不可读（同 #so-fixsel 报的「界面好黑」，但警告卡刻意保深色故钉文字而非改底） */
     background-image: linear-gradient(180deg, color-mix(in srgb, var(--so-auto-red, #d9534f) 12%, transparent), transparent 120px);
     box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.7);
     padding: 16px 18px;
@@ -1938,14 +1940,17 @@
     border-radius: 8px;
     border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.2));
     background: rgba(255, 255, 255, 0.06);
-    color: var(--SmartThemeBodyColor, #ddd);
+    color: #ddd;   /* 恒深色警告卡：钉死浅色文字，理由见 #so-autowarn-card */
     cursor: pointer;
     font-size: 0.86em;
 }
 #so-autowarn-btns button:hover, #so-fixwarn-btns button:hover { background: rgba(255, 255, 255, 0.12); }
 
 /* ✂️ 选段校正卡（1.27.0，Part C）：复用 #so-fixwarn 的 inset:0 骨架（手机遮罩防锁死：卡片 max-height 封顶、
-   正文内滚、.so-warn-x 逃生 + 点遮罩关闭）。只读回复 textarea 划选定位字符偏移；失焦后 overlay 画持久黄高亮。 */
+   正文内滚、.so-warn-x 逃生 + 点遮罩关闭）。只读回复 textarea 划选定位字符偏移；失焦后 overlay 画持久黄高亮。
+   1.27.1：卡片底色改走主题 var(--SmartThemeBlurTintColor)（同主窗口）+ backdrop blur，不再用警告卡那种固定
+   #1b1d23——固定深底叠主题文字色（--SmartThemeBodyColor）在浅色主题下＝深字压深底＝什么都看不见（PC 用户
+   报「界面好黑」）；作业卡跟主窗口保持一致，警告卡（autowarn/fixwarn/curate）才保留刻意的实心深色。 */
 #so-fixsel {
     display: none; position: absolute; inset: 0; z-index: 60;
     align-items: center; justify-content: center; padding: 16px; box-sizing: border-box;
@@ -1955,7 +1960,7 @@
 #so-fixsel-card {
     display: flex; flex-direction: column; width: 100%; max-width: 560px; max-height: 100%; min-height: 0;
     box-sizing: border-box; border-radius: 12px; border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
-    background-color: #1b1d23; box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.7); padding: 16px 18px;
+    background-color: var(--SmartThemeBlurTintColor, #1b1d23); backdrop-filter: blur(calc(var(--SmartThemeBlurStrength, 10px) + 4px)); box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.7); padding: 16px 18px;
 }
 #so-fixsel-head {
     font-weight: 700; font-size: 1.0em; display: flex; align-items: center; justify-content: space-between;
@@ -1970,13 +1975,13 @@
     min-height: 180px; max-height: 42vh;
     border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
 }
-.so-fixsel-text { position: relative; resize: vertical; overflow-y: auto; background: rgba(0, 0, 0, 0.22); color: var(--SmartThemeBodyColor, #e6e6e6); }
+.so-fixsel-text { position: relative; resize: vertical; overflow-y: auto; background: var(--black30a, rgba(0, 0, 0, 0.22)); color: var(--SmartThemeBodyColor, #e6e6e6); }
 .so-fixsel-overlay { position: absolute; inset: 0; z-index: 1; overflow-y: auto; pointer-events: none; color: transparent; background: transparent; display: none; }
 .so-fixsel-hl { background: rgba(224, 162, 58, 0.42); border-radius: 2px; color: transparent; }
 .so-fixsel-info { flex: 0 0 auto; }
 .so-fixsel-instr {
     width: 100%; box-sizing: border-box; border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 0.86em;
-    background: rgba(0, 0, 0, 0.22); color: var(--SmartThemeBodyColor, #e6e6e6); resize: vertical;
+    background: var(--black30a, rgba(0, 0, 0, 0.22)); color: var(--SmartThemeBodyColor, #e6e6e6); resize: vertical;
     border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
 }
 #so-fixsel-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; flex: 0 0 auto; }
