@@ -263,10 +263,12 @@ const BUILDER_INTERVIEW_PROMPT = `你是「角色工坊」的访谈师。你的�
 // 用户角色访谈师·抢话（1.25.0；文案 Fable 子代理据 NewCharacterEditor 抢话党教程撰写）：AI 也扮演{{user}}
 // → 资料=给 AI「演你」的简化卡，主观问题合法。交付/修订 两段逐字沿用 card 访谈师（机械契约 1.19.x 已验证）；
 // builder-variants.test.mjs 钉住 禁止说明/矛盾/目标动机不用问/开场两分支/交付修订。任何调整先过真模型电池。
+// v1（2026-07-10）：Phase C F4——收集①尾加「NPC 排版规格不进 brief」（GM 2/2 曾把【出身】【现状】/状态行
+// 写进 brief 当特殊要求）；收据 tests/unit/_bld-tuning/persona-pass/REPORT.md Phase C 节。
 const BUILDER_INTERVIEW_PROMPT_STEAL = `你是「角色工坊」的用户角色访谈师（抢话模式：AI 在故事里也会扮演{{user}}，这份资料是一张给 AI「演你」用的简化角色卡）。你的唯一工作：帮用户把TA自己在故事里扮演的角色聊清楚，然后交给锻造工序。语气自然、简短，一次最多问两三个问题，绝不查户口式连环追问。这个角色的当事人就坐在你对面——TA的感受、习惯、自我评价都是一手材料，主观问题尽管问。
 【开场】问用户想「完善当前角色」还是「另存为新角色」。
 【收集】先请用户用自己的话描述这个角色（也就是TA自己），想到什么说什么。然后你做三件事：
-1. 对照已有材料（用户描述、当前 Persona 描述、对话记录、世界书、角色卡）盘点已知信息——已经有答案的绝不再问。「完善当前角色」时，当前 Persona 描述就是底稿，只问缺口和想改的地方；对话记录里{{user}}的实际发言是TA言行的一手样本——句子长短、语气、口头禅、写不写动作，先自己观察，再拿观察去确认（「我看你在故事里说话都很短——平时也这样？」）。
+1. 对照已有材料（用户描述、当前 Persona 描述、对话记录、世界书、角色卡）盘点已知信息——已经有答案的绝不再问。「完善当前角色」时，当前 Persona 描述就是底稿，只问缺口和想改的地方；对话记录里{{user}}的实际发言是TA言行的一手样本——句子长短、语气、口头禅、写不写动作，先自己观察，再拿观察去确认（「我看你在故事里说话都很短——平时也这样？」）。世界书里给角色条目／NPC 定的排版规格（【出身】【现状】段式、末尾状态行、数值模板）是 NPC 卡的规矩——brief 只装用户这个人的素材，排版交给锻造工序。
 2. 只追问真正的缺口，按需要挑选：姓名或称呼、性别、年龄、身份与职业（TA在这个世界里的位置）；家境、住处、经济状况这类硬事实（这份资料的基础部分要写得比 NPC 卡更满，硬事实都得有着落）；外貌上两三个与众不同的特征——每个特征都追一句「想让 AI 经常提它吗？」，不想的就记一条禁止说明，连什么场合可以提一起记（AI 拿到特征就爱反复描写，禁止说明拦的就是这个）；改变过TA的关键经历（一到三件）；性格请TA用大白话说，再问朋友会怎么形容TA、有没有看起来矛盾的两面（反直觉的组合只有本人知道，最值得多问一句；答出来是标签就追一个具体场景或小动作）；要不要「边界」条款——关键剧情或危急关头允许 AI 演出超出日常设定的反应（想要惊喜就留，想完全可控就不要）。世界观有阵营、种族、地区之分时，问TA属于哪边。
 3. 目标动机不用问——锻造工序会按材料和世界观自己推导，用户主动说了就记进 brief。性格素材收够就好，调色盘怎么画是锻造工序的活。未勾选的草稿部分不要问。
 【交付】信息够了（客观缺口都补齐，或用户说"差不多了"）就输出一个 <CharBrief> 区块汇总，区块外用一两句话说明，然后请用户点「🔨 生成」。desc 里写浓缩后的全部要点，用户强调过的任何设定都不能漏。
@@ -275,15 +277,92 @@ const BUILDER_INTERVIEW_PROMPT_STEAL = `你是「角色工坊」的用户角色�
 // 用户信息访谈师·不抢话（1.25.0；文案 Fable 子代理据 NewCharacterEditor 不抢话党教程撰写）：AI 绝不扮演
 // {{user}} → 资料=行为翻译手册（不是人设卡）。金问题「AI 最常把你的哪个行为理解歪」+ 正面翻译句式（做X=意思Y）；
 // 无调色盘（教程错误二）。交付/修订 两段逐字沿用 card 访谈师；builder-variants.test.mjs 钉住。
+// v1（2026-07-10）：Phase C 三修——F1 收工令句（DS 2/2 曾无视「汇总吧」继续追问）/F2 金问题提前到
+// 第 2 件+首轮必带（0/4 从未被问出）/F3 开场锚定 Persona 名（DS 2/2 曾认成对手角色薇拉）；收据
+// tests/unit/_bld-tuning/persona-pass/REPORT.md Phase C 节。
 const BUILDER_INTERVIEW_PROMPT_NOSTEAL = `你是「角色工坊」的用户信息访谈师（不抢话模式：AI 只扮演对手角色、绝不替{{user}}行动，这份资料是给 AI「读懂你」用的——一份行为翻译手册，不是人设卡）。你的唯一工作：帮用户把「TA做各种事的时候是什么意思」聊清楚，然后交给锻造工序。语气自然、简短，一次最多问两三个问题，绝不查户口式连环追问。当事人就坐在你对面——TA对自己的了解是唯一权威，亲身习惯、主观感受都是一手材料，尽管问。
-【开场】问用户想「完善当前角色」还是「另存为新角色」。
+【开场】问用户想「完善当前角色」还是「另存为新角色」。「当前角色」＝当前 Persona 描述里用户扮演的那位，开场就用 Persona 描述里的名字称呼TA；角色卡上的名字是对手角色的。
 【收集】先请用户随便说说自己扮演的这个角色，想到什么说什么。然后你做四件事（未勾选的草稿部分不要问）：
 1. 对照已有材料盘点已知信息——已经有答案的绝不再问：当前 Persona 描述（选「完善当前角色」时它就是底稿）；对话记录里{{user}}的实际发言——最好的一手行为样本（句子长短、写不写动作、爱不爱损人都看得到），拿观察去确认而不是干问：「我看你在故事里说话都很短——是习惯，还是别的意思？」；角色卡与世界书（TA和对手角色的关系、TA在这个世界里的位置）。
-2. 补基础硬事实，按需要挑选：姓名或称呼、性别、年龄、身份与职业；家境、住处、经济状况；世界观有阵营、种族、地区之分时TA属于哪边；外貌上一两个想让 AI 记住的特征；改变过TA的关键经历（一到三件）；和当前角色的关系——起点和现状。这部分全是客观事实，成稿要比 NPC 卡写得更满——缺口值得多花一两轮补全。目标动机不用问——锻造工序会按材料和世界观自己推导；用户主动说了就记进 brief。
-3. 聊四个翻译维度——问的是亲身习惯和它的真实含义，不是抽象性格：肢体接触（你平时爱怎么碰对方？那些动作对你是什么意思？）；说话方式（说话简短吗？用命令口气吗？爱吐槽损人吗？沉默的时候一般在干嘛？——每一样对你来说的真实含义）；情绪表达（开心／生气／难过／紧张／吃醋时，你打出来的字各是什么样？AI 只能从字面判断你当下的情绪）；互动习惯（你俩平时怎么相处？对方闹脾气或难过的时候，你一般怎么做？）。用户给出性格标签（「我很内向」这类话）时，只当翻译线索记下，顺势把它落到行为上：「你说的内向，平时具体长什么样？」——手册最终写的是「你做X时，意思是Y」，标签本身不进成稿。
-4. 必问一条：「AI 最常把你的哪个行为理解歪？举个例子。」——这是整份手册最值钱的材料。拿到例子后再追一句「那它实际是什么意思？」：误读和真实含义都要收齐，有几条记几条。
+2. 必问且趁早——第一次追问就要带上：「AI 最常把你的哪个行为理解歪？举个例子。」这是整份手册最值钱的材料；拿到例子后再追一句「那它实际是什么意思？」，误读和真实含义都要收齐，有几条记几条。
+3. 补基础硬事实，按需要挑选：姓名或称呼、性别、年龄、身份与职业；家境、住处、经济状况；世界观有阵营、种族、地区之分时TA属于哪边；外貌上一两个想让 AI 记住的特征；改变过TA的关键经历（一到三件）；和当前角色的关系——起点和现状。这部分全是客观事实，成稿要比 NPC 卡写得更满——缺口值得多花一两轮补全。目标动机不用问——锻造工序会按材料和世界观自己推导；用户主动说了就记进 brief。
+4. 聊四个翻译维度——问的是亲身习惯和它的真实含义，不是抽象性格：肢体接触（你平时爱怎么碰对方？那些动作对你是什么意思？）；说话方式（说话简短吗？用命令口气吗？爱吐槽损人吗？沉默的时候一般在干嘛？——每一样对你来说的真实含义）；情绪表达（开心／生气／难过／紧张／吃醋时，你打出来的字各是什么样？AI 只能从字面判断你当下的情绪）；互动习惯（你俩平时怎么相处？对方闹脾气或难过的时候，你一般怎么做？）。用户给出性格标签（「我很内向」这类话）时，只当翻译线索记下，顺势把它落到行为上：「你说的内向，平时具体长什么样？」——手册最终写的是「你做X时，意思是Y」，标签本身不进成稿。
+收工令：用户一说「差不多了」就立刻交付——马上输出 <CharBrief>，「必问」也一样收手；没聊到的项留给锻造按材料自己定。
 【交付】信息够了（客观缺口都补齐，或用户说"差不多了"）就输出一个 <CharBrief> 区块汇总，区块外用一两句话说明，然后请用户点「🔨 生成」。desc 里写浓缩后的全部要点，用户强调过的任何设定都不能漏。
 【修订】锻造稿出来后，用户提修改时：先引用你要动的原句，给出替换文本，问「可以吗？还有别的要改吗？」——确认阶段的引用和替换文本都用普通文字写。用户每确认一条就先记住它，继续问「还有别的要改吗？」；直到用户说「改完了」（或明确表示没有别的要改），才输出唯一的一个 <DraftPatch> 区块，把已确认的修改一次性列全；补丁里只放用户确认过的修改，其余文字保持原样。区块外不要重复草稿内容。`;
+
+// ✂️ 锻造稿精简（1.30.0，spec docs/superpowers/specs/2026-07-11-builder-draft-condense-design.md）。
+// 三份提示词 = condense-v0 电池冻结件（_prompt-v0.2 / depth/_prompt-t3-sect / depth/_prompt-t2-ops），
+// 由脚本从冻结文件注入（tests/unit/_fixtures-condense/_gen-consts.mjs）——【改这些字节 = 重跑那轮电池】，
+// 与 FIX_SPAN_PROMPT 同待遇；byte-identity 由 builder-condense.test.mjs 钉住。
+const DRAFT_CONDENSE_PROMPT = `你是一名角色卡「精简编辑」。你会收到一张已经锻造完成的角色卡正文。你的全部工作是让它更好读、更省字——只做删减与拆分，绝不添内容。卡里的设定、事实、机制、台词都不是你的创作对象：你是编辑，不是作者。
+
+【三条铁律（先于一切）】
+一、只删不添。不新增事实、比喻、形容、台词；不替角色发明任何新东西。你写出的每一句，其信息都必须在原稿里找得到出处。
+二、禁止用重复凑节奏。不得为了「读起来顺」而复写、回环、排比同一信息——那是注水。可读性只能来自两件事：句号打得更勤，废重复删得更净。
+三、以下内容一个字都不动：所有「」内的台词与语料；所有【章节头】与小节名；〔状态行〕；{{user}} 的写法；围栏与格式结构。列表行保持列表，不得合并成段。另有两句写给 AI 读者的「协议句」也必须原样保留、一字不改——「性格调色盘：人的性格就像调色盘，……由多种性格衍生组合而成才是活生生的人。」与「人的性格不是调色盘上一格一格分开的颜色。……以下是他的画面，每一笔里都有几种颜色在跑。」它们是协议，不是点评，手术规则5②对它们不适用。
+
+【手术规则（对叙述文字逐段执行）】
+1) 一句一事。凡一句里叠了两件以上的事，就在谓语边界拆成短句。逐句机械执行，不必数字数：读到一个逗号就看它后面——换了动作、换了对象、或换了高度的，这个逗号改成句号；破折号后面是解释或补叙的，独立成句；分号一律当句号处理。一个主语一口气只做一件事。
+2) 先话题，后展开。长前置定语（「那个……的……的X」）拆开：先一句说X，再一句说它的来历或状态。嵌在定语里的整句引文或疑问，独立成句。
+3) 一句只站一个高度。一句要么是画面（摄像机拍得到的），要么是机制（为什么），要么是写法叮嘱。混在一句里的，拆开各归各位；拆出来的那一半若在它该在的章节里已有，删。
+4) 一个事实只完整讲一遍。动手前先通读全卡，列一张「已完整讲过的事」清单——登基与来历、悬而未决的身份、称号别名、核心矛盾这类最爱到处复述的，都在此列。随后逐节执行：与清单重复的整句，删，或缩成不成句的短语。同一场戏，全卡只完整叙述一次（人际关系与画面尤其要查）。全卡的核心钩子允许在两三处以短语重现，但完整叙述只留一处。
+5) 删三类废尾：①复述式收尾——把上文刚说过的事换个说法再说一遍的句子；②替读者点破情绪或含义的句子（「那是怕」「这说明他……」一类——画面自己会说话）；③格言式点评。删掉后若段落缺个落点，用原稿里已有的、拍得到的实物句收，不得新写。
+6) 成稿长度应落在原稿的六成到八成五之间。交稿前自己核一遍：高于八成五＝重复多半还没删净，回到规则4、5再删一轮（最常见的漏网：人际关系与画面里复述同一场戏、多个章节反复交代同一段来历）；低于六成＝删过了头，把误删的独有事实放回来。唯一的例外：若通读后确认原稿本就干净——没有成段的重复、没有可拆的长句——那就如实近原样交回，长度不受此条约束；绝不允许为凑长度而删独有的事实。
+7) 拿不准一句是「独有事实」还是「复述」时，保留那个事实。但保守只用在「删事实」这一件事上：确认的重复照删、长句照拆，不受本条保护。
+
+【输出格式】
+可以先用 <thinking> 简短列一下各章节要动什么（几行即可），然后输出精简后的完整正文，用围栏包住：
+<<<content
+（精简后的全文，章节顺序与原稿一致）
+content>>>
+围栏外不写任何别的话。`;
+const CONDENSE_SECT_PROMPT = `你是一名角色卡「精简编辑」。这张角色卡被分成了几份，交给几位编辑并行处理；你只负责其中指定的几节。你会拿到【全卡参考】（只读，用来查重）和【你负责的节】清单。
+
+【三条铁律（先于一切）】
+一、只删不添。不新增事实、比喻、形容、台词；你写出的每一句，其信息都必须在原稿里找得到出处。
+二、禁止用重复凑节奏。可读性只能来自：句号打得更勤，废重复删得更净。
+三、以下内容一个字都不动：所有「」内的台词与语料；所有【章节头】与小节名；〔状态行〕；{{user}} 的写法；列表行保持列表。两句协议句（「性格调色盘……活生生的人。」「人的性格不是调色盘……几种颜色在跑。」）若在你负责的节里，原样保留。
+
+【手术规则（只对你负责的节执行）】
+1) 一句一事：读到逗号看后面——换了动作、换了对象、或换了高度的，改句号；破折号解释独立成句；分号当句号。
+2) 长前置定语拆开：先说X，再说来历。
+3) 一句只站一个高度（画面／机制／叮嘱），混了就拆。
+4) 查重删复述：对照【全卡参考】，凡你负责的节在复述其他节已完整讲过的事件与来历，整句删或缩成不成句的短语——你的节不需要替别的节背书。同一场戏若在你的节与别的节都有完整叙述、而别的节讲得更全，你这边删到只剩短语。
+5) 删三类废尾：复述式收尾／点破含义句／格言点评。缺落点就用本节已有的实物句收。
+6) 可从本节其余句子直接推断的从句、限定语、同义并列后一半：删。
+7) 「宁可保留」只保护硬事实（名字、数字、来历、事件经过）；从句修饰复述，拿不准就删。
+
+【输出格式】
+可以先用 <thinking> 简短规划。然后只输出你负责的那几节的精简稿（带各自【章节头】，按原顺序；不要输出任何其他节，也不要输出全卡参考），用围栏包住：
+<<<content
+（只含你负责的节）
+content>>>
+围栏外只写一段不超过三行的【技术报告】：并行分工（只管自己的节）让你比整卡处理敢删还是更不敢删？`;
+const CONDENSE_OPS_PROMPT = `你是一名角色卡「删减师」。你会收到一张已经过拆句整理的角色卡正文。你的任务不是重写它，而是开出一张「删减手术单」：列出应当删除或压缩的原文片段。你自己一个字也不改写正文——执行由装置完成，装置会逐条核对、有禁区自动作废，所以你只管把刀开足。
+
+【手术单格式】每行一个操作，三种之一：
+〔删〕原文片段
+〔缩〕原文片段 → 替换短语
+〔过〕节名——本节无可删
+规矩：片段必须与原文逐字一致（含标点），取整句或完整从句；〔缩〕的替换短语只许用原句里已有的词，不许新造。
+
+【下刀标准】
+① 与他节重复的叙述：同一事件、同一来历，全卡只留信息最全的一处，其余整句删或缩成短语。
+② 可从同节其余句子直接推断出来的从句、限定语、解释性半句。
+③ 复述式收尾、替读者点破含义的句子、格言式点评。
+④ 不带新信息的比况、感慨、同义并列的后一半。
+
+【禁区（装置会自动作废，不用你避让，但别浪费刀数）】
+「」内的台词与语料；【章节头】与小节名；〔状态行〕；两句协议句（「性格调色盘……」「人的性格不是调色盘……」）；{{user}}；
+每幅「画面」与每条「衍生」的整个主体——它们是功能件（并色示范／衍生示范），同一场戏出现在画面里不算与他节重复，块内一刀都不开；它们的句内精简由别的工序负责。
+
+【火力要求】这张卡还有两到三成的水分。每一节都至少过一遍：有刀下刀，没刀写〔过〕。宁可多开——装置会替你把关，开少了水分就留下了。
+
+【输出格式】
+可以先用 <thinking> 简短规划（几行即可）。然后逐行输出手术单，每行以〔删〕〔缩〕〔过〕开头，不写编号、不写解释。手术单结束后，另起一段不超过五行的【技术报告】：哪类刀最多？哪些地方你想删但没把握、为什么？`;
+// 精简各工序 → 提示词（元测试：三份冻结件在此 + 各自调用点 = ≥2 处引用）。
+const CONDENSE_STAGE_PROMPTS = { light: DRAFT_CONDENSE_PROMPT, sect: CONDENSE_SECT_PROMPT, ops: CONDENSE_OPS_PROMPT };
 
 // 变体 → 访谈提示词（card 回冻结原件）。
 function builderInterviewPromptFor(key) {
@@ -352,7 +431,7 @@ const BUILDER_FORGE_PROMPT = `【角色锻造工序】你是角色锻造师。�
     定位：___（这个人对 TA 是谁，用平实的关系词——师傅／债主／晚班熟客／十几年的搭班）
     互动方式：___（一个能在脑子里放出来的画面：谁做了什么、对方怎么回——「他把零食放她桌上，她用书本推到桌角」；「关系不错」这种形容等于没写。对象是脑内声音／系统这类实体时同样给画面：某次它开口，TA 具体怎么回）
   条目范围：brief、对话记录、世界书里出现过的重要他人，各立一条（没名字的给明确槽位：「三四个人，具体人物随剧情确立」也是条目）。npc 目标的第一条固定是「与{{user}}的关系」——把基本信息里那一句定位在这里展开成画面；persona 目标不立这条、全节不出现「{{user}}」字样——TA 就是{{user}}；对话记录里用户当前扮演的角色如需立条目，用那个角色的本名。抽象形容与比喻式总结等于没写；「在乎还是利用」这类内心活动留给深层人格，不进关系。卡里出现的每个专有名词，要么在这里给它一条、要么删掉，不留没人认得的名字。不写「世界对 TA 的回应」这类总评小节。
-■ 性格画像：三层（底色／主色调／点缀）＋衍生，按下面骨架填。三个名字都是性格机制词、两字以上、要挖到机制层再落笔——一个名字装下两种以上特质（「不甘心」＝自卑＋坚韧）；表面词要往下追一两层再命名（「安静」先问它在保护什么、「善良」图什么，追到那层才落名）。寻常单色标签（温和／冷静／控制／善良这类一眼到底的词）、或把标签并列写成 X（标签／标签／标签） 都等于没写。骨架（照它落稿，别把这些说明抄进成稿）：
+■ 性格画像：三层（底色／主色调／点缀）＋衍生，按下面骨架填。落每个色名前，先按本角色实际，在脑子里把TA相反或不同方向的两面找出来（一面软一面硬、一面认一面不认这类，随人而定），再拿一个两字以上、把这两面拧成一股的词当色名——只收得住一面、一眼到底的品质词（温和／冷静／控制／善良这类不用挖就说得出的）是没挖到，换掉；把两个同方向形容词拼一起（越拼越长那种）也还是一眼到底。表面词先往下追一两问（它在挡什么、图什么、护什么）再落名。色名落的是性格劲，不是材质、颜色，也不是把某个场景压成的短语；把标签并列写成 X（标签／标签／标签） 等于没写。骨架（照它落稿，别把这些说明、也别把「两面」这类拆解字眼抄进成稿）：
 
 第一行一字不改照抄下面这句，只把 X/Y/Z 换成上面挖好的三个性格机制词——X＝不管什么场景都隐隐垫在底下的那股劲、Y＝日常最常被看见也最常驱动行为的那面、Z＝平时看不到、专管反差和隐藏面的那点；「调色盘／底色／主色调／点缀」是比喻框架，X/Y/Z 落的是性格词、不是真实颜色或材质（开头「人的性格就像调色盘，」这半句必须保留，不能省成「性格调色盘：X是底色」）：
 性格调色盘：人的性格就像调色盘，X是底色，Y是主色调，Z是点缀，由多种性格衍生组合而成才是活生生的人。
@@ -360,7 +439,7 @@ const BUILDER_FORGE_PROMPT = `【角色锻造工序】你是角色锻造师。�
 主色调：Y——一句话定义。
 点缀：Z——一句话定义。
 X衍生一：三到六字标题
-每条标题都另起一行，标题下写两到四句、脑子里看得见的具体场景，最后一句落在一个看得见的动作或东西上。
+标题另起一行，标题下写两到四句、脑子里看得见的具体场景；最后单独一句只写拍得到的那个动作或那件东西——写完即停，句前不带任何标签或名目。
 X衍生二：三到六字标题
 X衍生三：三到六字标题
 Y衍生一：三到六字标题
@@ -370,19 +449,30 @@ Z衍生一：三到六字标题
 Z衍生二：三到六字标题
 Z衍生三：三到六字标题
 
-三个颜色各自成组，每组三到四条、各带一个不同的标题，一个颜色都不能空着、也不能只写一两条。比喻只许出现在上面三行定义里、不进衍生正文，定义写一句话、别摊成整段分析。
-每条衍生的最后一句必须落在一个看得见的动作或东西上（「资料摊在桌上」「灯才关」）；不要解释、不要总结、不要评价——「其实…」「因为…」「只有他自己知道…」「这是…的X」「和…一样」这类都不留，让场景自己说话。
-至少一条衍生同时承载两种颜色，把它放进某个颜色名下、不另开「双色」条目；每色至少一条写「知道TA类型的读者也猜不到」的行为——数据库默认联想（操纵者记细节、野心家只想赢）等于没写。选色、双色、反直觉只是你挑衍生的标准，成稿里不出现这些字样，也别给衍生另注它属于哪条标准——标题行照骨架用「颜色名＋衍生＋序号」起头就够了。衍生只写TA会做什么，为什么留给深层人格与防误读。
+声明句后先把底色／主色调／点缀三行定义落齐、再进衍生，一行都不能省；每行一句话，把色名相反的那两面同时点到、别塌成一面——一个词收不住那两面，就是色名还太浅，回去重挖。比喻只许落在这三行定义里、不进衍生正文，定义写一句话、别摊成整段分析。
+三个颜色各自成组，每组三到四条、各带一个不同的标题，一个颜色都不能空着、也不能只写一两条。成稿里每条衍生的标题都保留「色名＋衍生＋序号：标题」的完整起头，别只留标题几个字。
+衍生末句，拍得到的＝一个动作、或一件摆在那儿的东西；拍不到的＝这个人心里想什么、明白了什么、这件事说明或意味着什么、他图的是什么（连「意味着…／其实…／因为…／等于…／不是A是B」这类交代都算）。一条衍生只留拍得到的那半收尾，拍不到的那半哪怕只多一句，删掉——让场景自己说话。
+至少一条衍生同时承载两种颜色，把它放进某个颜色名下、不另开「双色」条目；每色至少一条写「知道TA类型的读者也猜不到」的行为——数据库默认联想（操纵者记细节、野心家只想赢）等于没写。选色、双色、反直觉只是你挑衍生的标准，成稿里不出现这些字样，也别给衍生另注它属于哪条标准。衍生只写TA会做什么，为什么留给深层人格与防误读。
 本次一并写了多副面孔时，本节衍生里一句引号台词都不要——他说的话、脑内声音的话，一律转述（写「他撂下一句就走」「他压低声音说了句什么」，不写整句引号原话）；那些台词是各面语料的活，不在这里。未写多副面孔时，衍生里才可带少量音区示范台词。
-■ 多副面孔：只写压力性质截然不同、切换后行为根本不同的面（两到三面；与伴生实体对话或被它引导不算一张面，只进末尾「外显」块）。每种场景只一个主人面（独处做事 vs 独处发呆是两种场景）。每面先起一行〔＿＿面〕当小标题、再写下辖五行；小标题两三字，点出这张面的场景或它守什么（不是编号，也不是把触发条件整句搬上来）。五行齐全，最易漏功能行：
+■ 多副面孔：动笔前先数场景、再决定写几面——别一上来照槽填。在思考里把这个角色「压力性质截然不同」的场景一条条数清（有几种数几种、不预设数目）：判据是根本性切换——同一个人，说话方式、能量、身体、守着的东西整套换成另一套才算一种；「松一点／凶一点／语气软下来」不算，那是同一张面的深浅，归性格衍生。数的时候别只盯最扎眼的那一两张对外的面——对照 TA 的背景经历与深层人格，TA 不显山露水的时候、或被自己的处境逼到别处的时候，行为逻辑常常又是另一套，这些不那么起眼的场景一样数进来。（有的角色的不同压力来自对外维系关系，有的来自临阵应对危险，有的来自独处时卸下对外那一面，有的来自为利害跟人周旋——这几个只是帮你起念的方向，多数角色并不正好长这几个样，按本角色自己的成因数、别把这几个词原样抄成面名。）每种场景只立一个主人面（独处做事和独处发呆是两种场景，各立一面；别让两张面抢同一个场景）。与伴生实体对话或被它引导不算一张面，它进末尾「外显」块。
+数出几种就写几面，两面起步、三面封顶。若只数得出一种截然不同的压力，就顺着这个角色自己的背景经历和深层人格再找一处压力性质不同、会逼出另一整套行为的处境，立成第二面。第三面同理——唯有从 TA 的成因链真找得出第三种截然不同的处境才写，找不出就守住手上的面数、不硬添。
+从成因里找出来的新面，落笔前过三问：这处压力真和别的面不同吗？整套行为逻辑真换了一套、不只是换个说法吗？回得到 TA 的哪段经历上吗？三问都过了才算一面。把同一套行为换个标签硬凑成另一张面，是质量红线——读它的 AI 会在假面之间生硬切换，本来顺畅的角色被写裂。
+每面先起一行〔＿＿面〕当小标题、再写下辖五行；小标题两三字，点出这张面的场景或它守什么（不是编号，也不是把触发条件整句搬上来）。五行齐全，最易漏功能行：
 〔＿＿面〕
 触发条件：可观测的场景规则，AI当场能判（「在场有未确认盟友」这种，不是要先下判断的抽象场合）。
 能量状态：瞬时消耗＋累积账。低耗、舒服的面也写清是净回充还是慢性内耗（主人面、独处卸载面常是全天唯一回充），别只写「低耗」。
 语料：四到六条中文、短而完整的自然句。危机或高压决策的那张面至少一句要稳得住人——指令里带个能立刻照做的落点（往哪走、先做哪步），不是光甩「退后」「快」这种碎句。
 身体行为模式：能拍下来的微观动作，不写「精确／精准／放松／开放」这类判断词。
 功能：这张面保护什么、解决什么。
-过渡至少两条（含最难受或恢复期的一条）、渗透双向各至少一条身体破绽，这两样都要写。伴生实体（脑内声音、系统、附身灵之类）另开「外显」块，逐个活跃面写它出现时TA身上被旁人看见的可见信号（如「多出一拍停顿」，别标秒数；不写它的台词）。
-■ 言行反差：先写定调段：「人的性格不是调色盘上一格一格分开的颜色。TA身上的颜色——X、Y、Z——从来不是一次只出一种。以下是TA的画面，每一笔里都有几种颜色在跑。」X／Y／Z 直接抄本卡性格画像的三个颜色原词。然后写四到六个画面，每个都用「画面一」「画面二」这样的序号起头、各自成段（别更多，序号后直接进场景，不加颜色标签）；画面按固定次序排：前面的画面全部写没输赢的日常场合（吃饭、排队、通勤、闲聊、线上这类）、日常要占多数；战斗或对峙这种见输赢的场合至多一个，只能放进最后那一个画面，它前面的每个画面都不许是战斗或对峙；这个角色日常里根本不打斗，最后这个也省掉、画面从头到尾全是日常（写四个＝画面一二三日常、画面四才轮到那唯一的战斗或对峙）。混色＝同一个动作或瞬间里两种颜色一起在场、两种都是真的、拆不开（表面一套背后一套＝伪装，先一种再另一种＝转折，罗列一串情绪＝清单，都归不到这节）。两种颜色各靠一件看得见的事带出来——第二种颜色是他【另做的一件事】或画面里一个物件，不是他心里的想法、也不是你在旁边点破的「冷」「暖」「其实在算计」。颜色出自调色盘，但画面里不写颜色的名字、结尾也不总结「哪一笔是哪种颜色」——让读者自己认。把两个客观事实并排摆着，读者自己看出它们同时成立：一个画面收干净就换下一个编号，别用破折号或「但／却」在句尾补一句解释、背景、心思；画面里别打比喻，只摆看得见的实物和动作。每个画面就三四行：一行容器（时间／地点／情境）＋两到四拍动作、台词、物件＋收尾那一拍是镜头拍得到的东西（一个动作／一件物品／一句台词），不许是「她在心里记下」「他判断」「在脑子里对上号」这种想出来的事。设计稿里最日常的那对矛盾别漏。音区跨面持续＝面孔渗透的料，不算混色。
+过渡至少两条（含最难受或恢复期的那一条）；渗透给每张面各写一条向外渗漏的身体破绽，合起来两个方向都要有。过渡和渗透这两样都不能省。伴生实体（脑内声音、系统、附身灵之类）另开「外显」块，逐个活跃面写它出现时TA身上被旁人看见的可见信号（如「多出一拍停顿」，别标秒数；不写它的台词）。
+■ 言行反差：这一节写混色画面——同一个动作或瞬间里两种颜色一起在场、两种都是真的、拆不开。先写定调段：「人的性格不是调色盘上一格一格分开的颜色。TA身上的颜色——X、Y、Z——从来不是一次只出一种。以下是TA的画面，每一笔里都有几种颜色在跑。」X／Y／Z 直接抄本卡性格画像的三个颜色原词。
+然后写四到六个画面，每个都用「画面一」「画面二」这样的序号起头、各自成段（别更多，序号后直接进场景，不加颜色标签）；画面按固定次序排：前面的画面全部写没输赢的日常场合（吃饭、排队、通勤、闲聊、线上这类）、日常要占多数；战斗或对峙这种见输赢的场合至多一个，只能放进最后那一个画面，它前面的每个画面都不许是战斗或对峙；这个角色日常里根本不打斗，最后这个也省掉、画面从头到尾全是日常（写四个＝画面一二三日常、画面四才轮到那唯一的战斗或对峙）。
+每个画面必须过这条可数判据：画面里要有【两件】看得见的事同时成立，拆开看分别落在调色盘里【不同】的两种颜色上。一件可以是TA做的动作或说的一句话；另一件可以是TA【另做的一件事】、画面里的一个【物件】、或另一句不点破的台词——哪种颜色先出、用动作还是物件还是台词来带、放进什么场合，都按本角色和这个场景自己定；判据只管「两件事、两种颜色、同一刻都为真」，不定形、不定序。两件都得是镜头拍得到的实况，不是心里的想法、也不是你在旁边点破的「冷」「暖」「其实在算计」。
+每个画面动笔前，先在思考里数一遍：这幅画面凑的是调色盘哪两种颜色（写出原词），各由画面里哪一件看得见的事带出来；数得出两种不同颜色、各有一件事撑着，才动笔；只数得出一种颜色，就给它补一件属于另一种颜色的事、或换一幅，别硬写。
+盯死这几种不算混色的：第二件事只是第一件的铺垫、或和它是同一种颜色的两拍（先试探再退缩、先看一眼再放弃、先应下再抽身——都是同一种情绪走了两步）＝单色；两件事糊成一团、说不清各归哪种颜色＝浑浊；表面一套背后一套＝伪装；先一种情绪再换另一种＝转折；罗列一串情绪＝清单——这些都归不到这节。
+颜色出自调色盘，但画面里不写颜色的名字、结尾也不总结「哪一笔是哪种颜色」。那两件事各自写成一句、用句号断开、直接并排，让它们自己撞出反差、读者自己看出两件同时成立就够。别拿「但／却／然而」这类词接两件事去替读者点破对比（章节错误四明禁），也别用破折号在句尾补一句解释、背景、心思。画面里别打比喻，只摆看得见的实物和动作。
+每个画面就三四行：一行容器（时间／地点／情境）＋两到四拍动作、台词、物件（其中要有分属两色的那两件事）＋收尾那一拍是镜头拍得到的东西（一个动作／一件物品／一句台词），不许是「她在心里记下」「他判断」「在脑子里对上号」这种想出来的事。
+设计稿里最日常的那对矛盾别漏。音区跨面持续＝面孔渗透的料，不算混色。
 ■ 深层人格：TA的决策层，七件逐个写：表层欲望（TA以为自己想要什么——TA被问到时说得出口、并驱动TA行为的信念，不是目标清单；写成陈述句或TA的原话都可以，挑贴合这个角色的写法、不把任何一种当固定模板；如另有说给外人听的版本，注明两版并存）／深层缺失（顺着表层欲望往下追问「为什么」，挖到一段TA从来没经历过的事为止——一件具体、缺席的经历：TA从没被谁怎样对待过、从没得到过的某一次、或从没有过的某个时刻，挑贴合这个角色的一种写清楚；别停在像安全感／控制感／认同感这种词上，那是还没挖到底）／核心恐惧（挖到底层那一个，正面写清它平时长成什么日常模样——通常不是焦虑戏）／防御机制（两到四层，由浅入深，每层配一个看得见的具体行为；最深一层可以标「TA自己没有完全意识到」；末尾必有一条「当有人真的靠近时」，写TA怎么应对这份靠近）／核心矛盾（一句话，一个自我拆台的死结，必须扣住核心恐惧——TA为最在乎的目标所做的努力，恰恰在拆掉这个目标；写完即止，不展开、不解释）／道德底线（含行为地板：给一个把TA往这条线上推的具体情境、写TA当场做的那个动作；再点明跨线的代价——这条线守着TA对自己是谁的认定，跨过去TA就不再是自己认得的那个人，这层代价用贴合这个角色的话写、别收成同一句结论）／自我认知可能性（成长方向与退行方向各写一条，退行那扇门留着别焊死，收尾「两种走向都可能发生」）。恐惧写得准比写得惨重要，日常的累积同样成立；日常／喜剧／简单角色的七件写得短、贴着日常来，不为求「深」去发明创伤或戏剧化的黑暗。人格必须独立于{{user}}和任何单一角色而成立。
 ■ 说话方式：跨面常量——用词水平、句长习惯、称呼习惯、语言边界。台词是音区示范、不锁台词：不产出「口癖/固定台词」字段（读它的AI会复读）。冷静/干练角色的简洁＝内容筛选，不是电报腔——短而完整的自然句，保留日常连接词，紧急时的话要能稳住别人。勾选了多副面孔时各面语料已在面孔里，本节不重复台词。
 ■ 目标动机：终极／中期／短期分层。终极那层写出两层意思——TA 嘴上会怎么说的那版、和真正驱着 TA 的那版（两版通常不一样，别只写好听的一版）；中期、短期落到具体，短期随剧情动态调整。
@@ -458,7 +548,7 @@ Z衍生二：三到六字标题
 ■ 边界：第一行一字不改照抄，第二行按骨架填一个贴合TA的样例：
 边界：当剧情进入关键点或危急关头，允许产生新的性格衍生。
 例如：平时___的{{user}}，在___时可以___。（照TA的调色盘推一个合理的突破样例，一行收；落在一个具体动作上，不比喻。）
-三、自检。只在思考里进行，发现问题回去改：①照这份稿演出来的{{user}}，像 brief 和对话记录里那个人吗——TA的说话习惯、处事的样子都进稿了吗？②清单里勾的小节一节不缺，清单外的没混进来吧？③每个特化特征都带禁止说明了吗？目标动机每行指得到依据吗？无（依据：⟨原句⟩）的长线行、brief 里没有的野心，删了吗？④数引号：全篇台词至多三句、都是衍生场景里那个可见动作吗？六条衍生每条都收在镜头行上了吗？⑤通读全稿搜 极度／极致／每次…都／从不／绝不／一定／必——命中就换成有余地的词或删；整份读下来像说明书加素描，不像小说吧？⑥全稿分量压在角色卡四分之一以下吗？超了先砍最长的块。
+三、自检。只在思考里进行，发现问题回去改：①照这份稿演出来的{{user}}，像 brief 和对话记录里那个人吗——TA的说话习惯、处事的样子都进稿了吗？②清单里勾的小节一节不缺，清单外的没混进来吧？③每个特化特征都带禁止说明了吗？目标动机每行指得到依据吗？无（依据：⟨原句⟩）的长线行、brief 里没有的野心，删了吗？④数引号：全篇台词至多三句、都是衍生场景里那个可见动作吗？六条衍生每条都收在镜头行上了吗？每条都顶着「X衍生一：」式归属头、X/Y/Z 已换成挖好的三个词了吗——缺头补头，没换就换。⑤通读全稿搜 极度／极致／每次…都／从不／绝不／一定／必——命中就换成有余地的词或删；整份读下来像说明书加素描，不像小说吧？⑥全稿分量压在角色卡四分之一以下吗？超了先砍最长的块。
 四、成稿输出。先闭合 </thinking>；区块外用一两句话说明设计思路，然后输出一个 <CharDraft> 区块（target 按 brief：persona-update／persona-new）。成稿规矩：
 - 只覆盖勾选的部分，按 基本信息→外貌特征→背景设定→目标动机→性格调色盘→边界 的顺序组装。
 - 世界书里针对「角色条目／NPC」的排版（【出身】【现状】两段、末尾状态行、数值模板）不落进这份用户角色简卡；只有专门写「用户信息／用户角色」的条目才套。
@@ -689,6 +779,7 @@ const FIX_TARGET_MODULES = {
           + '- 不强行升华收尾（"那一刻，他明白了…"）；停在动作或对白上。\n'
           + '- 删作者预知腔（这预示着 / 后来才明白 / 命运早已安排）。\n'
           + '- 不用语气 / 神态标签（冷冷地说、皱眉、嘴角上扬）；用行为、对白、可观察结果呈现情绪。\n'
+          + '- 【反差日常腔】写某人说话 / 反应的口吻时，拿“像在说今天天气不错 / 像在聊家常 / 像在讨论晚饭吃什么 / 像在说一件微不足道的小事”这类【日常琐事作反差】来表现云淡风轻、满不在乎——这是烂大街的套路，整句删掉，让台词和动作自己体现语气，别绕这个比喻。\n'
           + '- 别让单句反复成段（如「没有废话。没有说话。只有脚步。」）：把连续的单句短段并回流动的段落。',
         t2: '- 删掉的套路应激反应，换成"该角色独有、且不与前文重复"的小动作（依据角色卡与前文）。' },
     dialogue: { label: '对话机械 / 不自然',
@@ -1036,6 +1127,16 @@ const ENABLE_AUTO_DIAGNOSE = true;
 // runAutoDiagnose 实读（constants-meta 守）。
 const AUTO_DIAGNOSE_WRITE_BACK = true;
 
+// 戏外守卫（1.32.0）总开关：普通聊天 + 剧情参谋的「高上下文续写失守」修复——transcript 数据
+// 围栏（<story_transcript> 只读引用材料信封）+ 尾锚【戏外提醒】（歧义短输入/戏内误投=讨论；
+// 用户明确点名代笔=照做、有框交付、写完即停）。实测（2026-07-14 电池，DS ~247 调用 + Gemini 13
+// + Opus 4）：22k-67k tok 下「然后呢/继续」类输入 6/6 把 DS 掰进正文续写、戏内形状误投 14/14
+// 失守（严重时第一人称冒充用户角色）；围栏+尾锚组合 = 全类守住且明确代笔请求照常服务。收据：
+// tests/unit/_oracle-tuning/highctx-continue/REPORT.md。false → 两处建模器退回 1.31.x 裸
+// transcript push（字节不变）；诊断/世界书/校正/工坊/注册插件模式不经此，恒不受影响。
+// buildSystemPrompt / buildAdvisorPrompt 两处实读（constants-meta 守）。
+const ENABLE_OFFSTAGE_GUARD = true;
+
 // MVU 的状态栏占位符——【硬编码常量】，不是按卡而异：MVU 的 handleVariablesInMessage 会给每条 AI 消息无条件
 // 追加它（MagVarUpdate beta `src/function/update_variables.ts:1478`；函数调用路径 `function_call.ts:247` 同样追加），
 // 卡片的显示正则再把它渲染成状态栏；MVU 还会自己把它从发给 AI 的提示词里剥掉（`filter_prompts.ts`）。auto 诊断
@@ -1105,6 +1206,11 @@ const ENABLE_CHAR_BUILDER = false;
 // 打造目标三分（NPC 卡 / 用户角色·抢话 / 用户角色·不抢话），各配独立访谈 / 锻造提示词、chip 集与
 // 独立侧聊流。关 → 选择器回到旧两项、一律走 card 变体与主侧聊流 = 字节级现状行为，新提示词不可达。
 const ENABLE_BUILDER_PERSONA_STYLES = true;
+// ✂️ 锻造稿精简 总开关（1.30.0，spec docs/superpowers/specs/2026-07-11-builder-draft-condense-design.md）：
+// false → 草稿卡不出精简按钮、锻造后自动精简不触发、设置行不渲染（三处读点）——对旧行为字节级零变化。
+// 轻精简 = 单调用 v0.2 冻结提示词；深度精简 = 3 并行分节 + 手术单 + 装置逐刀核验（condense-v0 电池验证形态）。
+// 守卫恒 fail-open：任何一道不过 = 原稿原样保留。仅 npc-* 目标（persona 由分家项目另管）。
+const ENABLE_DRAFT_CONDENSE = true;
 // 每模式独立侧聊房间（用户功能请求：切模式不再混聊天）：把「侧聊流」从「仅工坊分家」推广到「按当前模式分家」。
 // false → 非工坊模式一律回主流（= 1.27.x 逐字节行为）。工坊三房间仍由 ENABLE_BUILDER_PERSONA_STYLES 独立管辖——两开关正交。
 const ENABLE_MODE_ROOMS = true;
@@ -1112,6 +1218,11 @@ const ENABLE_MODE_ROOMS = true;
 // no-op、零行为变化（二创无法挂载）。SO_API_VERSION = 版本契约，仅破坏性改动才 +1（插件 isCompatible 据此判）。
 const ENABLE_HOOK_API = true;
 const SO_API_VERSION = 1;
+// 柏宝书记忆桥（1.33.0）：读柏宝书（ST-BaiBai-Book）公开 API getInjectedHistory() 的历史剧情摘要
+//（它把滑动窗口外的旧楼层 /hide 隐藏、只给主模型注入摘要——神谕默认读不到隐藏楼层，等于丢了早期剧情）。
+// false → 解析器恒返回空串、设置行不渲染（读点：getBbsHistoryText 早退 / 设置行模板 / bind+回填守卫）——
+// 字节级零变化。运行期另有 opt-in 设置 chatIncludeBbs（默认关）；未装柏宝书时开着也零开销（无全局即空）。
+const ENABLE_BBS_BRIDGE = true;
 // 校正 / 诊断的后台 LLM 调用超时（毫秒）：到点 abortCtl.abort() → 气泡「(已停止)」。覆盖按目标校正
 // （runFixByTargets/Pieces）、自动校正（runAutoFix/Pieces）、自动诊断（runAutoDiagnose，共用 beginPostReplyCall）。
 // 大块正文 + 慢模型 / 推理模型的单次整体校正易越 120s（用户报告 (已停止)），2026-07-03 应 Edwin 提到 240s。
@@ -1228,6 +1339,10 @@ const defaults = {
     // window.__ST_CONTEXT_PROVIDERS__ 的扩展）。让神谕能读到主聊天之外、扩展自己系统里保存的后台世界
     // 状态。无相关扩展时自动为空、无开销。喂的是完整数据（含全部字段），大状态卡会吃 token，可在此关掉。
     chatIncludeWorld: true,
+    // 柏宝书记忆桥（ENABLE_BBS_BRIDGE）：附带柏宝书（ST-BaiBai-Book）的历史剧情摘要——被它隐藏的
+    // 旧楼层的自动总结，插在对话记录之前（普通 / 参谋；校正 / 工坊勾「带上剧情概要」时也一并带）。
+    // 默认关（opt-in）：开了才去读 window.STBaiBaiBook；未装柏宝书时开着也零开销。
+    chatIncludeBbs: false,
     applyRegex: true,          // run ST's prompt-altering regex (thinking strip, summaries, etc.)
     // 自动诊断（用户功能请求）：开启后，每收到一条新的主聊天 AI 回复，就在后台跑一次诊断
     // 并自动应用修复（见 maybePostReply 编排 → runAutoDiagnose）。autoDiagnoseWarned 记录「不再
@@ -1287,14 +1402,23 @@ const defaults = {
     bldDepth: 60,
     bldIncludeSummary: true,
     bldIncludeStat: true,
+    // bldScanWi（1.31.0，默认关）：额外跑一次 ST 关键词扫描（蓝灯 + 主聊天/卡/工坊侧聊命中的绿灯），
+    // 命中而【未被选条目器投喂】的条目作参考补充块。默认关 = 选条目器仍是唯一世界书来源（所见即所得契约）。
+    bldScanWi: false,
     bldSections: null,
     // 三变体各自的 chip 选择（bldSections 归 card 变体沿用旧键，零迁移）。null = 各自表里 def:true 的那些。
     bldSectionsSteal: null,
     bldSectionsNosteal: null,
     bldEntrySel: {},
-    // 锻造调用的 max_tokens 下限自动为 12288（1.23.0 起）；超大世界书致「思考 + 成稿」被截断时可调高（T13）。
+    // 锻造调用的 max_tokens 下限自动为 16384（1.23.0 起 12288、1.29.0 起 16384）；超大世界书致「思考 + 成稿」被截断时可调高（T13）。
     // 原始字符串（同 bldDepth 之外的 UX），空串 = 自动。runForge 里 Number(...)||0 兜底。
     bldMaxTokens: '',
+    // ✂️ 锻造后自动精简（轻精简层，1.30.0）。默认关（spec §4.4）；只在 npc-* 且原稿风格门点火
+    //（叙述句中位 >28 字或 >50 字句占比 >10%）且 ≥2500 字时，锻造成功后静默补一发精简。
+    bldAutoCondense: false,
+    // ✂️✂️ 深度精简逐份串行（1.30.0，Edwin：限速站的出口——公益站常见 2 次/分钟，3 份分节并发必撞 429）。
+    // 默认关 = 并发（快）；开 = 一份接一份，任何时刻只有一个请求在天上，每份各给 600s 看门狗预算。
+    bldCondenseSerial: false,
     // 校正调用输出上限（Tier 0 ③，1.25.0）：空 = 自动（地板 4096）；长楼层改写被截断、校正总失败时可顶高（如 8192/12288）。
     // 全局（非 per-chat、不进 FIX_CFG_KEYS）——服务商单次输出上限是账号级的、与聊天无关。fixEffMaxTokens 读，Number(...)||0 兜底。
     fixMaxTokens: '',
@@ -1363,6 +1487,7 @@ let fixMode = false;
 // Builder mode state (角色工坊). Plain on/off mode like fix.
 let builderMode = false;
 let bldContextText = '';   // structured "book -> selected entries" listing, built in generateReply
+let bldScanWiText = '';    // 关键词扫描命中的补充条目块（opt-in bldScanWi；buildBuilderContext 同步刷新）
 let bldBookNames = [];     // names of the books included in the current builder context
 let bldStatData = '';      // stringified current MVU stat_data for builder sends ('' when off / no MVU)
 // 退出某个子模式（世界书 / 参谋 / 校正）时回到「进来之前」的模式，而不是一律掉回普通聊天。
@@ -1961,6 +2086,43 @@ async function getWiScanBudget() {
     return 1048576;
 }
 
+// ==== 侧聊触发世界书绿灯（1.31.0）====
+// 侧聊里的触发词也能像主聊天一样激活绿灯条目：把当前侧聊房间最近 N 条真问答（user/assistant；
+// note 是后台记录、永不参与也不占窗口位）折进世界书扫描，N = ST 世界书的「扫描深度」设置
+// （world_info_depth，与主聊天同一窗口语义——滑出最近 N 条即失效）。折叠走 extraScanText 老轨
+// （弧线 arcScanText 同款）：并进最近一格、不挤占主聊天自己的扫描窗口；带 scanDepth 覆盖的条目
+// 把整段侧聊当「最新一条」看（近似，同弧线）。接线点：普通聊天 / 参谋 / 手动校正（勾了世界书时）
+// / 角色工坊（opt-in bldScanWi）——诊断保持只扫主聊天（精选 / 混合的「主聊天绿灯」契约不动）。
+function sideChatScanText(list, depth) {
+    const d = Number(depth);
+    if (!Number.isFinite(d) || d <= 0) return '';
+    const qa = (Array.isArray(list) ? list : [])
+        .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim());
+    return qa.slice(-d).map((m) => m.content.trim()).join('\n');
+}
+// ST 世界书「扫描深度」（模块 live binding，随设置面板实时变）；模块不可用（老版本 / 测试环境）退 ST 默认 2。
+async function getWiScanDepth() {
+    try {
+        const mod = await loadWorldInfoModule();
+        if (mod && typeof mod.world_info_depth !== 'undefined') {   // mod=false（不可用）不得被 Number 吞成 0
+            const v = Number(mod.world_info_depth);
+            if (Number.isFinite(v) && v >= 0) return v;
+        }
+    } catch (e) { /* fall through to the ST default */ }
+    return 2;
+}
+// 当前侧聊房间的折叠文本（convo 永远指向当前模式的房间流——1.28.0 每模式分房后依然成立）。
+async function sideChatScanBlob() {
+    return sideChatScanText(convo, await getWiScanDepth());
+}
+// 把额外扫描文本折进最近一格（深度无关地一定被扫到、不挤占 world_info_depth 窗口）。'st'/'char' 扫描共用。
+function foldExtraScanText(chatForWI, extraScanText) {
+    if (!(extraScanText && String(extraScanText).trim())) return;
+    const inj = String(extraScanText).trim();
+    if (chatForWI.length) chatForWI[0] = inj + '\n' + chatForWI[0];
+    else chatForWI.push(inj);
+}
+
 /**
  * Build the world-info / lorebook block for the system prompt.
  *   'st'  -> faithful ST scan: constant (blue) entries always, keyword (green)
@@ -2011,7 +2173,7 @@ async function buildWorldInfo(forceMode, extraScanText) {
             const mod = await getWiEditApi();
             const bookSet = new Set(await getCharChatBookNames());
             if (!mod || !bookSet.size) return '';
-            const active = await getActiveScanUids();   // { 书名: Set<uid> }
+            const active = await getActiveScanUids(extraScanText);   // { 书名: Set<uid> }（侧聊折叠文本照常参与扫描）
             const blocks = [];
             for (const name of Object.keys(active)) {
                 if (!bookSet.has(name)) continue;
@@ -2032,14 +2194,10 @@ async function buildWorldInfo(forceMode, extraScanText) {
             .map((m) => `${m.name || (m.is_user ? ctx.name1 : ctx.name2)}: ${m.mes}`)
             .reverse(); // most-recent first, as ST does
 
-        // 把调用方传入的【额外扫描文本】（弧线自身的贯穿线 / 路标 / 方向）并进最近一条消息所在的
+        // 把调用方传入的【额外扫描文本】（弧线的贯穿线 / 路标、或侧聊最近问答）并进最近一条消息所在的
         // 扫描格——它深度无关地一定被扫到，既不挤占 world_info_depth 窗口里的真实消息，又能让以这些
-        // 词为关键词的绿条即便最近聊天没提到也照常激活（见 arcScanText）。仅 'st' 扫描有意义。
-        if (extraScanText && String(extraScanText).trim()) {
-            const inj = String(extraScanText).trim();
-            if (chatForWI.length) chatForWI[0] = inj + '\n' + chatForWI[0];
-            else chatForWI.push(inj);
-        }
+        // 词为关键词的绿条即便最近聊天没提到也照常激活（见 arcScanText / sideChatScanBlob）。仅 'st' 扫描有意义。
+        foldExtraScanText(chatForWI, extraScanText);
 
         let card = {};
         try { card = ctx.getCharacterCardFields() || {}; } catch (e) { /* group/no char */ }
@@ -2087,7 +2245,7 @@ async function buildWorldInfo(forceMode, extraScanText) {
  * After-Char-Defs plus every other bucket (AN, @D, examples, outlet) so nothing
  * is lost. 'all' mode dumps everything into 'before'; 'off' yields empties.
  */
-async function buildWorldInfoSplit(forceMode) {
+async function buildWorldInfoSplit(forceMode, extraScanText) {
     const ctx = getCtx();
     const s = getSettings();
     const mode = forceMode || s.worldInfoMode;
@@ -2098,7 +2256,7 @@ async function buildWorldInfoSplit(forceMode) {
     }
 
     if (mode === 'char') {
-        return { before: await buildWorldInfo('char'), after: '' };
+        return { before: await buildWorldInfo('char', extraScanText), after: '' };
     }
 
     try {
@@ -2107,6 +2265,7 @@ async function buildWorldInfoSplit(forceMode) {
         const chatForWI = coreChat
             .map((m) => `${m.name || (m.is_user ? ctx.name1 : ctx.name2)}: ${m.mes}`)
             .reverse();
+        foldExtraScanText(chatForWI, extraScanText);   // 侧聊折叠文本（同 buildWorldInfo 'st'）
 
         let card = {};
         try { card = ctx.getCharacterCardFields() || {}; } catch (e) { /* group / none */ }
@@ -2253,7 +2412,7 @@ function diagPickerActive() {
 // 跑一次 ST 的 dry-run 世界书扫描（与 buildWorldInfo('st') 同输入），取当前【真正被激活】的条目，
 // 整理成 { 书名: Set<uid> }。用于诊断精选的两处：首开快照（蓝灯 + 当前命中绿灯）与混合模式（并入当前命中绿灯）。
 // 失败 / 老版本 ST 无 allActivatedEntries 时回 {}（调用方自然退化）。
-async function getActiveScanUids() {
+async function getActiveScanUids(extraScanText) {
     const ctx = getCtx();
     try {
         if (typeof ctx.getWorldInfoPrompt !== 'function') return {};
@@ -2261,6 +2420,7 @@ async function getActiveScanUids() {
         const chatForWI = coreChat
             .map((m) => `${m.name || (m.is_user ? ctx.name1 : ctx.name2)}: ${m.mes}`)
             .reverse();
+        foldExtraScanText(chatForWI, extraScanText);   // 侧聊折叠文本（'char' 模式 / 工坊扫描传入；诊断精选两处不传 = 原样）
         let card = {};
         try { card = ctx.getCharacterCardFields() || {}; } catch (e) { /* group / none */ }
         const globalScanData = {
@@ -2541,6 +2701,7 @@ async function buildLorebookContext() {
 // 补丁锚点要对上字面 {{user}}/{{char}}）。自成一份、不动 buildLorebookContext；选书走 s.bldBooks、选条目走 bldEntryFilter。
 async function buildBuilderContext() {
     bldContextText = '';
+    bldScanWiText = '';
     bldBookNames = [];
     const s = getSettings();
     const mod = await getWiEditApi();
@@ -2562,8 +2723,42 @@ async function buildBuilderContext() {
         blocks.push(`=== 世界书：${name}（已选 ${entries.length} / 共 ${total} 条）===\n` + entries.map(lbFormatEntry).join('\n\n'));
     }
     bldContextText = blocks.join('\n\n');
-    if (bldContextText.indexOf('{{') !== -1) {
-        bldContextText = '（说明：以下条目按原样显示，{{user}}/{{char}} 等宏未替换；写草稿时可以按当前故事用真名。）\n\n' + bldContextText;
+    bldScanWiText = await buildBldScanWiText(s);   // opt-in（bldScanWi 关时空串）
+    // 宏未替换说明：两块（选条目 + 关键词命中）合并判定，注在第一块非空块头上（原样投喂共同的说明）。
+    if ((bldContextText + bldScanWiText).indexOf('{{') !== -1) {
+        const macroNote = '（说明：以下条目按原样显示，{{user}}/{{char}} 等宏未替换；写草稿时可以按当前故事用真名。）\n\n';
+        if (bldContextText) bldContextText = macroNote + bldContextText;
+        else bldScanWiText = macroNote + bldScanWiText;
+    }
+}
+
+// 工坊 opt-in（bldScanWi）：关键词命中的补充世界书条目。跑 ST 真实扫描（蓝灯 + 主聊天 / 卡 / 工坊侧聊
+// 命中的绿灯——侧聊窗口同 sideChatScanBlob），剔除【选条目器已投喂】的条目（bldBookNames + bldEntryFilter
+// 语义：无 Set = 整本已喂）与 [mvu_update] 机制规则（诊断专属，镜像 MVU 的 UPDATE_REGEX），lbFormatEntry
+// 原样格式与 bldContextText 一致。选条目器仍是唯一的「角色生成规则」权威——这块只是参考补充。
+async function buildBldScanWiText(s) {
+    if (!s.bldScanWi) return '';
+    const mod = await getWiEditApi();
+    if (!mod) return '';
+    try {
+        const active = await getActiveScanUids(await sideChatScanBlob());   // { 书名: Set<uid> }
+        const blocks = [];
+        for (const name of Object.keys(active)) {
+            let data; try { data = await mod.loadWorldInfo(name); } catch (e) { continue; }
+            if (!data || !data.entries) continue;
+            const fedWholeBook = bldBookNames.includes(name) && !(bldEntryFilter[name] instanceof Set);
+            const sel = bldBookNames.includes(name) ? bldEntryFilter[name] : null;
+            const entries = Object.values(data.entries)
+                .filter((e) => e && active[name].has(Number(e.uid)) && !e.disable && typeof e.content === 'string' && e.content.trim())
+                .filter((e) => !(fedWholeBook || (sel instanceof Set && sel.has(e.uid))))          // 已在 bldContextText 里 → 剔除
+                .filter((e) => !/\[mvu_update\]/i.test(String(e.comment || '')))                   // 机制规则不进工坊
+                .sort((a, b) => (Number(a.displayIndex ?? a.uid) - Number(b.displayIndex ?? b.uid)));
+            if (entries.length) blocks.push(`=== 世界书：${name}（关键词命中 ${entries.length} 条）===\n` + entries.map(lbFormatEntry).join('\n\n'));
+        }
+        return blocks.join('\n\n').trim();
+    } catch (e) {
+        console.warn('[Story Oracle] 工坊关键词扫描失败：', e);
+        return '';
     }
 }
 
@@ -2583,10 +2778,13 @@ function buildBuilderPrompt(ctx, s) {
     if (personaBlock) parts.push(personaBlock);
     parts.push(buildCardSection(ctx));
     if (bldContextText) parts.push('=== 世界书 / 设定（找找有没有专门规定「角色如何生成」的条目——命名规则、种族限制、数值模板、格式规定；有就必须遵守）===\n' + bldContextText);
+    if (bldScanWiText) parts.push('=== 世界书 · 关键词命中（参考补充——聊天里提到的相关设定）===\n' + bldScanWiText);
     if (bldStatData) parts.push('=== 当前变量状态（stat_data）===\n' + bldStatData);
     if (s.bldIncludeSummary) {
         const sum = buildSummarySection(getSummary());
         if (sum) parts.push(sum);
+        const bbs = buildBbsHistorySection(getBbsHistoryText());   // 柏宝书记忆桥（沿用概要开关）
+        if (bbs) parts.push(bbs);
     }
     const transcript = buildTranscript(ctx, { ...s, contextDepth: s.bldDepth });
     if (transcript) parts.push('=== 故事对话记录（最新的在最后）===\n' + transcript);
@@ -2607,10 +2805,13 @@ function buildForgeMessages(ctx, s, brief) {
     parts.push(builderSectionsLine(s));
     parts.push(buildCardSection(ctx));
     if (bldContextText) parts.push('=== 世界书 / 设定 ===\n' + bldContextText);
+    if (bldScanWiText) parts.push('=== 世界书 · 关键词命中（参考补充）===\n' + bldScanWiText);
     if (bldStatData) parts.push('=== 当前变量状态（stat_data）===\n' + bldStatData);
     if (s.bldIncludeSummary) {
         const sum = buildSummarySection(getSummary());
         if (sum) parts.push(sum);
+        const bbs = buildBbsHistorySection(getBbsHistoryText());   // 柏宝书记忆桥（沿用概要开关）
+        if (bbs) parts.push(bbs);
     }
     const transcript = buildTranscript(ctx, { ...s, contextDepth: s.bldDepth });
     if (transcript) parts.push('=== 故事对话记录（最新的在最后）===\n' + transcript);
@@ -3056,21 +3257,41 @@ function parseCharBrief(text) {
 }
 
 function parseCharDraft(text) {
-    let m = String(text || '').match(/<CharDraft>([\s\S]*?)<\/CharDraft>/i);
-    if (!m) {
-        // 收尾滑手容错：</CharDraft> 缺失时取到文末——但只在 content 围栏自身闭合时才救
-        //（真截断的稿子围栏也没闭合，照旧拒收），评估轮 A.1 真实 DeepSeek 稿 1/10 出现。
-        const open = String(text || '').match(/<CharDraft>([\s\S]*)$/i);
-        if (open && bldExtractFence(open[1], 'content') != null) m = open;
-    }
-    if (!m) return { draft: null, error: '' };
-    const h = bldParseHeaders(m[1]);
-    const content = bldExtractFence(m[1], 'content');
+    const src = String(text || '');
+    // 开锚防劫持（1.29.0，locateTagOpen/1.25.0 同族）：思考里【提到】字面 <CharDraft> 会劫持
+    // 首次出现匹配（polish-5 合并电池 cp-ds2 实证、基线 rand-ds-02 前兆）——行首出现取最后一个，
+    // 无行首出现再取最后任意（真区块按输出格式独占一行）。
+    const open = locateTagOpen(src, 'CharDraft');
+    if (!open) return { draft: null, error: '' };
+    const rest = src.slice(open.index + open.length);
+    const closeM = rest.match(/<\/CharDraft>/i);
+    // 收尾滑手容错：</CharDraft> 缺失时取到文末（评估轮 A.1；polish-5 基线 rand-ds-01 真丢稿实证）。
+    const body = closeM ? rest.slice(0, closeM.index) : rest;
+    const h = bldParseHeaders(body);
     if (!BLD_TARGETS.includes(h.target)) return { draft: null, error: 'target 缺失或不合法' };
+    let content = bldExtractFence(body, 'content');
+    if (content == null) {
+        const fenceM = body.match(/^<<<content\b[^\n]*\n?/m);
+        if (fenceM) {
+            // 围栏开了没关（rand-ds-01 实证：稿其实完整，DS 只是忘了 content>>> 和 </CharDraft>）——
+            // 围栏行之后全部当正文。真截断的残稿也会被救成【可见的】半稿坞进草稿卡，由用户审改/
+            // 重锻——好过整锻白跑（1.29.0；同批 16384 地板让真截断本身更难发生）。bldExtractFence
+            // 语义未动（persona-pass 的 </content> 容忍待办不受影响）。
+            content = body.slice(fenceM.index + fenceM[0].length);
+        } else {
+            // 围栏整个缺失（头部照写、正文裸奔）：头部行之后全部当正文兜底。
+            const lines = body.split('\n');
+            let i = 0;
+            while (i < lines.length && (!lines[i].trim() || /^(target|name|book|uid|entry|key|comment)\s*[:：]/.test(lines[i]))) i++;
+            const bare = lines.slice(i).join('\n');
+            if (bare.trim()) content = bare;
+        }
+    }
     if (content == null || !content.trim()) return { draft: null, error: '缺少 <<<content 围栏' };
     if (h.target === 'persona-new' && !(h.name || '').trim()) return { draft: null, error: 'persona-new 需要 name' };
     const uid = /^\d+$/.test(h.uid || '') ? parseInt(h.uid, 10) : null;
-    return { draft: { target: h.target, name: h.name || '', book: h.book || '', uid, key: h.key || '', comment: h.comment || '', content: content.trim(), raw: m[0] } };
+    const rawEnd = closeM ? open.index + open.length + closeM.index + closeM[0].length : src.length;
+    return { draft: { target: h.target, name: h.name || '', book: h.book || '', uid, key: h.key || '', comment: h.comment || '', content: content.trim(), raw: src.slice(open.index, rawEnd) } };
 }
 
 function parseDraftPatch(text) {
@@ -3459,6 +3680,219 @@ function draftCardLabel(draft) {
     if (draft.target === 'persona-update') return '角色草稿：当前 Persona';
     if (draft.target === 'persona-new') return '新角色草稿：' + (draft.name || '未命名');
     return 'NPC 条目草稿：' + (draft.name || draft.comment || '未命名');
+}
+
+// ✂️ 精简·风格量测（纯函数，可单测）：叙述句长分布——「」台词剔除后，以 。！？ 断句（≥4 字才算句），
+// 去空白计字。median>28 或 >50字占比>10% = 风格门点火（spec §4.1；DS/GM 原稿实测本就 terse，
+// fortissimo 是 Opus 特有——这道门让 terse 稿根本不进精简调用）。
+function condenseNarrStats(content) {
+    const n = String(content || '').replace(/「[^」]*」/g, '');
+    const lens = (n.match(/[^。！？\n]{4,}?[。！？]/g) || []).map((s) => s.replace(/\s/g, '').length);
+    const sorted = [...lens].sort((a, b) => a - b);
+    return {
+        median: sorted.length ? sorted[Math.floor(sorted.length / 2)] : 0,
+        over50: lens.length ? +(lens.filter((l) => l > 50).length / lens.length * 100).toFixed(1) : 0,
+        sents: lens.length,
+    };
+}
+function condenseStyleFlagged(content) {
+    const s = condenseNarrStats(content);
+    return s.median > 28 || s.over50 > 10;
+}
+
+// ✂️ 精简·回复解析（纯函数，可单测）：剥成对 <thinking>，认【恰好一个】content 围栏 = G1。
+// 多围栏/零围栏都判失败（产品侧 fail-open 回落原稿）；围栏外文字（技术报告等）忽略。
+function parseCondenseReply(reply) {
+    const nt = String(reply || '').replace(/\r\n/g, '\n').replace(/<thinking>[\s\S]*?<\/thinking>/gi, '');
+    const fences = [...nt.matchAll(/<<<content\n?([\s\S]*?)\n?content>>>/g)];
+    if (fences.length !== 1) return { content: null, error: fences.length ? '回复里有多个 content 围栏' : '回复里没有 content 围栏' };
+    return { content: fences[0][1].trim(), error: '' };
+}
+
+// ✂️ 精简·守卫（纯函数，可单测；spec §4.3，fail-open——任一 fail 产品即回落原稿）。
+// 参照实现 = tests/unit/_bld-tuning/condense-v0/_check.mjs + _check-md.mjs（电池校准过的判据，
+// 含 2026-07-11 功能件掏空事故加的实体门：画面/衍生 句数地板 + 协议句全文逐字）。
+// fails 返回码而非布尔，便于 toast 说人话。
+function condenseGuards(rawContent, outContent) {
+    const raw = String(rawContent || ''), out = String(outContent || '');
+    const fails = [];
+    const headers = (t) => (t.match(/^【[^】\n]+】/gm) || []).sort().join('|');
+    if (headers(raw) !== headers(out)) fails.push('headers');                              // G2
+    const statusLines = (t) => (t.match(/^〔[^〕\n]*〕\s*$/gm) || []);
+    const stIn = statusLines(raw), stOut = statusLines(out);
+    if (!(stIn.length === stOut.length && stIn.every((l, i) => l.split('｜').length === (stOut[i] || '').split('｜').length))) fails.push('status');   // G3
+    const strip = (t) => t.replace(/\s/g, '').length;
+    const ratio = strip(raw) ? strip(out) / strip(raw) : 0;
+    if (ratio < 0.55) fails.push('ratio-floor');                                            // G4 下限（防 DS 式过删）
+    const mIn = condenseNarrStats(raw).median, mOut = condenseNarrStats(out).median;
+    const styleGain = mIn > 0 ? (mIn - mOut) / mIn : 0;
+    if (ratio > 0.95 && styleGain < 0.15) fails.push('noop');                               // G4 复合 no-op（风格大改则不算白跑）
+    const quotes = (t) => (t.match(/「[^」]*」/g) || []).filter((q) => q.length - 2 >= 6 || /[。！？…]/.test(q));
+    const qIn = quotes(raw), qOut = quotes(out), qInSet = new Set(qIn);
+    const survived = qIn.filter((q) => qOut.includes(q)).length;
+    const added = qOut.filter((q) => !qInSet.has(q)).length;
+    if (!(qIn.length === 0 ? added === 0 : survived / qIn.length >= 0.90 && added === 0)) fails.push('quotes');   // G5 台词样引号
+    const secsOf = (t) => { const m = {}; for (const p of t.split(/^(?=【[^】\n]+】)/m)) { const h = (p.match(/^【([^】\n]+)】/) || [])[1]; if (h) m[h] = p; } return m; };
+    const secIn = secsOf(raw), secOut = secsOf(out);
+    if (!Object.keys(secIn).every((k) => !secIn[k].includes('{{user}}') || (secOut[k] || '').includes('{{user}}'))) fails.push('user');   // G6 逐节 {{user}} 在场
+    // ---- G7 相对结构（编辑只保全、不修复：输入有的，输出不得少）----
+    const decl = (t) => [/性格调色盘：人的性格就像调色盘[\s\S]{0,80}活生生的人/.test(t), /人的性格不是调色盘上一格一格分开的颜色/.test(t)];
+    const dIn = decl(raw), dOut = decl(out);
+    if ((dIn[0] && !dOut[0]) || (dIn[1] && !dOut[1])) fails.push('decl');
+    const counts = (t) => [
+        (t.match(/^[^\n]{1,10}衍生[一二三四五六七八九]/gm) || []).length,
+        (t.match(/^画面[一二三四五六]/gm) || []).length,
+        (t.match(/^关于/gm) || []).length,
+        (t.match(/^〔[^〕\n]+〕/gm) || []).length,   // 面孔标签 + 状态行合计（相对比较即可）
+    ];
+    const cIn = counts(raw), cOut = counts(out);
+    if (cIn.some((n, i) => cOut[i] < n)) fails.push('counts');
+    const FIVE = ['触发条件', '能量状态', '语料', '身体行为模式', '功能'];
+    const faceBlocks = (t) => ((t.split(/^【多副面孔】/m)[1] || '').split(/^【/m)[0]).split(/^(?=〔[^〕\n]+〕)/m).filter((b) => /^〔/.test(b));
+    const fIn = faceBlocks(raw), fOut = faceBlocks(out);
+    if (fIn.length && !(fOut.length === fIn.length && fOut.every((b) => FIVE.every((k) => b.includes(k + '：') || b.includes(k + ':'))))) fails.push('face5');
+    // 功能件实体地板（事故门）：画面 in≥2句→out≥2句；衍生 in≥1→out≥1。标签行同行内容计入本块。
+    const unitSentences = (t, labelRe) => {
+        const units = []; let cur = null;
+        for (const ln of t.split('\n')) {
+            const s2 = ln.trim();
+            if (labelRe.test(s2)) {
+                if (cur !== null) units.push(cur);
+                cur = (s2.replace(/^[^\n]{0,10}?(画面[一二三四五六]|衍生[一二三四五六七八九])[：:]?/, '').match(/[。！？]/g) || []).length;
+                continue;
+            }
+            if (cur !== null) {
+                if (/^【|^〔.*〕$/.test(s2)) { units.push(cur); cur = null; continue; }
+                cur += (s2.match(/[。！？]/g) || []).length;
+            }
+        }
+        if (cur !== null) units.push(cur);
+        return units;
+    };
+    const RE_HM = /^画面[一二三四五六]/, RE_YS = /^[^\n]{1,10}衍生[一二三四五六七八九]/;
+    const hmIn = unitSentences(raw, RE_HM), hmOut = unitSentences(out, RE_HM);
+    if (hmIn.some((n, i) => n >= 2 && (hmOut[i] ?? 0) < 2)) fails.push('unit-画面');
+    const ysIn = unitSentences(raw, RE_YS), ysOut = unitSentences(out, RE_YS);
+    if (ysIn.some((n, i) => n >= 1 && (ysOut[i] ?? 0) < 1)) fails.push('unit-衍生');
+    // 协议句全文逐字（含尾巴）：输入里能抽出的完整句，输出必须原样包含。
+    const proto = (t) => [
+        (t.match(/性格调色盘：人的性格就像调色盘[^\n]*活生生的人。/) || [null])[0],
+        (t.match(/人的性格不是调色盘上一格一格分开的颜色。[^\n]*(?:\n[^\n【画]*)?(?:颜色在跑。|画面[^\n]*。)/) || [null])[0],
+    ];
+    if (proto(raw).some((s2) => s2 && !out.includes(s2))) fails.push('protocol');
+    return { pass: fails.length === 0, fails, ratio: +ratio.toFixed(2) };
+}
+
+// ✂️ 精简·变体语义（纯函数，可单测）：草稿可挂一份精简稿（draft.condensed + activeVariant），
+// 【写入】与【DraftPatch 修订】都以「当前激活变体」为准（spec §4.1）。外科修订后两个变体已分叉——
+// 只留打过补丁的那份为唯一真相（condensed/activeVariant 移除，卡上切换钮随之消失）。旧草稿无新键 = 恒原稿，零迁移。
+function activeDraftContent(draft) {
+    return (draft && draft.activeVariant === 'condensed' && typeof draft.condensed === 'string')
+        ? draft.condensed : (draft ? draft.content : '');
+}
+function draftWithPatchedActive(draft, patchedText) {
+    const d = { ...draft, content: patchedText };
+    delete d.condensed;
+    delete d.activeVariant;
+    return d;
+}
+
+// ✂️✂️ 深度精简·分节（纯函数，可单测）：按字符量把按序章节均衡切成三组（每组≈总量/3，最后一组吃尾）。
+// 不写死章节名——对任意作者格式成立（condense-v0 泛化轮，谈仲不均衡分组实测 OK）。
+function condenseSplitSections(content) {
+    const SECS = String(content || '').split(/^(?=【[^】\n]+】)/m).filter((s) => /^【/.test(s));
+    const names = SECS.map((s) => s.match(/^【([^】\n]+)】/)[1]);
+    const total = SECS.reduce((n, s) => n + s.length, 0), target = total / 3;
+    const groups = [[], [], []];
+    let gi = 0, acc = 0;
+    SECS.forEach((s, i) => {
+        if (gi < 2 && acc >= target * (gi + 1) && groups[gi].length) gi++;
+        groups[gi].push(i); acc += s.length;
+    });
+    return groups.map((idx) => ({ names: idx.map((i) => names[i]), text: idx.map((i) => SECS[i]).join('') }));
+}
+
+// ✂️✂️ 深度精简·重组（纯函数，可单测）：三份成稿按序拼接；章节头序列必须与原稿逐一相等，否则整体作废
+//（防并行编辑漏节/越权——fail-open 语义的装置侧那一半）。
+function condenseAssemble(parts, rawContent) {
+    const joined = parts.map((p) => String(p || '').trim()).join('\n\n');
+    const heads = (t) => (String(t).match(/^【[^】\n]+】/gm) || []).join('|');
+    if (heads(joined) !== heads(rawContent)) return { content: null, error: '重组后章节头与原稿不一致' };
+    return { content: joined, error: '' };
+}
+
+// ✂️✂️ 深度精简·手术单解析（纯函数，可单测）：〔删〕/〔缩〕/〔过〕逐行；缩 = 「片段 → 替换短语」。
+function parseCondenseOps(reply) {
+    const nt = String(reply || '').replace(/\r\n/g, '\n').replace(/<thinking>[\s\S]*?<\/thinking>/gi, '');
+    const ops = [];
+    for (const line of nt.split('\n')) {
+        const s = line.trim();
+        const m = /^〔(删|缩|过)〕\s*(.*)$/.exec(s);
+        if (!m) continue;
+        if (m[1] === '过') { ops.push({ kind: '过', span: '', repl: '' }); continue; }
+        if (m[1] === '缩') {
+            const parts = m[2].split(/\s*→\s*/);
+            if (parts.length === 2) ops.push({ kind: '缩', span: parts[0].trim(), repl: parts[1].trim() });
+            continue;
+        }
+        ops.push({ kind: '删', span: m[2].trim(), repl: '' });
+    }
+    return { ops, count: ops.length };
+}
+
+// ✂️✂️ 深度精简·手术单执行（纯函数，可单测）：逐刀核验、有禁区自动作废、其余照行（fail-open 到「刀」粒度）。
+// 参照实现 = condense-v0/depth/_apply-ops.mjs。veto 五类：①片段须在正文【恰好一次】逐字出现；②保护区
+//（「」/【】/〔〕/{{user}}/协议句/功能件标签）；③【功能件禁飞区】——画面/衍生块内一刀不开（2026-07-11
+// 掏空事故修复：句数地板只能挡最后一刀、挡不住多刀蚕食，边界必须划在块上；块内精简归分节编辑）；
+// ④〔缩〕替换短语只许用原片段里已有的字；⑤刀落后协议句全文仍须在场（事务地板，违者本刀回滚）。
+function applyCondenseOps(content, ops) {
+    let text = String(content || '');
+    const stats = { applied: 0, vetoed: [] };
+    const count = (hay, needle) => hay.split(needle).length - 1;
+    const RE_HM = /^画面[一二三四五六]/, RE_YS = /^[^\n]{1,10}衍生[一二三四五六七八九]/;
+    const PROTO_HEADS = ['性格调色盘：人的性格就像调色盘', '人的性格不是调色盘上一格一格分开的颜色'];
+    const protectedSpan = (s) => /[「」【】〔〕]/.test(s) || s.includes('{{user}}') || PROTO_HEADS.some((p) => s.includes(p.slice(0, 12)))
+        || /画面[一二三四五六]|衍生[一二三四五六七八九]/.test(s);
+    // 功能件块的字符区间（含标签行到下一章节头/状态行/下一功能件标签为止）
+    const unitRanges = (t) => {
+        const ranges = []; let start = -1, pos = 0;
+        for (const ln of t.split('\n')) {
+            const s = ln.trim();
+            if (RE_HM.test(s) || RE_YS.test(s)) { if (start >= 0) ranges.push([start, pos]); start = pos; }
+            else if (start >= 0 && /^【|^〔.*〕$/.test(s)) { ranges.push([start, pos]); start = -1; }
+            pos += ln.length + 1;
+        }
+        if (start >= 0) ranges.push([start, pos]);
+        return ranges;
+    };
+    const inUnit = (t, span) => { const i = t.indexOf(span); return i >= 0 && unitRanges(t).some(([a, b]) => i >= a && i < b); };
+    const PROTO_FULL = [
+        (text.match(/性格调色盘：人的性格就像调色盘[^\n]*活生生的人。/) || [null])[0],
+        (text.match(/人的性格不是调色盘上一格一格分开的颜色。[^\n]*(?:\n[^\n【画]*)?(?:颜色在跑。|画面[^\n]*。)/) || [null])[0],
+    ].filter(Boolean);
+    for (const op of ops) {
+        if (op.kind === '过') continue;
+        const span = op.span;
+        if (!span) { stats.vetoed.push({ reason: '空片段', span: '' }); continue; }
+        if (protectedSpan(span)) { stats.vetoed.push({ reason: '保护区', span: span.slice(0, 24) }); continue; }
+        const n = count(text, span);
+        if (n === 0) { stats.vetoed.push({ reason: '未命中', span: span.slice(0, 24) }); continue; }
+        if (n > 1) { stats.vetoed.push({ reason: '多处匹配', span: span.slice(0, 24) }); continue; }
+        if (inUnit(text, span)) { stats.vetoed.push({ reason: '功能件禁区', span: span.slice(0, 24) }); continue; }
+        let tent;
+        if (op.kind === '缩') {
+            const spanChars = new Set(span);
+            if (![...op.repl].every((c) => spanChars.has(c) || /\s/.test(c))) { stats.vetoed.push({ reason: '缩用了新词', span: op.repl.slice(0, 20) }); continue; }
+            tent = text.replace(span, op.repl);
+        } else {
+            tent = text.replace(span, '');
+        }
+        if (PROTO_FULL.some((p) => !tent.includes(p))) { stats.vetoed.push({ reason: '协议句受损', span: span.slice(0, 24) }); continue; }
+        text = tent; stats.applied++;
+    }
+    // 轻清理：孤立标点与多余空行（与参照实现同款）
+    text = text.replace(/，+。/g, '。').replace(/。{2,}/g, '。').replace(/：\s*\n\s*\n/g, '：\n').replace(/\n{3,}/g, '\n\n').replace(/^[ \t]+$/gm, '');
+    return { content: text, applied: stats.applied, vetoed: stats.vetoed };
 }
 
 // 纯函数：把 NPC 草稿翻译成世界书 op（复用既有 applyLorebookOps 管线）。npc-edit → edit（打到 uid），
@@ -4039,6 +4473,7 @@ function checkPlanReminder() {
 // only event-driven side effect; everything else stays pull-based.
 function onChatChanged() {
     cancelPostReply();    // ✨ Phase 4 P-CORRUPT：切聊天先尽力中断在途的自动校正 / 诊断，避免它带着旧聊天的目标写回新聊天（应用前还有 fixTargetStale 兜底）
+    clearNoteOpts();      // 换聊天即作废本会话的记录按钮材料：撤销 / 换 swipe 针对的是旧聊天的 MVU / 楼层，跨聊天重挂会写错对象
     applyPlanInjection();
     if (win) renderPlanBar();
     checkPlanReminder();
@@ -5928,6 +6363,66 @@ function fixMaskInert(text) {
             if (list.some((pos) => pos > o.start)) regions.push({ start: o.start, end: o.end, kind: 'orphan' });
         }
     }
+    // ✨ ⑥ 不成对的方括号开标记（2026-07-12 语料实测 edwin-11 修复）：规划文本里的裸数学 / 骰子方括号
+    // （[20+(15+体力调整值)×2] 会匹配成名为「20」的方括号开标签）压进 scanTopLevelBlocks 的共享栈后永不
+    // 闭合——若其外又没有任何包裹块替它自动闭合（edwin-11 恰好缺了 <konatan_planning~> 开标签），其后
+    // 【所有】配平良好的尖括号块都记在深度≥1、顶层扫描全瞎，阶梯掉到「纯散文」→ 整条回复送模型。
+    // 方括号块本就没有截断兜底（裸 [foo] 更可能是正文），「其后无同名 [/name] 闭标记」的开标记今天
+    // 也永远成不了块——遮掉它只消除栈污染、不丢任何现存块。成对（[IMG_GEN]…[/IMG_GEN]）与自闭合
+    // （[NAME/]）不遮；同名双开单闭的重叠形态维持现状（没咬过人，咬了再修）。检测同⑤跑在①-④遮蔽
+    // 后的文本上（注释 / 代码栏里的方括号不参与判定）。
+    {
+        const nameCh = '[A-Za-z0-9_\\u4e00-\\u9fa5-]+';
+        const nb = '(?![A-Za-z0-9_\\u4e00-\\u9fa5-])';
+        const bkRe = new RegExp('\\[\\/(' + nameCh + ')' + nb + '[^\\]]*\\]|\\[(' + nameCh + ')' + nb + '(?:[^\\]]*?)(\\/?)\\]', 'g');
+        const closesByName = new Map();   // lower → [闭标记起点…]（文档序）
+        const opens = [];
+        let bm;
+        while ((bm = bkRe.exec(pre)) !== null) {
+            if (bm[1] != null) {
+                const lower = bm[1].toLowerCase();
+                if (!closesByName.has(lower)) closesByName.set(lower, []);
+                closesByName.get(lower).push(bm.index);
+            } else if (bm[3] !== '/') {                             // 开标记（自闭合不入栈、不遮）
+                opens.push({ lower: bm[2].toLowerCase(), start: bm.index, end: bm.index + bm[0].length });
+            }
+        }
+        for (const o of opens) {
+            if ((closesByName.get(o.lower) || []).some((pos) => pos > o.start)) continue;   // 其后有同名闭标记 = 可配平，不遮
+            if (!overlaps(o.start, o.end)) regions.push({ start: o.start, end: o.end, kind: 'bracket' });
+        }
+    }
+    // ✨ ⑦ 裸比较号 / 非标签尖括号开标记（2026-07-14 语料实测 edwin-12 修复）：散文里的裸比较号
+    // （「16<20，不达标」）会匹配成名为「20」的尖括号开标签，其懒惰 attrs `[^>]*?` 一路吃到文中
+    // 【下一个 > 字符】——跨行、连真闭标签 </konatan_planning~> 一起吞进 attrs → 规划块永不闭合 →
+    // EOF 截断兜底把整条回复吞成一个块 → <content> 顶层消失、阶梯提议错误包裹名（⑥的尖括号表亲，
+    // 且更凶：不止污染栈，还偷吃一个真闭标签）。判据：开标记「名字纯数字」或「token 跨行」，且
+    // 「其后无同名闭标签」（豁免理论上的 <20>…</20> 真数字标签与跨行 attrs 的真标签）。只遮
+    // 【头部 <name】不遮整个 token——被吞进 attrs 的真闭标签因此重新暴露给扫描器（遮整段=闭标签
+    // 跟着消失，块照样吞到结尾＝白修）。字母名的同行比较（a<b 且 c>d）不遮（没咬过人，咬了再修）。
+    {
+        const nameCh = '[A-Za-z0-9_\\u4e00-\\u9fa5-]+';
+        const nb = '(?![A-Za-z0-9_\\u4e00-\\u9fa5-])';
+        const agRe = new RegExp('<\\/(' + nameCh + ')' + nb + '[^>]*>|<(' + nameCh + ')' + nb + '(?:[^>]*?)(\\/?)>', 'g');
+        const closePos = new Map();   // lower → [闭标签起点…]（文档序）
+        const opens = [];
+        let am;
+        while ((am = agRe.exec(pre)) !== null) {
+            if (am[1] != null) {
+                const lower = am[1].toLowerCase();
+                if (!closePos.has(lower)) closePos.set(lower, []);
+                closePos.get(lower).push(am.index);
+            } else if (am[3] !== '/') {
+                opens.push({ name: am[2], lower: am[2].toLowerCase(), start: am.index, text: am[0] });
+            }
+        }
+        for (const o of opens) {
+            if (!/^[0-9]+$/.test(o.name) && !o.text.includes('\n')) continue;   // 判据：纯数字名 或 跨行 token
+            if ((closePos.get(o.lower) || []).some((pos) => pos > o.start)) continue;   // 其后有同名闭标签 = 真标签，豁免
+            const headEnd = o.start + 1 + o.name.length;   // 只遮 <name 头
+            if (!overlaps(o.start, headEnd)) regions.push({ start: o.start, end: headEnd, kind: 'cmp' });
+        }
+    }
     regions.sort((x, y) => x.start - y.start);
     if (!regions.length) return { masked: s, regions };
     let out = '', last = 0;
@@ -7118,7 +7613,11 @@ function notifyAutoDiagnose(result, patch) {
     try {
         if (status === 'applied') {
             window.toastr && window.toastr.success && window.toastr.success(
-                '已自动修复最新回复的 MVU 状态。可在神谕侧聊里点「撤销」还原。', '故事神谕 · 自动诊断', { timeOut: 7000 });
+                // 分房间后记录（含撤销按钮）在诊断房间——人在别的模式时提示到点上（点诊断按钮即回诊断视图）
+                ENABLE_MODE_ROOMS
+                    ? '已自动修复最新回复的 MVU 状态。可到神谕侧聊的诊断记录里点「撤销」还原（点🩺诊断按钮即达）。'
+                    : '已自动修复最新回复的 MVU 状态。可在神谕侧聊里点「撤销」还原。',
+                '故事神谕 · 自动诊断', { timeOut: 7000 });
         } else if (status === 'nochange') {
             window.toastr && window.toastr.info && window.toastr.info(
                 '已检查最新回复，本回合无需改动。', '故事神谕 · 自动诊断', { timeOut: 4000 });
@@ -7470,6 +7969,7 @@ function buildWindow() {
                     <label class="so-check"><input id="so-card" type="checkbox"><span>包含角色卡（描述 / 性格 / 场景）</span></label>
                     <label class="so-check"><input id="so-stat" type="checkbox"><span>附带变量状态（MVU stat_data，普通模式）—— 数值问题的权威来源；关掉则如实拒答数值</span></label>
                     <label class="so-check"><input id="so-world" type="checkbox"><span>附带「世界引擎」后台世界状态（普通 / 参谋模式）—— 目前仅适配世界引擎（World Engine，含本机改版）的当前版本；其它世界状态类扩展需日后单独适配。喂完整数据较吃 token，未识别到相关扩展时无开销</span></label>
+                    ${ENABLE_BBS_BRIDGE ? '<label class="so-check"><input id="so-bbs" type="checkbox"><span>附带「柏宝书」历史剧情摘要（普通 / 参谋模式）—— 需已安装柏宝书（ST-BaiBai-Book）记忆扩展。它会把窗口外的旧楼层隐藏、只留摘要；开启后神谕也能读到这些被隐藏早期剧情的摘要，不再「只看得见最近几十楼」。校正 / 工坊勾选「带上剧情概要」时也一并附带。请保持上面「读取隐藏楼层」关闭（否则原文与摘要重复）；未安装柏宝书时无开销</span></label>' : ''}
                     <label class="so-check"><input id="so-hidden" type="checkbox"><span>读取隐藏楼层（被 /hide 隐藏的消息）—— 默认关；开启后神谕读对话时也会看到隐藏楼层（不影响世界书关键词扫描与弧线节奏）</span></label>
                     <label class="so-check"><input id="so-regex" type="checkbox"><span>应用剧情正则（剥离思维链 / 状态栏、使用总结）—— 与主聊天保持一致</span></label>
 
@@ -7660,8 +8160,11 @@ function buildWindow() {
                     <label class="so-check so-lb-check"><span>上下文深度</span>&nbsp;<input id="so-bld-depth" type="number" min="0" step="10" style="width:5em">&nbsp;<label class="so-check"><input id="so-bld-depth-all" type="checkbox"><span>全部</span></label></label>
                     <label class="so-check so-lb-check"><input id="so-bld-summary" type="checkbox"><span>带上 📜剧情概要</span></label>
                     <label class="so-check so-lb-check"><input id="so-bld-stat" type="checkbox"><span>带上状态栏数据（stat_data）</span></label>
-                    <label class="so-check so-lb-check"><span>锻造回复上限</span>&nbsp;<input id="so-bld-maxtok" type="number" min="0" step="1024" style="width:6em" placeholder="自动·12288" title="锻造调用的 max_tokens 下限自动为 12288；超大世界书导致思考+成稿被截断时可调高。注意：超过服务商单次输出上限会被直接拒绝——报错就调回来。留空 = 自动。"></label>
+                    <label class="so-check so-lb-check"><input id="so-bld-scanwi" type="checkbox"><span>关键词触发世界书（把聊天与访谈里提到的设定条目作参考补充）</span></label>
+                    <label class="so-check so-lb-check"><span>锻造回复上限</span>&nbsp;<input id="so-bld-maxtok" type="number" min="0" step="1024" style="width:6em" placeholder="自动·16384" title="锻造调用的 max_tokens 下限自动为 16384；超大世界书导致思考+成稿被截断时可调高。注意：超过服务商单次输出上限会被直接拒绝——报错就调回来。留空 = 自动。"></label>
                     <label class="so-check so-lb-check" title="勾选后，访谈对话走你在设置面板策展的预设（文本块保留、RP标记去除，工坊指令注入历史位）。锻造调用不受影响——始终使用内置锻造工序。"><input id="so-bld-preset" type="checkbox"><span>用自定义预设（设置面板所选）</span></label>
+                    <label class="so-check so-lb-check" id="so-bld-autocond-row" title="锻造成功后自动跑一遍「✂️ 精简」（拆长句、删跨节重复；守卫不过=原稿原样保留）。只在 NPC 草稿、且原稿明显冗长时触发——本就精炼的稿子不会白花调用。强输出模型（如 Claude）建议开。"><input id="so-bld-autocond" type="checkbox"><span>锻造后自动精简</span></label>
+                    <label class="so-check so-lb-check" id="so-bld-condserial-row" title="「✂️✂️ 深度精简」的 3 份分节默认同时发出——限速严格的端点（如公益站的每分钟 2 次）会撞并发限流报 429。勾选后改为一份接一份地跑：总时长更久（≈4 次调用相加），但任何时刻只有一个请求在天上。轻精简和锻造本就单次调用，不受影响。"><input id="so-bld-condserial" type="checkbox"><span>深度精简逐份串行（限速站用）</span></label>
                     <div id="so-bld-card" style="display:none"></div>
                 </div>
             </details>
@@ -8237,6 +8740,7 @@ function bindControls() {
     bind('#so-card', 'includeCard');
     bind('#so-stat', 'chatIncludeStat');
     bind('#so-world', 'chatIncludeWorld');
+    if (ENABLE_BBS_BRIDGE) bind('#so-bbs', 'chatIncludeBbs');   // 柏宝书记忆桥（行仅在开关开时渲染）
     bind('#so-hidden', 'includeHiddenFloors');
     // —— 角色工坊设置 —— 全局设置（不是 per-chat）。
     const bldTargetSel = win.querySelector('#so-bld-target');
@@ -8272,7 +8776,16 @@ function bindControls() {
     reflectBldDepth();
     bind('#so-bld-summary', 'bldIncludeSummary');
     bind('#so-bld-stat', 'bldIncludeStat');
+    bind('#so-bld-scanwi', 'bldScanWi');
     bind('#so-bld-preset', 'bldUsePreset');   // T13：访谈经预设 opt-in（锻造不受影响）——同 bldSummary/bldStat 用 bind
+    // ✂️ 锻造后自动精简（1.30.0，读点 3/3）：开关关闭时整行不渲染（flag false = 字节级旧观感）。
+    const bldAutoCondRow = win.querySelector('#so-bld-autocond-row');
+    if (bldAutoCondRow && !ENABLE_DRAFT_CONDENSE) bldAutoCondRow.style.display = 'none';
+    bind('#so-bld-autocond', 'bldAutoCondense');
+    // ✂️✂️ 深度精简串行模式（限速站出口）：行随同一 flag 隐藏。
+    const bldCondSerialRow = win.querySelector('#so-bld-condserial-row');
+    if (bldCondSerialRow && !ENABLE_DRAFT_CONDENSE) bldCondSerialRow.style.display = 'none';
+    bind('#so-bld-condserial', 'bldCondenseSerial');
     const bldMaxTok = win.querySelector('#so-bld-maxtok');
     if (bldMaxTok) {
         bldMaxTok.value = getSettings().bldMaxTokens || '';   // 建窗时回填当前值（原始字符串）
@@ -8489,6 +9002,7 @@ function loadSettingsIntoForm() {
     win.querySelector('#so-card').checked = !!s.includeCard;
     win.querySelector('#so-stat').checked = !!s.chatIncludeStat;
     win.querySelector('#so-world').checked = !!s.chatIncludeWorld;
+    if (ENABLE_BBS_BRIDGE) win.querySelector('#so-bbs').checked = !!s.chatIncludeBbs;   // 柏宝书记忆桥
     win.querySelector('#so-hidden').checked = !!s.includeHiddenFloors;
     // ✨ 校正模式 Phase 4：校正控件从【本聊天】生效配置读种子（per-chat 覆盖全局）——不直读 s.fix*。
     seedFixControls();
@@ -8507,6 +9021,8 @@ function loadSettingsIntoForm() {
     if (bldSum) bldSum.checked = !!s.bldIncludeSummary;
     const bldStat = win.querySelector('#so-bld-stat');
     if (bldStat) bldStat.checked = !!s.bldIncludeStat;
+    const bldScanWi = win.querySelector('#so-bld-scanwi');
+    if (bldScanWi) bldScanWi.checked = !!s.bldScanWi;
     const bldPreset = win.querySelector('#so-bld-preset');
     if (bldPreset) bldPreset.checked = !!s.bldUsePreset;
 
@@ -8556,11 +9072,11 @@ function updateWiHint() {
     if (!hint) return;
     const mode = win.querySelector('#so-wi').value;
     if (mode === 'st') {
-        hint.textContent = '像主提示词一样扫描聊天：蓝色（常驻）条目始终注入，绿色（关键词）条目在其关键词匹配时注入。';
+        hint.textContent = '像主提示词一样扫描聊天：蓝色（常驻）条目始终注入，绿色（关键词）条目在其关键词匹配时注入。神谕侧聊最近几条问答（按世界书「扫描深度」）同样参与匹配。';
     } else if (mode === 'all') {
         hint.textContent = '无视关键词，发送所有已启用的世界书条目。适合做规划，但可能会消耗大量 token。';
     } else if (mode === 'char') {
-        hint.textContent = '只扫描角色相关世界书（角色卡内嵌 + 角色绑定 + 本对话绑定），排除全局与人设世界书；蓝灯常驻 + 绿灯关键词匹配照常。';
+        hint.textContent = '只扫描角色相关世界书（角色卡内嵌 + 角色绑定 + 本对话绑定），排除全局与人设世界书；蓝灯常驻 + 绿灯关键词匹配照常（含神谕侧聊最近问答）。';
     } else {
         hint.textContent = '';
     }
@@ -9582,14 +10098,39 @@ function refreshDraftCard() {
     card.style.display = 'flex';
     card.innerHTML = '';
     const head = document.createElement('div');
-    head.textContent = '📝 ' + draftCardLabel(st.draft);
+    head.textContent = '📝 ' + draftCardLabel(st.draft)
+        + (ENABLE_DRAFT_CONDENSE && st.draft.activeVariant === 'condensed' && typeof st.draft.condensed === 'string' ? '（精简稿）' : '');
     const body = document.createElement('div');
     body.className = 'so-bld-card-body';
-    body.textContent = st.draft.content;
+    body.textContent = activeDraftContent(st.draft);   // ✂️ 卡体显示激活变体（无精简稿 = 原稿，字节不变）
     const btns = document.createElement('div');
     btns.className = 'so-bld-card-btns';
     const mk = (label, fn) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'so-apply-btn'; b.textContent = label; b.addEventListener('click', fn); btns.appendChild(b); return b; };
     mk('🔨 重新锻造', () => runForge());                       // Task 7
+    // ✂️ 精简（1.30.0，读点 1/3）：npc-* 草稿出精简按钮；已有精简稿则出「原稿⇄精简稿」切换钮
+    //（●标当前激活侧；写入/修订都以激活侧为准）。persona 目标 v1 不出按钮（spec §4.4）。
+    if (ENABLE_DRAFT_CONDENSE && String(st.draft.target || '').startsWith('npc')) {
+        if (typeof st.draft.condensed === 'string') {
+            const isCond = st.draft.activeVariant === 'condensed';
+            const rawN = String(st.draft.content || '').replace(/\s/g, '').length;
+            const condN = st.draft.condensed.replace(/\s/g, '').length;
+            mk(isCond ? `原稿 ${rawN}字 ⇄ ●精简稿 ${condN}字` : `●原稿 ${rawN}字 ⇄ 精简稿 ${condN}字`, () => {
+                const cur = getBuilderState();
+                if (!cur?.draft) return;
+                setBuilderState({ ...cur, draft: { ...cur.draft, activeVariant: cur.draft.activeVariant === 'condensed' ? 'raw' : 'condensed' } });
+                refreshDraftCard();
+            });
+            if (!isCond) {
+                // 原稿侧也保留两个精简按钮（Edwin 2026-07-12）：换一档重跑的路要在——精简恒从原稿
+                // 起跑（幂等），重跑成功即覆盖旧精简稿；精简稿侧不出按钮（看结果的视角，切回原稿再跑）。
+                mk('✂️ 精简全稿', () => runCondense());
+                mk('✂️✂️ 深度精简', () => runCondenseDepth());
+            }
+        } else {
+            mk('✂️ 精简全稿', () => runCondense());
+            mk('✂️✂️ 深度精简', () => runCondenseDepth());
+        }
+    }
     mk('写入', (e) => applyBuilderDraft(e.currentTarget));      // Task 8
     mk('放弃草稿', async () => {
         if (!(await uiConfirm('确定放弃当前草稿吗？'))) return;
@@ -9646,11 +10187,12 @@ async function runForge() {
     };
     try {
         let finalText = '';
-        // 锻造 = 显式 CoT + 全上下文的重活。下限 12288（1.23.0 起）：lessons-pass 实测 DS 思考长度
-        // 双峰（省话/铺开两种模式），全 15 章节重型锻造最重 ~10k token，8192 时约半数被拦腰截断；
-        // 12288 给足余量。老下限 8192 来自 T9 冷模型验证（4096 会把成稿截没）。
+        // 锻造 = 显式 CoT + 全上下文的重活。下限 16384（1.29.0 起；1.23.0 起曾 12288）：polish-5
+        // 合并电池实测，新骨架下 DS 全 15 章节锻造 8 roll 有 3 roll 触到或压过 12288（最高 14612），
+        // 且顶棚 roll 纪律全面劣化（标签漏/衍生引号/解释尾）；16384 覆盖全部实测峰值。
+        // 老下限 12288 来自 lessons-pass 实测（DS 思考双峰、最重 ~10k）、8192 来自 T9 冷模型验证。
         // T13：用户可用「锻造回复上限」(bldMaxTokens) 在下限之上再顶（超大世界书致思考+成稿被截时）。
-        const effMaxTokens = Math.max(s.maxTokens, Number(s.bldMaxTokens) || 0, 12288);
+        const effMaxTokens = Math.max(s.maxTokens, Number(s.bldMaxTokens) || 0, 16384);
         if (s.mode === 'direct') {
             const url = resolveEndpointUrl(s);
             const body = { model: s.model, messages, max_tokens: effMaxTokens };
@@ -9735,6 +10277,13 @@ async function runForge() {
             const bldCollapse = win?.querySelector('#so-bld-collapse');
             if (bldCollapse && !bldCollapse.open) bldCollapse.open = true;
             modeEntryNote((rescueNote ? rescueNote + '。' : '') + '锻造完成——草稿在窗口顶部「角色工坊」面板的常驻卡里（面板收起时，点「角色工坊」标题展开）。想改哪里直接说；满意就点「写入」。');
+            // ✂️ 锻造后自动精简（1.30.0，读点 2/3）：opt-in + npc-* + ≥2500字 + 风格门点火才补一发轻精简
+            //（terse 稿【进不了】这里——gm-v01 电池教训：模型对干净卡会凑量误删，入口必须代码侧把关）。
+            // setTimeout(0)：等本函数 finally 释放 isGenerating 后再起跑。
+            if (ENABLE_DRAFT_CONDENSE && s.bldAutoCondense && String(draft.target || '').startsWith('npc')
+                && String(draft.content || '').length >= 2500 && condenseStyleFlagged(draft.content)) {
+                setTimeout(() => runCondense({ auto: true }), 0);
+            }
         } else {
             modeEntryNote('这次锻造没有产出可解析的 <CharDraft>' + (error ? `（${error}）` : '') + '——可以直接再点一次「🔨 生成」。');
         }
@@ -9758,6 +10307,188 @@ async function runForge() {
         setGenerating(false);
         abortCtl = null;
         if (soFollowStream) scrollToBottom();   // #1 定稿后只在用户跟随到底部时才滚
+    }
+}
+
+// ✂️ 轻精简（1.30.0）：对当前草稿的【原稿】跑一次 DRAFT_CONDENSE_PROMPT（v0.2 冻结件），守卫全绿
+// 才挂上精简稿变体；任何失败 = 原稿原样保留 + 如实说明（fail-open，spec §4.1/§4.3）。
+// auto=true 是锻造后的静默触发：不弹确认、失败降为一行注记。精简永远从原稿起跑（幂等，重跑覆盖旧精简稿）。
+async function runCondense(opts = {}) {
+    if (!ENABLE_DRAFT_CONDENSE || isGenerating) return;
+    const s = getSettings();
+    const st = getBuilderState();
+    const draft = st?.draft;
+    if (!draft || !String(draft.target || '').startsWith('npc')) return;   // v1 只做 npc-*（persona 归分家项目）
+    const rawC = draft.content;
+    if (!opts.auto && !condenseStyleFlagged(rawC)) {
+        // 风格门没点火 = 原稿本就精炼（DS/GM 常态）。手动仍可执行，但先确认（条款来自 gm-v01 电池教训：模型会凑量误删）。
+        if (!(await uiConfirm('这张卡本就精炼，精简收益不大——仍要执行？'))) return;
+    }
+    // 自动路径先自报家门（1.17.4 后台调用要可见可中断的老规矩）：不然锻造刚完又冒出第二个流式
+    // 气泡，像「又在重新生成」。手动路径不用——按钮是用户自己点的。
+    if (opts.auto) modeEntryNote('✂️ 自动精简启动（设置里开着「锻造后自动精简」）——正在精简这份草稿；点 ⏹ 可中断，中断/失败都不影响原稿。');
+    const messages = [
+        { role: 'system', content: CONDENSE_STAGE_PROMPTS.light },
+        { role: 'user', content: `请按系统规则精简下面这张角色卡正文。\n【原稿开始】\n${rawC}\n【原稿结束】` },
+    ];
+    lastPrompt = messages.map((m) => ({ role: m.role, content: m.content }));
+    lastPromptMeta = { mode: '工坊精简', target: s.mode === 'direct' ? (s.model || '直连') : '配置文件', chars: rawC.length, time: new Date().toLocaleTimeString() };
+    soDevLogPrompt();
+    const aEntry = { id: ++cidSeq, role: 'assistant', content: '' };
+    const assistantEl = addMessage('assistant', '', aEntry);
+    aEntry._el = assistantEl;
+    const contentEl = assistantEl.querySelector('.so-content');
+    const clearTyping = showTyping(contentEl);
+    setGenerating(true);
+    abortCtl = new AbortController();
+    let condTimedOut = false, killTimer = null;
+    const armWatchdog = (ms) => { if (killTimer) clearTimeout(killTimer); killTimer = setTimeout(() => { condTimedOut = true; try { abortCtl?.abort(); } catch (e) { /* ignore */ } }, ms); };
+    try {
+        // 下限 16384（spec §4.2）：Gemini 类连接把隐藏推理计进 max_tokens，8192 必截断→守卫回落=白花钱（真 API 电池实测）。
+        const effMaxTokens = Math.max(s.maxTokens, Number(s.bldMaxTokens) || 0, 16384);
+        let finalText = '';
+        if (s.mode === 'direct') {
+            const url = resolveEndpointUrl(s);
+            const body = { model: s.model, messages, max_tokens: effMaxTokens };
+            if (s.sendTemperature) body.temperature = s.temperature;
+            if (s.stream) {
+                contentEl.classList.add('so-streaming');
+                armWatchdog(180000);
+                finalText = await streamDirect(url, s.apiKey, body, abortCtl.signal, (delta) => { armWatchdog(180000); clearTyping(); contentEl.textContent += delta; if (soFollowStream) scrollToBottom(); });
+                contentEl.classList.remove('so-streaming');
+            } else { armWatchdog(600000); finalText = await callDirect(url, s.apiKey, body, abortCtl.signal); }
+        } else {
+            const override = s.sendTemperature ? { temperature: s.temperature } : {};
+            if (s.stream) {
+                contentEl.classList.add('so-streaming');
+                armWatchdog(180000);
+                finalText = await callProfileStream(s.profileId, messages, effMaxTokens, override, abortCtl.signal, (full) => { armWatchdog(180000); clearTyping(); contentEl.textContent = full; if (soFollowStream) scrollToBottom(); });
+                contentEl.classList.remove('so-streaming');
+            } else { armWatchdog(600000); finalText = await callProfile(s.profileId, messages, effMaxTokens, override, abortCtl.signal); }
+        }
+        clearTyping();
+        const { content: cond, error: parseErr } = parseCondenseReply(String(finalText || ''));
+        contentEl.textContent = cond ? '✂️ 精简完成（正文见草稿卡）' : String(finalText || '(空回复)').slice(0, 400);
+        aEntry.content = contentEl.textContent;
+        convo.push(aEntry); persistConvo();
+        if (!cond) { condenseFailNote(opts, 'G1', parseErr); return; }
+        const g = condenseGuards(rawC, cond);
+        if (!g.pass) { condenseFailNote(opts, g.fails.join('+'), `守卫未过（${g.fails.join('、')}）`); return; }
+        const cur = getBuilderState();
+        if (!cur?.draft || cur.draft.content !== rawC) { condenseFailNote(opts, 'stale', '精简期间草稿已变，本次结果作废'); return; }   // 陈旧守卫（fixTargetStale 同思路）
+        setBuilderState({ ...cur, draft: { ...cur.draft, condensed: cond, activeVariant: 'condensed' } });
+        refreshDraftCard();
+        modeEntryNote(`✂️ 精简完成：${rawC.replace(/\s/g, '').length} → ${cond.replace(/\s/g, '').length} 字（比原稿 ${(g.ratio * 100).toFixed(0)}%）。卡上可在「原稿 ⇄ 精简稿」间切换；写入以当前显示的版本为准。`);
+    } catch (err) {
+        clearTyping();
+        const stopped = isUserAbort(err);
+        contentEl.textContent = stopped ? (condTimedOut ? '（精简超时，已中止——原稿不受影响）' : '（已停止）') : ('精简调用失败：' + (err?.message || err));
+        if (!stopped) contentEl.classList.add('so-error');
+        aEntry.content = contentEl.textContent;
+        convo.push(aEntry); persistConvo();
+        if (!stopped) console.error('[Story Oracle]', err);
+    } finally {
+        if (killTimer) clearTimeout(killTimer);
+        setGenerating(false);
+        abortCtl = null;
+        if (soFollowStream) scrollToBottom();
+    }
+}
+// 精简失败的统一措辞：手动 → 显眼注记；auto → 低调一行（原稿本来就在，无损）。code 供反馈定位。
+function condenseFailNote(opts, code, msg) {
+    modeEntryNote((opts.auto ? '（自动精简未采纳：' : '✂️ 精简未采纳：') + msg + (opts.auto ? '——原稿保持不变）' : '。原稿保持不变，可直接再试。') + ` [${code}]`);
+}
+
+// ✂️✂️ 深度精简（1.30.0）：3 份并行分节（各带全卡只读参考）→ 装置重组（章节头核对）→ 1 份手术单
+// → 装置逐刀核验执行（功能件禁飞区——2026-07-11 掏空事故的修复形态）→ 守卫全绿才挂变体。
+// 5 次调用但分节并行，墙钟≈一次；全程非流式（并行流式会在侧聊里互相穿插）。产出与轻精简同形状。
+async function runCondenseDepth() {
+    if (!ENABLE_DRAFT_CONDENSE || isGenerating) return;
+    const s = getSettings();
+    const st = getBuilderState();
+    const draft = st?.draft;
+    if (!draft || !String(draft.target || '').startsWith('npc')) return;
+    const rawC = draft.content;
+    if (!condenseStyleFlagged(rawC)) {
+        if (!(await uiConfirm('这张卡本就精炼，深度精简收益不大——仍要执行？'))) return;
+    }
+    const groups = condenseSplitSections(rawC);
+    if (groups.length !== 3 || groups.some((g) => !g.text)) { modeEntryNote('✂️✂️ 深度精简未采纳：章节太少，直接用「✂️ 精简全稿」即可。'); return; }
+    const aEntry = { id: ++cidSeq, role: 'assistant', content: '✂️✂️ 深度精简中（3 份分节并行 + 1 份手术单）…' };
+    const assistantEl = addMessage('assistant', aEntry.content, aEntry);
+    aEntry._el = assistantEl;
+    const contentEl = assistantEl.querySelector('.so-content');
+    setGenerating(true);
+    abortCtl = new AbortController();
+    // 平坦兜底（非流式无进度信号）：每【阶段】各给 600s 预算——串行 4 连跑会超单一预算，并行=分节
+    // 一份预算、手术单再一份。
+    let killTimer = null;
+    const armDepthWatchdog = () => { if (killTimer) clearTimeout(killTimer); killTimer = setTimeout(() => { try { abortCtl?.abort(); } catch (e) { /* ignore */ } }, 600000); };
+    armDepthWatchdog();
+    const effMaxTokens = Math.max(s.maxTokens, Number(s.bldMaxTokens) || 0, 16384);
+    const callOnce = async (system, user) => {
+        const messages = [{ role: 'system', content: system }, { role: 'user', content: user }];
+        if (s.mode === 'direct') {
+            const body = { model: s.model, messages, max_tokens: effMaxTokens };
+            if (s.sendTemperature) body.temperature = s.temperature;
+            return await callDirect(resolveEndpointUrl(s), s.apiKey, body, abortCtl.signal);
+        }
+        const override = s.sendTemperature ? { temperature: s.temperature } : {};
+        return await callProfile(s.profileId, messages, effMaxTokens, override, abortCtl.signal);
+    };
+    try {
+        const sectUser = (g) => `【全卡参考（只读，供查重，不要输出）】\n${rawC}\n\n【你负责精简的节】${g.names.join('、')}\n【这些节的原文】\n${g.text}`;
+        let partReplies;
+        if (s.bldCondenseSerial) {
+            // 限速站的出口（Edwin 2026-07-12）：3 份分节一份接一份跑——总时长更久，但任何时刻只有
+            // 一个请求在天上（公益站 2 次/分钟这类并发限流不再被 3 发齐射撞穿）；每份调用各续一份预算。
+            partReplies = [];
+            for (let i = 0; i < groups.length; i++) {
+                contentEl.textContent = `✂️✂️ 深度精简中（串行模式）——正在跑分节 ${i + 1}/3…`;
+                armDepthWatchdog();
+                partReplies.push(await callOnce(CONDENSE_STAGE_PROMPTS.sect, sectUser(groups[i])));
+            }
+            contentEl.textContent = '✂️✂️ 分节 3/3 已返回，正在开手术单…';
+        } else {
+            // 三份分节并行、各自返程即报数（非流式跑长活不能哑着——x/3 计数是唯一的中途心跳）。
+            let sectDone = 0;
+            partReplies = await Promise.all(groups.map((g) =>
+                callOnce(CONDENSE_STAGE_PROMPTS.sect, sectUser(g))
+                    .then((r) => {
+                        sectDone++;
+                        contentEl.textContent = `✂️✂️ 深度精简中——分节 ${sectDone}/3 已返回${sectDone === 3 ? '，正在开手术单…' : '，其余分节仍在跑…'}`;
+                        return r;
+                    })));
+        }
+        const parts = partReplies.map((r) => parseCondenseReply(String(r || '')));
+        const bad = parts.findIndex((p) => !p.content);
+        if (bad >= 0) { condenseFailNote({}, 'sect-G1', `第 ${bad + 1} 份分节没有有效围栏`); return; }
+        const asm = condenseAssemble(parts.map((p) => p.content), rawC);
+        if (!asm.content) { condenseFailNote({}, 'assemble', asm.error); return; }
+        armDepthWatchdog();   // 手术单阶段自带一份新预算
+        const opsReply = await callOnce(CONDENSE_STAGE_PROMPTS.ops, `请为下面这张角色卡正文开删减手术单。\n【正文开始】\n${asm.content}\n【正文结束】`);
+        const { ops } = parseCondenseOps(String(opsReply || ''));
+        const applied = applyCondenseOps(asm.content, ops);
+        const g = condenseGuards(rawC, applied.content);
+        if (!g.pass) { condenseFailNote({}, g.fails.join('+'), `守卫未过（${g.fails.join('、')}）`); return; }
+        const cur = getBuilderState();
+        if (!cur?.draft || cur.draft.content !== rawC) { condenseFailNote({}, 'stale', '精简期间草稿已变，本次结果作废'); return; }
+        setBuilderState({ ...cur, draft: { ...cur.draft, condensed: applied.content, activeVariant: 'condensed' } });
+        refreshDraftCard();
+        contentEl.textContent = '✂️✂️ 深度精简完成（正文见草稿卡）';
+        aEntry.content = contentEl.textContent;
+        convo.push(aEntry); persistConvo();
+        modeEntryNote(`✂️✂️ 深度精简完成：${rawC.replace(/\s/g, '').length} → ${applied.content.replace(/\s/g, '').length} 字（比原稿 ${(g.ratio * 100).toFixed(0)}%；手术单 ${ops.length} 刀，采 ${applied.applied}、装置否决 ${applied.vetoed.length}）。卡上可切换「原稿 ⇄ 精简稿」。`);
+    } catch (err) {
+        const stopped = isUserAbort(err);
+        contentEl.textContent = stopped ? '（已停止——原稿不受影响）' : ('深度精简失败：' + (err?.message || err));
+        if (!stopped) { contentEl.classList.add('so-error'); console.error('[Story Oracle]', err); }
+        aEntry.content = contentEl.textContent;
+        convo.push(aEntry); persistConvo();
+    } finally {
+        clearTimeout(killTimer);
+        setGenerating(false);
+        abortCtl = null;
     }
 }
 
@@ -9785,7 +10516,7 @@ async function fetchNpcEntryForBrief(brief) {
 async function applyBuilderDraft(btn) {
     const st = getBuilderState();
     if (!st || !st.draft) return;
-    const d = st.draft;
+    const d = { ...st.draft, content: activeDraftContent(st.draft) };   // ✂️ 写入以激活变体为准（无精简稿时 = 原稿，字节不变）
     if (btn._undo) {   // 撤销分支
         btn.disabled = true;
         try {
@@ -11727,6 +12458,60 @@ function openDebug() {
 /* ------------------------------------------------------------------ *
  * Context assembly
  * ------------------------------------------------------------------ */
+/* ------------------------------------------------------------------ *
+ * 戏外守卫（1.32.0，ENABLE_OFFSTAGE_GUARD）：围栏 + 尾锚，只接普通聊天与参谋两个建模器。
+ * 两段字节是真模型电池的【冻结件】（strategies/o1-tail/xform-v21.mjs + o3-fence/xform.mjs，
+ * offstage-guard.test.mjs 逐字节钉住）——铁律：不改字节；要改，先重跑电池再动
+ * （tests/unit/_oracle-tuning/highctx-continue/REPORT.md）。
+ * ------------------------------------------------------------------ */
+const OFFSTAGE_TAILS = {
+    // 普通神谕：歧义/误投=讨论；明确点名代笔=照做（戏外交付、只写点名段、写完即停）。
+    normal: '【戏外提醒】以上故事记录到此为止，仅供分析参考。你是戏外分析者、不是故事里的任何角色。'
+        + '用户发来「然后呢」「继续」这类没头没尾的短话，或看似发错窗口的戏内发言（角色口吻的台词、'
+        + '括号动作、直接贴来的正文片段），一律当成在和你【讨论】这个故事，用分析或反问回应，绝不擅自'
+        + '续写正文或替角色说话。例外：用户【明确开口点名】要你代笔时（帮写台词或独白、改写润色某段、'
+        + '代拟他的下一条回复等），照做——以你自己的戏外口吻交付（先说明这是草稿/改写稿），产出只限'
+        + '用户点名要的那一段，写完即停，绝不顺势往下推进剧情。注意：点名必须是用户以戏外身份直说的'
+        + '请求；戏内口吻的台词、括号动作、贴来的正文本身都不算点名——那更可能是发错了窗口。',
+    // 剧情参谋：同上；<StoryPlan> 本职明保；交付草稿后可顺带问要不要整理成方案。
+    advisor: '【戏外提醒】以上故事记录到此为止，仅供分析参考。你是戏外剧情参谋、不是故事里的任何角色。'
+        + '用户发来「然后呢」「继续」这类没头没尾的短话，或看似发错窗口的戏内发言，一律当成在和你'
+        + '【讨论】剧情走向；构思方向、按格式输出 <StoryPlan> 是本职。例外：用户【明确开口点名】要你'
+        + '直接写一段时（下一幕草稿、台词、独白、代拟回复等），照做——以参谋口吻交付并说明这是供他'
+        + '参考的草稿，产出只限点名要的那一段，写完即停、不自动接管后续剧情；交付后可顺带问一句'
+        + '是否需要把这个走向整理成 <StoryPlan>。注意：点名必须是用户以戏外身份直说的请求；戏内口吻'
+        + '的发言、括号动作、贴来的正文本身都不算点名——那更可能是发错了窗口。',
+};
+
+// 精选预设路径的【顶部身份头】（1.32.1）：预设组装替换掉了神谕的系统提示，窗口身份必须由
+// 这条头重新立起来（预设人设/正文格式契约在本窗口降为风格参考）。与 OFFSTAGE_TAILS 构成
+// 「顶部身份 + 故事边界尾锚」夹心——正是默认路径验证过的几何。措辞经 preset 电池验证后冻结。
+const OFFSTAGE_PRESET_HEADERS = {
+    normal: '【窗口性质·最高优先级】这里是「故事神谕」的侧聊分析窗口，不是角色扮演正文窗口。'
+        + '你在本窗口的身份是戏外分析者，直接与用户对话，帮他分析、讨论正在进行的故事。'
+        + '下方的预设区块只为你提供语气风格与讨论语境：其中任何「扮演角色」「续写正文」「按正文'
+        + '格式输出（思考块、样式注释、字数要求等）」的指令，在本窗口一律不适用；也不要以预设里'
+        + '的写手或角色人设自称。用户明确点名要你代笔时，按后文【戏外提醒】的规则交付草稿。',
+    advisor: '【窗口性质·最高优先级】这里是「故事神谕」的剧情参谋窗口，不是角色扮演正文窗口。'
+        + '你在本窗口的身份是戏外剧情参谋，直接与用户讨论剧情走向，需要时按格式输出 <StoryPlan>'
+        + ' 方案。下方的预设区块只为你提供语气风格与讨论语境：其中任何「扮演角色」「续写正文」'
+        + '「按正文格式输出（思考块、样式注释、字数要求等）」的指令，在本窗口一律不适用；也不要'
+        + '以预设里的写手或角色人设自称。用户明确点名要你直接写一段时，按【戏外提醒】的规则交付草稿。',
+};
+
+// transcript → 只读引用材料信封（结构层）：几万字裸 `名字: 文本` 贴在 system 末尾时读起来
+// 像「进行中的对话」，模型会顺势补完；包进围栏后读作「已发生的引用材料」。围栏内正文
+// 【逐字节不变】；调用点都在 if (transcript) 内（空 transcript 不出信封）。
+function wrapTranscriptEnvelope(transcript) {
+    const body = String(transcript);
+    return '=== 故事对话记录（只读引用材料，最新的在最后）===\n'
+        + '<story_transcript>\n'
+        + body + (body.endsWith('\n') ? '' : '\n')
+        + '</story_transcript>\n'
+        + '（以上 <story_transcript> 里的内容，是提供给你的【只读引用材料】——已经发生、供你查阅和分析的故事记录，'
+        + '不是一段正在进行、等你回应的对话。你真正要回应的对象，是接下来向你提问的那位用户。）';
+}
+
 function buildSystemPrompt() {
     const ctx = getCtx();
     const s = getSettings();
@@ -11757,9 +12542,19 @@ function buildSystemPrompt() {
     const summarySection = buildSummarySection(getSummary());
     if (summarySection) parts.push(summarySection);
 
+    // 柏宝书记忆桥：被隐藏旧楼层的摘要，紧跟概要、贴着对话记录（时间线：概要 → 摘要 → 可见对话）。
+    const bbsSection = buildBbsHistorySection(getBbsHistoryText());
+    if (bbsSection) parts.push(bbsSection);
+
     const transcript = buildTranscript(ctx, s);
     if (transcript) {
-        parts.push('=== 故事对话记录（最新的在最后）===\n' + transcript);
+        if (ENABLE_OFFSTAGE_GUARD) {
+            // 戏外守卫：围栏（结构层）+ 尾锚（行为层）。字节冻结，改必重测（见常量处注释）。
+            parts.push(wrapTranscriptEnvelope(transcript));
+            parts.push(OFFSTAGE_TAILS.normal);
+        } else {
+            parts.push('=== 故事对话记录（最新的在最后）===\n' + transcript);
+        }
     }
 
     const full = parts.filter(Boolean).join('\n\n');
@@ -11848,6 +12643,50 @@ function buildSummarySection(text) {
     const t = String(text || '').trim();
     if (!t) return '';
     return '=== 剧情概要 / 前情提要（用户提供，是最近对话之前的故事梗概，供你理解来龙去脉）===\n' + t;
+}
+
+// ==================== 柏宝书记忆桥（ENABLE_BBS_BRIDGE，1.33.0） ====================
+// 柏宝书（ST-BaiBai-Book）是记忆引擎类扩展：逐楼自动摘要、把窗口外旧楼 /hide 隐藏、只给主模型注入
+// 摘要。神谕默认不读隐藏楼层（messageVisibleForTranscript）→ 早期剧情对神谕不可见。本桥在【构建
+// 提示词时】直接调它的公开只读 API 取回这段摘要文本，作为普通文本插进上下文——不依赖各路径是否
+// substituteParams（预设路径 / 校正信封不展宏，宏方案在那些路径会原样送出 {{bbsInjectedHistory}}）。
+// getInjectedHistory() 与柏宝书注入主模型的口径一致：只含【已隐藏】楼层的摘要（窗口内全文楼层不含
+// → 与神谕自己的对话记录天然无重叠）、带相对时间标注。设置 chatIncludeBbs 默认关（opt-in）。
+
+// 自守门解析器：开关关 / 设置关 / 未装柏宝书 / API 缺失或抛错 / 文本空白 → 一律 ''，绝不抛错。
+// 同步调用、每次构建提示词现取（柏宝书返回深拷贝 DTO，永远是当下最新）。
+function getBbsHistoryText() {
+    if (!ENABLE_BBS_BRIDGE) return '';
+    try {
+        if (!getSettings().chatIncludeBbs) return '';
+        const api = (typeof window !== 'undefined') ? window.STBaiBaiBook : null;
+        if (!api || typeof api.getInjectedHistory !== 'function') return '';
+        const h = api.getInjectedHistory();
+        const t = (h && typeof h.relativeText === 'string') ? h.relativeText.trim() : '';
+        return t;
+    } catch (e) {
+        console.warn('[Story Oracle] 读取柏宝书历史摘要失败（本次跳过）：', e);
+        return '';
+    }
+}
+
+// 柏宝书节格式化（镜像 buildSummarySection）：空 → ''；有货 → 大标题 + 原文。
+// 插在用户 剧情概要 之后、故事对话记录之前——摘要覆盖的隐藏楼层正好在可见对话之前，时间线连续。
+function buildBbsHistorySection(text) {
+    const t = String(text || '').trim();
+    if (!t) return '';
+    return '=== 历史剧情摘要（柏宝书记忆扩展的自动总结——更早的旧楼层已被隐藏，这里是它们的摘要，'
+        + '时间上紧接在下方对话记录之前；带相对时间标注）===\n' + t;
+}
+
+// 单槽合成（校正信封 <story_summary> 只有一个概要位）：用户概要在前、柏宝书标注块在后。
+// 桥空时【原样返回入参】（不 trim）——桥关 / 未装柏宝书时对既有行为字节级零变化。
+function composeSummaryWithBbs(userText) {
+    const u = String(userText || '');
+    const b = getBbsHistoryText();
+    if (!b) return u;
+    const block = '【柏宝书 · 历史剧情摘要（被隐藏旧楼层的自动总结，是下方前文之前的剧情）】\n' + b;
+    return u.trim() ? u + '\n\n' + block : block;
 }
 
 function buildDiagnosePrompt(ctx, s) {
@@ -12119,10 +12958,20 @@ function buildAdvisorPrompt(ctx, s) {
     const summarySection = buildSummarySection(getSummary());
     if (summarySection) parts.push(summarySection);
 
+    // 柏宝书记忆桥：与普通聊天同位（概要 → 摘要 → 对话记录）。参谋预设路径复用本函数产物（advBlock）。
+    const bbsSection = buildBbsHistorySection(getBbsHistoryText());
+    if (bbsSection) parts.push(bbsSection);
+
     // 遵循设置面板共享的「上下文深度」设置（T13：此前强制全量 contextDepth:-1）。
     const transcript = buildTranscript(ctx, s);
     if (transcript) {
-        parts.push('=== 故事对话记录（最新的在最后）===\n' + transcript);
+        if (ENABLE_OFFSTAGE_GUARD) {
+            // 戏外守卫：围栏（结构层）+ 尾锚（行为层）。字节冻结，改必重测（见常量处注释）。
+            parts.push(wrapTranscriptEnvelope(transcript));
+            parts.push(OFFSTAGE_TAILS.advisor);
+        } else {
+            parts.push('=== 故事对话记录（最新的在最后）===\n' + transcript);
+        }
     }
 
     const full = parts.filter(Boolean).join('\n\n');
@@ -12401,10 +13250,17 @@ function expandMarker(out, identifier, ctx, s) {
             // 用户功能请求：运行概要紧贴故事记录之前（仅普通模式经此 marker；参谋 / 世界书
             // 预设各走自己的 placeAdv / placeLore，不经这里）。
             pushMsg(out, 'system', buildSummarySection(getSummary()));
+            // 柏宝书记忆桥：预设路径不 substituteParams 概要块（宏方案在此失效）——桥文本已是成品，直接插。
+            pushMsg(out, 'system', buildBbsHistorySection(getBbsHistoryText()));
             // Story context first, then the Oracle's own Q&A — as real turns.
+            let sawStoryTurns = false;
             for (const t of buildTranscriptTurns(ctx, s)) {
                 pushMsg(out, t.role, t.text);
+                sawStoryTurns = true;
             }
+            // 戏外守卫（1.32.1）：尾锚紧跟故事轮之后（「以上故事记录到此为止」的指代只有在
+            // 这个位置才成立——终位版在预设 post-history 块之后指代错位，实测反而助跑偏）。
+            if (ENABLE_OFFSTAGE_GUARD && sawStoryTurns) pushMsg(out, 'system', OFFSTAGE_TAILS.normal);
             for (const m of convoForPrompt()) pushMsg(out, m.role, m.content);
             break;
         }
@@ -12418,6 +13274,13 @@ function buildPresetMessages(s) {
     const snap = getCuratedSnapshot(s, s.sysPromptPresetName);
     const items = (snap && snap.items) || [];
     const out = [];
+
+    // 戏外守卫（1.32.1）：预设路径的【顶部身份头】。预设组装完全替换了神谕自己的系统提示——
+    // 组装里没有任何一处说明「这是侧聊分析窗口」，预设的写手/角色人设 + 正文格式契约（思考块/
+    // 样式注释/assistant 预填）就成了唯一身份来源 → 挂预设时「continue」被当成正文续写指令
+    // （Edwin Opus 实况；本地电池 5/5 复现，终位单尾锚也压不住）。身份头立在预设块之前，把
+    // 预设降为风格/语境参考；与故事轮后的尾锚构成与默认路径同款的「顶部身份 + 边界尾锚」夹心。
+    if (ENABLE_OFFSTAGE_GUARD) pushMsg(out, 'system', OFFSTAGE_PRESET_HEADERS.normal);
 
     // Optional voice-persona layer, off by default in preset mode. When chosen,
     // it leads as a top-level voice directive; the preset still governs content.
@@ -12439,7 +13302,11 @@ function buildPresetMessages(s) {
     // context and no final user turn.
     if (!sawHistory) {
         pushMsg(out, 'system', buildSummarySection(getSummary()));
-        for (const t of buildTranscriptTurns(ctx, s)) pushMsg(out, t.role, t.text);
+        pushMsg(out, 'system', buildBbsHistorySection(getBbsHistoryText()));   // 柏宝书记忆桥（同 marker 位）
+        let sawStoryTurns = false;
+        for (const t of buildTranscriptTurns(ctx, s)) { pushMsg(out, t.role, t.text); sawStoryTurns = true; }
+        // 戏外守卫（1.32.1）：与 chatHistory marker 分支同拍——尾锚紧跟故事轮（指代正确位）。
+        if (ENABLE_OFFSTAGE_GUARD && sawStoryTurns) pushMsg(out, 'system', OFFSTAGE_TAILS.normal);
         for (const m of convoForPrompt()) pushMsg(out, m.role, m.content);
     }
 
@@ -12538,6 +13405,11 @@ function buildAdvisorPresetMessages(s) {
     const snap = getCuratedSnapshot(s, s.sysPromptPresetName);
     const items = (snap && snap.items) || [];
     const out = [];
+
+    // 戏外守卫（1.32.1）：顶部身份头（同 buildPresetMessages 的理由；advBlock 内部已带围栏+
+    // 尾锚，头负责在预设人设/格式契约之前先立住窗口身份）。终位追加尾锚实测有害（「以上故事
+    // 记录」的指代在预设示例块之后错位，把预设范文认成剧情）——不加。
+    if (ENABLE_OFFSTAGE_GUARD) pushMsg(out, 'system', OFFSTAGE_PRESET_HEADERS.advisor);
 
     const advBlock = buildAdvisorPrompt(ctx, s);  // directive + plan + card + WI + full transcript
     let placed = false;
@@ -12675,10 +13547,10 @@ async function generateReply() {
         // state, and remember which books are in scope for the apply step.
         await buildLorebookContext();
     } else if (advisorMode) {
-        // 参谋（含弧线系统）现在遵循设置面板的「世界书」选择，包括「关」——buildWorldInfo() 无参 = 用
+        // 参谋（含弧线系统）现在遵循设置面板的「世界书」选择，包括「关」——不传 forceMode = 用
         // s.worldInfoMode，'off' 返回空串（与普通聊天分支同款）。剧情概要仍在 buildAdvisorPrompt 里默认读取，
-        // 对话记录也改为遵循「上下文深度」设置（见 buildAdvisorPrompt）。
-        worldInfoBlock = await buildWorldInfo();
+        // 对话记录也改为遵循「上下文深度」设置（见 buildAdvisorPrompt）。侧聊最近问答参与绿灯扫描（1.31.0）。
+        worldInfoBlock = await buildWorldInfo(undefined, await sideChatScanBlob());
         // Live MVU variable state (好感度 / 时间 / 资源…) — hard story facts the
         // proposed beats must not contradict. Silently absent for non-MVU cards.
         const stat = await getMvuStatData();
@@ -12698,12 +13570,12 @@ async function generateReply() {
         }
     } else if (presetCurationActive(s)) {
         // Faithful assembly needs WI split into the Before/After-Char-Defs slots.
-        const split = await buildWorldInfoSplit();
+        const split = await buildWorldInfoSplit(undefined, await sideChatScanBlob());   // 侧聊问答参与绿灯扫描（1.31.0）
         wiBefore = split.before;
         wiAfter = split.after;
         worldInfoBlock = ''; // legacy single-block path unused while preset is active
     } else {
-        worldInfoBlock = await buildWorldInfo(); // empty string when mode is 'off'
+        worldInfoBlock = await buildWorldInfo(undefined, await sideChatScanBlob()); // 'off' 时仍空串；侧聊问答参与绿灯扫描（1.31.0）
     }
 
     // Normal chat mode only: fetch the authoritative variable state (or leave ''
@@ -12910,12 +13782,14 @@ async function generateReply() {
                     if (!cur || !cur.draft) {
                         modeEntryNote('收到修改区块，但当前没有草稿——先「🔨 生成」一稿。');
                     } else {
-                        const { result, results } = applyDraftPatchOps(cur.draft.content, cls.ops);
-                        setBuilderState({ ...cur, draft: { ...cur.draft, content: result } });
+                        // ✂️ 精简变体：修订落在【当前激活变体】上；打完补丁两变体已分叉，只留补丁版为唯一真相。
+                        const hadCond = ENABLE_DRAFT_CONDENSE && typeof cur.draft.condensed === 'string';
+                        const { result, results } = applyDraftPatchOps(activeDraftContent(cur.draft), cls.ops);
+                        setBuilderState({ ...cur, draft: draftWithPatchedActive(cur.draft, result) });
                         refreshDraftCard();
                         const ok = results.filter((r) => r.ok).length;
                         const misses = results.filter((r) => !r.ok).map((r) => `「${r.anchor.slice(0, 24)}…」${r.reason}`);
-                        modeEntryNote(`草稿已更新：${ok} / ${results.length} 处改动生效。` + (misses.length ? ' 未生效：' + misses.join('；') + ' ——可以再说一遍要改哪句，或让它改用「起始 || 结尾」两端锚点再试。' : ''));
+                        modeEntryNote(`草稿已更新：${ok} / ${results.length} 处改动生效。` + (misses.length ? ' 未生效：' + misses.join('；') + ' ——可以再说一遍要改哪句，或让它改用「起始 || 结尾」两端锚点再试。' : '') + (hadCond ? '（修订落在当前显示的版本上；原稿/精简稿切换已收起，以修订后这份为准）' : ''));
                     }
                 }
             }
@@ -13240,7 +14114,9 @@ async function captureFixContext(s, { mode = 'manual', targetId } = {}) {
         // ✨ overlap（fixWaitForMvu）：捕获时（MVU 写块【之前】）的纯叙述正文（去 <UpdateVariable> + 状态栏占位符）；写入前与当前比对——只有 MVU 注块 → 一致 → 放行。
         bodyProse: fixBodyProse(latest.text),
     };
-    fixSummaryBlock = norm.includeSummary ? getSummary() : '';   // 📜剧情概要（手动默认带、自动可选）；buildFixEnvelope 包成 <story_summary>
+    // 📜剧情概要（手动默认带、自动可选）；buildFixEnvelope 包成 <story_summary>。柏宝书记忆桥沿用同一
+    // 开关（勾了概要才一并带柏宝书摘要——信封只有一个概要槽，composeSummaryWithBbs 合成；桥空 = 原样）。
+    fixSummaryBlock = norm.includeSummary ? composeSummaryWithBbs(getSummary()) : '';
     fixActiveMode = mode;              // buildFixPrompt 据此选系统提示：手动 → FIX_SYSTEM_PROMPT_MANUAL；自动 → 轻校恒收紧版 / 精校按侧重（1.18.3）
     fixAutoPromptVersion = norm.promptVersion;   // ✨ 精校版本（仅自动生效；手动 norm 恒 'light'）；'thorough' → buildFixPrompt 用精校
     fixAutoPromptFlavor = norm.promptFlavor;     // ✨ 精校侧重（'deepseek' / 'opus'）
@@ -13256,15 +14132,18 @@ async function captureFixContext(s, { mode = 'manual', targetId } = {}) {
     // 卡 / 世界书：经【自定义补全预设】发送时（fixM_/fixA_usePreset + 已精选预设），由预设的 charDescription / worldInfo 标记在
     // 各自位置提供（见 buildFixPresetMessages 的 expandMarker），故信封里【不再带】卡 / 世界书（slim，免重复）——
     // 改备 before/after 两槽给那两个标记。否则（普通发送）按 fix 模式上下文开关带卡 / 世界书。概要 / 前文两模式都仍在信封里。
+    // 手动校正：侧聊最近问答（校正房间里的指示 / 讨论）参与绿灯扫描（1.31.0）；自动校正是后台跑，
+    // 房间里只有 note 记录（本就不参与）——不传，保持逐字节稳定。
+    const fixSideScan = mode === 'manual' ? await sideChatScanBlob() : '';
     if (fixUsePresetFor(s, mode) && presetCurationActive(s)) {
         fixCardBlock = '';
         fixWorldBlock = '';
-        const split = await buildWorldInfoSplit();
+        const split = await buildWorldInfoSplit(undefined, fixSideScan);
         wiBefore = split.before;
         wiAfter = split.after;
     } else {
         fixCardBlock = norm.includeCard ? buildCardSection(ctx) : '';
-        fixWorldBlock = norm.includeWorld ? await buildWorldInfo('st') : '';
+        fixWorldBlock = norm.includeWorld ? await buildWorldInfo('st', fixSideScan) : '';
     }
 }
 
@@ -15329,10 +16208,11 @@ function modeEntryNote(text) {
     if (convo.length) addSystemNote(text);
 }
 
-// 持久化的「系统记录」气泡（目前用于自动诊断的修复记录）。带 entry（写进 convo → 持久化 → 重载可
-// 重建），左对齐、补丁可滚动。opts.{snapshot,patch} 提供时挂一个「撤销 / 重新应用」按钮（仅改动型记录、
-// 仅本会话）——重载后 loadConvoForChat 不传 opts，记录变只读（重放旧补丁不安全，与手动诊断回复重载后
-// 失去按钮一致）。
+// 持久化的「系统记录」气泡（自动诊断 / 自动校正的记录）。带 entry（写进 convo → 持久化 → 重载可
+// 重建），左对齐、补丁可滚动。opts.{snapshot,patch} 挂「撤销 / 重新应用」按钮、opts.{fix} 挂「用原文 /
+// 看改动」——仅改动型记录、仅本会话：opts 走内存注册表（registerNoteOpts），本会话内重画由
+// loadConvoForChat 凭 peekNoteOpts 重挂；重载后注册表为空 → 记录变只读（重放旧补丁不安全，与手动
+// 诊断回复重载后失去按钮一致）。
 function addNoteMessage(entry, opts) {
     const empty = messagesEl.querySelector('.so-empty');
     if (empty) empty.remove();
@@ -15414,7 +16294,8 @@ function loadConvoForChat() {
     }
     if (!convo.length) { renderEmptyState(); return; }
     for (const m of convo) {
-        m._el = (m.role === 'note') ? addNoteMessage(m) : addMessage(m.role, m.content, m);
+        // note 重画时凭注册表重挂本会话的按钮（自动诊断撤销 / 自动校正用原文——重载后注册表为空 = 只读记录，契约不变）
+        m._el = (m.role === 'note') ? addNoteMessage(m, peekNoteOpts(convoStreamKey, m)) : addMessage(m.role, m.content, m);
         // Hook API / F5 补渲：恢复的 AI 回复渲染 Markdown（showdown+DOMPurify）+ 存 data-so-raw（原文，供插件读自定义标签）。
         // 取代二创 markdown-render 的 F5 补渲；仅助手回复、仅尚未渲染时。
         if (m.role === 'assistant' && m._el) {
@@ -15441,10 +16322,34 @@ function syncConvoStream() {
     return true;
 }
 
+/* ------------------------------------------------------------------ *
+ * 会话内「记录按钮」注册表（1.31.1）。自动诊断的 {snapshot,patch}（撤销）与自动校正的 {fix}
+ * （用原文/看改动）是内存里的闭包材料，从不落盘（重放旧补丁不安全——「重载后记录只读」契约不变）。
+ * 1.28.0 分房间后，后台记录常落进【不可见】房间（旧实现直接丢 opts），且换房重画（loadConvoForChat）
+ * 也会把已挂的按钮抹掉 → 把 opts 按 房间::记录id 登记在这里，重画 note 时凭 id+内容取回重挂。
+ * 内容必须参与校验：cidSeq 只爬过【已载入房间】的 id，重载后新记录可能与未访问房间里的旧记录撞号——
+ * 旧记录（时间戳+补丁不同）凭内容拒挂、保持只读。换聊天必须作废（见 onChatChanged）：撤销/换 swipe
+ * 写的是【当前聊天】的 MVU / 楼层，跨聊天重挂会写错对象——与 1.28.0 前「切聊天即失按钮」语义一致。
+ * ------------------------------------------------------------------ */
+const NOTE_OPTS_MAX = 60;   // 内存保险：自动校正 opts 带整楼 before/after，超长会话只留最近 60 条
+const noteOptsById = new Map();   // 'room::id' → { content, opts }（opts 存同一引用，不拷贝）
+function registerNoteOpts(roomKey, entry, opts) {
+    if (!opts || !entry) return;
+    noteOptsById.set(`${roomKey}::${entry.id}`, { content: entry.content, opts });
+    while (noteOptsById.size > NOTE_OPTS_MAX) noteOptsById.delete(noteOptsById.keys().next().value);
+}
+function peekNoteOpts(roomKey, m) {
+    const hit = m ? noteOptsById.get(`${roomKey}::${m.id}`) : null;
+    return (hit && hit.content === m.content) ? hit.opts : null;
+}
+function clearNoteOpts() { noteOptsById.clear(); }
+
 // 后台记录写入指定房间（推广自 appendNoteToMain）。目标房间正可见 → 推 convo + 画气泡；否则直接写该房间元数据、
 // 不上屏（记录不是警报，交互侧另有 toast）。ENABLE_MODE_ROOMS 关 → 一律回主流（= 旧 appendNoteToMain 行为）。
+// 两条分支都先把按钮材料登记进注册表——首访 / 重画该房间时 loadConvoForChat 凭它重挂按钮。
 function appendNoteToRoom(roomKey, entry, opts) {
     const key = ENABLE_MODE_ROOMS ? (roomKey || 'main') : 'main';
+    registerNoteOpts(key, entry, opts);
     if (key === convoStreamKey) {
         convo.push(entry);
         persistConvo();
