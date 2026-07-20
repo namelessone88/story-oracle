@@ -499,6 +499,13 @@ Z衍生三：三到六字标题
 - Persona（用户角色）：写给「读它来扮演全世界如何回应TA」的AI看——紧凑、事实与画面优先；未勾选多副面孔时，台词示例全篇至多三句（超出的改写成行为画面）；勾选了多副面孔时，台词全部住进各面的语料，不再另设台词示例。
 - 世界书有格式或模板规定时，一律按它的来——工序一的规则最大。`;
 
+// 台词丰满 rider（1.34.0，opt-in 设置 bldDlgRich，默认关）：勾上时锻造在 sectionsLine 之后追加这段。
+// 冻结电池工件（dlg-rich-v0 探针 + dlg-rich-v1 五junior×DS/GM电池 + 双盲裁判 + Opus 终验；WINNER=J4-vB）：
+// 字节镜像 tests/unit/_bld-tuning/dlg-rich-v1/winner-j4vB/rider.actual.txt，dlg-rich.test.mjs byte-pin 钉住——
+// 【改一个字 = 重跑那套电池】。定律见同目录 SENIOR-REPORT.md（数量许可必须与完整性焊在同一分句；
+// 单独「话可以少」= DS 碎句许可证 + GM 条数塌方；「一句」被 DS 读成单句封顶）。访谈/修订/精简有意不接。
+const DLG_RICH_RIDER = `【台词要求】这张卡里所有台词——音区示范、各面语料、画面里的台词——都写成能听见说出口的话：带着说话人此刻的口气和说话习惯，从开口到收尾是完整的一句，容得下情绪和细节。角色话多话少随他的性子——话多的一句连一句，话少的把要说的那件事一口气说完整，而不是拆成几个词分开往外蹦。本卡别处若把台词往更短、更省的方向带，遇分歧时以本段为准。每句话的原意和角色个性保持不变；条数、结构与其余工艺规矩照旧。`;
+
 // 用户角色锻造·抢话（v4 2026-07-09 高阶模型亲写 restructure；v0–v3 电池收据 tests/unit/_bld-tuning/persona-pass/）。
 // 简化卡：AI 也扮演{{user}}。v4 原则（HANDOFF-V4 §3A，三轮裁定「匿名槽泄漏、命名/带类型槽被服从」）：槽全命名/
 // 带类型、引号规则只住【输出语法】一处、自检精简不删（GM 靠它）+扫词补 一定/必、示范只给形状占位（「我知道」
@@ -1201,16 +1208,25 @@ const ENABLE_FIX_SELECT = true;
 // （so-bld-on 永不加上，模式不可达）、侧聊流恒主流、草稿卡随隐藏栏不可见——整模式对用户完全隐形。
 // 【1.25.0 发布暂时下架整个模式】= false：本次随其它修复发布 Story Oracle，工坊（含用户角色分家 + v2 锻造提示词）
 // 留在代码里继续打磨；门控齐全、纯函数与单测照常存在（不依赖本旗）。打磨达标后拨回 true 即整模式复出。
-const ENABLE_CHAR_BUILDER = false;
+const ENABLE_CHAR_BUILDER = true;
 // 角色工坊「用户角色分家」总开关（1.25.0，设计 docs/superpowers/specs/2026-07-08-builder-persona-split-design.md）：
 // 打造目标三分（NPC 卡 / 用户角色·抢话 / 用户角色·不抢话），各配独立访谈 / 锻造提示词、chip 集与
 // 独立侧聊流。关 → 选择器回到旧两项、一律走 card 变体与主侧聊流 = 字节级现状行为，新提示词不可达。
 const ENABLE_BUILDER_PERSONA_STYLES = true;
+// 只保留 NPC 打造目标（Edwin 2026-07-19）：工坊只写世界书 NPC 条目，隐藏全部「用户角色（Persona）」目标
+// （抢话 / 不抢话 / 旧 persona 都不进选择器，bldTarget 恒 'npc'、整行藏起来）。persona 分家基建仍在位、
+// 只是 UI 够不到——改回 false 即恢复由 ENABLE_BUILDER_PERSONA_STYLES 决定的多目标选择。读点 2：getSettings
+// 归一（强制 npc）+ 设置面板选择器（藏行）。
+const BUILDER_NPC_ONLY = true;
 // ✂️ 锻造稿精简 总开关（1.30.0，spec docs/superpowers/specs/2026-07-11-builder-draft-condense-design.md）：
 // false → 草稿卡不出精简按钮、锻造后自动精简不触发、设置行不渲染（三处读点）——对旧行为字节级零变化。
 // 轻精简 = 单调用 v0.2 冻结提示词；深度精简 = 3 并行分节 + 手术单 + 装置逐刀核验（condense-v0 电池验证形态）。
 // 守卫恒 fail-open：任何一道不过 = 原稿原样保留。仅 npc-* 目标（persona 由分家项目另管）。
 const ENABLE_DRAFT_CONDENSE = true;
+// ✂️ 轻精简（单调用整卡）总开关（Edwin 2026-07-19：全员关闭）。false → 草稿卡不出「✂️ 精简全稿」按钮、
+// 「锻造后自动精简」不触发（设置行隐藏）、runCondense 入口 no-op。深度精简（✂️✂️）不受此开关影响，仍在
+// 且【恒串行流式】。改回 true 即恢复轻精简。读点：卡按钮 + 自动钩 + runCondense 入口 + 设置行隐藏。
+const ENABLE_LIGHT_CONDENSE = false;
 // 每模式独立侧聊房间（用户功能请求：切模式不再混聊天）：把「侧聊流」从「仅工坊分家」推广到「按当前模式分家」。
 // false → 非工坊模式一律回主流（= 1.27.x 逐字节行为）。工坊三房间仍由 ENABLE_BUILDER_PERSONA_STYLES 独立管辖——两开关正交。
 const ENABLE_MODE_ROOMS = true;
@@ -1405,6 +1421,9 @@ const defaults = {
     // bldScanWi（1.31.0，默认关）：额外跑一次 ST 关键词扫描（蓝灯 + 主聊天/卡/工坊侧聊命中的绿灯），
     // 命中而【未被选条目器投喂】的条目作参考补充块。默认关 = 选条目器仍是唯一世界书来源（所见即所得契约）。
     bldScanWi: false,
+    // 台词丰满（1.34.0，默认关）：锻造追加 DLG_RICH_RIDER——台词写成完整人话（对各模型全验证；
+    // 默认关 = 发送字节与 1.33.0 逐字节一致）。
+    bldDlgRich: false,
     bldSections: null,
     // 三变体各自的 chip 选择（bldSections 归 card 变体沿用旧键，零迁移）。null = 各自表里 def:true 的那些。
     bldSectionsSteal: null,
@@ -1416,9 +1435,6 @@ const defaults = {
     // ✂️ 锻造后自动精简（轻精简层，1.30.0）。默认关（spec §4.4）；只在 npc-* 且原稿风格门点火
     //（叙述句中位 >28 字或 >50 字句占比 >10%）且 ≥2500 字时，锻造成功后静默补一发精简。
     bldAutoCondense: false,
-    // ✂️✂️ 深度精简逐份串行（1.30.0，Edwin：限速站的出口——公益站常见 2 次/分钟，3 份分节并发必撞 429）。
-    // 默认关 = 并发（快）；开 = 一份接一份，任何时刻只有一个请求在天上，每份各给 600s 看门狗预算。
-    bldCondenseSerial: false,
     // 校正调用输出上限（Tier 0 ③，1.25.0）：空 = 自动（地板 4096）；长楼层改写被截断、校正总失败时可顶高（如 8192/12288）。
     // 全局（非 per-chat、不进 FIX_CFG_KEYS）——服务商单次输出上限是账号级的、与聊天无关。fixEffMaxTokens 读，Number(...)||0 兜底。
     fixMaxTokens: '',
@@ -1620,7 +1636,8 @@ function getSettings() {
     // 迁移（幂等）：退役 chip 从已保存的 bldSections 里滤掉（面板已不显示它，留着会隐形生效且无法取消）。
     s.bldSections = sanitizeBldSections(s.bldSections);
     // 打造目标归一：旧档 'persona' → 'persona-nosteal'；仅在分家开关开启时生效（关着时旧值原样保留）。
-    if (ENABLE_BUILDER_PERSONA_STYLES) s.bldTarget = normalizeBldTarget(s.bldTarget);
+    if (BUILDER_NPC_ONLY) s.bldTarget = 'npc';                                // 只保留 NPC：一切旧目标（含 persona-*）归 npc
+    else if (ENABLE_BUILDER_PERSONA_STYLES) s.bldTarget = normalizeBldTarget(s.bldTarget);
     return s;
 }
 
@@ -2776,6 +2793,9 @@ function buildBuilderPrompt(ctx, s) {
     if (lookAsk) parts.push(lookAsk);
     const personaBlock = buildPersonaBlock(s.personaId, 'builder');
     if (personaBlock) parts.push(personaBlock);
+    // 修订：把当前草稿（激活变体）作为【权威现文】喂入——DraftPatch 锚点从它逐字复制（见 builderDraftRefBlock）。
+    // 访谈阶段（无草稿）此块为空 = filter(Boolean) 滤掉，行为不变。
+    parts.push(builderDraftRefBlock(getBuilderState()?.draft));
     parts.push(buildCardSection(ctx));
     if (bldContextText) parts.push('=== 世界书 / 设定（找找有没有专门规定「角色如何生成」的条目——命名规则、种族限制、数值模板、格式规定；有就必须遵守）===\n' + bldContextText);
     if (bldScanWiText) parts.push('=== 世界书 · 关键词命中（参考补充——聊天里提到的相关设定）===\n' + bldScanWiText);
@@ -2803,6 +2823,7 @@ function buildForgeMessages(ctx, s, brief) {
     const parts = [gatedForge, BUILDER_PROTOCOL];
     parts.push(`【当前目标】${builderTargetLabel(s)}`);
     parts.push(builderSectionsLine(s));
+    if (s.bldDlgRich) parts.push(DLG_RICH_RIDER);
     parts.push(buildCardSection(ctx));
     if (bldContextText) parts.push('=== 世界书 / 设定 ===\n' + bldContextText);
     if (bldScanWiText) parts.push('=== 世界书 · 关键词命中（参考补充）===\n' + bldScanWiText);
@@ -3299,7 +3320,10 @@ function parseDraftPatch(text) {
     if (!m) return { ops: [], errors: [] };
     const ops = []; const errors = [];
     // 每个单元：anchor: 行（吸收到 <<<replace 为止的多行锚点）+ replace 围栏。
-    const unitRe = /anchor\s*[:：]\s*([\s\S]*?)\n<<<replace\n([\s\S]*?)\n(?:<\/)?replace>>>/g;
+    // 收尾 \n 设为可选（\n?）：删除 op 空替换体常被模型写成 `<<<replace\nreplace>>>`（无空行），
+    // 缺那个换行会让逐字正确的锚点也解析失败（2026-07-19 真 DS 高上下文电池）；`\n\nreplace>>>`
+    // 与 `\nreplace>>>` 现在等价 = 空删除。正常替换体行为不变（非贪婪体仍在收尾换行处收束）。
+    const unitRe = /anchor\s*[:：]\s*([\s\S]*?)\n<<<replace\n([\s\S]*?)\n?(?:<\/)?replace>>>/g;
     let u;
     while ((u = unitRe.exec(m[1])) !== null) {
         const anchor = u[1].replace(/\s*\n\s*/g, ' ').trim();
@@ -3789,6 +3813,16 @@ function condenseGuards(rawContent, outContent) {
 function activeDraftContent(draft) {
     return (draft && draft.activeVariant === 'condensed' && typeof draft.condensed === 'string')
         ? draft.condensed : (draft ? draft.content : '');
+}
+// 修订上下文块：当前草稿（激活变体）= DraftPatch 锚点的【权威唯一来源】，喂进 buildBuilderPrompt。
+// 起因（Edwin 2026-07-19，沈星落卡）：buildBuilderPrompt 从不喂当前草稿 → 模型凭对话记忆/用户转述造
+// 锚点，与实际存稿的标点字句有出入（体型锚点写「——」但存稿是「。」→ 匹配失败），且打过补丁后对话里
+// 的旧稿已过时 → 锚点反复失配、部分改动永不生效。喂【激活变体】= 与 applyDraftPatchOps 匹配的同一串。
+// 无草稿（访谈阶段）→ 空串，提示词行为不变。可单测。
+function builderDraftRefBlock(draft) {
+    const content = activeDraftContent(draft);
+    if (!content || !String(content).trim()) return '';
+    return '=== 当前草稿正文（权威·你正在修改的就是这一份；出 <DraftPatch> 时锚点务必从这里【逐字复制】，不要凭对话记忆或用户转述）===\n' + content;
 }
 function draftWithPatchedActive(draft, patchedText) {
     const d = { ...draft, content: patchedText };
@@ -8161,10 +8195,11 @@ function buildWindow() {
                     <label class="so-check so-lb-check"><input id="so-bld-summary" type="checkbox"><span>带上 📜剧情概要</span></label>
                     <label class="so-check so-lb-check"><input id="so-bld-stat" type="checkbox"><span>带上状态栏数据（stat_data）</span></label>
                     <label class="so-check so-lb-check"><input id="so-bld-scanwi" type="checkbox"><span>关键词触发世界书（把聊天与访谈里提到的设定条目作参考补充）</span></label>
+                    <label class="so-check so-lb-check" title="锻造时把台词写得更丰满自然——每句都是当面说出口的完整人话，保留角色个性与说话习惯（话少的角色照旧话少，但开口的句子完整）。各家模型都验证过；不改条数与结构。"><input id="so-bld-dlgrich" type="checkbox"><span>台词丰满（锻造台词写成完整人话）</span></label>
                     <label class="so-check so-lb-check"><span>锻造回复上限</span>&nbsp;<input id="so-bld-maxtok" type="number" min="0" step="1024" style="width:6em" placeholder="自动·16384" title="锻造调用的 max_tokens 下限自动为 16384；超大世界书导致思考+成稿被截断时可调高。注意：超过服务商单次输出上限会被直接拒绝——报错就调回来。留空 = 自动。"></label>
                     <label class="so-check so-lb-check" title="勾选后，访谈对话走你在设置面板策展的预设（文本块保留、RP标记去除，工坊指令注入历史位）。锻造调用不受影响——始终使用内置锻造工序。"><input id="so-bld-preset" type="checkbox"><span>用自定义预设（设置面板所选）</span></label>
                     <label class="so-check so-lb-check" id="so-bld-autocond-row" title="锻造成功后自动跑一遍「✂️ 精简」（拆长句、删跨节重复；守卫不过=原稿原样保留）。只在 NPC 草稿、且原稿明显冗长时触发——本就精炼的稿子不会白花调用。强输出模型（如 Claude）建议开。"><input id="so-bld-autocond" type="checkbox"><span>锻造后自动精简</span></label>
-                    <label class="so-check so-lb-check" id="so-bld-condserial-row" title="「✂️✂️ 深度精简」的 3 份分节默认同时发出——限速严格的端点（如公益站的每分钟 2 次）会撞并发限流报 429。勾选后改为一份接一份地跑：总时长更久（≈4 次调用相加），但任何时刻只有一个请求在天上。轻精简和锻造本就单次调用，不受影响。"><input id="so-bld-condserial" type="checkbox"><span>深度精简逐份串行（限速站用）</span></label>
+                    <div class="so-hint" id="so-bld-condinfo" style="margin:4px 0">✂️✂️ 深度精简仅适合 <b>Opus 类</b>模型（DeepSeek / Gemini 的锻造稿本就精炼，收益不大）；会分多次流式调用，通常要等上几分钟才跑完。</div>
                     <div id="so-bld-card" style="display:none"></div>
                 </div>
             </details>
@@ -8744,7 +8779,12 @@ function bindControls() {
     bind('#so-hidden', 'includeHiddenFloors');
     // —— 角色工坊设置 —— 全局设置（不是 per-chat）。
     const bldTargetSel = win.querySelector('#so-bld-target');
-    if (bldTargetSel) {
+    if (bldTargetSel && BUILDER_NPC_ONLY) {
+        // 只保留 NPC：目标恒 npc，选择器整行藏起来（只有一个选项的下拉没意义）。
+        getSettings().bldTarget = 'npc';
+        const row = bldTargetSel.closest('label');
+        if (row) row.style.display = 'none';
+    } else if (bldTargetSel) {
         // 选项随分家开关：开 → 三态（默认不抢话）；关 → 旧两态（= 字节级现状行为）。
         const opts = ENABLE_BUILDER_PERSONA_STYLES
             ? [['persona-nosteal', '用户角色·不抢话（AI 只回应你）'], ['persona-steal', '用户角色·抢话（AI 也扮演你）'], ['npc', 'NPC 世界书条目']]
@@ -8777,15 +8817,15 @@ function bindControls() {
     bind('#so-bld-summary', 'bldIncludeSummary');
     bind('#so-bld-stat', 'bldIncludeStat');
     bind('#so-bld-scanwi', 'bldScanWi');
+    bind('#so-bld-dlgrich', 'bldDlgRich');
     bind('#so-bld-preset', 'bldUsePreset');   // T13：访谈经预设 opt-in（锻造不受影响）——同 bldSummary/bldStat 用 bind
-    // ✂️ 锻造后自动精简（1.30.0，读点 3/3）：开关关闭时整行不渲染（flag false = 字节级旧观感）。
+    // ✂️ 锻造后自动精简（轻精简层）：总开关关 或 轻精简整体关闭（ENABLE_LIGHT_CONDENSE=false）时整行不渲染。
     const bldAutoCondRow = win.querySelector('#so-bld-autocond-row');
-    if (bldAutoCondRow && !ENABLE_DRAFT_CONDENSE) bldAutoCondRow.style.display = 'none';
+    if (bldAutoCondRow && (!ENABLE_DRAFT_CONDENSE || !ENABLE_LIGHT_CONDENSE)) bldAutoCondRow.style.display = 'none';
     bind('#so-bld-autocond', 'bldAutoCondense');
-    // ✂️✂️ 深度精简串行模式（限速站出口）：行随同一 flag 隐藏。
-    const bldCondSerialRow = win.querySelector('#so-bld-condserial-row');
-    if (bldCondSerialRow && !ENABLE_DRAFT_CONDENSE) bldCondSerialRow.style.display = 'none';
-    bind('#so-bld-condserial', 'bldCondenseSerial');
+    // ✂️✂️ 深度精简 = Opus-only 说明行（无勾选项；深度恒串行流式，见 runCondenseDepth）：总开关关时整行不渲染。
+    const bldCondInfoRow = win.querySelector('#so-bld-condinfo');
+    if (bldCondInfoRow && !ENABLE_DRAFT_CONDENSE) bldCondInfoRow.style.display = 'none';
     const bldMaxTok = win.querySelector('#so-bld-maxtok');
     if (bldMaxTok) {
         bldMaxTok.value = getSettings().bldMaxTokens || '';   // 建窗时回填当前值（原始字符串）
@@ -9023,6 +9063,8 @@ function loadSettingsIntoForm() {
     if (bldStat) bldStat.checked = !!s.bldIncludeStat;
     const bldScanWi = win.querySelector('#so-bld-scanwi');
     if (bldScanWi) bldScanWi.checked = !!s.bldScanWi;
+    const bldDlgRich = win.querySelector('#so-bld-dlgrich');
+    if (bldDlgRich) bldDlgRich.checked = !!s.bldDlgRich;
     const bldPreset = win.querySelector('#so-bld-preset');
     if (bldPreset) bldPreset.checked = !!s.bldUsePreset;
 
@@ -10123,11 +10165,11 @@ function refreshDraftCard() {
             if (!isCond) {
                 // 原稿侧也保留两个精简按钮（Edwin 2026-07-12）：换一档重跑的路要在——精简恒从原稿
                 // 起跑（幂等），重跑成功即覆盖旧精简稿；精简稿侧不出按钮（看结果的视角，切回原稿再跑）。
-                mk('✂️ 精简全稿', () => runCondense());
+                if (ENABLE_LIGHT_CONDENSE) mk('✂️ 精简全稿', () => runCondense());   // 轻精简 2026-07-19 起全员关闭
                 mk('✂️✂️ 深度精简', () => runCondenseDepth());
             }
         } else {
-            mk('✂️ 精简全稿', () => runCondense());
+            if (ENABLE_LIGHT_CONDENSE) mk('✂️ 精简全稿', () => runCondense());   // 轻精简 2026-07-19 起全员关闭
             mk('✂️✂️ 深度精简', () => runCondenseDepth());
         }
     }
@@ -10280,7 +10322,7 @@ async function runForge() {
             // ✂️ 锻造后自动精简（1.30.0，读点 2/3）：opt-in + npc-* + ≥2500字 + 风格门点火才补一发轻精简
             //（terse 稿【进不了】这里——gm-v01 电池教训：模型对干净卡会凑量误删，入口必须代码侧把关）。
             // setTimeout(0)：等本函数 finally 释放 isGenerating 后再起跑。
-            if (ENABLE_DRAFT_CONDENSE && s.bldAutoCondense && String(draft.target || '').startsWith('npc')
+            if (ENABLE_LIGHT_CONDENSE && ENABLE_DRAFT_CONDENSE && s.bldAutoCondense && String(draft.target || '').startsWith('npc')
                 && String(draft.content || '').length >= 2500 && condenseStyleFlagged(draft.content)) {
                 setTimeout(() => runCondense({ auto: true }), 0);
             }
@@ -10314,7 +10356,7 @@ async function runForge() {
 // 才挂上精简稿变体；任何失败 = 原稿原样保留 + 如实说明（fail-open，spec §4.1/§4.3）。
 // auto=true 是锻造后的静默触发：不弹确认、失败降为一行注记。精简永远从原稿起跑（幂等，重跑覆盖旧精简稿）。
 async function runCondense(opts = {}) {
-    if (!ENABLE_DRAFT_CONDENSE || isGenerating) return;
+    if (!ENABLE_DRAFT_CONDENSE || !ENABLE_LIGHT_CONDENSE || isGenerating) return;   // 轻精简 2026-07-19 起全员关闭
     const s = getSettings();
     const st = getBuilderState();
     const draft = st?.draft;
@@ -10426,47 +10468,45 @@ async function runCondenseDepth() {
     const armDepthWatchdog = () => { if (killTimer) clearTimeout(killTimer); killTimer = setTimeout(() => { try { abortCtl?.abort(); } catch (e) { /* ignore */ } }, 600000); };
     armDepthWatchdog();
     const effMaxTokens = Math.max(s.maxTokens, Number(s.bldMaxTokens) || 0, 16384);
-    const callOnce = async (system, user) => {
+    // 深度精简【恒串行 + 流式】（Edwin 2026-07-19：逐份串行开关移除，统一走这条）：任一时刻只有一个
+    // 请求在天上（限速站 2 次/分钟不再被并发撞穿），且流式的持续字节流能扛过 api.navy 这类 ~100s
+    // Cloudflare 硬超时代理（非流式深度精简在这类代理上必 524——上游用户实证）。onProgress 把流实时
+    // 铺进气泡；流式每收到一段都重置深度看门狗（空闲判定，活跃流式中不会误触）。
+    const useStream = true;
+    const callOnce = async (system, user, onProgress) => {
         const messages = [{ role: 'system', content: system }, { role: 'user', content: user }];
         if (s.mode === 'direct') {
             const body = { model: s.model, messages, max_tokens: effMaxTokens };
             if (s.sendTemperature) body.temperature = s.temperature;
+            if (useStream) return await streamDirect(resolveEndpointUrl(s), s.apiKey, body, abortCtl.signal, (delta) => { armDepthWatchdog(); if (onProgress) onProgress(delta, false); });
             return await callDirect(resolveEndpointUrl(s), s.apiKey, body, abortCtl.signal);
         }
         const override = s.sendTemperature ? { temperature: s.temperature } : {};
+        if (useStream) return await callProfileStream(s.profileId, messages, effMaxTokens, override, abortCtl.signal, (full) => { armDepthWatchdog(); if (onProgress) onProgress(full, true); });
         return await callProfile(s.profileId, messages, effMaxTokens, override, abortCtl.signal);
     };
+    // 流式实时铺进气泡：direct 回调给增量（+=），profile 回调给累计全文（=）；acc 收敛成「当前阶段全文」。
+    const streamInto = (header) => { let acc = ''; return (chunk, cumulative) => { acc = cumulative ? chunk : acc + chunk; contentEl.textContent = header + acc; if (soFollowStream) scrollToBottom(); }; };
     try {
         const sectUser = (g) => `【全卡参考（只读，供查重，不要输出）】\n${rawC}\n\n【你负责精简的节】${g.names.join('、')}\n【这些节的原文】\n${g.text}`;
-        let partReplies;
-        if (s.bldCondenseSerial) {
-            // 限速站的出口（Edwin 2026-07-12）：3 份分节一份接一份跑——总时长更久，但任何时刻只有
-            // 一个请求在天上（公益站 2 次/分钟这类并发限流不再被 3 发齐射撞穿）；每份调用各续一份预算。
-            partReplies = [];
-            for (let i = 0; i < groups.length; i++) {
-                contentEl.textContent = `✂️✂️ 深度精简中（串行模式）——正在跑分节 ${i + 1}/3…`;
-                armDepthWatchdog();
-                partReplies.push(await callOnce(CONDENSE_STAGE_PROMPTS.sect, sectUser(groups[i])));
-            }
-            contentEl.textContent = '✂️✂️ 分节 3/3 已返回，正在开手术单…';
-        } else {
-            // 三份分节并行、各自返程即报数（非流式跑长活不能哑着——x/3 计数是唯一的中途心跳）。
-            let sectDone = 0;
-            partReplies = await Promise.all(groups.map((g) =>
-                callOnce(CONDENSE_STAGE_PROMPTS.sect, sectUser(g))
-                    .then((r) => {
-                        sectDone++;
-                        contentEl.textContent = `✂️✂️ 深度精简中——分节 ${sectDone}/3 已返回${sectDone === 3 ? '，正在开手术单…' : '，其余分节仍在跑…'}`;
-                        return r;
-                    })));
+        // 恒串行：3 份分节一份接一份跑，每份把流实时铺进气泡；每份各续一份看门狗预算。
+        const partReplies = [];
+        for (let i = 0; i < groups.length; i++) {
+            contentEl.classList.add('so-streaming');
+            armDepthWatchdog();
+            partReplies.push(await callOnce(CONDENSE_STAGE_PROMPTS.sect, sectUser(groups[i]), streamInto(`✂️✂️ 深度精简（串行·流式）分节 ${i + 1}/3：\n\n`)));
+            contentEl.classList.remove('so-streaming');
         }
+        contentEl.textContent = '✂️✂️ 分节 3/3 已返回，正在开手术单…';
         const parts = partReplies.map((r) => parseCondenseReply(String(r || '')));
         const bad = parts.findIndex((p) => !p.content);
         if (bad >= 0) { condenseFailNote({}, 'sect-G1', `第 ${bad + 1} 份分节没有有效围栏`); return; }
         const asm = condenseAssemble(parts.map((p) => p.content), rawC);
         if (!asm.content) { condenseFailNote({}, 'assemble', asm.error); return; }
         armDepthWatchdog();   // 手术单阶段自带一份新预算
-        const opsReply = await callOnce(CONDENSE_STAGE_PROMPTS.ops, `请为下面这张角色卡正文开删减手术单。\n【正文开始】\n${asm.content}\n【正文结束】`);
+        contentEl.classList.add('so-streaming');
+        const opsReply = await callOnce(CONDENSE_STAGE_PROMPTS.ops, `请为下面这张角色卡正文开删减手术单。\n【正文开始】\n${asm.content}\n【正文结束】`, streamInto('✂️✂️ 手术单（串行·流式）：\n\n'));
+        contentEl.classList.remove('so-streaming');
         const { ops } = parseCondenseOps(String(opsReply || ''));
         const applied = applyCondenseOps(asm.content, ops);
         const g = condenseGuards(rawC, applied.content);
@@ -13066,13 +13106,27 @@ const REASONING_TAGS = ['think', 'thinking', 'thought', 'reasoning', 'reflection
 function stripReasoningTags(text) {
     let out = String(text || '');
     for (const tag of REASONING_TAGS) {
+        // 已知结构化区块的开标签白名单——pass 0 和 pass 2 都要用，提到循环体顶部（放在 pass 0
+        // 之前，否则先引用后声明会抛 ReferenceError/TDZ）。这些区块绝不能被当思维链删掉。
+        const BLOCK_OPENERS = '(?:CharDraft|CharBrief|DraftPatch|StoryPlan|FixedReply|LorebookEdit|UpdateVariable)';
+        // 0) 闭标签出现在任何开标签之前：预设把 <think> 预填进 assistant 消息（开标签在提示词里、
+        //    补全里只剩闭标签），或推理模型省略开标签、只回「思考内容</think>正文」——从开头到
+        //    闭标签整段都是思维链，连内容一起删。护栏：闭标签之前若已开了已知结构区块（<StoryPlan>
+        //    等），则不动（fail-open 交给 pass 3 只删标签字面量），绝不误吞成稿——与 pass 2 同理。
+        const close = out.match(new RegExp('<\\/' + tag + '\\b[^>]*>', 'i'));
+        if (close) {
+            const open = out.match(new RegExp('<' + tag + '\\b[^>]*>', 'i'));
+            const block = out.match(new RegExp('<' + BLOCK_OPENERS + '\\b', 'i'));
+            if ((!open || close.index < open.index) && (!block || close.index < block.index)) {
+                out = out.slice(close.index + close[0].length);
+            }
+        }
         // 1) 成对区块（大小写不敏感、跨行、容忍属性）——最常见的情况，连内容一起删。
         out = out.replace(new RegExp('<' + tag + '\\b[^>]*>[\\s\\S]*?<\\/' + tag + '\\s*>', 'gi'), '');
         // 2) 被截断、没闭合的开标签——原则上从开标签删到结尾（同 stripMechanismBlocks）。
         //    但模型有时写满思考忘了闭合、直接接着输出正文区块（真实案例：完整 CharDraft 被
         //    整个吞成「空回复」，用户白丢一份好稿）——所以后文若出现已知结构区块的开标签，
         //    只删到区块开始处。
-        const BLOCK_OPENERS = '(?:CharDraft|CharBrief|DraftPatch|StoryPlan|FixedReply|LorebookEdit|UpdateVariable)';
         out = out.replace(new RegExp('<' + tag + '\\b[^>]*>[\\s\\S]*?(?=<' + BLOCK_OPENERS + '\\b)|<' + tag + '\\b[^>]*>[\\s\\S]*$', 'i'), '');
         // 3) 任何残留的孤立标签（如推理放在单独字段、只漏出一个 </think>）——只删标签本身、
         //    保留周围文字，确保标签字面量绝不残留在屏幕上。
@@ -13754,10 +13808,10 @@ async function generateReply() {
             persistConvo();
             if (diagnoseMode) {
                 const block = extractUpdateBlock(finalText);
-                if (block) addApplyControls(assistantEl, block);
+                if (block) addApplyControls(assistantEl, block, aEntry);
             } else if (lorebookMode) {
                 const parsed = parseLorebookBlocks(finalText);
-                if (parsed.ops.length || parsed.errors.length) addLorebookApplyControls(assistantEl, parsed);
+                if (parsed.ops.length || parsed.errors.length) addLorebookApplyControls(assistantEl, parsed, aEntry);
             } else if (advisorMode) {
                 const plans = parseStoryPlans(cleanText);
                 if (plans.length) addPlanControls(assistantEl, plans);
@@ -14189,7 +14243,10 @@ function renderFixCard(assistantEl, contentEl, aEntry, finalText) {
         assistantEl.querySelector('.so-bubble')?.appendChild(note);
     }
     // 把捕获快照 fixCaptured 一并传给应用控件：延迟点击「应用」时用它做陈旧守卫（P-CORRUPT 主要面）。
-    addFixApplyControls(assistantEl, parsed, fixOriginalReply, fixTargetIdx, fixExtraKeep, fixScope, fixCaptured);
+    // 重画保真（1.33.1）：先登记应用材料——换房重画时最新一条凭它重挂「应用到回复 / 看改动」。
+    registerFixApply(aEntry, parsed, fixOriginalReply, fixTargetIdx, fixExtraKeep, fixScope, fixCaptured, undefined,
+        parsed.problems ? '发现并修正：\n' + parsed.problems : '');
+    addFixApplyControls(assistantEl, parsed, fixOriginalReply, fixTargetIdx, fixExtraKeep, fixScope, fixCaptured, undefined, { entry: aEntry });
     return 'ok';
 }
 
@@ -14630,7 +14687,9 @@ async function runFixByTargetsPieces(s) {
                 + (r.anchorsMissing ? `\n⚠ ${r.anchorsMissing} 个锚点被模型挪动 / 弄丢，内容已兜底接回正文末尾（位置若不对可不应用）` : '')
                 + (r.problems ? '\n发现并修正：\n' + r.problems : '');
             assistantEl.querySelector('.so-bubble')?.appendChild(note2);
-            addFixApplyControls(assistantEl, { fixed: r.after, problems: '' }, r.before, fixTargetIdx, [], { active: false }, fixCaptured, spliced2);
+            // 重画保真（1.33.1）：登记应用材料，换房重画时最新一条凭它重挂（说明文一并原样重挂）。
+            registerFixApply(aEntry, { fixed: r.after, problems: '' }, r.before, fixTargetIdx, [], { active: false }, fixCaptured, spliced2, note2.textContent);
+            addFixApplyControls(assistantEl, { fixed: r.after, problems: '' }, r.before, fixTargetIdx, [], { active: false }, fixCaptured, spliced2, { entry: aEntry });
             return;
         }
         const summary = fixPieceSummary(table.pieces, results);
@@ -14658,7 +14717,9 @@ async function runFixByTargetsPieces(s) {
             + (summary.problems ? '\n发现并修正：\n' + summary.problems : '');
         assistantEl.querySelector('.so-bubble')?.appendChild(note);
         // 应用控件：finalOverride = splice 好的整条；diff 用修好各段的 prose↔prose 拼接（keep 空、scope 关）。
-        addFixApplyControls(assistantEl, { fixed: summary.afterJoined, problems: '' }, summary.beforeJoined, fixTargetIdx, [], { active: false }, fixCaptured, spliced);
+        // 重画保真（1.33.1）：登记应用材料，换房重画时最新一条凭它重挂（说明文一并原样重挂）。
+        registerFixApply(aEntry, { fixed: summary.afterJoined, problems: '' }, summary.beforeJoined, fixTargetIdx, [], { active: false }, fixCaptured, spliced, note.textContent);
+        addFixApplyControls(assistantEl, { fixed: summary.afterJoined, problems: '' }, summary.beforeJoined, fixTargetIdx, [], { active: false }, fixCaptured, spliced, { entry: aEntry });
     } catch (e) {
         clearTyping();
         contentEl.textContent = '校正失败：' + (e?.message || e);
@@ -15725,7 +15786,7 @@ function addRetryControl(assistantEl, entry) {
 }
 
 // Apply / Undo bar appended to a diagnose reply that contains a corrective patch.
-function addApplyControls(assistantEl, patchBlock) {
+function addApplyControls(assistantEl, patchBlock, entry) {
     const bar = document.createElement('div');
     bar.className = 'so-apply-bar';
     const btn = document.createElement('button');
@@ -15733,12 +15794,28 @@ function addApplyControls(assistantEl, patchBlock) {
     btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> 将修复应用到状态';
     const status = document.createElement('span');
     status.className = 'so-apply-status';
+    // 已应用状态（1.33.2）：会话内应用过（注册表有快照）→ 撤销态重生；只剩持久标记（重载过，
+    // 快照已失）→ 不出应用按钮、只留说明——旧补丁对已前进的状态重放不安全（delta 会二次叠加）。
+    const sess = entry ? ((peekNoteOpts(convoStreamKey, entry) || {}).diagApplied || null) : null;
+    if (!sess && entry && isRecordApplied(convoStreamKey, entry)) {
+        status.textContent = '此前已应用过此补丁，应用按钮已收起（重载后撤销不可用）。需要再修请重新诊断。';
+        bar.appendChild(status);
+        assistantEl.querySelector('.so-bubble').appendChild(bar);
+        scrollToBottom();
+        return;
+    }
     bar.appendChild(btn);
     bar.appendChild(status);
     assistantEl.querySelector('.so-bubble').appendChild(bar);
     scrollToBottom();
 
     let snapshot = null;
+    if (sess) {
+        // 换房重画重生：快照从注册表取回，按钮直接是「撤销」——与 1.28.0 前留在原位的手感一致。
+        snapshot = sess.snapshot;
+        btn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> 撤销';
+        status.textContent = '已应用 —— 状态已更新。';
+    }
     btn.addEventListener('click', async () => {
         status.classList.remove('so-hint-error');
         if (snapshot) {
@@ -15748,6 +15825,7 @@ function addApplyControls(assistantEl, patchBlock) {
             try {
                 await undoFix(snapshot);
                 snapshot = null;
+                if (entry) { dropNoteOpts(convoStreamKey, entry); unmarkRecordApplied(convoStreamKey, entry); }
                 btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> 将修复应用到状态';
                 status.textContent = '已还原到之前的状态。';
             } catch (e) {
@@ -15762,6 +15840,11 @@ function addApplyControls(assistantEl, patchBlock) {
         try {
             snapshot = await applyFix(patchBlock, status);
             if (snapshot) {
+                if (entry) {
+                    // 已应用状态（1.33.2）：登记会话快照（换房重画以撤销态重生）+ 落持久标记（重载后只留说明）。
+                    registerNoteOpts(convoStreamKey, entry, { diagApplied: { snapshot } });
+                    markRecordApplied(convoStreamKey, entry);
+                }
                 btn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> 撤销';
                 status.textContent = '已应用 —— 状态已更新。';
             }
@@ -15786,7 +15869,7 @@ function staleMsg(reason) {
 // finalOverride（✨ 分段校正 1.18.0）：非空 = 「应用」写入这份【已 splice 回原位的整条】，跳过整稿截断复检
 // （逐段已各自查过；拼接稿的「断句 + 偏短」启发式不适用）；陈旧守卫照跑。空 = 老行为（composeFixedReply +
 // wrapContentScope），既有调用点传 7 参 → undefined → 逐字节不变。
-function addFixApplyControls(assistantEl, parsed, originalReply, targetIdx, keepSections, scope, captured, finalOverride) {
+function addFixApplyControls(assistantEl, parsed, originalReply, targetIdx, keepSections, scope, captured, finalOverride, opts = {}) {
     const bar = document.createElement('div');
     bar.className = 'so-apply-bar';
     const btn = document.createElement('button');
@@ -15805,16 +15888,19 @@ function addFixApplyControls(assistantEl, parsed, originalReply, targetIdx, keep
     bubble.appendChild(bar);
     // 近抄警示（Tier 0 ①，Edwin 定案：手动只【警示】、不拦应用）：稿子与原文几乎相同时如实告知——高上下文
     // DeepSeek 的「抄原文不改」此前以一枚正常「应用」按钮示人（fixNoOp 只抓逐字相同）。警示是加分项、包 try 不阻断。
-    try {
-        const ncBefore = (captured && captured.prose) || stripMechanismBlocks(String(originalReply || ''));
-        const ncNote = fixNearCopyNote(ncBefore, (parsed && parsed.fixed) || '');
-        if (ncNote) {
-            const warn = document.createElement('div');
-            warn.className = 'so-fix-nearcopy-warn';
-            warn.textContent = ncNote;
-            bubble.insertBefore(warn, bar);
-        }
-    } catch (e) { /* 警示失败不影响应用流程 */ }
+    // 已应用态重挂（1.33.2）时不再出警示——稿子已写入，警示徒增噪音。
+    if (!opts.applied) {
+        try {
+            const ncBefore = (captured && captured.prose) || stripMechanismBlocks(String(originalReply || ''));
+            const ncNote = fixNearCopyNote(ncBefore, (parsed && parsed.fixed) || '');
+            if (ncNote) {
+                const warn = document.createElement('div');
+                warn.className = 'so-fix-nearcopy-warn';
+                warn.textContent = ncNote;
+                bubble.insertBefore(warn, bar);
+            }
+        } catch (e) { /* 警示失败不影响应用流程 */ }
+    }
     scrollToBottom();
 
     let diffCard = null;
@@ -15834,6 +15920,14 @@ function addFixApplyControls(assistantEl, parsed, originalReply, targetIdx, keep
     });
 
     let applied = false;
+    if (opts.applied) {
+        // 已应用状态（1.33.2）：会话内应用过、换房重画重生——按钮以已应用态出现（防止再点出重复
+        // swipe），「看改动」照常可用（材料都在）。
+        applied = true;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> 已应用（左滑看原文）';
+        status.textContent = '已作为新 swipe 写入这条回复。';
+    }
     btn.addEventListener('click', async () => {
         if (applied) return;
         status.classList.remove('so-hint-error');
@@ -15863,6 +15957,12 @@ function addFixApplyControls(assistantEl, parsed, originalReply, targetIdx, keep
             const ok = await applyFixAsSwipe(targetIdx, finalText);
             if (ok) {
                 applied = true;
+                if (opts.entry) {
+                    // 已应用状态（1.33.2）：给注册表里的材料打 applied 旗标——换房重画以已应用态重生，
+                    // 防止重挂出崭新按钮、再点写出第二条重复 swipe。
+                    const cur = peekNoteOpts(convoStreamKey, opts.entry);
+                    if (cur && cur.fixApply) cur.fixApply.applied = true;
+                }
                 btn.innerHTML = '<i class="fa-solid fa-check"></i> 已应用（左滑看原文）';
                 status.textContent = '已作为新 swipe 写入这条回复。';
             } else {
@@ -15881,7 +15981,7 @@ function addFixApplyControls(assistantEl, parsed, originalReply, targetIdx, keep
 // Apply / Undo bar appended to a lorebook reply that contains a <LorebookEdit>
 // block. Mirrors addApplyControls, but writes through saveWorldInfo and snapshots
 // every touched book for a one-click revert.
-function addLorebookApplyControls(assistantEl, parsed) {
+function addLorebookApplyControls(assistantEl, parsed, entry) {
     const ops = (parsed && parsed.ops) || [];
     const errors = (parsed && parsed.errors) || [];
     const bubble = assistantEl.querySelector('.so-bubble');
@@ -15893,6 +15993,16 @@ function addLorebookApplyControls(assistantEl, parsed) {
     btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> 将改动应用到世界书';
     const status = document.createElement('span');
     status.className = 'so-apply-status';
+    // 已应用状态（1.33.2）：会话内应用过（注册表有快照+结果）→ 撤销态重生；只剩持久标记（重载过，
+    // 快照已失）→ 不出应用按钮、只留说明——重放旧书快照会回滚整本书；再点应用则 create 类操作会出重复条目。
+    const sess = entry ? ((peekNoteOpts(convoStreamKey, entry) || {}).lbApplied || null) : null;
+    if (!sess && entry && isRecordApplied(convoStreamKey, entry)) {
+        status.textContent = '此前已应用过这批改动，应用按钮已收起（重载后撤销不可用）。需要再次应用或调整，请让我重新出一版改动。';
+        bar.appendChild(status);
+        bubble.appendChild(bar);
+        scrollToBottom();
+        return;
+    }
     bar.appendChild(btn);
     bar.appendChild(status);
     bubble.appendChild(bar);
@@ -15934,6 +16044,13 @@ function addLorebookApplyControls(assistantEl, parsed) {
     };
 
     let snapshots = null;
+    if (sess) {
+        // 换房重画重生：快照、逐条结果、汇总都从注册表取回，按钮直接是「撤销」——1.28.0 前的手感。
+        snapshots = sess.snapshots;
+        renderResults(sess.results);
+        btn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> 撤销';
+        status.textContent = `已应用：${sess.summary}。世界书已保存。`;
+    }
     btn.addEventListener('click', async () => {
         status.classList.remove('so-hint-error');
         if (snapshots) {
@@ -15943,6 +16060,7 @@ function addLorebookApplyControls(assistantEl, parsed) {
             try {
                 await undoLorebookOps(snapshots);
                 snapshots = null;
+                if (entry) { dropNoteOpts(convoStreamKey, entry); unmarkRecordApplied(convoStreamKey, entry); }
                 resultsEl.innerHTML = '';
                 btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> 将改动应用到世界书';
                 status.textContent = `已还原。待应用：${lbSummaryOf(ops)}`;
@@ -15960,6 +16078,11 @@ function addLorebookApplyControls(assistantEl, parsed) {
             renderResults(res.results);
             if (res.applied > 0) {
                 snapshots = res.snapshots;
+                if (entry) {
+                    // 已应用状态（1.33.2）：登记会话状态（换房重画以撤销态重生）+ 落持久标记（重载后只留说明）。
+                    registerNoteOpts(convoStreamKey, entry, { lbApplied: { snapshots: res.snapshots, results: res.results, summary: res.summary } });
+                    markRecordApplied(convoStreamKey, entry);
+                }
                 btn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> 撤销';
                 status.textContent = `已应用：${res.summary}。世界书已保存。`;
             } else {
@@ -16107,10 +16230,14 @@ function addPlanControls(assistantEl, plans) {
     const bubble = assistantEl.querySelector('.so-bubble');
     const wrap = document.createElement('div');
     wrap.className = 'so-plan-cards';
+    // 已采纳高亮恢复（1.33.2）：采纳状态在 chat 元数据（getPlan）——重画/重绘时 goal 相符的卡
+    // 直接亮「已采纳」，与点击采纳后的标记一致（goal 是注入主聊天的那句，天然的身份键）。
+    const activePlan = getPlan();
 
     for (const p of plans) {
         const card = document.createElement('div');
         card.className = 'so-plan-card';
+        if (activePlan && activePlan.goal === p.goal) card.classList.add('so-plan-adopted');
         let intensity = 'normal';
 
         const head = document.createElement('div');
@@ -16272,7 +16399,55 @@ async function clearConversation() {
 
 /* ------------------------------------------------------------------ *
  * 用户功能请求：per-chat 侧聊历史的载入端 + 运行概要编辑器的 UI 刷新。
+ *
+ * 重画保真（1.33.1 掉格式修复）：loadConvoForChat 此前对所有 AI 气泡一律
+ * renderMarkdownOnly（1.20.0 F5 补渲）且从不重挂动作卡。1.28.0 每模式独立房间让
+ * 【每次切模式都重画】：参谋 <StoryPlan> 被 DOMPurify 剥标签、采纳卡消失（用户报的
+ * 「掉格式」），诊断/世界书/校正的按钮同批阵亡。修复 = 重画按【房间】分道，向定稿
+ * 路径看齐——房间与模式一一对应（convoStreamKeyForMode），比看当前模式旗标更稳。
+ * ENABLE_MODE_ROOMS 关 → 全部住 main → 维持老行为（kill-switch 语义不变）。
  * ------------------------------------------------------------------ */
+// PURE：按房间选与【定稿路径】同源的渲染器。null = 保持纯文本（诊断/世界书定稿本就不渲染，
+// <UpdateVariable>/<LorebookEdit> 要原样可读）；库缺失时各渲染器自己回退 null，调用方同样落纯文本。
+function repaintHtmlForRoom(streamKey, content) {
+    const t = String(content || '');
+    if (streamKey === 'advisor') return renderAdvisorReplyHtml(t);
+    if (streamKey && String(streamKey).startsWith('bld_')) return renderBuilderReplyHtml(t);
+    if (streamKey === 'diagnose' || streamKey === 'lorebook') return null;
+    if (streamKey === 'fix') return renderReplyHtml(t);
+    return renderMarkdownOnly(t);   // main / 注册插件模式房：1.20.0 F5 补渲行为不变
+}
+// PURE：按房间算重画后该重挂哪些动作卡。参谋采纳卡 / 世界书应用控件从【字符串】可完整导出 →
+// 全记录重挂（采用 = 元数据 + 注入、应用 = 现读整本书，各自带守卫）；诊断补丁 / 校正应用只挂
+// 【最新一条 AI 回复】（Edwin 定案 2026-07-16：旧补丁对着已前进的状态回放不安全——校正另有
+// 陈旧守卫，但最新一条已覆盖全部真实价值）。校正材料在会话注册表里，这里只标记候选；挂载端凭
+// id+内容取材料，取不到（重载过 / 内容不符）= 保持只读（1.31.1 契约）。
+function repaintControlPlan(streamKey, list) {
+    const arr = Array.isArray(list) ? list : [];
+    const out = [];
+    const isReply = (m) => m && m.role === 'assistant' && typeof m.content === 'string';
+    if (streamKey === 'advisor') {
+        for (const m of arr) {
+            if (!isReply(m)) continue;
+            const plans = parseStoryPlans(m.content);
+            if (plans.length) out.push({ id: m.id, kind: 'plans', plans });
+        }
+    } else if (streamKey === 'lorebook') {
+        for (const m of arr) {
+            if (!isReply(m)) continue;
+            const parsed = parseLorebookBlocks(m.content);
+            if (parsed.ops.length || parsed.errors.length) out.push({ id: m.id, kind: 'lorebook', parsed });
+        }
+    } else if (streamKey === 'diagnose') {
+        const latest = [...arr].reverse().find(isReply);
+        const block = latest ? extractUpdateBlock(latest.content) : '';
+        if (block) out.push({ id: latest.id, kind: 'diagPatch', block });
+    } else if (streamKey === 'fix') {
+        const latest = [...arr].reverse().find(isReply);
+        if (latest) out.push({ id: latest.id, kind: 'fixApply' });
+    }
+    return out;
+}
 // 从本聊天的元数据重建侧聊窗口。chat 切换 / 首次载入时调用（onChatChanged）。先中止任何在途
 // 生成，避免流式气泡继续写到被清掉的 DOM 上。
 function loadConvoForChat() {
@@ -16296,15 +16471,29 @@ function loadConvoForChat() {
     for (const m of convo) {
         // note 重画时凭注册表重挂本会话的按钮（自动诊断撤销 / 自动校正用原文——重载后注册表为空 = 只读记录，契约不变）
         m._el = (m.role === 'note') ? addNoteMessage(m, peekNoteOpts(convoStreamKey, m)) : addMessage(m.role, m.content, m);
-        // Hook API / F5 补渲：恢复的 AI 回复渲染 Markdown（showdown+DOMPurify）+ 存 data-so-raw（原文，供插件读自定义标签）。
-        // 取代二创 markdown-render 的 F5 补渲；仅助手回复、仅尚未渲染时。
+        // Hook API / F5 补渲，1.33.1 起按房间分道（repaintHtmlForRoom）：恢复的 AI 回复用与定稿路径
+        // 同源的渲染器（参谋 StoryPlan 进 <pre>、诊断/世界书保持纯文本原样、校正走 ST 格式器、其余渲
+        // Markdown）+ 存 data-so-raw（供插件读自定义标签）。仅助手回复、仅尚未渲染时。
         if (m.role === 'assistant' && m._el) {
             const c = m._el.querySelector('.so-content');
             if (c && !c.classList.contains('so-rendered')) {
                 c.dataset.soRaw = m.content || '';
-                const html = renderMarkdownOnly(m.content || '');
+                const html = repaintHtmlForRoom(convoStreamKey, m.content || '');
                 if (html != null) { c.innerHTML = html; c.classList.add('so-rendered'); c.style.whiteSpace = 'normal'; }
             }
+        }
+    }
+    // 重画保真（1.33.1）：按房间重挂动作卡（重挂规则见 repaintControlPlan）。校正材料凭 id+内容
+    // 从会话注册表取（取不到 = 重载过 / 内容不符 → 记录保持只读，与 1.31.1 自动记录同一契约）。
+    for (const p of repaintControlPlan(convoStreamKey, convo)) {
+        const m = convo.find((x) => x.id === p.id);
+        if (!m || !m._el) continue;
+        if (p.kind === 'plans') addPlanControls(m._el, p.plans);
+        else if (p.kind === 'lorebook') addLorebookApplyControls(m._el, p.parsed, m);
+        else if (p.kind === 'diagPatch') addApplyControls(m._el, p.block, m);
+        else if (p.kind === 'fixApply') {
+            const fa = (peekNoteOpts(convoStreamKey, m) || {}).fixApply;
+            if (fa) rehangFixApply(m._el, fa, m);
         }
     }
     scrollToBottom();
@@ -16343,6 +16532,71 @@ function peekNoteOpts(roomKey, m) {
     return (hit && hit.content === m.content) ? hit.opts : null;
 }
 function clearNoteOpts() { noteOptsById.clear(); }
+// 撤销 / 状态失效时按 房间::记录id 注销单条会话状态（1.33.2 已应用状态用；幂等）。
+function dropNoteOpts(roomKey, entry) { if (entry) noteOptsById.delete(`${roomKey}::${entry.id}`); }
+
+/* ------------------------------------------------------------------ *
+ * 持久「已应用」标记（1.33.2）。applied/撤销 一直只活在按钮闭包里——1.33.1 重挂动作卡后，
+ * 以前应用过的世界书/诊断记录重画后又顶着崭新「应用」按钮出现（Edwin 报告）。撤销快照只在
+ * 内存（重放旧快照会把整本书/状态回滚到旧拷贝 = 1.31.1 同族危险，绝不落盘），所以跨重载能
+ * 诚实提供的只有一个事实标记：这条记录应用过。落盘 chat 元数据 `MODULE_applied`：
+ * 房间::记录id → fixFingerprint(content)（指纹校验挡 id 撞旧记录，同 1.31.1 内容守卫思路）。
+ * 应用成功落标记、撤销去标记；重画时【有标记而无会话状态】= 重载过 → 不出应用按钮、只留
+ * 「此前已应用过」说明（Edwin 定案 2026-07-16）。
+ * ------------------------------------------------------------------ */
+const APPLIED_META_KEY = MODULE + '_applied';
+const APPLIED_MARKS_MAX = 200;   // 元数据保险：超长聊天只留最近 200 条标记（先进先出）
+function appliedMarksMap(create) {
+    const md = getChatMetadataSafe();
+    if (!md) return null;
+    if ((!md[APPLIED_META_KEY] || typeof md[APPLIED_META_KEY] !== 'object') && create) md[APPLIED_META_KEY] = {};
+    const map = md[APPLIED_META_KEY];
+    return (map && typeof map === 'object') ? map : null;
+}
+function markRecordApplied(roomKey, entry) {
+    if (!entry) return;
+    const map = appliedMarksMap(true);
+    if (!map) return;
+    map[`${roomKey}::${entry.id}`] = fixFingerprint(entry.content);
+    const keys = Object.keys(map);
+    for (let i = 0; i < keys.length - APPLIED_MARKS_MAX; i++) delete map[keys[i]];
+    saveChatMetadata();
+}
+function unmarkRecordApplied(roomKey, entry) {
+    if (!entry) return;
+    const map = appliedMarksMap(false);
+    if (!map || !((`${roomKey}::${entry.id}`) in map)) return;
+    delete map[`${roomKey}::${entry.id}`];
+    saveChatMetadata();
+}
+function isRecordApplied(roomKey, entry) {
+    if (!entry) return false;
+    const map = appliedMarksMap(false);
+    return !!map && map[`${roomKey}::${entry.id}`] === fixFingerprint(entry.content);
+}
+
+// 校正「应用」材料登记 / 重挂（1.33.1 掉格式修复）。「应用到回复」不是从回复文本可再导出的：
+// 它要把捕获时抠走的机制块/保留区接回（composeFixedReply）、写到捕获时的目标楼层、过陈旧守卫——
+// 这些是调用当时的内存材料（fixOriginalReply/fixTargetIdx/fixExtraKeep/fixScope/fixCaptured 都是
+// 单槽变量，下一次校正即被覆盖）。三个出卡点在挂应用控件前先按 房间::记录id 登记一份；换房重画时
+// 仅【最新一条 AI 回复】凭 id+内容取回重挂（Edwin 定案 2026-07-16）。材料从不落盘：重载后注册表
+// 为空 = 记录只读（与 1.31.1 同一契约）。noteText = 卡下「发现并修正 / 整体校正…」说明的原文。
+function registerFixApply(entry, parsed, originalReply, targetIdx, keepSections, scope, captured, finalOverride, noteText) {
+    registerNoteOpts(convoStreamKey, entry, {
+        fixApply: { parsed, originalReply, targetIdx, keepSections, scope, captured, finalOverride, noteText: String(noteText || '') },
+    });
+}
+function rehangFixApply(assistantEl, fa, entry) {
+    if (fa.noteText) {
+        const note = document.createElement('div');
+        note.className = 'so-fix-changes';
+        note.textContent = fa.noteText;
+        assistantEl.querySelector('.so-bubble')?.appendChild(note);
+    }
+    // 1.33.2：applied 旗标透传——应用过的稿子以「✓ 已应用」态重生（防重复 swipe）；entry 让重挂后
+    // 首次点「应用」也能给注册表打旗标。
+    addFixApplyControls(assistantEl, fa.parsed, fa.originalReply, fa.targetIdx, fa.keepSections, fa.scope, fa.captured, fa.finalOverride, { entry, applied: !!fa.applied });
+}
 
 // 后台记录写入指定房间（推广自 appendNoteToMain）。目标房间正可见 → 推 convo + 画气泡；否则直接写该房间元数据、
 // 不上屏（记录不是警报，交互侧另有 toast）。ENABLE_MODE_ROOMS 关 → 一律回主流（= 旧 appendNoteToMain 行为）。
@@ -16567,12 +16821,17 @@ function makeDraggable(panel, handle, keys = { left: 'winLeft', top: 'winTop' },
         sx = e.clientX; sy = e.clientY; sl = r.left; st = r.top;
         panel.style.right = 'auto';
         document.body.style.userSelect = 'none';
-        try { handle.setPointerCapture(pid); } catch (_) { /* ignore */ }
+        // 指针捕获【推迟】到真正起拖那一刻（见 pointermove）。若在此处 pointerdown 就捕获，桌面鼠标
+        // 会把补发的 click 重定向到被捕获的 handle、绕过折叠药丸下方的展开按钮 → 「🧭 小罗盘点了不展开」
+        // （只影响鼠标，触屏的 click 不被重定向、一直正常）。纯轻点永不捕获 = click 照常落到按钮上。
     });
     handle.addEventListener('pointermove', (e) => {
         if (e.pointerId !== pid) return;
         if (!moved && !dragExceededThreshold(e.clientX - sx, e.clientY - sy)) return; // 阈值内仍算轻点，先不动
-        moved = true;
+        if (!moved) {                     // 头一次越过阈值 = 真起拖：此刻才捕获指针（纯轻点走不到这里）
+            moved = true;
+            try { handle.setPointerCapture(pid); } catch (_) { /* ignore */ }
+        }
         const nl = Math.max(0, Math.min(window.innerWidth - 60, sl + e.clientX - sx));
         const nt = Math.max(0, Math.min(window.innerHeight - 40, st + e.clientY - sy));
         panel.style.left = `${nl}px`;
