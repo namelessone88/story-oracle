@@ -1473,6 +1473,12 @@ let convo = [];
 let cidSeq = 0;             // monotonic message-id source
 let isGenerating = false;
 let abortCtl = null;
+// 后台锻造（keep-forging，2026-07-20）：锻造是一次昂贵的重活，切换模式时不该被中断/丢弃。runForge 起跑时
+// 把这次锻造登记进 liveForge —— 记住它属于哪个工坊房间(streamKey)、气泡 entry、累积文本(text)。切模式时
+// loadConvoForChat 见它便【不中断】、回到工坊时据它重挂流式气泡；完成/失败由 runForge 按原始房间归位落盘
+// (routeForgeReply)。切聊天 / 清空由 onChatChanged / clearConversation 显式清空它（那属于旧聊天）。同一时刻
+// 只有一次生成，故 liveForge 至多一条。
+let liveForge = null;
 // Cached ST regex engine module: null = not tried, false = unavailable, object = loaded.
 let regexEngine = null;
 // Cached ST world-info module (for "all entries" mode).
@@ -2604,6 +2610,16 @@ function resolveLbTargetNames(targets, allBookNames, activeBookNames) {
         if (n && all.has(n) && !seen.has(n)) { seen.add(n); out.push(n); }
     }
     return out;
+}
+
+// 工坊「写入」目标世界书回退判定（纯函数）：picked = resolveLbTargetNames(s.bldBooks, all, active) 的结果
+//（与选书器「已选 N 本」读数同源、已滤掉磁盘上不存在的书）。恰一本 → {book}；零本 → {err:'none'}；
+// 多本 → {err:'multi',count}。draft 自带 book 时调用方直接用、不进这里。可单测（builder-book-target.test.mjs）。
+function resolveBuilderTargetBook(picked) {
+    const list = Array.isArray(picked) ? picked : [];
+    if (list.length === 1) return { book: list[0] };
+    if (!list.length) return { err: 'none' };
+    return { err: 'multi', count: list.length };
 }
 
 const LB_POSITION_LABEL = {
@@ -4507,6 +4523,10 @@ function checkPlanReminder() {
 // only event-driven side effect; everything else stays pull-based.
 function onChatChanged() {
     cancelPostReply();    // ✨ Phase 4 P-CORRUPT：切聊天先尽力中断在途的自动校正 / 诊断，避免它带着旧聊天的目标写回新聊天（应用前还有 fixTargetStale 兜底）
+    // keep-forging：切聊天必须显式中断在途的后台锻造并清 liveForge——它属于【旧聊天】（用旧卡/汇总生成），
+    // 绝不能把结果写进新聊天。清空后 runForge 的完成/失败分支会看到 liveForge!==myForge 而丢弃落盘。
+    if (isGenerating && abortCtl) { try { abortCtl.abort(); } catch (e) { /* ignore */ } }
+    liveForge = null;
     clearNoteOpts();      // 换聊天即作废本会话的记录按钮材料：撤销 / 换 swipe 针对的是旧聊天的 MVU / 楼层，跨聊天重挂会写错对象
     applyPlanInjection();
     if (win) renderPlanBar();
@@ -6455,6 +6475,58 @@ function fixMaskInert(text) {
             if ((closePos.get(o.lower) || []).some((pos) => pos > o.start)) continue;   // 其后有同名闭标签 = 真标签，豁免
             const headEnd = o.start + 1 + o.name.length;   // 只遮 <name 头
             if (!overlaps(o.start, headEnd)) regions.push({ start: o.start, end: headEnd, kind: 'cmp' });
+        }
+    }
+    // ✨ ⑧ 缺开标签的块内裸开标签（2026-07-20 语料实测 edwin-13 修复）：模型漏掉规划块的开标签
+    // <konatan_planning~>（missing-open 家族第 3 例），规划里又有裸开标签 <history>/<writing_style>
+    // （字母名、各自无闭）→ 第一个被 scanTopLevelBlocks 的【截断兜底】当栈底块吞到 EOF，连它后面
+    // 完整闭合的 <content>/<tucao>/<UpdateVariable> 全吞进去 → <content> 顶层消失、fixDominantWrapper
+    // 误判 <history> 为正文包裹。⑥（数字方括号）/ ⑦（数字或跨行尖括号）都逮不到字母名裸标签。判据：
+    // 「其后无同名闭标签的裸开标签」且「其后存在一个孤儿闭标签（`</name>` 之前无同名开标签）」——孤儿
+    // 闭标签＝某块开标签被漏掉的铁证，这些裸开就是那个丢了开标签的块【内部】之物，绝非真截断（真截断的
+    // <content> 在 EOF、其后无完整块也无孤儿闭 → firstOrphanClose=∞ → 本规则不动它）。全遮（不只第一个）
+    // ——否则第二个裸开接棒当栈底幻影。只遮头 <name（潜在吞进 attrs 的真闭标签重新暴露，同⑦）。
+    // 【定点迭代】：遮掉一个幻影头后，可能露出它此前吞进 lazy attrs 的另一个裸开（MUT-5：顶部的 3<7 把
+    // 紧随的 <history> 吞进 attrs → 单遍扫描时 <history> 藏在 7 的 token 里、看不见）——每轮在【已应用全部
+    // region 的工作副本】上重扫，直到不再新增。被遮的头在副本里已成空白、不再匹配成开标签，故必然收敛。
+    {
+        const nameCh = '[A-Za-z0-9_\\u4e00-\\u9fa5-]+';
+        const nb = '(?![A-Za-z0-9_\\u4e00-\\u9fa5-])';
+        const tokRe = new RegExp('<\\/(' + nameCh + ')' + nb + '[^>]*>|<(' + nameCh + ')' + nb + '(?:[^>]*?)(\\/?)>', 'g');
+        let grew = true;
+        while (grew) {
+            grew = false;
+            let work = '', cur = 0;   // s 应用【当前全部 region】后的工作副本（含 ⑤⑥⑦ 的遮蔽）
+            for (const r of [...regions].sort((a, b) => a.start - b.start)) { work += s.slice(cur, r.start) + s.slice(r.start, r.end).replace(/[^\n]/g, ' '); cur = r.end; }
+            work += s.slice(cur);
+            const opensByName = new Map(), closesByName = new Map(), opens = [];
+            let om; tokRe.lastIndex = 0;
+            while ((om = tokRe.exec(work)) !== null) {
+                if (om[1] != null) {
+                    const lower = om[1].toLowerCase();
+                    if (!closesByName.has(lower)) closesByName.set(lower, []);
+                    closesByName.get(lower).push(om.index);
+                } else if (om[3] !== '/') {
+                    const lower = om[2].toLowerCase();
+                    if (!opensByName.has(lower)) opensByName.set(lower, []);
+                    opensByName.get(lower).push(om.index);
+                    opens.push({ name: om[2], lower, start: om.index });
+                }
+            }
+            let firstOrphanClose = Infinity;   // 最早的「其前无同名开标签」闭标签 = 丢了开标签的块的收尾
+            for (const [lower, cps] of closesByName) {
+                const ops = opensByName.get(lower) || [];
+                for (const cp of cps) { if (!ops.some((op) => op < cp)) { firstOrphanClose = Math.min(firstOrphanClose, cp); break; } }
+            }
+            if (firstOrphanClose === Infinity) break;   // 无孤儿闭标签 = 无丢开标签的块 → 不动
+            for (const o of opens) {
+                if (o.start >= firstOrphanClose) continue;                                   // 只管孤儿闭之前（丢了开标签的块内部）
+                if ((closesByName.get(o.lower) || []).some((pos) => pos > o.start)) continue;  // 有同名闭标签 = 真块，豁免
+                const headEnd = o.start + 1 + o.name.length;
+                if (overlaps(o.start, headEnd)) continue;
+                regions.push({ start: o.start, end: headEnd, kind: 'lostopen' });
+                grew = true;
+            }
         }
     }
     regions.sort((x, y) => x.start - y.start);
@@ -10187,6 +10259,33 @@ function refreshDraftCard() {
 // setGenerating(true) 已把发送键变成「停止」键，点它经 onSend → stopGeneration 中断的正是 abortCtl
 //（1.17.14 教训：局部 controller 停止键够不着）；另加 arc 同款 180s 超时兜底，到点自动 abort。
 // 工序要求显式 CoT（<thinking>）——展示 / 历史 / 解析前用 stripReasoningTags 统一剥离。
+// keep-forging 辅助①：把累积文本画进 liveForge 气泡的 .so-content（仅当它当前挂在 DOM 上——离开工坊时
+// 气泡被 loadConvoForChat 清掉，此时静默跳过；回工坊会由 loadConvoForChat 重挂气泡并接上后续增量）。
+function paintForge(f) {
+    const el = f && f.entry && f.entry._el;
+    const c = el && typeof el.querySelector === 'function' ? el.querySelector('.so-content') : null;
+    if (c && c.isConnected) c.textContent = f.text;
+}
+
+// keep-forging 辅助②：把锻造成稿 / 停止桩按【原始房间】归位落盘。正看着该房 → 推进 convo + persistConvo
+//（气泡已在 DOM）；已切走 → 只往那房的元数据补一条（不惊动当前可见房），回房时 loadConvoForChat 读出重画。
+// role 保成 'assistant'（区别于 appendNoteToRoom 强制 'note'）→ 回房走 renderBuilderReplyHtml 而非注记样式。
+// getChatMetadataSafe 兜 null → fail-open 不抛。可单测（builder-forge-bg.test.mjs）。
+function routeForgeReply(roomKey, entry) {
+    if (roomKey === convoStreamKey) {
+        convo.push(entry);
+        persistConvo();
+        return;
+    }
+    const md = getChatMetadataSafe();
+    if (!md) return;
+    const mk = convoMetaKeyFor(roomKey);
+    const arr = Array.isArray(md[mk]) ? md[mk].slice() : [];
+    arr.push({ id: entry.id, role: entry.role, content: entry.content });
+    md[mk] = arr;
+    saveChatMetadata();
+}
+
 async function runForge() {
     if (isGenerating) return;
     const s = getSettings();
@@ -10215,6 +10314,10 @@ async function runForge() {
     aEntry._el = assistantEl;
     const contentEl = assistantEl.querySelector('.so-content');
     const clearTyping = showTyping(contentEl);
+    // keep-forging：把这次锻造登记为「后台可续」——记住它属于哪个工坊房间(streamKey)、气泡 entry、累积
+    // 文本(text)。切模式时不中断（见 loadConvoForChat 的 !liveForge 守卫），完成/失败按此房归位（routeForgeReply）。
+    const myForge = { streamKey: convoStreamKey, entry: aEntry, text: '' };
+    liveForge = myForge;
     setGenerating(true);
     abortCtl = new AbortController();
     // 锻造超时看门狗（T13）：旧版是平坦的墙钟——会误杀仍在正常流式输出的长锻造（Edwin 实测中招），
@@ -10245,8 +10348,9 @@ async function runForge() {
                 finalText = await streamDirect(url, s.apiKey, body, abortCtl.signal, (delta) => {
                     armWatchdog(180000);                    // 收到增量 = 仍在推进，重置计时
                     clearTyping();
-                    contentEl.textContent += delta;         // streamDirect 的 onDelta 是【增量】
-                    if (soFollowStream) scrollToBottom();
+                    myForge.text += delta;                  // streamDirect 的 onDelta 是【增量】——累积进 liveForge
+                    paintForge(myForge);                    // 画进气泡（离开工坊时气泡已卸，静默跳过；回房重挂后接上）
+                    if (soFollowStream && convoStreamKey === myForge.streamKey) scrollToBottom();
                 });
                 contentEl.classList.remove('so-streaming');
             } else {
@@ -10261,8 +10365,9 @@ async function runForge() {
                 finalText = await callProfileStream(s.profileId, messages, effMaxTokens, override, abortCtl.signal, (full) => {
                     armWatchdog(180000);                    // 收到累计全文更新 = 仍在推进，重置计时
                     clearTyping();
-                    contentEl.textContent = full;           // callProfileStream 的 onText 是【累计全文】
-                    if (soFollowStream) scrollToBottom();
+                    myForge.text = full;                    // callProfileStream 的 onText 是【累计全文】
+                    paintForge(myForge);
+                    if (soFollowStream && convoStreamKey === myForge.streamKey) scrollToBottom();
                 });
                 contentEl.classList.remove('so-streaming');
             } else {
@@ -10273,25 +10378,31 @@ async function runForge() {
         clearTyping();
         // 剥掉工序写出的 <thinking> CoT——剥完为空 = 预算多半被思考占满（或真空回复），如实提示。
         const cleanText = stripReasoningTags(String(finalText || ''));
+        // keep-forging：若期间切了【聊天】(onChatChanged 会置空 liveForge)，这条锻造属于旧聊天——丢弃 DOM
+        // 与落盘，绝不写进新聊天；finally 仍会释放 isGenerating。
+        if (liveForge !== myForge) return;
+        const originKey = myForge.streamKey;                                       // 锻造起跑时所在的工坊房间
+        const viewing = (convoStreamKey === originKey);                            // 用户此刻是否正看着该房
+        const forgeContentEl = viewing && aEntry._el && aEntry._el.isConnected ? aEntry._el.querySelector('.so-content') : null;
         if (!cleanText) {
-            contentEl.textContent = '(空回复) — 多半是「最大 token 数」太小、被工序的 <thinking> 思考占满了。到设置里调大它，再点一次「🔨 生成」。';
-            contentEl.classList.add('so-error');
-            aEntry.content = contentEl.textContent;
-            convo.push(aEntry);
-            persistConvo();
+            aEntry.content = '(空回复) — 多半是「最大 token 数」太小、被工序的 <thinking> 思考占满了。到设置里调大它，再点一次「🔨 生成」。';
+            if (forgeContentEl) { forgeContentEl.textContent = aEntry.content; forgeContentEl.classList.remove('so-streaming'); forgeContentEl.classList.add('so-error'); }
+            routeForgeReply(originKey, aEntry);
             return;
         }
         aEntry.content = cleanText;
-        const html = renderBuilderReplyHtml(cleanText);
-        if (html != null) {
-            contentEl.innerHTML = html;
-            contentEl.classList.add('so-rendered');
-            contentEl.style.whiteSpace = 'normal';
-        } else {
-            contentEl.textContent = cleanText;
+        if (forgeContentEl) {
+            forgeContentEl.classList.remove('so-streaming');
+            const html = renderBuilderReplyHtml(cleanText);
+            if (html != null) {
+                forgeContentEl.innerHTML = html;
+                forgeContentEl.classList.add('so-rendered');
+                forgeContentEl.style.whiteSpace = 'normal';
+            } else {
+                forgeContentEl.textContent = cleanText;
+            }
         }
-        convo.push(aEntry);
-        persistConvo();
+        routeForgeReply(originKey, aEntry);
         let { draft, error } = parseCharDraft(cleanText);
         let rescueNote = '';
         // #1 救援：npc-edit 时模型 ~3/5 从锻造直接吐 <DraftPatch>（FINDINGS Round B）。parseCharDraft 认不得 →
@@ -10318,7 +10429,9 @@ async function runForge() {
             // 只在成功分支做，不动重载 / 切聊时的折叠偏好。
             const bldCollapse = win?.querySelector('#so-bld-collapse');
             if (bldCollapse && !bldCollapse.open) bldCollapse.open = true;
-            modeEntryNote((rescueNote ? rescueNote + '。' : '') + '锻造完成——草稿在窗口顶部「角色工坊」面板的常驻卡里（面板收起时，点「角色工坊」标题展开）。想改哪里直接说；满意就点「写入」。');
+            // keep-forging：只在用户正看着工坊时报「锻造完成」——已切走则静默（Edwin：不要提示），草稿卡与房间
+            // 历史已就位，回工坊自见（注记若发去当前房 = 落进别的模式，故必须 gate）。
+            if (viewing) modeEntryNote((rescueNote ? rescueNote + '。' : '') + '锻造完成——草稿在窗口顶部「角色工坊」面板的常驻卡里（面板收起时，点「角色工坊」标题展开）。想改哪里直接说；满意就点「写入」。');
             // ✂️ 锻造后自动精简（1.30.0，读点 2/3）：opt-in + npc-* + ≥2500字 + 风格门点火才补一发轻精简
             //（terse 稿【进不了】这里——gm-v01 电池教训：模型对干净卡会凑量误删，入口必须代码侧把关）。
             // setTimeout(0)：等本函数 finally 释放 isGenerating 后再起跑。
@@ -10327,28 +10440,38 @@ async function runForge() {
                 setTimeout(() => runCondense({ auto: true }), 0);
             }
         } else {
-            modeEntryNote('这次锻造没有产出可解析的 <CharDraft>' + (error ? `（${error}）` : '') + '——可以直接再点一次「🔨 生成」。');
+            if (viewing) modeEntryNote('这次锻造没有产出可解析的 <CharDraft>' + (error ? `（${error}）` : '') + '——可以直接再点一次「🔨 生成」。');
         }
     } catch (err) {
         clearTyping();
+        console.error('[Story Oracle]', err);
+        // keep-forging：切了聊天(liveForge 被 onChatChanged 置空) → 这条属于旧聊天，丢弃不落盘。
+        if (liveForge !== myForge) return;
         const stopped = isUserAbort(err);
+        const originKey = myForge.streamKey;
+        const viewing = (convoStreamKey === originKey);
+        const forgeContentEl = viewing && aEntry._el && aEntry._el.isConnected ? aEntry._el.querySelector('.so-content') : null;
+        let msg;
         if (stopped && forgeTimedOut) {
             // 超时中止（看门狗触发的 abort）——与用户手动停止用不同措辞，并给一条可操作提示。
-            contentEl.textContent = '（锻造超时——长时间无响应，已中止）';
-            modeEntryNote('锻造超时。可以直接再点一次「🔨 生成」重试；若反复超时，试试调低上下文深度或减少勾选的世界书条目。');
+            msg = '（锻造超时——长时间无响应，已中止）';
+            if (viewing) modeEntryNote('锻造超时。可以直接再点一次「🔨 生成」重试；若反复超时，试试调低上下文深度或减少勾选的世界书条目。');
         } else {
-            contentEl.textContent = stopped ? '（已停止）' : ('锻造调用失败：' + (err?.message || err));
+            msg = stopped ? '（已停止）' : ('锻造调用失败：' + (err?.message || err));
         }
-        if (!stopped) contentEl.classList.add('so-error');
-        aEntry.content = contentEl.textContent;
-        convo.push(aEntry);
-        persistConvo();
-        console.error('[Story Oracle]', err);
+        aEntry.content = msg;
+        if (forgeContentEl) {
+            forgeContentEl.textContent = msg;
+            forgeContentEl.classList.remove('so-streaming');
+            if (!stopped) forgeContentEl.classList.add('so-error');
+        }
+        routeForgeReply(originKey, aEntry);
     } finally {
         if (killTimer) clearTimeout(killTimer);
+        if (liveForge === myForge) liveForge = null;   // 只注销自己这次（若已被切聊天置空/替换则不动）
         setGenerating(false);
         abortCtl = null;
-        if (soFollowStream) scrollToBottom();   // #1 定稿后只在用户跟随到底部时才滚
+        if (soFollowStream && convoStreamKey === myForge.streamKey) scrollToBottom();
     }
 }
 
@@ -10581,8 +10704,18 @@ async function applyBuilderDraft(btn) {
             btn._undo = async () => { await deletePersonaById(avatarId); };
             modeEntryNote(`已创建新 Persona「${d.name}」（默认头像，可在 Persona 面板换）。`);
         } else {
-            const book = d.book || (bldBookNames.length === 1 ? bldBookNames[0] : '');
-            if (!book) { modeEntryNote('草稿没写目标世界书，且当前勾选不止一本——让访谈师在草稿里补上 book，或只勾一本书。'); return; }
+            // 选书回退按【点击此刻】的持久化勾选解析（s.bldBooks，与选书器「已选 N 本」读数同源），不再读
+            // 模块级 bldBookNames——那只在发访谈消息 / 锻造时刷新，重载后是空的、改勾选后是旧的（小鱼报
+            // 「已选 1 本却提示勾选不止一本」的根因）。resolveLbTargetNames：空选 = 跟随当前激活；选中里已从
+            // 磁盘消失的书名会被滤掉（改名 / 删除边缘，故 0 本时提示「重新勾一次」）。
+            let book = d.book;
+            if (!book) {
+                const [allNames, activeNames] = await Promise.all([getAllBookNames(), getActiveBookNames()]);
+                const r = resolveBuilderTargetBook(resolveLbTargetNames(getSettings().bldBooks, allNames, activeNames));
+                if (r.book) book = r.book;
+                else if (r.err === 'none') { modeEntryNote('草稿没写目标世界书，而当前没有勾选任何世界书——请在下方选书器勾选目标书（若书刚改过名，重新勾一次），或让访谈师在草稿里补上 book。'); return; }
+                else { modeEntryNote('草稿没写目标世界书，且当前勾选了 ' + r.count + ' 本——只勾一本目标书，或让访谈师在草稿里补上 book。'); return; }
+            }
             // 复审修复 1：npc-edit 草稿没带 uid 时，先按条目标题反查目标 uid（comment/name → brief.entry 兜底）。
             // 用与 applyLorebookOps 同款的 loadWorldInfo 机制现场读书，且必须在下方 lbBookNames 换挡之外/之前做。
             let editUid = d.uid;
@@ -16391,6 +16524,12 @@ async function clearConversation() {
     // 操作（清空概要 / 重置提示词 / 退出弧线）保持一致，先确认再执行。空对话则无需打扰直接返回。
     const where = convoStreamKey === 'main' ? '本聊天（普通聊天）的侧聊记录' : (streamCueLabel(convoStreamKey, getSettings()) || '本模式的侧聊记录');
     if (convo.length && !(await uiConfirm(`确定清空${where}吗？此操作会删除已保存的记录，无法撤销。`))) return;
+    // keep-forging：若正有后台锻造流进【本房间】，清空即中断它并清 liveForge（用户主动清本房记录）；锻造在
+    // 别的房间则不动（下面 loadConvoForChat 的 !liveForge 守卫也据此放它继续）。
+    if (isGenerating && abortCtl && liveForge && liveForge.streamKey === convoStreamKey) {
+        try { abortCtl.abort(); } catch (e) { /* ignore */ }
+        liveForge = null;
+    }
     convo = [];
     persistConvo();   // 用户功能请求：手动清空也清掉本聊天保存的历史（删元数据键）
     messagesEl.innerHTML = '';
@@ -16452,7 +16591,10 @@ function repaintControlPlan(streamKey, list) {
 // 生成，避免流式气泡继续写到被清掉的 DOM 上。
 function loadConvoForChat() {
     if (!messagesEl) return;                       // 窗口还没建好（极早期）——略过，init 末尾会再调一次
-    if (isGenerating && abortCtl) { try { abortCtl.abort(); } catch (e) { /* ignore */ } }
+    // keep-forging：切模式重画时【不】中断在途锻造——liveForge 存在 = 后台锻造正跑，让它继续（回房时
+    // 下方重挂气泡，完成后按原始房间归位）。切聊天 / 清空由 onChatChanged / clearConversation 显式中断并
+    // 清 liveForge，到这里已 null，照常中断其它在途生成（普通聊天/访谈/校正等，维持 1.28.0 起行为）。
+    if (isGenerating && abortCtl && !liveForge) { try { abortCtl.abort(); } catch (e) { /* ignore */ } }
     const saved = getConvoMeta();
     convo = saved
         .filter((m) => m && (m.role === 'user' || m.role === 'assistant' || m.role === 'note') && typeof m.content === 'string')
@@ -16495,6 +16637,16 @@ function loadConvoForChat() {
             const fa = (peekNoteOpts(convoStreamKey, m) || {}).fixApply;
             if (fa) rehangFixApply(m._el, fa, m);
         }
+    }
+    // keep-forging：后台锻造回房重挂——切模式离开工坊时锻造在后台继续流式；回到工坊且它仍在跑 → 重建一个
+    // 流式气泡、接上累积文本（entry._el 重指向新气泡，onDelta 的 paintForge 继续画到这里）。完成/失败的落盘由
+    // runForge 负责（按 originKey 归位），这里只恢复「正在流」的可见性；成稿后它已进 convo，故 id 去重防重挂。
+    if (liveForge && liveForge.streamKey === convoStreamKey && liveForge.entry
+        && !convo.some((m) => m.id === liveForge.entry.id)) {
+        const el = addMessage('assistant', '', liveForge.entry);
+        liveForge.entry._el = el;
+        const c = el.querySelector('.so-content');
+        if (c) { c.classList.add('so-streaming'); c.textContent = liveForge.text || ''; }
     }
     scrollToBottom();
 }
