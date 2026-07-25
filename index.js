@@ -891,7 +891,7 @@ function fixNearCopy(originalProse, fixedProse) {
     return { similar: minCont >= 0.97, changedApprox: Math.max(1, Math.round((Math.max(totalA, totalB) - overlap) / K)) };
 }
 
-// 纯函数（Tier 0 ①）：手动校正近抄警示语（Edwin 定案字面）。近抄 → 带估算改动字数的提示；否则空串。
+// 纯函数（Tier 0 ①）：手动校正近抄警示语（Prince 定案字面）。近抄 → 带估算改动字数的提示；否则空串。
 // 手动【只警示不拦】——近抄未必是失败（「改一个错别字」本就近抄），判断权留给用户；自动侧走 fixEffectivelyUnchanged。可单测。
 function fixNearCopyNote(before, after) {
     const nc = fixNearCopy(before, after);
@@ -924,7 +924,7 @@ function spliceSpan(full, start, end, replacement) {
 // 纯函数（选段校正）：改写稿的回插前体检——选段回插是【fail-open】（偏移永远对得上，模型吐的垃圾也能插进去，
 // Part A G-cell 截断诊断实证），故必须体检。echo=基本没改（复用 fixNearCopy 多重集）；spill=输出含 >3 个仅存在于
 // 片段【之外】的 10 字 shingle（模型越界改写 / 复述了片段外正文——截断时的典型垃圾形态）；lenRatio 超 [0.15,4]
-// 记长度异常。只出 warnings【不拦应用】（人在环上 + 小片段 diff 可读，同 Edwin 手动基调：警示不阻断）。可单测。
+// 记长度异常。只出 warnings【不拦应用】（人在环上 + 小片段 diff 可读，同 Prince 手动基调：警示不阻断）。可单测。
 function validateSpanFix(spanText, output, outsideText) {
     const K = 10;
     const sh = (t) => { const s = new Set(); const n = String(t || '').replace(/\s+/g, ''); for (let i = 0; i + K <= n.length; i++) s.add(n.slice(i, i + K)); return s; };
@@ -953,6 +953,86 @@ function resolveRecordedSelection(live, stored, textLen) {
         return end > start ? { start, end } : null;
     }
     return null;
+}
+
+// 纯函数（多段选段 1.37.0）：把一个候选选区规整后并入钉选列表。先钳边、收缩到非空白边界 → 不足 2 字
+// 拒 'empty'；满 cap 拒 'cap'；与既有钉重叠拒 'overlap'（带重叠段下标，UI 报「与片段n重叠」）。通过 →
+// 返回按 start 升序的【新数组】（不改入参）+ added（UI 定位新 chip）。相邻（end==下一段 start）合法。可单测。
+function normalizePinAdd(pins, cand, fullText, cap) {
+    const list = Array.isArray(pins) ? pins : [];
+    const text = String(fullText || '');
+    let start = Math.max(0, Math.min(Number(cand && cand.start) || 0, text.length));
+    let end = Math.max(start, Math.min(Number(cand && cand.end) || 0, text.length));
+    while (start < end && /\s/.test(text[start])) start++;
+    while (end > start && /\s/.test(text[end - 1])) end--;
+    if (end - start < 2) return { ok: false, reason: 'empty' };
+    if (list.length >= cap) return { ok: false, reason: 'cap' };
+    for (let i = 0; i < list.length; i++) {
+        const p = list[i];
+        if (start < p.end && p.start < end) return { ok: false, reason: 'overlap', index: i };
+    }
+    const pin = { start, end, text: text.slice(start, end), instr: '' };
+    const merged = list.concat([pin]).sort((a, b) => a.start - b.start);
+    return { ok: true, pins: merged, added: pin };
+}
+
+// 纯函数（多段选段）：单段生效指令 = 该段自己的要求（非空则赢），否则整体要求。【绝不拼接】——拼出来的
+// 指令是今天单段路径造不出来的形状（交接 V8 铁律）；n=1 时同规则 → H1 字节同一性有良定义。可单测。
+function resolvePinInstruction(pinInstr, sharedInstr) {
+    const own = String(pinInstr || '').trim();
+    return own || String(sharedInstr || '').trim();
+}
+
+// 纯函数（多段选段）：开跑前校验——每段都得有生效指令（自己的或整体的）。缺的段以 1 基序号列出
+//（UI 报「片段n还没写要求」）。可单测。
+function multiFixRunnable(pins, sharedInstr) {
+    const missing = [];
+    (pins || []).forEach((p, i) => { if (!resolvePinInstruction(p && p.instr, sharedInstr)) missing.push(i + 1); });
+    return missing.length ? { ok: false, missing } : { ok: true };
+}
+
+// 纯函数（多段选段）：分流判定。0/1 段 → 'legacy'（今天的单段路径原封不动，H1）；2+ → 'batch'。可单测。
+function fixSelDispatchMode(pinCount) {
+    return (Number(pinCount) || 0) >= 2 ? 'batch' : 'legacy';
+}
+
+// 纯函数（多段选段）：多段回插。edits = [{start,end,replacement}]（任意顺序）。先按 start 升序查重叠
+//（钉选时已挡，这里是最后防线——重叠回插会静默串位，宁可整单拒绝）→ 再按 start 【降序】逐段 spliceSpan
+//（后文先动，前段偏移恒有效）。任一段越界 / 重叠 → null（调用方整单不应用，绝不半套；应指纹已核对却
+// 还越界 = bug 信号）。可单测。
+function spliceSpansBackToFront(full, edits) {
+    if (typeof full !== 'string' || !Array.isArray(edits)) return null;
+    const sorted = edits.slice().sort((a, b) => a.start - b.start);
+    for (let i = 1; i < sorted.length; i++) if (sorted[i].start < sorted[i - 1].end) return null;
+    let out = full;
+    for (let i = sorted.length - 1; i >= 0; i--) {
+        out = spliceSpan(out, sorted[i].start, sorted[i].end, sorted[i].replacement);
+        if (out == null) return null;
+    }
+    return out;
+}
+
+// 纯函数（多段选段）：整层文本 + 多个高亮区间 → overlay HTML（escape 后按区间插 <span class=…>）。
+// ranges = [{start,end,cls}]：钳边、空/无类跳过、按 start 排序；重叠时后者跳过（钉选构造上不重叠，防线）。
+// cls 只来自代码内常量类名，不含用户输入。可单测。
+function buildFixSelOverlayHtml(text, ranges) {
+    const t = String(text || '');
+    const esc = (x) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const rs = (Array.isArray(ranges) ? ranges : [])
+        .map((r) => ({
+            start: Math.max(0, Math.min(Number(r && r.start) || 0, t.length)),
+            end: Math.max(0, Math.min(Number(r && r.end) || 0, t.length)),
+            cls: String((r && r.cls) || ''),
+        }))
+        .filter((r) => r.end > r.start && r.cls)
+        .sort((a, b) => a.start - b.start);
+    let html = '', pos = 0;
+    for (const r of rs) {
+        if (r.start < pos) continue;
+        html += esc(t.slice(pos, r.start)) + '<span class="' + r.cls + '">' + esc(t.slice(r.start, r.end)) + '</span>';
+        pos = r.end;
+    }
+    return html + esc(t.slice(pos));
 }
 
 // 纯函数：勾选目标 + 非空约束 → 校正指令。T1 总附；T2 仅当依据上下文在场（八股需卡+前文、对话需卡、魔法需世界书）。
@@ -1028,6 +1108,10 @@ const PERSONA_FRAME =
 
 下面这位，就是你要扮演的角色：`;
 
+// 自定义人格的框架：仅把「动漫角色」泛化为「角色」（自定义人格未必是动漫角色），其余与
+// PERSONA_FRAME 逐字节相同——replaceAll 派生 = 单一真相源，内置路径零漂移。
+const PERSONA_FRAME_CUSTOM = PERSONA_FRAME.replaceAll('动漫角色', '角色');
+
 const PERSONAS = [
     {
         id: 'plain',
@@ -1066,6 +1150,89 @@ const PERSONAS = [
     },
 ];
 
+// —— 自定义人格（1.39.0）——存 settings.customPersonas：[{ id:'cp-<ts>', label, voice, example }]。
+// 上限（保存时验证 + getSettings 归一双保险）。
+const CUSTOM_PERSONA_CAPS = { count: 20, label: 30, voice: 4000, example: 2000 };
+// 归一（纯函数）：非数组→[]；缺 id / label / voice（非字符串或空白）者丢弃；超长截断；超额裁尾。
+// 返回新数组（getSettings 把它赋回同一 settings 对象——对象引用稳定契约不破）。
+function normalizeCustomPersonas(arr) {
+    if (!Array.isArray(arr)) return [];
+    const out = [];
+    for (const p of arr) {
+        if (!p || typeof p.id !== 'string' || !p.id) continue;
+        if (typeof p.label !== 'string' || !p.label.trim()) continue;
+        if (typeof p.voice !== 'string' || !p.voice.trim()) continue;
+        out.push({
+            id: p.id,
+            label: p.label.trim().slice(0, CUSTOM_PERSONA_CAPS.label),
+            voice: p.voice.slice(0, CUSTOM_PERSONA_CAPS.voice),
+            example: (typeof p.example === 'string' ? p.example : '').slice(0, CUSTOM_PERSONA_CAPS.example),
+        });
+        if (out.length >= CUSTOM_PERSONA_CAPS.count) break;
+    }
+    return out;
+}
+// 内置 + 自定义合并视图：自定义条目打 custom:true 的【浅拷贝】——内置对象与存档条目都绝不被
+// 改动（custom 标记不落盘）。开关关 / 无 s → 只有内置。
+function allPersonasView(s) {
+    const customs = (ENABLE_CUSTOM_PERSONAS && s && Array.isArray(s.customPersonas))
+        ? s.customPersonas.map((p) => ({ ...p, custom: true })) : [];
+    return PERSONAS.concat(customs);
+}
+function findPersonaById(list, id) {
+    return (Array.isArray(list) ? list : []).find((x) => x && x.id === id) || null;
+}
+
+// 「✨ AI 帮我完善」扩写提示词（自定义人格编辑器）：把用户的粗略点子扩成完整腔调描述。
+// 只写性格与腔调——职责规则（准确 / 知无不言 / 分析岗位）由 PERSONA_FRAME 系列统一管理，生成文
+// 不复述、也就不可能与框架打架。不内嵌任何内置人格文本作范例（冷模型会逐字克隆范例结构）。
+const PERSONA_FLESH_PROMPT =
+`你是一位「说话人格设计师」。用户正在为一个故事分析助手设计一层「语气皮肤」：决定这个助手用什么性格、什么腔调说话。用户会给你一个粗略的点子（可能只有几个词），请把它扩写成一段完整的人格描述。
+
+要求：
+- 只写：这个人格的性格、对提问用户的态度、说话的腔调与节奏、两三个招牌语气词或口头禅（举实例）。
+- 描述以第二人称开头（如「你是一位……」或「你就是……」），全文简体中文，约 100～300 字。
+- 助手的工作规则（分析必须准确、对用户知无不言等）由系统另行管理，你的描述里只管「怎么说话」。
+- 写完人格描述后，再写一小段（约 100～200 字）这种腔调的示例对话：用户随口问一个剧情问题，这个人格怎么回答（问题内容自拟，重点是示范腔调）。
+
+输出格式（两个区块，第二个可省略）：
+<PersonaVoice>
+（人格描述正文）
+</PersonaVoice>
+<PersonaExample>
+示例问：……
+示例答：……
+</PersonaExample>`;
+
+// 扩写请求消息（纯函数）：名称与已有草稿都进种子；两者皆空时调用方不应发起（UI 有闸）。
+function buildPersonaFleshMessages(name, seed) {
+    const n = String(name || '').trim();
+    const t = String(seed || '').trim();
+    const parts = [];
+    if (n) parts.push('人格名称：' + n);
+    parts.push('我的点子 / 已有草稿：' + (t || '（暂无，按名称发挥）'));
+    return [
+        { role: 'system', content: PERSONA_FLESH_PROMPT },
+        { role: 'user', content: parts.join('\n') },
+    ];
+}
+// 扩写回复解析（纯函数，fail-open）：剥思维链 → 找 <PersonaVoice> 区块；没找到 = 整段当 voice
+// （fallback:true——反正落进可编辑文本框，用户可修剪）。<PersonaExample> 可选。
+function parsePersonaFleshReply(text) {
+    const src = stripReasoningTags(String(text || '')).trim();
+    const grab = (tag) => {
+        const open = locateTagOpen(src, tag);
+        if (!open) return null;
+        const rest = src.slice(open.index + open.length);
+        const close = rest.match(new RegExp('</' + tag + '\\s*>', 'i'));
+        const body = (close ? rest.slice(0, close.index) : rest).trim();
+        return body || null;
+    };
+    const voice = grab('PersonaVoice');
+    if (!voice) return { voice: src, example: '', fallback: true };
+    return { voice, example: grab('PersonaExample') || '', fallback: false };
+}
+
 /* ------------------------------------------------------------------ *
  * 人格的模式职责调整（v1.14.1）。
  *
@@ -1092,12 +1259,13 @@ const PERSONA_STRUCT_GUARD =
 ① 结构化区块（<LorebookEdit> / <StoryPlan>）的格式与键名必须严格保持、确保机器可读；
 ② 写入围栏内的条目正文须沿用该世界书既有的风格与措辞，绝不带入人格腔调——人格属于你，不属于世界书。`;
 
-// mode（可选）：'advisor' | 'lorebook' —— 追加对应的职责调整与结构保护。
-// 不传时与旧行为逐字节一致（普通模式）。
-function buildPersonaBlock(personaId, mode) {
-    const p = PERSONAS.find((x) => x.id === personaId);
+// mode（可选）：'advisor' | 'lorebook' —— 追加对应的职责调整与结构保护；不传 = 普通模式，逐字节旧行为。
+// s = settings（显式传入保持纯函数可测；自定义人格从 s.customPersonas 解析，不传时仅内置可命中）。
+// 自定义条目用 PERSONA_FRAME_CUSTOM（「动漫角色」→「角色」），内置条目框架字节不变。
+function buildPersonaBlock(personaId, mode, s) {
+    const p = findPersonaById(allPersonasView(s), personaId);
     if (!p || !p.voice) return '';
-    let block = PERSONA_FRAME + '\n' + p.voice;
+    let block = (p.custom ? PERSONA_FRAME_CUSTOM : PERSONA_FRAME) + '\n' + p.voice;
     if (p.example) {
         block += '\n\n下面是这种腔调的对话示例（仅供学习语气与行文结构，不要照搬其中的具体内容）：\n' + p.example;
     }
@@ -1204,6 +1372,11 @@ const FIX_PIECE_MAX_CHARS = 8000;
 // （片段之外的字节永不进模型、永不变——结构块/状态栏在选段模式下【构造性】不可能被误动）。false → 「✂️选段」按钮
 // 不渲染、openFixSelectCard no-op，零行为变化；整篇手动校正不受影响、独立并存。读者：buildWindow 按钮渲染门 + openFixSelectCard 守卫。
 const ENABLE_FIX_SELECT = true;
+// 多段选段（1.37.0）：一次最多钉几段（防调用数失控；钉满时 UI 诚实提示，字样里引用本常量）
+// + 并行上限（防 429 连环炸；其余排队。direct 的 callDirect/streamDirect 无共享可变态、profile 走
+// ST 服务逐请求独立 promise —— 皆可并行，中转限流靠这个帽 + 逐段 fail-open + 「重试失败段」兜）。
+const MULTIFIX_MAX_PINS = 8;
+const MULTIFIX_CONCURRENCY = 3;
 // 角色工坊（第 6 模式）总开关。关 → ⋯ 菜单不显示入口、toggleBuilder no-op、设置栏 #so-bld-bar 恒 display:none
 // （so-bld-on 永不加上，模式不可达）、侧聊流恒主流、草稿卡随隐藏栏不可见——整模式对用户完全隐形。
 // 【1.25.0 发布暂时下架整个模式】= false：本次随其它修复发布 Story Oracle，工坊（含用户角色分家 + v2 锻造提示词）
@@ -1213,7 +1386,7 @@ const ENABLE_CHAR_BUILDER = true;
 // 打造目标三分（NPC 卡 / 用户角色·抢话 / 用户角色·不抢话），各配独立访谈 / 锻造提示词、chip 集与
 // 独立侧聊流。关 → 选择器回到旧两项、一律走 card 变体与主侧聊流 = 字节级现状行为，新提示词不可达。
 const ENABLE_BUILDER_PERSONA_STYLES = true;
-// 只保留 NPC 打造目标（Edwin 2026-07-19）：工坊只写世界书 NPC 条目，隐藏全部「用户角色（Persona）」目标
+// 只保留 NPC 打造目标（Prince 2026-07-19）：工坊只写世界书 NPC 条目，隐藏全部「用户角色（Persona）」目标
 // （抢话 / 不抢话 / 旧 persona 都不进选择器，bldTarget 恒 'npc'、整行藏起来）。persona 分家基建仍在位、
 // 只是 UI 够不到——改回 false 即恢复由 ENABLE_BUILDER_PERSONA_STYLES 决定的多目标选择。读点 2：getSettings
 // 归一（强制 npc）+ 设置面板选择器（藏行）。
@@ -1223,7 +1396,7 @@ const BUILDER_NPC_ONLY = true;
 // 轻精简 = 单调用 v0.2 冻结提示词；深度精简 = 3 并行分节 + 手术单 + 装置逐刀核验（condense-v0 电池验证形态）。
 // 守卫恒 fail-open：任何一道不过 = 原稿原样保留。仅 npc-* 目标（persona 由分家项目另管）。
 const ENABLE_DRAFT_CONDENSE = true;
-// ✂️ 轻精简（单调用整卡）总开关（Edwin 2026-07-19：全员关闭）。false → 草稿卡不出「✂️ 精简全稿」按钮、
+// ✂️ 轻精简（单调用整卡）总开关（Prince 2026-07-19：全员关闭）。false → 草稿卡不出「✂️ 精简全稿」按钮、
 // 「锻造后自动精简」不触发（设置行隐藏）、runCondense 入口 no-op。深度精简（✂️✂️）不受此开关影响，仍在
 // 且【恒串行流式】。改回 true 即恢复轻精简。读点：卡按钮 + 自动钩 + runCondense 入口 + 设置行隐藏。
 const ENABLE_LIGHT_CONDENSE = false;
@@ -1239,9 +1412,30 @@ const SO_API_VERSION = 1;
 // false → 解析器恒返回空串、设置行不渲染（读点：getBbsHistoryText 早退 / 设置行模板 / bind+回填守卫）——
 // 字节级零变化。运行期另有 opt-in 设置 chatIncludeBbs（默认关）；未装柏宝书时开着也零开销（无全局即空）。
 const ENABLE_BBS_BRIDGE = true;
+// 自定义说话人格（1.39.0，spec docs/superpowers/specs/2026-07-24-custom-personas-design.md）：
+// 用户自建语气皮肤（名称 + 腔调描述 + 可选示例），存全局设置 customPersonas；编辑器内含
+// 「✨ AI 帮我完善」一键扩写（走 soCallModel、本地 AbortController——绝不共用主发送 abortCtl）。
+// false → 铅笔按钮与编辑器不渲染、allPersonasView 不并入自定义（已存条目惰性保留、选中的自定义
+// id 解析不到=回落普通）、openPersonaEditor no-op——字节级 1.38.x 行为。
+// 读点：设置行模板 + allPersonasView + openPersonaEditor 守卫。
+const ENABLE_CUSTOM_PERSONAS = true;
+// —— 更新提醒（1.38.0）——
+// SO_VERSION 是代码内唯一版本号，必须与 manifest.json 的 version 完全一致——update-check.test.mjs
+// 有失配即红的漂移钉（发版清单：两处一起 bump）。
+const SO_VERSION = '1.39.0';
+// 更新提醒总开关。false → 设置面板不渲染「更新」组、开窗不检查、红点绘制器与一键更新 no-op、
+// 绑定/回填跳过——字节级零行为变化。运行期另有 opt-out 设置 updAutoCheck（默认开）。
+const ENABLE_UPDATE_CHECK = true;
+// 远端版本号来源（按序尝试，首个可解析者胜）：GitHub Raw 在中国大陆常被墙 → jsDelivr CDN 兜底
+// （其缓存可滞后 ~12h，红点可能晚亮，可接受）。只 GET 公开文件，不发送任何用户数据。
+// bust = 是否加时间戳绕缓存（Raw 要绕；jsDelivr 缓存本身就是它的意义，不绕）。
+const SO_UPDATE_SOURCES = [
+    { url: 'https://raw.githubusercontent.com/namelessone88/story-oracle/main/manifest.json', bust: true },
+    { url: 'https://cdn.jsdelivr.net/gh/namelessone88/story-oracle@main/manifest.json', bust: false },
+];
 // 校正 / 诊断的后台 LLM 调用超时（毫秒）：到点 abortCtl.abort() → 气泡「(已停止)」。覆盖按目标校正
 // （runFixByTargets/Pieces）、自动校正（runAutoFix/Pieces）、自动诊断（runAutoDiagnose，共用 beginPostReplyCall）。
-// 大块正文 + 慢模型 / 推理模型的单次整体校正易越 120s（用户报告 (已停止)），2026-07-03 应 Edwin 提到 240s。
+// 大块正文 + 慢模型 / 推理模型的单次整体校正易越 120s（用户报告 (已停止)），2026-07-03 应 Prince 提到 240s。
 // 注意：与 awaitMvuIdle 的 capMs（MVU 空闲等待上限，语义不同）区分——那个仍是 120000。
 const POST_REPLY_CALL_TIMEOUT_MS = 240000;
 
@@ -1297,6 +1491,7 @@ const defaults = {
     // One-time: whether the curation regex/preset-mismatch warning has been shown.
     curationWarned: false,
     personaId: 'plain',        // 说话人格皮肤；见 PERSONAS。普通 = 不叠加任何皮肤
+    customPersonas: [],        // 自定义人格（1.39.0）：[{ id, label, voice, example }]，归一见 normalizeCustomPersonas
     contextDepth: 30,          // last N non-system messages; -1 = entire chat; 0 = none
     includeCard: true,
     // ✨ 校正模式 手动/自动 分家（2026-06-26）：两套独立设置（前缀 fixM_ / fixA_），同名设置互不串味
@@ -1330,7 +1525,7 @@ const defaults = {
     // 全部原样保留）。fixA_pieceAsked：「需要确认一次」是否已问过（问过就不再弹 toast，判定行仍显示待确认）。
     fixA_pieceMode: '',
     fixA_pieceAsked: false,
-    // ✨ 分段校正「整体校正」（Edwin 定案默认开）：true = 正文合并成【一次】调用，夹在正文之间的结构块
+    // ✨ 分段校正「整体校正」（Prince 定案默认开）：true = 正文合并成【一次】调用，夹在正文之间的结构块
     // 换成 ⟦SO_KEEP_n⟧ 锚点原位保留（1.17.3 已验证机制），省调用、整篇连贯；false = 分段逐次调用
     //（位置由代码百分百把控、单段失败只损失那一段）。首尾的结构连片两种模式都走信封、绝不送模型。
     fixA_pieceJoin: true,
@@ -1359,6 +1554,8 @@ const defaults = {
     // 旧楼层的自动总结，插在对话记录之前（普通 / 参谋；校正 / 工坊勾「带上剧情概要」时也一并带）。
     // 默认关（opt-in）：开了才去读 window.STBaiBaiBook；未装柏宝书时开着也零开销。
     chatIncludeBbs: false,
+    // 更新提醒（ENABLE_UPDATE_CHECK）：开窗时自动检查新版本（opt-out；开关关则整组不渲染、恒不检查）。
+    updAutoCheck: true,
     applyRegex: true,          // run ST's prompt-altering regex (thinking strip, summaries, etc.)
     // 自动诊断（用户功能请求）：开启后，每收到一条新的主聊天 AI 回复，就在后台跑一次诊断
     // 并自动应用修复（见 maybePostReply 编排 → runAutoDiagnose）。autoDiagnoseWarned 记录「不再
@@ -1380,8 +1577,6 @@ const defaults = {
     includeHiddenFloors: false,
     sendTemperature: true,     // include temperature in the request (some models reject it)
     showChatBarButton: false,  // 用户功能请求：在 ST 聊天输入栏（☰ 旁）放一个 🌙 快捷按钮一键开 / 关神谕窗口；默认关、设置里开
-    // A4（开发者选项）：勾选后每次发送前把最终提示词打进浏览器控制台（所有模式）。默认关。原生化自二创 dev-options。
-    devLogPrompt: false,
     // A5：把 ⋯ 工具菜单里的项搬到标题栏（省一次点击）。默认关——⋯ 菜单留给未来的小模式。原生化自二创 tools-expand。
     toolsInHeader: false,
     // A6：连接预设（端点 URL + API 密钥 + 模型 的命名快照，随时切换服务商）。原生化自二创 connection-presets。
@@ -1479,6 +1674,10 @@ let abortCtl = null;
 // (routeForgeReply)。切聊天 / 清空由 onChatChanged / clearConversation 显式清空它（那属于旧聊天）。同一时刻
 // 只有一次生成，故 liveForge 至多一条。
 let liveForge = null;
+// 深度精简保活（1.36.0，keep-forging 同款）：深度精简与锻造同级昂贵（多分钟串行流式管线），切模式同样
+// 不中断——runCondenseDepth 起跑登记进 liveCondense（同形描述子 {streamKey, entry, text}），守卫/重挂/
+// 归位与 liveForge 并列走同一套路径。同一时刻只有一次生成，故 liveForge / liveCondense 至多一条非空。
+let liveCondense = null;
 // Cached ST regex engine module: null = not tried, false = unavailable, object = loaded.
 let regexEngine = null;
 // Cached ST world-info module (for "all entries" mode).
@@ -1644,6 +1843,8 @@ function getSettings() {
     // 打造目标归一：旧档 'persona' → 'persona-nosteal'；仅在分家开关开启时生效（关着时旧值原样保留）。
     if (BUILDER_NPC_ONLY) s.bldTarget = 'npc';                                // 只保留 NPC：一切旧目标（含 persona-*）归 npc
     else if (ENABLE_BUILDER_PERSONA_STYLES) s.bldTarget = normalizeBldTarget(s.bldTarget);
+    // 自定义人格归一（幂等）：坏形条目丢弃、超限截断——UI 与解析读到的恒是干净数组。
+    s.customPersonas = normalizeCustomPersonas(s.customPersonas);
     return s;
 }
 
@@ -1682,7 +1883,10 @@ function applyToolsInHeader() {
     const menu = win.querySelector('#so-tools-menu');
     const header = win.querySelector('#so-header-btns');
     if (!wrap || !menu || !header) return false;
-    const divider = header.querySelector('.so-hdr-div');
+    // 插到两条分组线【之间】（⋯ 原来住的位置）——搬完仍是 模式│工具│🗑✕ 三组。插在第一条线前的
+    // 旧插法，删掉 ⋯ 包裹后两条线会贴成「‖」双线、模式和工具挤成一团（1.37.1）。
+    const dividers = header.querySelectorAll('.so-hdr-div');
+    const divider = dividers[1] || dividers[0];
     menu.querySelectorAll('.so-tools-item').forEach((btn) => {
         btn.classList.remove('so-tools-item');
         btn.querySelector('span')?.remove();
@@ -1762,9 +1966,10 @@ function soValidateModeSpec(spec, existingIds) {
 }
 // 进入 / 退出一个注册模式：再点已激活的按钮 → 退回普通聊天；否则先 setOracleMode('chat') 复位内置（及其它注册
 // 模式），再置本模式的类 / 高亮 / placeholder / onEnter。互斥由 setOracleMode 的注册模式清理段保证。
-function toggleRegisteredMode(id) {
+async function toggleRegisteredMode(id) {
     const spec = registeredModes.get(id);
     if (!spec) return;
+    if (!(await confirmModeSwitch('chat'))) return;   // 1.36.0 中断确认：注册模式住 main 房——按 'chat' 判是否换房
     if (activeRegisteredModeId === id) { setOracleMode('chat'); return; }
     setOracleMode('chat');
     activeRegisteredModeId = id;
@@ -1879,7 +2084,7 @@ function soExposeHookApi() {
             if (messagesEl) messagesEl.querySelectorAll('.so-assistant').forEach(soApplyMessageActions);
             return true;
         },
-        // 「完全开放」逃生阀（1.22.0，Edwin 决定采纳选项四）：模块作用域 eval——插件可直读 / 改写本体
+        // 「完全开放」逃生阀（1.22.0，Prince 决定采纳选项四）：模块作用域 eval——插件可直读 / 改写本体
         // 内部任意顶层绑定（函数、状态，含日后新增的），无需再逐项对接。【非正式接口】：不入 SO_API_VERSION
         // 契约、无任何兼容承诺，本体更新后失效 / 变样由插件侧自行适配；写坏内部状态同理。必须用【直接】
         // eval（间接 (0,eval) 只见全局作用域，看不到模块闭包——二创曾以此踩空，见 2026-07-06 审查）。
@@ -1898,7 +2103,7 @@ function soExposeHookApi() {
 }
 function init() {
     const s = getSettings();
-    // Tier 0 ④（1.25.0，Edwin 定案）：一次性把老用户仍停在旧默认（-1 全部前文 / 世界书 / 概要 开）的手动校正键迁到
+    // Tier 0 ④（1.25.0，Prince 定案）：一次性把老用户仍停在旧默认（-1 全部前文 / 世界书 / 概要 开）的手动校正键迁到
     // 精简默认，并告知一次。放在 buildWindow 之前 → UI 直接显示迁移后的值。仅翻【仍等于旧默认】的键（自定义值不动）。
     try {
         const mig = migrateFixLeanDefaults(s);
@@ -2807,7 +3012,7 @@ function buildBuilderPrompt(ctx, s) {
     // 外貌必问行只进访谈（锻造有自己的 look 块）；未勾外貌时行不存在 = 物理门控。
     const lookAsk = builderLookAskLine(s);
     if (lookAsk) parts.push(lookAsk);
-    const personaBlock = buildPersonaBlock(s.personaId, 'builder');
+    const personaBlock = buildPersonaBlock(s.personaId, 'builder', s);
     if (personaBlock) parts.push(personaBlock);
     // 修订：把当前草稿（激活变体）作为【权威现文】喂入——DraftPatch 锚点从它逐字复制（见 builderDraftRefBlock）。
     // 访谈阶段（无草稿）此块为空 = filter(Boolean) 滤掉，行为不变。
@@ -3017,7 +3222,7 @@ const BLD_TARGETS = ['persona-update', 'persona-new', 'npc-new', 'npc-edit'];
 
 // 角色工坊：可勾选的草稿部分。id 进设置，label 是 chip 文案（锻造提示词按 label 引用——改label要同步）。
 // def = 默认开：默认集 = 写卡教室的必修层 + 防误读；默认关 = 教程自己标注「视角色而定」的进阶件
-// （多副面孔/言行反差/点睛比喻）+ 可选清单项（弱点缺陷/能力技能——2026-07-08 Edwin 裁定默认关、
+// （多副面孔/言行反差/点睛比喻）+ 可选清单项（弱点缺陷/能力技能——2026-07-08 Prince 裁定默认关、
 // 排到普通 chip 行末尾）。adv:true = 进阶三件（默认关、UI 归一组给指引）。
 // #2 reframe：勾选=要求锻造工序做出来（用户说了算，工序不再自判适用性——不合适是用户的责任，UI 指引兜底）。
 const BUILDER_SECTIONS = [
@@ -3030,10 +3235,10 @@ const BUILDER_SECTIONS = [
     { id: 'goals',       label: '目标动机', def: true,  desc: 'TA现在想要什么、被什么驱动' },
     { id: 'depth',       label: '深层人格', def: true,  desc: 'AI推导的决策层：TA真正缺什么、怕什么、底线在哪（默认开，简单角色可关）' },
     { id: 'antimisread', label: '防误读提示', def: true,  desc: '提前拦住AI最容易演歪的方向（比如把安静演成冷漠、把拒绝演成傲娇）' },
-    // retired（2026-07-08 Edwin 裁定）：行为逻辑 chip 从面板退役——UI 不显示、老存档选择由 getSettings
+    // retired（2026-07-08 Prince 裁定）：行为逻辑 chip 从面板退役——UI 不显示、老存档选择由 getSettings
     // 迁移滤掉；提示词 ■ 块 / 门控 / 调优 rig 全保留（rig 喂显式 id 数组、不经 UI 闸）。复活 = 删掉此旗。
     { id: 'habits',      label: '行为逻辑', def: false, retired: true, desc: '日常琐事里TA会怎么做——吃亏/尴尬/求助时的具体反应画面（可选，勾了才生成）' },
-    // 可选两件（2026-07-08 Edwin：默认关、排在普通 chip 行末尾——想要就勾，锻造才会写）。
+    // 可选两件（2026-07-08 Prince：默认关、排在普通 chip 行末尾——想要就勾，锻造才会写）。
     { id: 'flaws',       label: '弱点缺陷', def: false, desc: '短板、软肋，以及TA保护自己的方式（可选，勾了才生成）' },
     { id: 'abilities',   label: '能力技能', def: false, desc: '会什么、擅长什么、边界在哪（可选，默认不写，勾了才生成）' },
     // 进阶三件（adv）排在最末、UI 前面挂一条「简单/喜剧角色留空」标签——门控已移交用户（#2 reframe）。
@@ -3048,7 +3253,7 @@ function builderVisibleSections(table = BUILDER_SECTIONS) {
     return table.filter((x) => !x.retired);
 }
 
-// 存档迁移（Tier 0 ④，1.25.0，Edwin 定案「重置 + 告知」）：1.24.0 把手动校正默认改成精简上下文，但 getSettings
+// 存档迁移（Tier 0 ④，1.25.0，Prince 定案「重置 + 告知」）：1.24.0 把手动校正默认改成精简上下文，但 getSettings
 // 只补【缺失】键——老档里已落盘的旧默认（-1 全部前文 / 世界书开 / 概要开）会永远保留，而他们正是高上下文投诉高发
 // 人群。只翻【仍等于旧默认值】的键（用户自定义的 30 层等不动）；fixLeanMigrated 打标防重跑；想全量的用户在
 // 「校正设置」把前文条数改回 -1 即可（迁移提示里写明）。init 里在 buildWindow 之前调用一次 + 弹一次告知。纯函数、可单测。
@@ -3251,7 +3456,7 @@ function sanitizePersonaDraft(content, variantKey) {
         if (variantKey === 'nosteal') {
             out = out.replace(/「([^」\n]+)」|“([^”\n]+)”|"([^"\n]+)"/g, (_, a, b, c) => a ?? b ?? c);
         }
-        // Edwin 裁决 2026-07-09（v4.1 R2）：范畴式含义格是拦截的牙——「含义：」整行、
+        // Prince 裁决 2026-07-09（v4.1 R2）：范畴式含义格是拦截的牙——「含义：」整行、
         // 对偶行「＝ 意思：」右半 豁免软化；引号剥离照旧。原话行整行豁免在上面已优先。
         if (/^含义[:：]/.test(t)) return out;
         const pair = out.match(/[＝=]\s*意思[:：]/);
@@ -3389,7 +3594,7 @@ function applyDraftPatchOps(draftText, ops) {
 
 // 纯函数：把「锻造阶段误发的 <DraftPatch>」当作对现有 NPC 条目正文的补丁应用，产出可入坞的 npc-edit 草稿。
 // 背景（FINDINGS Round B）：npc-edit 目标下 DeepSeek ~3/5 会从锻造直接吐 <DraftPatch>（把「改已有条目」
-// 读成外科补丁）而非完整 <CharDraft>——runForge 只认 CharDraft，故 live 报「锻造没产出草稿」＝Edwin 的
+// 读成外科补丁）而非完整 <CharDraft>——runForge 只认 CharDraft，故 live 报「锻造没产出草稿」＝Prince 的
 // 「编辑经常失败」。这里用现有条目正文吃下补丁、合成 target=npc-edit 的完整草稿正文，让 🔨 生成路径照常入坞。
 // ops 空 → 无补丁可救（空 error，调用方退回常规提示）；锚点全未命中 → 不硬塞（返回 error，多半锚的不是这条目）。可单测。
 function forgePatchToDraft(existingContent, ops, brief, resolvedUid) {
@@ -3831,7 +4036,7 @@ function activeDraftContent(draft) {
         ? draft.condensed : (draft ? draft.content : '');
 }
 // 修订上下文块：当前草稿（激活变体）= DraftPatch 锚点的【权威唯一来源】，喂进 buildBuilderPrompt。
-// 起因（Edwin 2026-07-19，沈星落卡）：buildBuilderPrompt 从不喂当前草稿 → 模型凭对话记忆/用户转述造
+// 起因（Prince 2026-07-19，沈星落卡）：buildBuilderPrompt 从不喂当前草稿 → 模型凭对话记忆/用户转述造
 // 锚点，与实际存稿的标点字句有出入（体型锚点写「——」但存稿是「。」→ 匹配失败），且打过补丁后对话里
 // 的旧稿已过时 → 锚点反复失配、部分改动永不生效。喂【激活变体】= 与 applyDraftPatchOps 匹配的同一串。
 // 无草稿（访谈阶段）→ 空串，提示词行为不变。可单测。
@@ -4039,6 +4244,24 @@ function convoStreamKeyForMode(mode, s) {
         case 'fix': return 'fix';
         default: return 'main';
     }
+}
+// PURE：这次换房会不会误杀一条在途生成？（1.36.0 切模式中断确认的判定核。）保活运行（锻造 / 深度精简）
+// 不算——它们切房本就不中断；目标房与当前相同（诊断→AUTO、普通聊天↔注册插件模式）也不会中断。
+function roomSwapWouldAbort(generating, hasLiveRun, targetKey, currentKey) {
+    return !!generating && !hasLiveRun && targetKey !== currentKey;
+}
+// 切模式 / 换房前的中断确认（1.36.0，用户功能请求：用户不知道切模式会中止在途回复、误当 bug 上报）：
+// 有非保活生成在途且目标房不同 → 先问一声，取消 = 留在原模式。uiConfirm 自身不抛；再包一层 fail-open
+// —— 万一弹窗环节出错，按「确定」放行（维持 1.28.0 起「照常切换中止」的旧行为，绝不把模式切换卡死）。
+async function confirmConvoSwap(targetKey) {
+    if (!roomSwapWouldAbort(isGenerating && !!abortCtl, !!(liveForge || liveCondense), targetKey, convoStreamKey)) return true;
+    try {
+        return await uiConfirm('当前还有回复正在生成——现在切换会中止它，未完成的内容将丢弃。仍要切换吗？');
+    } catch (e) { return true; }
+}
+// 便捷封装：按目标【模式】算房间键再确认（模式按钮 / 菜单入口用；工坊打造目标下拉直接用 confirmConvoSwap）。
+async function confirmModeSwitch(mode) {
+    return confirmConvoSwap(convoStreamKeyForMode(mode, getSettings()));
 }
 const IMPORT_DIVIDER_TEXT = '—— 以下导入自普通聊天的讨论 ——';
 // 参谋「导入普通聊天的讨论」纯核：把主流的问答轮（丢弃 note）前置一条分隔提示，返回待插入的 {role,content} 列表
@@ -4523,10 +4746,11 @@ function checkPlanReminder() {
 // only event-driven side effect; everything else stays pull-based.
 function onChatChanged() {
     cancelPostReply();    // ✨ Phase 4 P-CORRUPT：切聊天先尽力中断在途的自动校正 / 诊断，避免它带着旧聊天的目标写回新聊天（应用前还有 fixTargetStale 兜底）
-    // keep-forging：切聊天必须显式中断在途的后台锻造并清 liveForge——它属于【旧聊天】（用旧卡/汇总生成），
-    // 绝不能把结果写进新聊天。清空后 runForge 的完成/失败分支会看到 liveForge!==myForge 而丢弃落盘。
+    // 保活：切聊天必须显式中断在途的后台锻造 / 深度精简并清两槽——它们属于【旧聊天】（用旧卡/草稿生成），
+    // 绝不能把结果写进新聊天。清空后 runForge / runCondenseDepth 的完成/失败分支会看到身份不符而丢弃落盘。
     if (isGenerating && abortCtl) { try { abortCtl.abort(); } catch (e) { /* ignore */ } }
     liveForge = null;
+    liveCondense = null;
     clearNoteOpts();      // 换聊天即作废本会话的记录按钮材料：撤销 / 换 swipe 针对的是旧聊天的 MVU / 楼层，跨聊天重挂会写错对象
     applyPlanInjection();
     if (win) renderPlanBar();
@@ -5075,7 +5299,7 @@ const ADVISOR_SHAPING = {
 };
 
 // 盲盒模式编译附加（layer 4）：在 <ArcBeat> 里多产出一行 objective（玩家可见任务，不剧透），goal 仍是幕后真相。
-// **2026-06-16 重构（Edwin 真实 ST 实测：Opus 4.6 thinking 在 objective 上反复自我打架——"太简单/太被动/太日常/玩家
+// **2026-06-16 重构（Prince 真实 ST 实测：Opus 4.6 thinking 在 objective 上反复自我打架——"太简单/太被动/太日常/玩家
 // 不理解"——撑爆 <arc_think> 预算直至截断）**：把 objective【整个移出 <arc_think>】，在输出区【一次写定】。objective 不再
 // 是"在思考里反复打磨的深度创作"，而是一个【玩家从此刻、凭自己看得见的理由会去做、又恰好点燃 goal 的动作】（player-motivated
 // from the current moment；不再要求"最小/smallest"——那本身是个可被 fight 的轴）。非剧透由保留在【输出区】的两稿法
@@ -6247,7 +6471,7 @@ function listTopLevelTagNames(text) {
 // 已知【正文包裹】标签名（大小写不敏感）——命中即高置信（名字本身就是强信号）。小写常量以避开元测试「ALL_CAPS 须引用≥2次」规则。
 const scopeKnownNames = new Set(['content', 'gametxt', '正文', 'story', 'text', 'narration', 'main', 'reply', 'msg']);
 // 作用域【内层】里算【结构块】（保留区候选）的已知标签名（大小写不敏感，故存小写）。
-const innerStructuralNames = new Set(['status', 'status_profile', 'item_info', 'char_info', 'options', 'branches', 'details', 'htmlcontent', 'updatevariable', 'img_gen', 'image', 'roll', 'bginfor', 'style', 'cestuff', 'action_info']);   // action_info：命定之诗类战斗卡的结算面板（1.18.0 语料跑批采纳——此前靠标记密集启发式命中，改已知名后确定性守卫）。image：st-chatu8 类图生扩展的 <image>…</image> 生图提示词块（1.18.6 语料 edwin-08 采纳——bare 模式靠 own-line 已守，wrapped 模式需白名单，否则 danbooru tag 被当散文送模型改花；姊妹名 img_gen 早已在册）
+const innerStructuralNames = new Set(['status', 'status_profile', 'item_info', 'char_info', 'options', 'branches', 'details', 'htmlcontent', 'updatevariable', 'img_gen', 'image', 'roll', 'bginfor', 'style', 'cestuff', 'action_info']);   // action_info：命定之诗类战斗卡的结算面板（1.18.0 语料跑批采纳——此前靠标记密集启发式命中，改已知名后确定性守卫）。image：st-chatu8 类图生扩展的 <image>…</image> 生图提示词块（1.18.6 语料 prince-08 采纳——bare 模式靠 own-line 已守，wrapped 模式需白名单，否则 danbooru tag 被当散文送模型改花；姊妹名 img_gen 早已在册）
 // 「有意义的正文」阈值（字）——低于它视作结构化 / 空块（noWrapper 据此判定）。
 const scopeProseMin = 20;
 
@@ -6327,7 +6551,7 @@ function tagPresentIn(text, spec) {
  * 把一条回复拆成「正文片段（piece）+ 结构守卫（guard）+ 碎屑（glue）」的有序表：正文片段逐段送
  * 【普通校正调用】（调优提示词字节不变），守卫（结构块 / 注释 / 代码栏 / 空元素行 / 水平线）绝不送
  * 模型、由代码逐字原位回拼（fixSpliceTable）。分类走「提议 → 确认一次 → 记住」阶梯（resolveFixPieces）。
- * 设计（Edwin 批准 2026-07-01）：docs/superpowers/specs/2026-07-01-reply-fixer-piecewise-design.md。
+ * 设计（Prince 批准 2026-07-01）：docs/superpowers/specs/2026-07-01-reply-fixer-piecewise-design.md。
  * scanTopLevelBlocks 字节不变（他处共用）；所有加固都在 fixMaskInert / fixScanBlocks 包装层。
  * ------------------------------------------------------------------ */
 
@@ -6367,7 +6591,7 @@ function fixMaskInert(text) {
         const b = m.index + m[0].replace(/[ \t]+$/, '').length;
         if (!overlaps(a, b)) regions.push({ start: a, end: b, kind: 'hr' });
     }
-    // ✨ 同行贴连的注释合并成一个区间（1.18.0 语料实测 edwin-06 修复）：房东模拟器类卡的「隐藏思考步」
+    // ✨ 同行贴连的注释合并成一个区间（1.18.0 语料实测 prince-06 修复）：房东模拟器类卡的「隐藏思考步」
     // 把 <!--A--><!--B--><!--C--> 连写在一行——单个注释因左右还贴着别的注释而过不了 own-line 判定，
     // 三个全都跟正文走 → CoT 泄漏进片段。合并（间隙只有空格 / 制表才算贴连）后整行一体、照常成守卫。
     regions.sort((x, y) => x.start - y.start);
@@ -6378,7 +6602,7 @@ function fixMaskInert(text) {
             regions.splice(i + 1, 1);
         }
     }
-    // ✨ ⑤ 被放弃的孤儿开标签（1.18.0 语料实测 edwin-04 修复）：开了没闭、且同名标签在其后【再次开启】
+    // ✨ ⑤ 被放弃的孤儿开标签（1.18.0 语料实测 prince-04 修复）：开了没闭、且同名标签在其后【再次开启】
     // ——管线重试 CoT 的野外常见形态（<logic_check> 截断后又来一个完整的）。不遮的话，scanTopLevelBlocks
     // 的截断兜底会让第一个开标签把【后面整条回复】吞成幻影块（<content> 都从顶层消失，分类 / 分段全瞎）。
     // 判据刻意收窄到「同名再开」：孤立的收尾截断开标签（回复被砍断的 <content>，无同名再开）绝不遮——
@@ -6417,9 +6641,9 @@ function fixMaskInert(text) {
             if (list.some((pos) => pos > o.start)) regions.push({ start: o.start, end: o.end, kind: 'orphan' });
         }
     }
-    // ✨ ⑥ 不成对的方括号开标记（2026-07-12 语料实测 edwin-11 修复）：规划文本里的裸数学 / 骰子方括号
+    // ✨ ⑥ 不成对的方括号开标记（2026-07-12 语料实测 prince-11 修复）：规划文本里的裸数学 / 骰子方括号
     // （[20+(15+体力调整值)×2] 会匹配成名为「20」的方括号开标签）压进 scanTopLevelBlocks 的共享栈后永不
-    // 闭合——若其外又没有任何包裹块替它自动闭合（edwin-11 恰好缺了 <konatan_planning~> 开标签），其后
+    // 闭合——若其外又没有任何包裹块替它自动闭合（prince-11 恰好缺了 <konatan_planning~> 开标签），其后
     // 【所有】配平良好的尖括号块都记在深度≥1、顶层扫描全瞎，阶梯掉到「纯散文」→ 整条回复送模型。
     // 方括号块本就没有截断兜底（裸 [foo] 更可能是正文），「其后无同名 [/name] 闭标记」的开标记今天
     // 也永远成不了块——遮掉它只消除栈污染、不丢任何现存块。成对（[IMG_GEN]…[/IMG_GEN]）与自闭合
@@ -6446,7 +6670,7 @@ function fixMaskInert(text) {
             if (!overlaps(o.start, o.end)) regions.push({ start: o.start, end: o.end, kind: 'bracket' });
         }
     }
-    // ✨ ⑦ 裸比较号 / 非标签尖括号开标记（2026-07-14 语料实测 edwin-12 修复）：散文里的裸比较号
+    // ✨ ⑦ 裸比较号 / 非标签尖括号开标记（2026-07-14 语料实测 prince-12 修复）：散文里的裸比较号
     // （「16<20，不达标」）会匹配成名为「20」的尖括号开标签，其懒惰 attrs `[^>]*?` 一路吃到文中
     // 【下一个 > 字符】——跨行、连真闭标签 </konatan_planning~> 一起吞进 attrs → 规划块永不闭合 →
     // EOF 截断兜底把整条回复吞成一个块 → <content> 顶层消失、阶梯提议错误包裹名（⑥的尖括号表亲，
@@ -6477,7 +6701,7 @@ function fixMaskInert(text) {
             if (!overlaps(o.start, headEnd)) regions.push({ start: o.start, end: headEnd, kind: 'cmp' });
         }
     }
-    // ✨ ⑧ 缺开标签的块内裸开标签（2026-07-20 语料实测 edwin-13 修复）：模型漏掉规划块的开标签
+    // ✨ ⑧ 缺开标签的块内裸开标签（2026-07-20 语料实测 prince-13 修复）：模型漏掉规划块的开标签
     // <konatan_planning~>（missing-open 家族第 3 例），规划里又有裸开标签 <history>/<writing_style>
     // （字母名、各自无闭）→ 第一个被 scanTopLevelBlocks 的【截断兜底】当栈底块吞到 EOF，连它后面
     // 完整闭合的 <content>/<tucao>/<UpdateVariable> 全吞进去 → <content> 顶层消失、fixDominantWrapper
@@ -6836,7 +7060,7 @@ function resolveFixPieces({ pieceMode, scopeTag, scopeManual, pieceAsked, reply 
     if (pieceMode === 'wrapped') {
         return { action: 'skip', mode: '', tag, adopt: null, note: { code: 'skipAnomaly', cachedTag: tag, detectedTag: '' } };
     }
-    // ✨ 梯 7.5（1.18.0 追加，Edwin 定案）：未知名但【正文占优】的包裹标签（如 <narrative_x>）——绝不静默
+    // ✨ 梯 7.5（1.18.0 追加，Prince 定案）：未知名但【正文占优】的包裹标签（如 <narrative_x>）——绝不静默
     // 采纳未知名（那是 P3 的教训），改出【确认一次】的 wrapped 提案；此前这类卡会掉进 bare 提案 → 零 piece →
     // noNarrative 跳过（正文全在未知包裹里、bare 视角看不见），等于「没法校」。问过 → pending 同 bare。
     const dom = fixDominantWrapper(reply);
@@ -6913,9 +7137,9 @@ function fixPieceSummary(pieces, results) {
     };
 }
 
-// ✨「整体校正」（1.18.0，Edwin 定案默认开）：把分段表折成【一次】普通调用的原料。夹在正文之间的守卫
+// ✨「整体校正」（1.18.0，Prince 定案默认开）：把分段表折成【一次】普通调用的原料。夹在正文之间的守卫
 // 换成 ⟦SO_KEEP_n⟧ 锚点（1.17.3 已验证：composeFixedReply 按锚点原位还原 + buildFixPrompt 的既有锚点
-// 提示 + 弄丢兜底接回不丢内容）；首尾的守卫连片直接进 head/tail 信封——不占锚点、绝不送模型（edwin-01
+// 提示 + 弄丢兜底接回不丢内容）；首尾的守卫连片直接进 head/tail 信封——不占锚点、绝不送模型（prince-01
 // 类「结构全在首尾」的卡因此是零锚点纯正文单调用）。丢弃区点名的夹缝守卫既不占锚点、还原后也不在
 //（thinking 类照旧丢弃）。core 首尾空白挪进 head/tail（compose 会 trim 成品，两端空白必须由信封持有，
 // 恒等式才成立：head + core锚点还原 + tail === 原回复）。零 piece / nullish → null（调用方跳过）。可单测。
@@ -7987,6 +8211,16 @@ function buildWindow() {
         </div>
 
         <div id="so-settings">
+            ${ENABLE_UPDATE_CHECK ? `
+            <details id="so-upd-group" class="so-set-group">
+                <summary>更新</summary>
+                <div class="so-set-body">
+                    <div class="so-row so-upd-row"><span>当前版本 v${SO_VERSION}</span><span id="so-upd-status"></span></div>
+                    <button type="button" id="so-upd-go" class="so-fix-run-btn" style="display:none"><i class="fa-solid fa-download"></i> 立即更新</button>
+                    <label class="so-check"><input id="so-upd-auto" type="checkbox"><span>自动检查更新（打开神谕窗口时）</span></label>
+                    <div class="so-hint">检查仅读取 GitHub 上的公开版本号文件，不发送任何数据；更新通过酒馆自带的扩展更新机制完成。手动更新：<a href="https://github.com/namelessone88/story-oracle" target="_blank" rel="noopener">GitHub 仓库</a></div>
+                </div>
+            </details>` : ''}
             <details class="so-set-group" open>
                 <summary>连接</summary>
                 <div class="so-set-body">
@@ -8095,9 +8329,35 @@ function buildWindow() {
                 <summary>人格与提示词</summary>
                 <div class="so-set-body">
                     <label class="so-row"><span>说话人格</span>
-                        <select id="so-persona"></select>
+                        <div class="so-profile-row">
+                            <select id="so-persona"></select>
+                            ${ENABLE_CUSTOM_PERSONAS ? '<div class="so-iconbtn" id="so-persona-edit" title="管理自定义人格"><i class="fa-solid fa-pen"></i></div>' : ''}
+                        </div>
                     </label>
                     <div class="so-hint">给神谕套一层“说话腔调”，只改变语气与文采，不改变其分析职责。选「普通」即关闭人格（默认）。使用预设时，人格默认关闭、以免与预设自带的角色声线冲突；若选择某个人格，它会叠加在预设之上。参谋 / 世界书模式下同样叠加（人格只改语气，方案与条目正文的格式不受影响）。诊断模式下不生效。</div>
+                    ${ENABLE_CUSTOM_PERSONAS ? `
+                    <div id="so-persona-editor" style="display:none">
+                        <label class="so-row"><span>选择</span>
+                            <select id="so-pe-sel"></select>
+                        </label>
+                        <label class="so-row"><span>名称</span>
+                            <input type="text" id="so-pe-name" maxlength="30" placeholder="如：嘻嘻哈哈的损友">
+                        </label>
+                        <div class="so-pe-field"><span>人格描述</span>
+                            <textarea id="so-pe-voice" rows="5" placeholder="只写性格、态度与说话腔调（例：一个嘻嘻哈哈爱起哄的损友）。职责规则（准确、知无不言）由神谕自带，不用写。"></textarea>
+                        </div>
+                        <div class="so-pe-field"><span>示例对话（可选）</span>
+                            <textarea id="so-pe-example" rows="3" placeholder="示例问：……　示例答：……"></textarea>
+                        </div>
+                        <div class="so-pe-btns">
+                            <button type="button" id="so-pe-flesh" class="so-fix-run-btn">✨ AI 帮我完善</button>
+                            <button type="button" id="so-pe-undo" class="so-fix-run-btn" style="display:none">↩ 撤销</button>
+                            <span class="so-pe-spacer"></span>
+                            <button type="button" id="so-pe-save" class="so-fix-run-btn">保存</button>
+                            <button type="button" id="so-pe-del" class="so-fix-run-btn">删除</button>
+                        </div>
+                        <div class="so-hint">改动只在点「保存」时生效；切换人格或收起编辑器会丢弃未保存的修改。「✨ AI 帮我完善」用当前连接的模型把你的点子扩写成完整描述。</div>
+                    </div>` : ''}
 
                     <label class="so-row"><span>系统提示词（选择要查看 / 修改的模式）</span>
                         <select id="so-sysprompt-which"></select>
@@ -8129,7 +8389,6 @@ function buildWindow() {
                 <summary>界面</summary>
                 <div class="so-set-body">
                     <label class="so-check"><input id="so-chatbar-toggle" type="checkbox"><span>在聊天输入栏显示快捷按钮（🌙 一键开 / 关神谕）</span></label>
-                    <label class="so-check"><input id="so-dev-log-prompt" type="checkbox"><span>开发者：在控制台打印每次发送的提示词</span></label>
                     <label class="so-check"><input id="so-tools-header-toggle" type="checkbox"><span>把 ⋯ 里的工具按钮移到标题栏（关闭后刷新页面恢复）</span></label>
                 </div>
             </details>
@@ -8691,15 +8950,17 @@ function bindControls() {
     }
     // 「普通聊天」菜单项：从任何模式一键回普通聊天（仅切换视图——自动诊断如开启会继续在后台跑，
     // 诊断按钮仍红；要停自动诊断请点诊断按钮）。菜单收起由上面的 .so-tools-item 监听统一处理。
-    win.querySelector('#so-normalchat-btn')?.addEventListener('click', () => {
+    win.querySelector('#so-normalchat-btn')?.addEventListener('click', async () => {
         if (currentOracleMode() === 'chat') {
             // 已在普通聊天：自动诊断后台武装时，本项当开关用——再点一次回到诊断视图（否则普通聊天是死胡同）。
             if (diagShouldReveal(diagnoseMode, ENABLE_AUTO_DIAGNOSE && !!getSettings().autoDiagnoseEnabled)) {
+                if (!(await confirmModeSwitch('diagnose'))) return;   // 1.36.0 中断确认
                 setOracleMode('diagnose');
                 if (inputEl) inputEl.focus();
             }
             return;
         }
+        if (!(await confirmModeSwitch('chat'))) return;   // 1.36.0 中断确认
         priorOracleMode = 'chat';
         setOracleMode('chat');
         modeEntryNote('已返回普通聊天模式。');
@@ -8822,7 +9083,6 @@ function bindControls() {
         save();
         renderConnPresets();
     });
-    bind('#so-dev-log-prompt', 'devLogPrompt');     // A4 开发者：控制台打印每次发送的提示词
     // A5：工具移到标题栏开关——开时立刻搬（幂等）；关时提示刷新恢复（⋯ 包裹已删，重建靠 buildWindow）。
     win.querySelector('#so-tools-header-toggle').addEventListener('change', (e) => {
         getSettings().toolsInHeader = e.target.checked;
@@ -8848,6 +9108,10 @@ function bindControls() {
     bind('#so-stat', 'chatIncludeStat');
     bind('#so-world', 'chatIncludeWorld');
     if (ENABLE_BBS_BRIDGE) bind('#so-bbs', 'chatIncludeBbs');   // 柏宝书记忆桥（行仅在开关开时渲染）
+    if (ENABLE_UPDATE_CHECK) {
+        bind('#so-upd-auto', 'updAutoCheck');
+        win.querySelector('#so-upd-go').addEventListener('click', () => soRunUpdate());
+    }
     bind('#so-hidden', 'includeHiddenFloors');
     // —— 角色工坊设置 —— 全局设置（不是 per-chat）。
     const bldTargetSel = win.querySelector('#so-bld-target');
@@ -8867,8 +9131,20 @@ function bindControls() {
             bldTargetSel.appendChild(o);
         }
         bldTargetSel.value = ENABLE_BUILDER_PERSONA_STYLES ? normalizeBldTarget(getSettings().bldTarget) : (getSettings().bldTarget === 'npc' ? 'npc' : 'persona');
-        bldTargetSel.addEventListener('change', () => {
-            getSettings().bldTarget = ENABLE_BUILDER_PERSONA_STYLES ? normalizeBldTarget(bldTargetSel.value) : (bldTargetSel.value === 'npc' ? 'npc' : 'persona');
+        bldTargetSel.addEventListener('change', async () => {
+            const s = getSettings();
+            const prevVal = s.bldTarget;
+            const nextVal = ENABLE_BUILDER_PERSONA_STYLES ? normalizeBldTarget(bldTargetSel.value) : (bldTargetSel.value === 'npc' ? 'npc' : 'persona');
+            // 1.36.0 中断确认：预演新目标会落到的房间（临时代入、算完还原，不落盘）——只有当前正是工坊模式
+            // 且房间真会换时才会问（syncConvoStream 按当前模式算房，非工坊模式下换目标不换房）。取消把选择器拨回。
+            s.bldTarget = nextVal;
+            const targetKey = convoStreamKeyForMode(currentOracleMode(), s);
+            s.bldTarget = prevVal;
+            if (!(await confirmConvoSwap(targetKey))) {
+                bldTargetSel.value = ENABLE_BUILDER_PERSONA_STYLES ? normalizeBldTarget(prevVal) : (prevVal === 'npc' ? 'npc' : 'persona');
+                return;
+            }
+            s.bldTarget = nextVal;
             save();
             renderBuilderChips();   // chip 集随目标切换
             syncConvoStream();      // 切到该目标的独立访谈房间
@@ -9039,6 +9315,21 @@ function bindControls() {
     bind('#so-sendtemp', 'sendTemperature');
     win.querySelector('#so-wi').addEventListener('change', updateWiHint);
     bind('#so-persona', 'personaId');
+    if (ENABLE_CUSTOM_PERSONAS) {   // 关着时编辑器元素根本不渲染，这里同门跳过
+        win.querySelector('#so-persona-edit')?.addEventListener('click', openPersonaEditor);
+        win.querySelector('#so-pe-sel')?.addEventListener('change', loadPeFields);
+        win.querySelector('#so-pe-save')?.addEventListener('click', savePersonaFromEditor);
+        win.querySelector('#so-pe-del')?.addEventListener('click', deletePersonaFromEditor);
+        win.querySelector('#so-pe-flesh')?.addEventListener('click', fleshPersonaFromEditor);
+        win.querySelector('#so-pe-undo')?.addEventListener('click', () => {
+            const e = peEls();
+            if (!peFleshUndo) return;
+            e.voice.value = peFleshUndo.voice;
+            e.example.value = peFleshUndo.example;
+            peFleshUndo = null;
+            e.undo.style.display = 'none';
+        });
+    }
     win.querySelector('#so-sysprompt-preset').addEventListener('change', (e) => onPresetSelected(e.target.value));
     win.querySelector('#so-sysprompt-preset-refresh').addEventListener('click', populateSysPromptPresets);
     win.querySelector('#so-sysprompt-preset-recurate').addEventListener('click', () => {
@@ -9115,12 +9406,15 @@ function loadSettingsIntoForm() {
     win.querySelector('#so-stat').checked = !!s.chatIncludeStat;
     win.querySelector('#so-world').checked = !!s.chatIncludeWorld;
     if (ENABLE_BBS_BRIDGE) win.querySelector('#so-bbs').checked = !!s.chatIncludeBbs;   // 柏宝书记忆桥
+    if (ENABLE_UPDATE_CHECK) {
+        win.querySelector('#so-upd-auto').checked = !!s.updAutoCheck;
+        soPaintUpdateDot();   // 设置回填顺手重绘（检查结果晚到时 finally 里也会再绘，双保险幂等）
+    }
     win.querySelector('#so-hidden').checked = !!s.includeHiddenFloors;
     // ✨ 校正模式 Phase 4：校正控件从【本聊天】生效配置读种子（per-chat 覆盖全局）——不直读 s.fix*。
     seedFixControls();
     populateFixBundles();   // ✨ 校正 Phase 4：填充全局命名套餐下拉
     win.querySelector('#so-chatbar-toggle').checked = !!s.showChatBarButton;
-    win.querySelector('#so-dev-log-prompt').checked = !!s.devLogPrompt;
     win.querySelector('#so-tools-header-toggle').checked = !!s.toolsInHeader;
     win.querySelector('#so-regex').checked = !!s.applyRegex;
     win.querySelector('#so-wi').value = s.worldInfoMode;
@@ -9161,6 +9455,141 @@ function loadSettingsIntoForm() {
     updateBadge();
 }
 
+// —— 自定义人格编辑器（1.39.0）——字段是工作区、不走 bind()：只有「保存」才写设置（防误落盘，
+// data-smoketest 残留地雷的构造性预防）。扩写调用用本地中止器，绝不共用主发送的 abortCtl（1.37.0 教训）。
+let peFleshAbort = null;   // 生成中 = AbortController；空闲 = null（按钮兼作 ⏹ 取消）
+let peFleshUndo = null;    // 扩写前 { voice, example } 快照（一次性，收起编辑器即弃）
+function peEls() {
+    return {
+        editor: win.querySelector('#so-persona-editor'),
+        sel: win.querySelector('#so-pe-sel'),
+        name: win.querySelector('#so-pe-name'),
+        voice: win.querySelector('#so-pe-voice'),
+        example: win.querySelector('#so-pe-example'),
+        flesh: win.querySelector('#so-pe-flesh'),
+        undo: win.querySelector('#so-pe-undo'),
+        save: win.querySelector('#so-pe-save'),
+        del: win.querySelector('#so-pe-del'),
+    };
+}
+function populatePeSel(keepId) {
+    const e = peEls();
+    if (!e.sel) return;
+    e.sel.innerHTML = '';
+    const optNew = document.createElement('option');
+    optNew.value = '';
+    optNew.textContent = '＋ 新建人格';
+    e.sel.appendChild(optNew);
+    for (const p of getSettings().customPersonas) {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = p.label;
+        e.sel.appendChild(opt);
+    }
+    e.sel.value = (keepId && getSettings().customPersonas.some((p) => p.id === keepId)) ? keepId : '';
+}
+function loadPeFields() {
+    const e = peEls();
+    const cur = findPersonaById(getSettings().customPersonas, e.sel.value);
+    e.name.value = cur ? cur.label : '';
+    e.voice.value = cur ? cur.voice : '';
+    e.example.value = cur ? (cur.example || '') : '';
+    peFleshUndo = null;
+    e.undo.style.display = 'none';
+    e.del.style.display = cur ? '' : 'none';
+}
+function openPersonaEditor() {
+    if (!ENABLE_CUSTOM_PERSONAS) return;   // 杀开关读点（关着时元素不渲染，这里是双保险）
+    const e = peEls();
+    if (!e.editor) return;
+    if (e.editor.style.display !== 'none') { e.editor.style.display = 'none'; peFleshUndo = null; return; }   // 再点铅笔 = 收起
+    e.editor.style.display = '';
+    const s = getSettings();
+    const curIsCustom = s.customPersonas.some((p) => p.id === s.personaId);
+    populatePeSel(curIsCustom ? s.personaId : '');
+    loadPeFields();
+}
+function savePersonaFromEditor() {
+    const e = peEls();
+    const s = getSettings();
+    const name = e.name.value.trim();
+    const voice = e.voice.value.trim();
+    const example = e.example.value.trim();
+    if (!name || !voice) { toastr.info('名称与人格描述都不能为空'); return; }
+    if (voice.length > CUSTOM_PERSONA_CAPS.voice) { toastr.info(`人格描述最长 ${CUSTOM_PERSONA_CAPS.voice} 字`); return; }
+    if (example.length > CUSTOM_PERSONA_CAPS.example) { toastr.info(`示例对话最长 ${CUSTOM_PERSONA_CAPS.example} 字`); return; }
+    const editingId = e.sel.value;   // '' = 新建
+    const nameTaken = allPersonasView(s).some((p) => p.id !== editingId && p.label.toLowerCase() === name.toLowerCase());
+    if (nameTaken) { toastr.info('已有同名人格，换个名字吧'); return; }
+    let id = editingId;
+    if (editingId) {
+        const cur = findPersonaById(s.customPersonas, editingId);
+        if (!cur) { toastr.warning('要编辑的人格不存在了'); populatePeSel(''); loadPeFields(); return; }
+        cur.label = name; cur.voice = voice; cur.example = example;
+    } else {
+        if (s.customPersonas.length >= CUSTOM_PERSONA_CAPS.count) {
+            toastr.info(`自定义人格最多 ${CUSTOM_PERSONA_CAPS.count} 个，先删一个吧`); return;
+        }
+        id = 'cp-' + Date.now();
+        s.customPersonas.push({ id, label: name, voice, example });
+        s.personaId = id;   // 新建即选中（少一步）
+    }
+    save();
+    populatePersonas();
+    populatePeSel(id);
+    loadPeFields();
+    toastr.success(`已保存人格「${name}」`);
+}
+async function deletePersonaFromEditor() {
+    const e = peEls();
+    const s = getSettings();
+    const cur = findPersonaById(s.customPersonas, e.sel.value);
+    if (!cur) { toastr.info('先选一个要删的自定义人格'); return; }
+    if (!(await uiConfirm(`删除自定义人格「${cur.label}」？`))) return;
+    s.customPersonas = s.customPersonas.filter((p) => p.id !== cur.id);
+    if (s.personaId === cur.id) s.personaId = 'plain';
+    save();
+    populatePersonas();
+    populatePeSel('');
+    loadPeFields();
+    toastr.success(`已删除人格「${cur.label}」`);
+}
+async function fleshPersonaFromEditor() {
+    const e = peEls();
+    if (peFleshAbort) { peFleshAbort.abort(); return; }   // 生成中再点 = 取消
+    const name = e.name.value.trim();
+    const seedText = e.voice.value.trim();
+    if (!name && !seedText) { toastr.info('先写一两句想要的感觉（名称或描述任填其一）'); return; }
+    peFleshUndo = { voice: e.voice.value, example: e.example.value };
+    const ctl = new AbortController();
+    peFleshAbort = ctl;
+    const timer = setTimeout(() => ctl.abort(), 120000);
+    const prevLabel = e.flesh.textContent;
+    e.flesh.textContent = '⏹ 取消';
+    e.save.disabled = true; e.del.disabled = true;
+    try {
+        const s = getSettings();
+        const reply = await soCallModel(buildPersonaFleshMessages(name, seedText), {
+            maxTokens: Math.max(Number(s.maxTokens) || 0, 4096),   // 隐藏推理计费教训：地板 4096
+            signal: ctl.signal,
+        });
+        const parsed = parsePersonaFleshReply(reply);
+        if (!parsed.voice) { toastr.warning('模型没有返回可用内容'); peFleshUndo = null; return; }
+        e.voice.value = parsed.voice;
+        if (parsed.example) e.example.value = parsed.example;
+        e.undo.style.display = '';
+        if (parsed.fallback) toastr.info('回复格式不标准，已原样填入（可手动修剪）');
+    } catch (err) {
+        if (!ctl.signal.aborted) toastr.error('扩写失败：' + ((err && err.message) || err));
+        peFleshUndo = null;
+    } finally {
+        clearTimeout(timer);
+        peFleshAbort = null;
+        e.flesh.textContent = prevLabel;
+        e.save.disabled = false; e.del.disabled = false;
+    }
+}
+
 function populatePersonas() {
     const sel = win.querySelector('#so-persona');
     if (!sel) return;
@@ -9172,7 +9601,20 @@ function populatePersonas() {
         sel.appendChild(opt);
     }
     const s = getSettings();
-    sel.value = PERSONAS.some((p) => p.id === s.personaId) ? s.personaId : 'plain';
+    const view = allPersonasView(s);
+    const customs = view.filter((p) => p.custom);
+    if (customs.length) {
+        const grp = document.createElement('optgroup');
+        grp.label = '── 自定义 ──';
+        for (const p of customs) {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.label;
+            grp.appendChild(opt);
+        }
+        sel.appendChild(grp);
+    }
+    sel.value = findPersonaById(view, s.personaId) ? s.personaId : 'plain';
 }
 
 function applyModeVisibility() {
@@ -9900,6 +10342,11 @@ function toggleWindow(show) {
         // 桌面保留自动聚焦；手机用户自己点输入框时，上面注册的 visualViewport 监听会再夹一次、护住标题栏。
         if (window.innerWidth >= 600) inputEl.focus();
         checkPlanReminder(); // natural opportunity for the 20-message staleness ping
+        // 更新提醒：每会话首开时后台检查一次（fire-and-forget，绝不拖慢开窗；设置关掉即不查）。
+        if (ENABLE_UPDATE_CHECK && getSettings().updAutoCheck && !updState.checkedThisSession) {
+            updState.checkedThisSession = true;
+            soCheckUpdate();
+        }
     }
     placePlanBar(); // strip moves home (window) or out (float) with visibility
 }
@@ -10026,11 +10473,12 @@ function diagShouldReveal(diagOn, autoOn) {
 }
 
 // 诊断按钮点击：算出下一态；进入 auto 且还没看过警告时，先弹一次性警告（确认后才真正开启）。
-function toggleDiagnose() {
+async function toggleDiagnose() {
     const s = getSettings();
     // 杀死开关关闭：退回原始两态（关 ↔ 诊断），AUTO 不可达；顺手清掉历史残留的开启态。
     if (!ENABLE_AUTO_DIAGNOSE) {
         const entering = !diagnoseMode;
+        if (!(await confirmModeSwitch(entering ? 'diagnose' : 'chat'))) return;   // 1.36.0 中断确认
         if (s.autoDiagnoseEnabled) { s.autoDiagnoseEnabled = false; save(); }
         setOracleMode(entering ? 'diagnose' : 'chat');
         modeEntryNote(entering
@@ -10043,18 +10491,21 @@ function toggleDiagnose() {
     // 修复死胡同：自动诊断武装、但当前不在诊断视图（从 ⋯「普通聊天」或子模式过来）→ 点诊断按钮先回到诊断
     // 视图（保持自动武装），而非按三态循环掉到「关」。再点一次（此时已在诊断视图）才走循环关掉自动。
     if (diagShouldReveal(diagnoseMode, !!s.autoDiagnoseEnabled)) {
+        if (!(await confirmModeSwitch('diagnose'))) return;   // 1.36.0 中断确认
         setOracleMode('diagnose');
         if (inputEl) inputEl.focus();
         return;
     }
     const next = nextDiagState(diagButtonState(diagnoseMode, !!s.autoDiagnoseEnabled));
     if (next === 'auto' && !s.autoDiagnoseWarned) { openAutoDiagWarn(); return; }
-    applyDiagButtonState(next);
+    await applyDiagButtonState(next);
 }
 
 // 把按钮态落到：窗口模式 + 持久化的 autoDiagnoseEnabled + 视觉 + 一条说明。
-function applyDiagButtonState(state) {
+async function applyDiagButtonState(state) {
     const s = getSettings();
+    // 1.36.0 中断确认：三态循环里真正会换房的是 off→'chat'（诊断↔AUTO 留在诊断房，确认核静默放行）。
+    if (!(await confirmModeSwitch(state === 'off' ? 'chat' : 'diagnose'))) return;
     if (state === 'off') {
         s.autoDiagnoseEnabled = false; save();
         setOracleMode('chat');
@@ -10087,7 +10538,7 @@ function updateDiagButtonVisual() {
 
 // 纯函数：✨ 按钮三态视觉。off = 无自动校正；on = 自动开、正常跑；pending = 自动开着、但这张卡的
 // 「正文形态」还没确认一次（问过 fixA_pieceAsked、还没落 fixA_pieceMode）。pending 态下 runAutoFix 每条
-// 回复都走 pending 分支跳过——若无视觉信号就成了「自动校正静默什么都不做」（edwin-09 中村 bare 卡漏抓的
+// 回复都走 pending 分支跳过——若无视觉信号就成了「自动校正静默什么都不做」（prince-09 中村 bare 卡漏抓的
 // 病灶）。读【本聊天生效】配置（getEffectiveFixCfg，与 maybePostReply 同源），故指示永远跟「实际会不会
 // 自动校正」一致。可单测（fix-button-visual.test.mjs）。
 function fixButtonVisualState(cfg) {
@@ -10133,15 +10584,17 @@ function openAutoFixWarn() {
     if (modal) modal.classList.add('open');
 }
 
-function toggleLorebook() {
+async function toggleLorebook() {
     if (lorebookMode) {
         const back = priorOracleMode || 'chat';
+        if (!(await confirmModeSwitch(back))) return;   // 1.36.0 中断确认：有在途回复会被切换中止 → 先问
         priorOracleMode = 'chat';
         setOracleMode(back);
         modeEntryNote(modeReturnNote(back));
         inputEl.focus();
         return;
     }
+    if (!(await confirmModeSwitch('lorebook'))) return;   // 1.36.0 中断确认
     priorOracleMode = currentOracleMode();
     setOracleMode('lorebook');
     populateLorebookBooks();
@@ -10150,16 +10603,18 @@ function toggleLorebook() {
 }
 
 // 校正模式按钮：进入 / 退出（普通两态，无 AUTO）。杀死开关关闭时 no-op（不可进入）。
-function toggleFix() {
+async function toggleFix() {
     if (!ENABLE_REPLY_FIX) return;
     if (fixMode) {
         const back = priorOracleMode || 'chat';
+        if (!(await confirmModeSwitch(back))) return;   // 1.36.0 中断确认
         priorOracleMode = 'chat';
         setOracleMode(back);
         modeEntryNote(modeReturnNote(back));
         if (inputEl) inputEl.focus();
         return;
     }
+    if (!(await confirmModeSwitch('fix'))) return;   // 1.36.0 中断确认
     priorOracleMode = currentOracleMode();
     setOracleMode('fix');
     modeEntryNote('校正模式已开启。我会读取最新一条 AI 回复，按你说的把它改一版——你想怎么改都行：重写某段、改语气、调节奏、删减、改掉某个设定或不合适的描写……任何要求都可以。直接说你想改什么，我给出一份可一键应用的校正稿（应用后原文仍在，左滑即可看回）。');
@@ -10167,16 +10622,18 @@ function toggleFix() {
 }
 
 // 角色工坊按钮：进入 / 退出。总开关关闭时 no-op。
-function toggleBuilder() {
+async function toggleBuilder() {
     if (!ENABLE_CHAR_BUILDER) return;
     if (builderMode) {
         const back = priorOracleMode || 'chat';
+        if (!(await confirmModeSwitch(back))) return;   // 1.36.0 中断确认（锻造/深度精简保活不触发——它们切走不中断）
         priorOracleMode = 'chat';
         setOracleMode(back);   // 内部已 syncConvoStream → 切回该模式的房间
         modeEntryNote(modeReturnNote(back));
         if (inputEl) inputEl.focus();
         return;
     }
+    if (!(await confirmModeSwitch('builder'))) return;   // 1.36.0 中断确认
     priorOracleMode = currentOracleMode();
     setOracleMode('builder');   // 内部已 syncConvoStream → 切到当前打造目标的独立房间
     populateBuilderBooks();   // Task 4：填充选书 / 选条目器 + chips（定义在 populateLorebookBooks 附近）
@@ -10235,7 +10692,7 @@ function refreshDraftCard() {
                 refreshDraftCard();
             });
             if (!isCond) {
-                // 原稿侧也保留两个精简按钮（Edwin 2026-07-12）：换一档重跑的路要在——精简恒从原稿
+                // 原稿侧也保留两个精简按钮（Prince 2026-07-12）：换一档重跑的路要在——精简恒从原稿
                 // 起跑（幂等），重跑成功即覆盖旧精简稿；精简稿侧不出按钮（看结果的视角，切回原稿再跑）。
                 if (ENABLE_LIGHT_CONDENSE) mk('✂️ 精简全稿', () => runCondense());   // 轻精简 2026-07-19 起全员关闭
                 mk('✂️✂️ 深度精简', () => runCondenseDepth());
@@ -10259,8 +10716,9 @@ function refreshDraftCard() {
 // setGenerating(true) 已把发送键变成「停止」键，点它经 onSend → stopGeneration 中断的正是 abortCtl
 //（1.17.14 教训：局部 controller 停止键够不着）；另加 arc 同款 180s 超时兜底，到点自动 abort。
 // 工序要求显式 CoT（<thinking>）——展示 / 历史 / 解析前用 stripReasoningTags 统一剥离。
-// keep-forging 辅助①：把累积文本画进 liveForge 气泡的 .so-content（仅当它当前挂在 DOM 上——离开工坊时
-// 气泡被 loadConvoForChat 清掉，此时静默跳过；回工坊会由 loadConvoForChat 重挂气泡并接上后续增量）。
+// keep-forging 辅助①：把累积文本画进保活运行（liveForge / liveCondense 同形描述子）气泡的 .so-content
+//（仅当它当前挂在 DOM 上——离房时气泡被 loadConvoForChat 清掉，此时静默跳过；回房会由 loadConvoForChat
+// 重挂气泡并接上后续增量）。深度精简保活（1.36.0）复用本函数。
 function paintForge(f) {
     const el = f && f.entry && f.entry._el;
     const c = el && typeof el.querySelector === 'function' ? el.querySelector('.so-content') : null;
@@ -10269,6 +10727,7 @@ function paintForge(f) {
 
 // keep-forging 辅助②：把锻造成稿 / 停止桩按【原始房间】归位落盘。正看着该房 → 推进 convo + persistConvo
 //（气泡已在 DOM）；已切走 → 只往那房的元数据补一条（不惊动当前可见房），回房时 loadConvoForChat 读出重画。
+// 深度精简保活（1.36.0）复用本函数归位（同为工坊房间的 assistant 回复）。
 // role 保成 'assistant'（区别于 appendNoteToRoom 强制 'note'）→ 回房走 renderBuilderReplyHtml 而非注记样式。
 // getChatMetadataSafe 兜 null → fail-open 不抛。可单测（builder-forge-bg.test.mjs）。
 function routeForgeReply(roomKey, entry) {
@@ -10308,7 +10767,6 @@ async function runForge() {
         chars: lastPrompt.reduce((n, m) => n + (m.content ? m.content.length : 0), 0),
         time: new Date().toLocaleTimeString(),
     };
-    soDevLogPrompt();   // A4 开发者：控制台打印发送的提示词（所有模式）
     const aEntry = { id: ++cidSeq, role: 'assistant', content: '' };
     const assistantEl = addMessage('assistant', '', aEntry);
     aEntry._el = assistantEl;
@@ -10320,7 +10778,7 @@ async function runForge() {
     liveForge = myForge;
     setGenerating(true);
     abortCtl = new AbortController();
-    // 锻造超时看门狗（T13）：旧版是平坦的墙钟——会误杀仍在正常流式输出的长锻造（Edwin 实测中招），
+    // 锻造超时看门狗（T13）：旧版是平坦的墙钟——会误杀仍在正常流式输出的长锻造（Prince 实测中招），
     // 且中止提示与手动停止无从区分。改为【空闲】看门狗：流式路径每收到一段增量就把 180s 计时重置；
     // 非流式路径没有进度信号，只能用一个 600s 的平坦兜底。超时触发时先置 forgeTimedOut=true 再 abort，
     // 好在 catch 里与「用户手动停止」区分开、给出不同措辞 + 可操作提示。
@@ -10406,7 +10864,7 @@ async function runForge() {
         let { draft, error } = parseCharDraft(cleanText);
         let rescueNote = '';
         // #1 救援：npc-edit 时模型 ~3/5 从锻造直接吐 <DraftPatch>（FINDINGS Round B）。parseCharDraft 认不得 →
-        // 用现有条目正文吃下补丁、合成完整草稿入坞，别误报「没产出草稿」（＝Edwin 的「编辑经常失败」）。
+        // 用现有条目正文吃下补丁、合成完整草稿入坞，别误报「没产出草稿」（＝Prince 的「编辑经常失败」）。
         if (!draft && st.brief?.target === 'npc-edit') {
             const { ops } = parseDraftPatch(cleanText);
             if (ops.length) {
@@ -10429,7 +10887,7 @@ async function runForge() {
             // 只在成功分支做，不动重载 / 切聊时的折叠偏好。
             const bldCollapse = win?.querySelector('#so-bld-collapse');
             if (bldCollapse && !bldCollapse.open) bldCollapse.open = true;
-            // keep-forging：只在用户正看着工坊时报「锻造完成」——已切走则静默（Edwin：不要提示），草稿卡与房间
+            // keep-forging：只在用户正看着工坊时报「锻造完成」——已切走则静默（Prince：不要提示），草稿卡与房间
             // 历史已就位，回工坊自见（注记若发去当前房 = 落进别的模式，故必须 gate）。
             if (viewing) modeEntryNote((rescueNote ? rescueNote + '。' : '') + '锻造完成——草稿在窗口顶部「角色工坊」面板的常驻卡里（面板收起时，点「角色工坊」标题展开）。想改哪里直接说；满意就点「写入」。');
             // ✂️ 锻造后自动精简（1.30.0，读点 2/3）：opt-in + npc-* + ≥2500字 + 风格门点火才补一发轻精简
@@ -10498,7 +10956,6 @@ async function runCondense(opts = {}) {
     ];
     lastPrompt = messages.map((m) => ({ role: m.role, content: m.content }));
     lastPromptMeta = { mode: '工坊精简', target: s.mode === 'direct' ? (s.model || '直连') : '配置文件', chars: rawC.length, time: new Date().toLocaleTimeString() };
-    soDevLogPrompt();
     const aEntry = { id: ++cidSeq, role: 'assistant', content: '' };
     const assistantEl = addMessage('assistant', '', aEntry);
     aEntry._el = assistantEl;
@@ -10582,7 +11039,17 @@ async function runCondenseDepth() {
     const aEntry = { id: ++cidSeq, role: 'assistant', content: '✂️✂️ 深度精简中（3 份分节并行 + 1 份手术单）…' };
     const assistantEl = addMessage('assistant', aEntry.content, aEntry);
     aEntry._el = assistantEl;
-    const contentEl = assistantEl.querySelector('.so-content');
+    // 保活（1.36.0，keep-forging 同款）：登记这次深度精简——切模式不中断（loadConvoForChat 守卫放行），
+    // 离房时气泡被清、回房由 loadConvoForChat 重挂并接上后续流；完成/失败按原始房间归位（routeForgeReply）。
+    // 起跑后一切气泡写入都走 myRun.text + paintForge（重挂会换 entry._el，起跑时捕获的元素会失效）。
+    const myRun = { streamKey: convoStreamKey, entry: aEntry, text: aEntry.content };
+    liveCondense = myRun;
+    const runContentEl = () => {
+        const el = myRun.entry && myRun.entry._el;
+        const c = el && typeof el.querySelector === 'function' ? el.querySelector('.so-content') : null;
+        return c && c.isConnected ? c : null;
+    };
+    const setStreamingCls = (on) => { const c = runContentEl(); if (c) c.classList.toggle('so-streaming', on); };
     setGenerating(true);
     abortCtl = new AbortController();
     // 平坦兜底（非流式无进度信号）：每【阶段】各给 600s 预算——串行 4 连跑会超单一预算，并行=分节
@@ -10591,7 +11058,7 @@ async function runCondenseDepth() {
     const armDepthWatchdog = () => { if (killTimer) clearTimeout(killTimer); killTimer = setTimeout(() => { try { abortCtl?.abort(); } catch (e) { /* ignore */ } }, 600000); };
     armDepthWatchdog();
     const effMaxTokens = Math.max(s.maxTokens, Number(s.bldMaxTokens) || 0, 16384);
-    // 深度精简【恒串行 + 流式】（Edwin 2026-07-19：逐份串行开关移除，统一走这条）：任一时刻只有一个
+    // 深度精简【恒串行 + 流式】（Prince 2026-07-19：逐份串行开关移除，统一走这条）：任一时刻只有一个
     // 请求在天上（限速站 2 次/分钟不再被并发撞穿），且流式的持续字节流能扛过 api.navy 这类 ~100s
     // Cloudflare 硬超时代理（非流式深度精简在这类代理上必 524——上游用户实证）。onProgress 把流实时
     // 铺进气泡；流式每收到一段都重置深度看门狗（空闲判定，活跃流式中不会误触）。
@@ -10609,47 +11076,64 @@ async function runCondenseDepth() {
         return await callProfile(s.profileId, messages, effMaxTokens, override, abortCtl.signal);
     };
     // 流式实时铺进气泡：direct 回调给增量（+=），profile 回调给累计全文（=）；acc 收敛成「当前阶段全文」。
-    const streamInto = (header) => { let acc = ''; return (chunk, cumulative) => { acc = cumulative ? chunk : acc + chunk; contentEl.textContent = header + acc; if (soFollowStream) scrollToBottom(); }; };
+    // 保活版：写进描述子再经 paintForge 上屏（离房静默、回房重挂后继续画）；只在正看着原房时跟随滚动。
+    const streamInto = (header) => { let acc = ''; return (chunk, cumulative) => { acc = cumulative ? chunk : acc + chunk; myRun.text = header + acc; paintForge(myRun); if (soFollowStream && convoStreamKey === myRun.streamKey) scrollToBottom(); }; };
+    // 失败收尾（保活版）：气泡定格失败文案并按原始房间落盘（在场/离场都留下如实记录，回房可见）；
+    // 打扰型注记只在正看着该房时发（keep-forging 的 Prince 定案：离场静默）。
+    const failFinish = (code, msg) => {
+        aEntry.content = '✂️✂️ 精简未采纳：' + msg + '。原稿保持不变，可直接再试。 [' + code + ']';
+        myRun.text = aEntry.content; paintForge(myRun); setStreamingCls(false);
+        routeForgeReply(myRun.streamKey, aEntry);
+        if (convoStreamKey === myRun.streamKey) condenseFailNote({}, code, msg);
+    };
     try {
         const sectUser = (g) => `【全卡参考（只读，供查重，不要输出）】\n${rawC}\n\n【你负责精简的节】${g.names.join('、')}\n【这些节的原文】\n${g.text}`;
         // 恒串行：3 份分节一份接一份跑，每份把流实时铺进气泡；每份各续一份看门狗预算。
         const partReplies = [];
         for (let i = 0; i < groups.length; i++) {
-            contentEl.classList.add('so-streaming');
+            setStreamingCls(true);
             armDepthWatchdog();
             partReplies.push(await callOnce(CONDENSE_STAGE_PROMPTS.sect, sectUser(groups[i]), streamInto(`✂️✂️ 深度精简（串行·流式）分节 ${i + 1}/3：\n\n`)));
-            contentEl.classList.remove('so-streaming');
+            setStreamingCls(false);
         }
-        contentEl.textContent = '✂️✂️ 分节 3/3 已返回，正在开手术单…';
+        if (liveCondense !== myRun) return;   // 切聊天已由 onChatChanged 中断注销——这条属于旧聊天，丢弃
+        myRun.text = '✂️✂️ 分节 3/3 已返回，正在开手术单…'; paintForge(myRun);
         const parts = partReplies.map((r) => parseCondenseReply(String(r || '')));
         const bad = parts.findIndex((p) => !p.content);
-        if (bad >= 0) { condenseFailNote({}, 'sect-G1', `第 ${bad + 1} 份分节没有有效围栏`); return; }
+        if (bad >= 0) { failFinish('sect-G1', `第 ${bad + 1} 份分节没有有效围栏`); return; }
         const asm = condenseAssemble(parts.map((p) => p.content), rawC);
-        if (!asm.content) { condenseFailNote({}, 'assemble', asm.error); return; }
+        if (!asm.content) { failFinish('assemble', asm.error); return; }
         armDepthWatchdog();   // 手术单阶段自带一份新预算
-        contentEl.classList.add('so-streaming');
+        setStreamingCls(true);
         const opsReply = await callOnce(CONDENSE_STAGE_PROMPTS.ops, `请为下面这张角色卡正文开删减手术单。\n【正文开始】\n${asm.content}\n【正文结束】`, streamInto('✂️✂️ 手术单（串行·流式）：\n\n'));
-        contentEl.classList.remove('so-streaming');
+        setStreamingCls(false);
+        if (liveCondense !== myRun) return;   // 手术单期间切了聊天 → 同上丢弃（身份校验在 setBuilderState 之前）
         const { ops } = parseCondenseOps(String(opsReply || ''));
         const applied = applyCondenseOps(asm.content, ops);
         const g = condenseGuards(rawC, applied.content);
-        if (!g.pass) { condenseFailNote({}, g.fails.join('+'), `守卫未过（${g.fails.join('、')}）`); return; }
+        if (!g.pass) { failFinish(g.fails.join('+'), `守卫未过（${g.fails.join('、')}）`); return; }
         const cur = getBuilderState();
-        if (!cur?.draft || cur.draft.content !== rawC) { condenseFailNote({}, 'stale', '精简期间草稿已变，本次结果作废'); return; }
+        if (!cur?.draft || cur.draft.content !== rawC) { failFinish('stale', '精简期间草稿已变，本次结果作废'); return; }
         setBuilderState({ ...cur, draft: { ...cur.draft, condensed: applied.content, activeVariant: 'condensed' } });
         refreshDraftCard();
-        contentEl.textContent = '✂️✂️ 深度精简完成（正文见草稿卡）';
-        aEntry.content = contentEl.textContent;
-        convo.push(aEntry); persistConvo();
-        modeEntryNote(`✂️✂️ 深度精简完成：${rawC.replace(/\s/g, '').length} → ${applied.content.replace(/\s/g, '').length} 字（比原稿 ${(g.ratio * 100).toFixed(0)}%；手术单 ${ops.length} 刀，采 ${applied.applied}、装置否决 ${applied.vetoed.length}）。卡上可切换「原稿 ⇄ 精简稿」。`);
+        aEntry.content = '✂️✂️ 深度精简完成（正文见草稿卡）';
+        myRun.text = aEntry.content; paintForge(myRun);
+        routeForgeReply(myRun.streamKey, aEntry);
+        if (convoStreamKey === myRun.streamKey) modeEntryNote(`✂️✂️ 深度精简完成：${rawC.replace(/\s/g, '').length} → ${applied.content.replace(/\s/g, '').length} 字（比原稿 ${(g.ratio * 100).toFixed(0)}%；手术单 ${ops.length} 刀，采 ${applied.applied}、装置否决 ${applied.vetoed.length}）。卡上可切换「原稿 ⇄ 精简稿」。`);
     } catch (err) {
+        if (liveCondense !== myRun) return;   // 切聊天（onChatChanged 中断并注销）→ 属旧聊天，丢弃不落盘
         const stopped = isUserAbort(err);
-        contentEl.textContent = stopped ? '（已停止——原稿不受影响）' : ('深度精简失败：' + (err?.message || err));
-        if (!stopped) { contentEl.classList.add('so-error'); console.error('[Story Oracle]', err); }
-        aEntry.content = contentEl.textContent;
-        convo.push(aEntry); persistConvo();
+        aEntry.content = stopped ? '（已停止——原稿不受影响）' : ('深度精简失败：' + (err?.message || err));
+        myRun.text = aEntry.content; paintForge(myRun); setStreamingCls(false);
+        if (!stopped) {
+            const c = runContentEl();
+            if (c) c.classList.add('so-error');
+            console.error('[Story Oracle]', err);
+        }
+        routeForgeReply(myRun.streamKey, aEntry);
     } finally {
         clearTimeout(killTimer);
+        if (liveCondense === myRun) liveCondense = null;
         setGenerating(false);
         abortCtl = null;
     }
@@ -10753,15 +11237,17 @@ async function applyBuilderDraft(btn) {
     }
 }
 
-function toggleAdvisor() {
+async function toggleAdvisor() {
     if (advisorMode) {
         const back = priorOracleMode || 'chat';
+        if (!(await confirmModeSwitch(back))) return;   // 1.36.0 中断确认
         priorOracleMode = 'chat';
         setOracleMode(back);
         modeEntryNote(modeReturnNote(back));
         inputEl.focus();
         return;
     }
+    if (!(await confirmModeSwitch('advisor'))) return;   // 1.36.0 中断确认
     priorOracleMode = currentOracleMode();
     setOracleMode('advisor');
     modeEntryNote('剧情参谋模式已开启。我会通读整段对话，和你一起构思剧情接下来可以怎么走。讨论出具体方案后，我会把它列成卡片——点「开始引导」并选择强度（只铺垫 / 自然推进 / 尽快引爆），主聊天的 AI 就会被悄悄引导着把剧情推向那个方向。引导随时可在上方的方案条里查看、调整或停止。'
@@ -11308,7 +11794,7 @@ async function populateBuilderBooks(announce) {
 }
 
 // 选书器 <summary> 文案："世界书：当前激活的" 或 "世界书：已选 N 本"。
-// 旧文案「全部激活」会被读成「选中全部世界书」（用户误读，Edwin 转达，1.19.2）——语义其实是
+// 旧文案「全部激活」会被读成「选中全部世界书」（用户误读，Prince 转达，1.19.2）——语义其实是
 // 「跟随当前激活的那些」，措辞改为 当前激活的。
 function updateBldBookSummary() {
     const sum = win.querySelector('#so-bld-bookpick-sum');
@@ -11413,7 +11899,7 @@ function setAllBldEntries(on) {
 }
 
 // 只选中某一类灯的条目：'blue'（常驻）/ 'green'（关键词触发），跨所有展示的书，不含已禁用。
-// 与 setLbEntriesByType 同构，作用于 bldEntryFilter + #so-bld-entry-list（无「仅禁用」按 Edwin 指定）。
+// 与 setLbEntriesByType 同构，作用于 bldEntryFilter + #so-bld-entry-list（无「仅禁用」按 Prince 指定）。
 function setBldEntriesByType(type) {
     const rows = [...win.querySelectorAll('#so-bld-entry-list .so-lb-ent')];
     if (!rows.length) return;
@@ -12697,7 +13183,7 @@ function buildSystemPrompt() {
 
     const parts = [resolveSystemPrompt(s)];
 
-    const personaBlock = buildPersonaBlock(s.personaId);
+    const personaBlock = buildPersonaBlock(s.personaId, null, s);
     if (personaBlock) parts.push(personaBlock);
 
     if (s.includeCard) {
@@ -12749,7 +13235,7 @@ function buildChatStatSection() {
 // ===== 外部扩展世界信息桥接（用户功能请求）=========================================
 // 让神谕读到「住在别的扩展自己系统里」的世界信息——主聊天与 MVU 之外、神谕原本看不到的后台世界。
 // 两路来源：
-//   (1) 内置「世界引擎」适配器：直接读 window.WORLD_ENGINE_CORE（官方原版与 Edwin 的 World-mod 同名全局）。
+//   (1) 内置「世界引擎」适配器：直接读 window.WORLD_ENGINE_CORE（官方原版与 Prince 的 World-mod 同名全局）。
 //       仅当该聊天确有落盘状态（hasState）时才喂——loadState() 在无状态时只返回空的默认世界，喂它没意义。
 //       按用户选择喂【完整 state JSON】（含全部字段，包括 blackbox 私密层）。
 //   (2) 通用注册表 window.__ST_CONTEXT_PROVIDERS__：任何扩展可 push({ name, getContext })，getContext()
@@ -12862,6 +13348,164 @@ function composeSummaryWithBbs(userText) {
     return u.trim() ? u + '\n\n' + block : block;
 }
 
+// ==================== 更新提醒（ENABLE_UPDATE_CHECK，1.38.0） ====================
+// 对比 SO_VERSION 与 GitHub 上 manifest.json 的 version：有新版 → ⋯/⚙ 与设置「更新」组标题亮红点，
+// 设置组出「立即更新」（走 ST 自带扩展更新 = git pull，成功后 5 秒自动刷新、点提示可取消）。
+// 检查结果只活在内存（updState）——故意不持久化：存盘的「有更新」会在更新完成后继续误报；
+// 每会话现比对，装上新版后 SO_VERSION 追平、红点自然消失。检查失败一律静默（无红点、不打扰）。
+
+const updState = {
+    checkedThisSession: false,  // 每会话只自动查一次（toggleWindow 开窗触发；刷新页面即重置）
+    checking: false,            // 并发守卫
+    updating: false,            // 一键更新进行中（按钮藏起 + 状态行「更新中…」，防双击）
+    latest: '',                 // 远端版本号（'' = 未查到）
+    available: false,           // 远端 > 本地
+    pendingReload: false,       // 已拉取新版但用户取消了自动刷新（待手动刷新生效）
+    cancelReload: null,         // 5 秒自动刷新的 setTimeout 句柄（点提示取消用）
+};
+
+// 纯函数：a 是否比 b 新。按 . 分段数字比较，缺段补 0、非数字段按 0；任一为空 → false。
+// '1.18.5-dev' 解析为 1.18.5（parseInt 吃掉 -dev）——孪生副本的 dev 后缀无害。
+function soVersionNewer(a, b) {
+    const A = String(a || '').trim(), B = String(b || '').trim();
+    if (!A || !B) return false;
+    const pa = A.split('.').map((n) => parseInt(n, 10) || 0);
+    const pb = B.split('.').map((n) => parseInt(n, 10) || 0);
+    const len = Math.max(pa.length, pb.length);
+    for (let i = 0; i < len; i++) {
+        const x = pa[i] || 0, y = pb[i] || 0;
+        if (x !== y) return x > y;
+    }
+    return false;
+}
+
+// 纯函数：updState → 三个 UI 事实（红点开关 / 状态行文案 / 是否出「立即更新」按钮）。
+// 文案优先级：更新中 > 已更新待刷新 > 有新版 > 已是最新 >（未查到/失败）空。红点只跟 available。
+function soUpdStatusView(st) {
+    const s = st || {};
+    const dotOn = !!s.available;
+    let status = '', showGo = false;
+    if (s.updating) status = '更新中…';
+    else if (s.pendingReload) status = '已更新，刷新页面后生效';
+    else if (s.available) { status = '发现新版本 v' + s.latest; showGo = true; }
+    else if (s.latest) status = '已是最新';
+    return { dotOn, status, showGo };
+}
+
+// 读一个来源的 version：8 秒超时；任何失败（网络 / 非 2xx / 坏 JSON / 空版本）→ ''，绝不抛。
+async function soReadRemoteVersion(src) {
+    try {
+        const url = src.bust ? src.url + '?t=' + Date.now() : src.url;
+        const signal = (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) ? AbortSignal.timeout(8000) : undefined;
+        const res = await fetch(url, { method: 'GET', cache: 'no-store', signal });
+        if (!res.ok) return '';
+        const j = await res.json();
+        return String((j && j.version) || '').trim();
+    } catch (e) { return ''; }
+}
+
+// 自动检查（toggleWindow 首开触发，每会话一次；updAutoCheck 关则触发点直接不调）。
+// 静默：查到才动 state；全失败只 console.warn 一行、不动早前结论、无任何 UI 打扰。
+async function soCheckUpdate() {
+    if (!ENABLE_UPDATE_CHECK || updState.checking) return;
+    updState.checking = true;
+    try {
+        let got = '';
+        for (const src of SO_UPDATE_SOURCES) {
+            got = await soReadRemoteVersion(src);
+            if (got) break;
+        }
+        if (got) {
+            updState.latest = got;
+            updState.available = soVersionNewer(got, SO_VERSION);
+        } else {
+            console.warn('[Story Oracle] 更新检查失败（网络不可达），本次跳过。');
+        }
+    } finally {
+        updState.checking = false;
+        soPaintUpdateDot();
+    }
+}
+
+// 薄绘制器：把 soUpdStatusView 的三个事实落到 DOM（根类红点 / 状态行 / 按钮显隐）。
+// 幂等、随处可调；窗口未建或开关关 → no-op（单测环境即此路径）。
+function soPaintUpdateDot() {
+    if (!ENABLE_UPDATE_CHECK || !win) return;
+    const v = soUpdStatusView(updState);
+    win.classList.toggle('so-upd-on', v.dotOn);
+    const status = win.querySelector('#so-upd-status');
+    if (status) {
+        status.textContent = v.status;
+        status.classList.toggle('so-upd-hot', v.showGo);
+    }
+    const go = win.querySelector('#so-upd-go');
+    if (go) go.style.display = v.showGo ? '' : 'none';
+}
+
+// 失败提示（detail 空 = 通用指路文案）。红点保留（available 不动），按钮随重绘恢复。
+function soUpdFail(detail) {
+    const msg = detail || '一键更新没成功——常见于手动复制安装。请在酒馆「扩展管理」列表里点本扩展的更新按钮，或到 GitHub 重新下载覆盖。';
+    if (window.toastr) window.toastr.warning(msg, '故事神谕 · 更新', { timeOut: 10000 });
+}
+
+// 「立即更新」：ST 自带扩展更新（对扩展目录 git pull）。成功 → 5 秒后自动刷新（点提示取消）；
+// 失败 → 红点保留 + 指路「扩展管理」/ GitHub。只在用户点击时才触碰酒馆后端（平时检查纯前端 GET）。
+async function soRunUpdate() {
+    if (!ENABLE_UPDATE_CHECK || updState.updating) return;
+    updState.updating = true;
+    soPaintUpdateDot();
+    const ctx = getCtx();
+    const headers = (ctx && typeof ctx.getRequestHeaders === 'function') ? ctx.getRequestHeaders() : { 'Content-Type': 'application/json' };
+    try {
+        // ① 找到自己的安装位。third-party 目录本地/全局都可能装；同名双装（迁移残留）时本地优先——
+        //    ST 重复 id 守卫下真正在跑的通常是先加载的本地份，而且本地更新不需要管理员。
+        const dRes = await fetch('/api/extensions/discover', { method: 'GET', headers, cache: 'no-store' });
+        if (!dRes.ok) { soUpdFail(''); return; }
+        const list = await dRes.json();
+        const hits = (Array.isArray(list) ? list : []).filter((x) => {
+            const name = String((x && x.name) || '');
+            return name.indexOf('third-party/') === 0 && name.split('/').pop() === 'story-oracle';
+        });
+        const hit = hits.find((x) => x && x.type === 'local') || hits[0];
+        if (!hit) { soUpdFail('没找到本扩展的安装目录（可能改过文件夹名）——请在酒馆「扩展管理」里更新，或到 GitHub 重新下载覆盖。'); return; }
+        // ② ST 更新 API：对该目录 git pull。extensionName 是裸目录名（端点自己拼 third-party 基路径）。
+        const uRes = await fetch('/api/extensions/update', {
+            method: 'POST', headers,
+            body: JSON.stringify({ extensionName: 'story-oracle', global: hit.type === 'global' }),
+        });
+        if (uRes.status === 403) { soUpdFail('全局安装的扩展需要管理员账号才能更新——请用管理员登录后再试，或在「扩展管理」里更新。'); return; }
+        if (!uRes.ok) { soUpdFail(''); return; }
+        const out = await uRes.json().catch(() => ({}));
+        if (out && out.isUpToDate) {
+            // 远端版本号（Raw/CDN）缓存超前于 git 拉取结果（罕见时序）：本地其实已最新。
+            // 本会话收起红点、不刷新；下会话重查自然对齐。
+            updState.available = false;
+            if (window.toastr) window.toastr.info('本地已是最新（远端版本号缓存延迟）。', '故事神谕 · 更新');
+            return;
+        }
+        // ③ 拉取成功：新代码已落盘，刷新页面才生效。5 秒自动刷新，点提示可取消（改为手动刷新）。
+        updState.available = false;
+        updState.cancelReload = setTimeout(() => { try { location.reload(); } catch (e) { /* jsdom 单测环境无导航 */ } }, 5000);
+        if (window.toastr) {
+            window.toastr.success('更新完成，5 秒后自动刷新页面生效——点此取消刷新', '故事神谕 · 更新', {
+                timeOut: 5000, extendedTimeOut: 0, tapToDismiss: true,
+                onclick: () => {
+                    if (updState.cancelReload) { clearTimeout(updState.cancelReload); updState.cancelReload = null; }
+                    updState.pendingReload = true;
+                    soPaintUpdateDot();
+                    if (window.toastr) window.toastr.info('已取消自动刷新。新版本将在下次刷新页面后生效。', '故事神谕 · 更新');
+                },
+            });
+        }
+    } catch (e) {
+        console.warn('[Story Oracle] 一键更新失败：', e);
+        soUpdFail('');
+    } finally {
+        updState.updating = false;
+        soPaintUpdateDot();
+    }
+}
+
 function buildDiagnosePrompt(ctx, s) {
     // 手动诊断模式：用 generateReply 现算好的模块状态变量。
     return buildDiagnosePromptFrom(ctx, s, {
@@ -12889,6 +13533,13 @@ function buildFixSpanPrompt(ctx, s, sel) {
     let subst = (t) => t;
     if (ctx && typeof ctx.substituteParams === 'function') subst = (t) => { try { return ctx.substituteParams(t); } catch (e) { return t; } };
     return subst(FIX_SPAN_PROMPT) + '\n\n' + buildFixSpanEnvelope({ card: fixCardBlock, summary: fixSummaryBlock, context: fixContextBlock, full: (sel && sel.full) || '', span: (sel && sel.text) || '' });
+}
+
+// 选段调用的消息数组（单一来源，R9）：单段路径 runFixSelect 与多段批发 runFixSelectBatch 都从这儿拿——
+// 两路 prompt 字节同源，H1 的 n=1 字节同一性由构造保证（multifix.test.mjs 钉）。ctx/s/sel 语义同
+// buildFixSpanPrompt（sel = {full, text}）。
+function buildSpanMessages(ctx, s, sel, instruction) {
+    return [{ role: 'system', content: buildFixSpanPrompt(ctx, s, sel) }, { role: 'user', content: instruction }];
 }
 
 // 纯函数：解析 <FixedSpan> 改写稿。locateTagOpen 取行首/末次（防模型在 <fix_think> 里提及标签劫持首次锚定，
@@ -13012,7 +13663,7 @@ function buildLorebookPrompt(ctx, s) {
 
     // 说话人格（仅当用户主动选了某个人格时）：管家指令之上叠一层语气皮肤，
     // 附带职责调整 + 结构保护（区块格式与围栏正文不受人格影响）。
-    const personaBlock = buildPersonaBlock(s.personaId, 'lorebook');
+    const personaBlock = buildPersonaBlock(s.personaId, 'lorebook', s);
     if (personaBlock) parts.push(personaBlock);
 
     parts.push('=== 当前世界书内容 ===\n' +
@@ -13088,7 +13739,7 @@ function buildAdvisorPrompt(ctx, s) {
 
     // 说话人格（仅当用户主动选了某个人格时）：参谋指令之上叠语气皮肤，附带
     // 职责调整（构思未来剧情正是本职，不算「擅自续写」）+ 结构保护。
-    const personaBlock = buildPersonaBlock(s.personaId, 'advisor');
+    const personaBlock = buildPersonaBlock(s.personaId, 'advisor', s);
     if (personaBlock) parts.push(personaBlock);
 
     // 当前正在引导主聊天的构件：弧线 异或 单拍（§4 不变量）。参谋拿到它才能回答"检查进度"。
@@ -13465,13 +14116,13 @@ function buildPresetMessages(s) {
     // 戏外守卫（1.32.1）：预设路径的【顶部身份头】。预设组装完全替换了神谕自己的系统提示——
     // 组装里没有任何一处说明「这是侧聊分析窗口」，预设的写手/角色人设 + 正文格式契约（思考块/
     // 样式注释/assistant 预填）就成了唯一身份来源 → 挂预设时「continue」被当成正文续写指令
-    // （Edwin Opus 实况；本地电池 5/5 复现，终位单尾锚也压不住）。身份头立在预设块之前，把
+    // （Prince Opus 实况；本地电池 5/5 复现，终位单尾锚也压不住）。身份头立在预设块之前，把
     // 预设降为风格/语境参考；与故事轮后的尾锚构成与默认路径同款的「顶部身份 + 边界尾锚」夹心。
     if (ENABLE_OFFSTAGE_GUARD) pushMsg(out, 'system', OFFSTAGE_PRESET_HEADERS.normal);
 
     // Optional voice-persona layer, off by default in preset mode. When chosen,
     // it leads as a top-level voice directive; the preset still governs content.
-    const personaBlock = buildPersonaBlock(s.personaId);
+    const personaBlock = buildPersonaBlock(s.personaId, null, s);
     if (personaBlock) pushMsg(out, 'system', subst(ctx, personaBlock));
 
     let sawHistory = false;
@@ -13693,13 +14344,6 @@ function isUserAbort(err) {
 
 // Generate one assistant reply for the current tail of `convo` (which must already
 // end with the user turn being answered). Shared by send / edit / regenerate.
-// A4 开发者选项：把最近快照的提示词（lastPrompt/lastPromptMeta）打进控制台。默认关（devLogPrompt）；
-// 各发送路径填好 lastPromptMeta 后调用它，覆盖所有模式。原生化自二创 dev-options（全模式请求日志）。
-function soDevLogPrompt() {
-    if (!getSettings().devLogPrompt || !lastPrompt || !lastPromptMeta) return;
-    console.log(`%c[Story Oracle] 发送提示词 · ${lastPromptMeta.mode} / ${lastPromptMeta.target} · ${lastPromptMeta.chars} 字`, 'color:#8ab4f8;font-weight:600;');
-    lastPrompt.forEach((m, i) => console.log(`  [${i + 1}] ${m.role}:\n`, m.content));
-}
 async function generateReply() {
     if (isGenerating) return;
     const s = getSettings();
@@ -13798,7 +14442,6 @@ async function generateReply() {
         chars: lastPrompt.reduce((n, m) => n + (m.content ? m.content.length : 0), 0),
         time: new Date().toLocaleTimeString(),
     };
-    soDevLogPrompt();   // A4 开发者：控制台打印发送的提示词（所有模式）
     const aEntry = { id: ++cidSeq, role: 'assistant', content: '' };
     const assistantEl = addMessage('assistant', '', aEntry);
     aEntry._el = assistantEl;
@@ -14388,19 +15031,21 @@ function renderFixCard(assistantEl, contentEl, aEntry, finalText) {
  * 于只读 textarea——划选定位到字符偏移，回插精确（片段之外的字节永不进模型、永不变，结构块构造性安全）。
  * 采集规则仿 GG corrections.js（5 条，见下）。开始校正 → runFixSelect。整篇手动校正独立并存、不受影响。
  * ------------------------------------------------------------------ */
-let fixSelState = null;    // { idx, swipeId, fingerprint, start, end, text, full }
+let fixSelState = null;    // { idx, swipeId, fingerprint, start, end, text, full, pins }
 let fixSelCard = null;     // 懒建一次、复用
 let fixSelStored = null;   // 存下的选区 { start, end }（失焦后信它——浏览器失焦常报损坏范围）
 
 function openFixSelectCard() {
     if (!ENABLE_FIX_SELECT) return;                       // 杀死开关读点①
+    // 生成中禁开卡（终审补钉）：并发单段跑会抢走共享 abortCtl（停止键错杀）＋提前清 isGenerating
+    if (isGenerating) { addSystemNote('正在生成回复中——请等它完成或先停止，再开选段校正。'); return; }
     const ctx = getCtx();
     const latest = getLatestAiMessage();
     if (!latest || latest.idx < 0) { addSystemNote('没有可校正的 AI 回复。'); return; }
     const m = (ctx.chat || [])[latest.idx];
     const full = (m && typeof m.mes === 'string') ? m.mes : '';
     if (!full.trim()) { addSystemNote('最新回复为空，无法选段。'); return; }
-    fixSelState = { idx: latest.idx, swipeId: (m && Number.isInteger(m.swipe_id)) ? m.swipe_id : 0, fingerprint: fixFingerprint(full), start: 0, end: 0, text: '', full };
+    fixSelState = { idx: latest.idx, swipeId: (m && Number.isInteger(m.swipe_id)) ? m.swipe_id : 0, fingerprint: fixFingerprint(full), start: 0, end: 0, text: '', full, pins: [] };
     fixSelStored = null;
     if (!fixSelCard) fixSelCard = buildFixSelCard();
     const ta = fixSelCard.querySelector('.so-fixsel-text');
@@ -14408,7 +15053,9 @@ function openFixSelectCard() {
     fixSelCard.querySelector('.so-fixsel-instr').value = '';
     const info = fixSelCard.querySelector('.so-fixsel-info');
     info.textContent = '未选中片段——请在上方文本里划选。';
-    fixSelCard.querySelector('.so-fixsel-go').disabled = true;
+    fixSelCard.querySelector('.so-fixsel-pin-btn').disabled = true;
+    renderFixSelPins(fixSelCard);      // 开卡从零开始（v1 钉选不跨开卡持久，交接 4.1）
+    updateFixSelGo(fixSelCard);        // 恢复「开始校正」+ disabled（0 钉无选区）
     const overlay = fixSelCard.querySelector('.so-fixsel-overlay');
     overlay.innerHTML = ''; overlay.style.display = 'none';
     fixSelCard.classList.add('open');
@@ -14427,7 +15074,11 @@ function buildFixSelCard() {
                     <div class="so-fixsel-overlay" aria-hidden="true"></div>
                     <textarea class="so-fixsel-text" readonly spellcheck="false"></textarea>
                 </div>
-                <div class="so-fixsel-info so-hint">未选中片段——请在上方文本里划选。</div>
+                <div class="so-fixsel-inforow">
+                    <div class="so-fixsel-info so-hint">未选中片段——请在上方文本里划选。</div>
+                    <button type="button" class="so-fixsel-pin-btn" disabled title="把当前划选存为一个片段（每段可单独写要求），然后可继续划下一段">📌 钉住这段</button>
+                </div>
+                <div class="so-fixsel-pins"></div>
                 <textarea class="so-fixsel-instr" rows="3" placeholder="想怎么改这个片段？（例：这段重写得更简洁 / 这句对白改得更冷）"></textarea>
             </div>
             <div id="so-fixsel-btns">
@@ -14450,15 +15101,18 @@ function buildFixSelCard() {
         const sel = resolveRecordedSelection(
             { focused: document.activeElement === ta, start: ta.selectionStart, end: ta.selectionEnd },
             fixSelStored, ta.value.length);
+        const pinBtn = el.querySelector('.so-fixsel-pin-btn');
+        const nPins = (fixSelState && fixSelState.pins) ? fixSelState.pins.length : 0;
         if (sel && (sel.end - sel.start) >= 2) {
             fixSelState.start = sel.start; fixSelState.end = sel.end; fixSelState.text = ta.value.slice(sel.start, sel.end);
-            info.textContent = '已选中 ' + fixSelState.text.length + ' 字。';
-            go.disabled = false;
+            info.textContent = '已选中 ' + fixSelState.text.length + ' 字。' + (nPins ? `（已钉 ${nPins} 段）` : '');
+            pinBtn.disabled = false;
         } else {
             fixSelState.start = 0; fixSelState.end = 0; fixSelState.text = '';
-            info.textContent = '未选中片段——请在上方文本里划选（至少 2 个字）。';
-            go.disabled = true;
+            info.textContent = nPins ? `已钉住 ${nPins} 段——可继续划选下一段，或直接开始。` : '未选中片段——请在上方文本里划选（至少 2 个字）。';
+            pinBtn.disabled = true;
         }
+        updateFixSelGo(el);
     };
     const record = () => {
         const start = ta.selectionStart, end = ta.selectionEnd;
@@ -14471,32 +15125,133 @@ function buildFixSelCard() {
     ta.addEventListener('touchend', () => setTimeout(record, 50), { passive: true });
     // 规则1（续）：document selectionchange，仅当焦点在本 textarea——iOS 拖选手柄时唯一可靠信号
     document.addEventListener('selectionchange', () => { if (document.activeElement === ta) record(); });
-    // 规则5：聚焦时隐藏高亮 overlay（原生黄选区权威，两者不打架）
-    ta.addEventListener('focus', () => { overlay.style.display = 'none'; });
-    // 规则4：失焦时把存下的范围画成持久高亮（用户敲指令时选区仍可见）
-    ta.addEventListener('blur', () => paintFixSelHighlight(ta, overlay));
+    // 规则5（多段版）：聚焦时只画钉选段——活选区让位给原生黄选；无钉 = 隐藏（与旧版行为一致）
+    ta.addEventListener('focus', () => paintFixSelOverlayAll(el));
+    // 规则4（多段版）：失焦时画 钉选段 + 存档选区（用户敲指令时都看得见）
+    ta.addEventListener('blur', () => paintFixSelOverlayAll(el));
     ta.addEventListener('scroll', () => { overlay.scrollTop = ta.scrollTop; overlay.scrollLeft = ta.scrollLeft; }, { passive: true });
+
+    // 📌 钉住这段：规整（收白边 / 查重叠 / 查上限）→ 入列 → 清活选区（手机上顺序流：划一段钉一段）
+    el.querySelector('.so-fixsel-pin-btn').addEventListener('click', () => {
+        if (!fixSelState || fixSelState.text.length < 2) return;
+        const r = normalizePinAdd(fixSelState.pins, { start: fixSelState.start, end: fixSelState.end }, fixSelState.full, MULTIFIX_MAX_PINS);
+        if (!r.ok) {
+            info.textContent = r.reason === 'overlap' ? `与片段${r.index + 1}重叠——换一段划选。`
+                : (r.reason === 'cap' ? `一次最多钉 ${MULTIFIX_MAX_PINS} 段。` : '这段去掉首尾空白后太短（至少 2 个字）。');
+            return;
+        }
+        fixSelState.pins = r.pins;
+        fixSelState.start = 0; fixSelState.end = 0; fixSelState.text = '';
+        fixSelStored = null;
+        try { ta.setSelectionRange(0, 0); } catch (e) { /* ignore */ }
+        renderFixSelPins(el);
+        paintFixSelOverlayAll(el);
+        info.textContent = `已钉住 ${fixSelState.pins.length} 段——可继续划选下一段，或直接开始。`;
+        el.querySelector('.so-fixsel-pin-btn').disabled = true;
+        updateFixSelGo(el);
+    });
 
     go.addEventListener('click', () => {
         const instr = (el.querySelector('.so-fixsel-instr').value || '').trim();
+        const pins = (fixSelState && fixSelState.pins) || [];
+        if (fixSelDispatchMode(pins.length) === 'batch') {   // 2+ 段 → 批发（每段一次冻结单段调用，并行）
+            const chk = multiFixRunnable(pins, instr);
+            if (!chk.ok) { info.textContent = `片段${chk.missing.join('、')}还没有要求——给这些段各写一条，或写一条整体要求。`; return; }
+            close();
+            runFixSelectBatch(instr);
+            return;
+        }
+        if (pins.length === 1) {   // H1：单钉 = 钉的偏移灌回 fixSelState、走今天的单段路（字节同一调用）
+            const eff = resolvePinInstruction(pins[0].instr, instr);
+            if (!eff) { info.textContent = '请先说要怎么改这个片段（该段的要求或整体要求都行）。'; return; }
+            fixSelState.start = pins[0].start; fixSelState.end = pins[0].end; fixSelState.text = pins[0].text;
+            close();
+            runFixSelect(eff);
+            return;
+        }
         if (!instr) { info.textContent = '请先说要怎么改这个片段。'; return; }
         if (!fixSelState || fixSelState.text.length < 2) { info.textContent = '请先在上方划选一段文字（至少 2 个字）。'; return; }
         close();
-        runFixSelect(instr);   // C4
+        runFixSelect(instr);   // C4（0 钉裸选区 = 今天的原路，逐字节不动）
     });
     return el;
 }
 
-// 规则4 辅助：把存下的选区范围画成持久黄高亮（escape HTML + <span class=so-fixsel-hl>），失焦后仍能看清选了哪段。
-function paintFixSelHighlight(ta, overlay) {
-    const text = ta.value || '';
-    const s = fixSelStored;
-    const esc = (x) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    if (!s || !(s.end > s.start)) { overlay.innerHTML = esc(text); overlay.style.display = 'none'; return; }
-    const start = Math.max(0, Math.min(s.start, text.length)), end = Math.max(start, Math.min(s.end, text.length));
-    overlay.innerHTML = esc(text.slice(0, start)) + '<span class="so-fixsel-hl">' + esc(text.slice(start, end)) + '</span>' + esc(text.slice(end));
+// 多段 overlay 全量重画（规则4/5 的多段版）：钉选段（.so-fixsel-hl-pin，冷色）+ 失焦存档选区
+//（.so-fixsel-hl，暖色）。聚焦时只画钉——活选区让位原生黄选。无任何区间 = 隐藏（与旧版一致）。
+function paintFixSelOverlayAll(card) {
+    const ta = card.querySelector('.so-fixsel-text');
+    const overlay = card.querySelector('.so-fixsel-overlay');
+    const ranges = ((fixSelState && fixSelState.pins) || []).map((p) => ({ start: p.start, end: p.end, cls: 'so-fixsel-hl-pin' }));
+    if (document.activeElement !== ta && fixSelStored && fixSelStored.end > fixSelStored.start) {
+        ranges.push({ start: fixSelStored.start, end: fixSelStored.end, cls: 'so-fixsel-hl' });
+    }
+    if (!ranges.length) { overlay.innerHTML = ''; overlay.style.display = 'none'; return; }
+    overlay.innerHTML = buildFixSelOverlayHtml(ta.value || '', ranges);
     overlay.style.display = 'block';
     overlay.scrollTop = ta.scrollTop; overlay.scrollLeft = ta.scrollLeft;
+}
+
+// 钉选 chips 重画：每段一行 = 「片段k「摘要」」+ 该段要求输入 + 移除 ×。手机端：行 flex-wrap，输入框
+// min-width 挤不下自动换整行；× ≥32px 点区。输入直写 pin.instr（对象引用，开跑时快照）。
+function renderFixSelPins(card) {
+    const box = card.querySelector('.so-fixsel-pins');
+    const pins = (fixSelState && fixSelState.pins) || [];
+    box.innerHTML = '';
+    box.style.display = pins.length ? 'flex' : 'none';
+    pins.forEach((p, i) => {
+        const row = document.createElement('div');
+        row.className = 'so-fixsel-pinrow';
+        const tag = document.createElement('span');
+        tag.className = 'so-fixsel-pintag';
+        tag.textContent = `片段${i + 1}「${p.text.slice(0, 12)}${p.text.length > 12 ? '…' : ''}」`;
+        const instr = document.createElement('input');
+        instr.type = 'text';
+        instr.className = 'so-fixsel-pininstr';
+        instr.placeholder = '这段怎么改？（留空则用下方整体要求）';
+        instr.value = p.instr || '';
+        instr.addEventListener('input', () => { p.instr = instr.value; });
+        const rm = document.createElement('button');
+        rm.type = 'button'; rm.className = 'so-fixsel-pinrm'; rm.title = '移除此段';
+        rm.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+        rm.addEventListener('click', () => {
+            fixSelState.pins.splice(i, 1);
+            renderFixSelPins(card); paintFixSelOverlayAll(card); updateFixSelGo(card);
+            const info = card.querySelector('.so-fixsel-info');   // 终审补钉：移除后同步刷新提示行（防「已钉 n 段」滞留旧数）
+            if (info) info.textContent = fixSelState.pins.length ? `已钉住 ${fixSelState.pins.length} 段——可继续划选下一段，或直接开始。` : '未选中片段——请在上方文本里划选（至少 2 个字）。';
+        });
+        row.appendChild(tag); row.appendChild(instr); row.appendChild(rm);
+        box.appendChild(row);
+    });
+}
+
+// go 键三态（H1 可视化 + V4 成本提示）：0 钉 = 今天的「开始校正」（活选区门控）；1 钉 = 同标签（走旧路）；
+// 2+ = 「开始多段校正（n 段，n 次调用）」——调用数写在脸上，成本绝不意外。
+function updateFixSelGo(card) {
+    const go = card.querySelector('.so-fixsel-go');
+    const pins = (fixSelState && fixSelState.pins) || [];
+    if (pins.length >= 2) { go.textContent = `开始多段校正（${pins.length} 段，${pins.length} 次调用）`; go.disabled = false; }
+    else if (pins.length === 1) { go.textContent = '开始校正'; go.disabled = false; }
+    else { go.textContent = '开始校正'; go.disabled = !(fixSelState && fixSelState.text.length >= 2); }
+}
+
+// 选段调用传输层（单一来源，R9）：direct / profile × 流式 / 非流式 四格与 runFixSelect 原样同构，逐参不变；
+// onCum 收【累计】全文（streamDirect 的增量在此累加归一——profile 流本就是累计）。批发模式传 no-op。
+async function spanCallTransport(s, messages, signal, onCum) {
+    const effMaxTokens = fixEffMaxTokens(s);
+    if (s.mode === 'direct') {
+        const url = resolveEndpointUrl(s);
+        const body = { model: s.model, messages, max_tokens: effMaxTokens };
+        if (s.sendTemperature) body.temperature = s.temperature;
+        if (s.stream) {
+            let acc = '';
+            return streamDirect(url, s.apiKey, body, signal, (d) => { acc += d; onCum(acc); });
+        }
+        return callDirect(url, s.apiKey, body, signal);
+    }
+    const override = s.sendTemperature ? { temperature: s.temperature } : {};
+    if (s.stream) return callProfileStream(s.profileId, messages, effMaxTokens, override, signal, (full) => onCum(full));
+    return callProfile(s.profileId, messages, effMaxTokens, override, signal);
 }
 
 // ✂️ 选段校正主流程（1.27.0，Part C）：把 fixSelState 里划选的片段 + 用户指令发给模型（冻结 FIX_SPAN_PROMPT），
@@ -14508,7 +15263,7 @@ async function runFixSelect(instruction) {
     const s = getSettings();
     const sel = fixSelState;   // 快照本次划选（fixSelState 可能被下次开卡覆盖）
     await captureFixContext(s, { mode: 'manual' });   // 填 fixCardBlock/fixSummaryBlock/fixContextBlock（buildFixSpanPrompt 读）
-    const messages = [{ role: 'system', content: buildFixSpanPrompt(ctx, s, sel) }, { role: 'user', content: instruction }];
+    const messages = buildSpanMessages(ctx, s, sel, instruction);
 
     const aEntry = { id: ++cidSeq, role: 'assistant', content: '' };
     const assistantEl = addMessage('assistant', '', aEntry);
@@ -14520,28 +15275,11 @@ async function runFixSelect(instruction) {
     const timer = setTimeout(() => { try { abortCtl?.abort(); } catch (e) { /* ignore */ } }, POST_REPLY_CALL_TIMEOUT_MS);
     let finalText = '';
     try {
-        const effMaxTokens = fixEffMaxTokens(s);
-        if (s.mode === 'direct') {
-            const url = resolveEndpointUrl(s);
-            const body = { model: s.model, messages, max_tokens: effMaxTokens };
-            if (s.sendTemperature) body.temperature = s.temperature;
-            if (s.stream) {
-                contentEl.classList.add('so-streaming');
-                finalText = await streamDirect(url, s.apiKey, body, abortCtl.signal, (d) => { clearTyping(); contentEl.textContent += d; if (soFollowStream) scrollToBottom(); });
-                contentEl.classList.remove('so-streaming');
-            } else {
-                finalText = await callDirect(url, s.apiKey, body, abortCtl.signal);
-            }
-        } else {
-            const override = s.sendTemperature ? { temperature: s.temperature } : {};
-            if (s.stream) {
-                contentEl.classList.add('so-streaming');
-                finalText = await callProfileStream(s.profileId, messages, effMaxTokens, override, abortCtl.signal, (full) => { clearTyping(); contentEl.textContent = full; if (soFollowStream) scrollToBottom(); });
-                contentEl.classList.remove('so-streaming');
-            } else {
-                finalText = await callProfile(s.profileId, messages, effMaxTokens, override, abortCtl.signal);
-            }
-        }
+        // 传输四格收进 spanCallTransport（1.37.0 单一来源）；onCum 累计语义 = 原 profile 流分支原样，
+        // direct 流从「+= 增量」改「= 累计」——同一字符串级数，最终画面逐字节一致。
+        if (s.stream) contentEl.classList.add('so-streaming');
+        finalText = await spanCallTransport(s, messages, abortCtl.signal, (full) => { clearTyping(); contentEl.textContent = full; if (soFollowStream) scrollToBottom(); });
+        contentEl.classList.remove('so-streaming');
         clearTyping();
         renderFixSelectResult(assistantEl, contentEl, sel, finalText);
     } catch (e) {
@@ -14606,6 +15344,254 @@ async function applyFixSelect(sel, newSpan) {
     const spliced = spliceSpan(m.mes, sel.start, sel.end, newSpan);
     if (spliced == null) return '回插位置越界，未应用（请重开选段校正）。';
     const applied = await applyFixAsSwipe(sel.idx, spliced);
+    return applied ? true : '写入 swipe 失败，未应用。';
+}
+
+/* ------------------------------------------------------------------ *
+ * ✂️ 多段选段校正（1.37.0）：调度器 + 汇总器包在冻结单段调用外面。
+ * 每段一次今天的冻结调用（prompt/信封零偏差，H2）；并发有帽、逐段 fail-open（H5）；
+ * 评审卡逐段勾选、应用一次性降序回插（H3/H4）。0/1 段走旧路（H1）。
+ * ------------------------------------------------------------------ */
+
+// 有界并发池：至多 limit 路同时跑 thunks，结果按【输入序】落位；单个 thunk 抛错 → 该槽
+// {status:'failed', reason}（fail-open，一段的失败绝不拖垮别段）。JS 单线程事件循环下 next++ 无竞态。可单测。
+async function runBoundedPool(thunks, limit) {
+    const results = new Array(thunks.length);
+    let next = 0;
+    const worker = async () => {
+        while (next < thunks.length) {
+            const i = next++;
+            try { results[i] = await thunks[i](); }
+            catch (e) { results[i] = { status: 'failed', reason: String((e && e.message) || e) }; }
+        }
+    };
+    await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, thunks.length)) }, () => worker()));
+    return results;
+}
+
+// 纯函数（多段选段）：单段成稿归类。fixNoOp → 'nochange'（模型按原样返回，无勾选框）；
+// validateSpanFix 有警示 → 'warned'（出 diff、默认不勾）；干净 → 'ok'（默认勾上）。可单测。
+function classifySpanResult(pinText, span, outsideText) {
+    if (fixNoOp(pinText, span)) return { status: 'nochange' };
+    const v = validateSpanFix(pinText, span, outsideText);
+    return { status: v.warnings.length ? 'warned' : 'ok', warnings: v.warnings };
+}
+
+// 纯函数（多段选段）：批发原始结果 → 评审行。ok → 补算该段之外全文再归类（classifySpanResult）；
+// 其余状态原样直通。对已整理行幂等（重试后整卡重画会二过）。可单测。
+function prepareBatchRows(job, results) {
+    return (results || []).map((r) => {
+        if (!r || r.status !== 'ok') return { ...(r || { status: 'failed' }) };
+        const outside = job.full.slice(0, r.pin.start) + job.full.slice(r.pin.end);
+        const c = classifySpanResult(r.pin.text, r.span, outside);
+        return { ...r, status: c.status, warnings: c.warnings || [] };
+    });
+}
+
+// 单段调用核（多段选段）：批内每段一次。per-call 超时 + 批级中断双钩（手动链 AbortController，
+// 不依赖 AbortSignal.any —— 老 WebView 兼容）；不碰任何模块级槽（prompt 已在起跑前同步建好）。
+// 返回状态对象，绝不抛（fail-open，H5）：用户停止/切走 = aborted；单段超时 = failed（可重试）。
+async function runSpanCall(s, messages, batchSignal) {
+    const perCall = new AbortController();
+    const onBatchAbort = () => { try { perCall.abort(); } catch (e) { /* ignore */ } };
+    if (batchSignal.aborted) onBatchAbort();
+    else batchSignal.addEventListener('abort', onBatchAbort, { once: true });
+    const timer = setTimeout(onBatchAbort, POST_REPLY_CALL_TIMEOUT_MS);
+    try {
+        const finalText = await spanCallTransport(s, messages, perCall.signal, () => { /* 批发不逐段直播（v1） */ });
+        const parsed = parseFixSpan(finalText);
+        if (parsed.status !== 'ok') return { status: parsed.status };   // 'truncated' | 'unparseable'
+        return { status: 'ok', span: parsed.span };
+    } catch (e) {
+        if (batchSignal.aborted) return { status: 'aborted' };
+        if (isUserAbort(e)) return { status: 'failed', reason: '单段超时' };
+        return { status: 'failed', reason: String((e && e.message) || e) };
+    } finally {
+        clearTimeout(timer);
+        try { batchSignal.removeEventListener('abort', onBatchAbort); } catch (e) { /* ignore */ }
+    }
+}
+
+// 多段批发主流程（1.37.0）：captureFixContext 一次 → 【同步】为每段建 prompt（模块槽 fixCardBlock/
+// fixSummaryBlock/fixContextBlock 在任何 await 前读完 = 并发绝不互踩，R8 的构造性解法）→ 有界并发池
+// 逐段 runSpanCall → 汇总出评审卡。isGenerating + 模块 abortCtl 走标准生成协议：停止键 / 1.36.0
+// 切模式确认（confirmConvoSwap）/ 切聊天中断全部免费继承；不入保活槽（liveForge/liveCondense 是锻造/
+// 深度精简专属）。起跑后绝不 convo.push（1.36.0 串房教训）——全部落笔进起跑时建好的这只气泡。
+async function runFixSelectBatch(sharedInstr) {
+    if (!ENABLE_FIX_SELECT || isGenerating) return;
+    if (!fixSelState || !Array.isArray(fixSelState.pins) || fixSelState.pins.length < 2) return;
+    const ctx = getCtx();
+    const s = getSettings();
+    // 快照（await 前）：重开卡会覆盖 fixSelState，批发全程只认起跑这一刻的钉选
+    const job = { idx: fixSelState.idx, swipeId: fixSelState.swipeId, fingerprint: fixSelState.fingerprint, full: fixSelState.full, pins: fixSelState.pins.map((p) => ({ ...p })) };
+    await captureFixContext(s, { mode: 'manual' });   // 填模块槽（同 runFixSelect，一次够全批用——手动分支不依赖片段）
+    const calls = job.pins.map((pin) => ({
+        pin,
+        messages: buildSpanMessages(ctx, s, { full: job.full, text: pin.text }, resolvePinInstruction(pin.instr, sharedInstr)),
+    }));
+    const aEntry = { id: ++cidSeq, role: 'assistant', content: '' };
+    const assistantEl = addMessage('assistant', '', aEntry);
+    aEntry._el = assistantEl;
+    const contentEl = assistantEl.querySelector('.so-content');
+    const clearTyping = showTyping(contentEl);
+    setGenerating(true);
+    abortCtl = new AbortController();   // 共享中断器（H7）：停止键 / 切聊天 / 1.36.0 确认后切换 都打得到
+    const batchSignal = abortCtl.signal;
+    let done = 0;
+    try {
+        const results = await runBoundedPool(calls.map((c) => () =>
+            runSpanCall(s, c.messages, batchSignal).then((r) => {
+                done++;
+                clearTyping();
+                contentEl.textContent = `多段校正进行中… ${done}/${calls.length} 段完成`;
+                return { ...r, pin: c.pin, messages: c.messages };
+            })
+        ), MULTIFIX_CONCURRENCY);
+        clearTyping();
+        renderFixSelectBatchResult(assistantEl, contentEl, job, results);
+    } catch (e) {
+        clearTyping();
+        contentEl.textContent = '多段校正失败：' + ((e && e.message) || e);
+        contentEl.classList.add('so-hint-error');
+    } finally {
+        setGenerating(false); abortCtl = null;
+        if (soFollowStream) scrollToBottom();
+    }
+}
+
+// 评审卡（多段选段，侧聊气泡内——不占遮罩、天然随窗滚动，无手机夹死风险）：逐段一行 = 状态 + diff +
+// 勾选（ok 默认勾 / warned 默认不勾 / 其余无勾选框）。头部诚实计数；应用勾选段一次性回插；失败段一键重试。
+// 幂等：先摘旧 .so-multifix-box 再画（重试后整卡重画走这条）。控件是内存闭包 —— 与今天的单段结果卡同一
+// 持久化档次（重载后按钮消失，v1 有意一致）。
+function renderFixSelectBatchResult(assistantEl, contentEl, job, results) {
+    const rows = prepareBatchRows(job, results);
+    const changed = rows.filter((r) => r.status === 'ok' || r.status === 'warned').length;
+    const kept = rows.filter((r) => r.status === 'nochange').length;
+    const failed = rows.length - changed - kept;
+    contentEl.textContent = `多段校正完成：改了 ${changed} 段 / 保留 ${kept} 段 / 失败 ${failed} 段。逐段核对后应用勾选的段。`;
+    const bubble = assistantEl.querySelector('.so-bubble') || contentEl.parentElement;
+    const old = bubble.querySelector('.so-multifix-box');
+    if (old) old.remove();
+    const box = document.createElement('div');
+    box.className = 'so-multifix-box';
+    const STATUS_LABEL = { nochange: '未改动（模型按原样返回）', truncated: '疑似截断——保留原文', unparseable: '未解析出改写稿——保留原文', failed: '调用失败——保留原文', aborted: '已停止——保留原文' };
+    rows.forEach((r, i) => {
+        const row = document.createElement('div');
+        row.className = 'so-multifix-row so-multifix-' + r.status;
+        const head = document.createElement('div');
+        head.className = 'so-multifix-rowhead';
+        const excerpt = r.pin.text.slice(0, 15) + (r.pin.text.length > 15 ? '…' : '');
+        if (r.status === 'ok' || r.status === 'warned') {
+            const cb = document.createElement('input');
+            cb.type = 'checkbox'; cb.className = 'so-multifix-accept';
+            cb.checked = (r.status === 'ok');
+            cb.dataset.row = String(i);
+            const lb = document.createElement('label');
+            lb.appendChild(cb);
+            lb.appendChild(document.createTextNode(` 片段${i + 1}「${excerpt}」`));
+            head.appendChild(lb);
+            const diffBtn = document.createElement('button');
+            diffBtn.className = 'so-apply-btn so-multifix-diffbtn';
+            diffBtn.textContent = '看改动';
+            head.appendChild(diffBtn);
+            row.appendChild(head);
+            for (const w of (r.warnings || [])) {
+                const warn = document.createElement('div');
+                warn.className = 'so-fix-nearcopy-warn';
+                warn.textContent = w;
+                row.appendChild(warn);
+            }
+            const diff = renderDiffCard(r.pin.text, r.span);
+            diff.style.display = 'none';
+            diffBtn.addEventListener('click', () => { diff.style.display = (diff.style.display === 'none') ? 'block' : 'none'; });
+            row.appendChild(diff);
+        } else {
+            head.textContent = `片段${i + 1}「${excerpt}」：` + (STATUS_LABEL[r.status] || STATUS_LABEL.failed) + (r.reason ? `（${r.reason}）` : '');
+            row.appendChild(head);
+        }
+        box.appendChild(row);
+    });
+    const bar = document.createElement('div');
+    bar.className = 'so-apply-bar so-multifix-bar';
+    const applyBtn = document.createElement('button');
+    applyBtn.className = 'so-apply-btn';
+    const status = document.createElement('span');
+    status.className = 'so-apply-status';
+    const updateApplyLabel = () => {
+        const k = box.querySelectorAll('.so-multifix-accept:checked').length;
+        applyBtn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> 应用勾选的 ' + k + ' 段';
+        applyBtn.disabled = k === 0;
+    };
+    box.addEventListener('change', (e) => { if (e.target && e.target.classList && e.target.classList.contains('so-multifix-accept')) updateApplyLabel(); });
+    applyBtn.addEventListener('click', async () => {
+        applyBtn.disabled = true;
+        const accepted = [];
+        box.querySelectorAll('.so-multifix-accept:checked').forEach((cb) => {
+            const r = rows[Number(cb.dataset.row)];
+            if (r && typeof r.span === 'string') accepted.push(r);
+        });
+        const res = await applyFixSelectBatch(job, accepted);
+        if (res === true) { status.textContent = '已应用（原回复留在左滑，可随时滑回）'; }
+        else { status.textContent = res; updateApplyLabel(); }
+    });
+    bar.appendChild(applyBtn);
+    const retriable = rows.filter((r) => r.status === 'failed' || r.status === 'truncated' || r.status === 'unparseable' || r.status === 'aborted');
+    if (retriable.length) {
+        const retryBtn = document.createElement('button');
+        retryBtn.className = 'so-apply-btn';
+        retryBtn.innerHTML = '<i class="fa-solid fa-rotate-right"></i> 重试失败的 ' + retriable.length + ' 段';
+        retryBtn.addEventListener('click', () => retryFixSelectBatch(assistantEl, contentEl, job, rows));
+        bar.appendChild(retryBtn);
+    }
+    bar.appendChild(status);
+    box.appendChild(bar);
+    bubble.appendChild(box);
+    updateApplyLabel();
+    scrollToBottom();
+}
+
+// 重试失败段：只重发 failed/truncated/unparseable/aborted 的段。messages 起跑时已建好、【原样复用】——
+// 不重建 prompt、不再 captureFixContext（信封与首轮字节相同，H2 恒守）。归并结果后整卡重画。
+async function retryFixSelectBatch(assistantEl, contentEl, job, rows) {
+    if (isGenerating) return;
+    const s = getSettings();
+    const targets = [];
+    rows.forEach((r, i) => { if (r.status === 'failed' || r.status === 'truncated' || r.status === 'unparseable' || r.status === 'aborted') targets.push(i); });
+    if (!targets.length) return;
+    setGenerating(true);
+    abortCtl = new AbortController();
+    const batchSignal = abortCtl.signal;
+    let done = 0;
+    contentEl.textContent = `重试中… 0/${targets.length} 段完成`;
+    try {
+        const rr = await runBoundedPool(targets.map((i) => () =>
+            runSpanCall(s, rows[i].messages, batchSignal).then((r) => {
+                done++;
+                contentEl.textContent = `重试中… ${done}/${targets.length} 段完成`;
+                return r;
+            })
+        ), MULTIFIX_CONCURRENCY);
+        targets.forEach((rowIdx, j) => { rows[rowIdx] = { ...rows[rowIdx], ...rr[j] }; });
+        renderFixSelectBatchResult(assistantEl, contentEl, job, rows);
+    } catch (e) {
+        contentEl.textContent = '重试失败：' + ((e && e.message) || e);
+    } finally {
+        setGenerating(false); abortCtl = null;
+    }
+}
+
+// 多段应用（原子）：指纹不符 → 整单拒（H4，同单段文案基调）；spliceSpansBackToFront 整单成败（指纹已核
+// 对仍越界 = bug 信号，绝不半套）；成功走 applyFixAsSwipe 全家桶（MVU 快照 / display_text 作废 / swipe
+// 刷新 / 事件——与单段应用同一条路）。返回 true 或人话错误串。
+async function applyFixSelectBatch(job, accepted) {
+    if (!accepted || !accepted.length) return '没有勾选任何段，未应用。';
+    const ctx = getCtx();
+    const m = (ctx.chat || [])[job.idx];
+    if (!m || typeof m.mes !== 'string') return '目标回复已不在了，未应用。';
+    if (fixFingerprint(m.mes) !== job.fingerprint) return '这条回复自钉选后已发生变化（换了 swipe / 被改过）——为免覆盖新内容，未应用。请重开选段校正。';
+    const spliced = spliceSpansBackToFront(m.mes, accepted.map((r) => ({ start: r.pin.start, end: r.pin.end, replacement: r.span })));
+    if (spliced == null) return '回插位置越界，未应用（请重开选段校正）。';
+    const applied = await applyFixAsSwipe(job.idx, spliced);
     return applied ? true : '写入 swipe 失败，未应用。';
 }
 
@@ -14891,7 +15877,7 @@ function addAutoFixNote(status, problems, fix = null) {
 // 遇到时问一次——本轮不校正：持久侧聊记录（autoFixNoteContent 'ask'）+ 可点确认的 toast + 记
 // fixA_pieceAsked + 按钮转琥珀 pending。确认（confirmPieceBare）后按聊天记住 bare，之后每条新回复照常
 // 分段校正。不确认：后续回复走 emitPiecePending【重弹可点 toast + 保持琥珀按钮】，绝不无声跳过——不确定性
-// 是可见的问题（Option B：kill the silence，2026-07-07，修 edwin-09 bare 卡「自动校正静默漏抓」）。
+// 是可见的问题（Option B：kill the silence，2026-07-07，修 prince-09 bare 卡「自动校正静默漏抓」）。
 function emitPieceAsk(dec) {
     setFixCfg({ fixA_pieceAsked: true });
     const p = (dec && dec.proposal) || { prose: 0, guards: 0 };
@@ -16019,7 +17005,7 @@ function addFixApplyControls(assistantEl, parsed, originalReply, targetIdx, keep
     bar.appendChild(status);
     const bubble = assistantEl.querySelector('.so-bubble');
     bubble.appendChild(bar);
-    // 近抄警示（Tier 0 ①，Edwin 定案：手动只【警示】、不拦应用）：稿子与原文几乎相同时如实告知——高上下文
+    // 近抄警示（Tier 0 ①，Prince 定案：手动只【警示】、不拦应用）：稿子与原文几乎相同时如实告知——高上下文
     // DeepSeek 的「抄原文不改」此前以一枚正常「应用」按钮示人（fixNoOp 只抓逐字相同）。警示是加分项、包 try 不阻断。
     // 已应用态重挂（1.33.2）时不再出警示——稿子已写入，警示徒增噪音。
     if (!opts.applied) {
@@ -16524,11 +17510,13 @@ async function clearConversation() {
     // 操作（清空概要 / 重置提示词 / 退出弧线）保持一致，先确认再执行。空对话则无需打扰直接返回。
     const where = convoStreamKey === 'main' ? '本聊天（普通聊天）的侧聊记录' : (streamCueLabel(convoStreamKey, getSettings()) || '本模式的侧聊记录');
     if (convo.length && !(await uiConfirm(`确定清空${where}吗？此操作会删除已保存的记录，无法撤销。`))) return;
-    // keep-forging：若正有后台锻造流进【本房间】，清空即中断它并清 liveForge（用户主动清本房记录）；锻造在
-    // 别的房间则不动（下面 loadConvoForChat 的 !liveForge 守卫也据此放它继续）。
-    if (isGenerating && abortCtl && liveForge && liveForge.streamKey === convoStreamKey) {
+    // 保活：若正有后台锻造 / 深度精简流进【本房间】，清空即中断它并清两槽（用户主动清本房记录）；保活
+    // 运行在别的房间则不动（下面 loadConvoForChat 的守卫也据此放它继续）。
+    const liveRun = liveForge || liveCondense;
+    if (isGenerating && abortCtl && liveRun && liveRun.streamKey === convoStreamKey) {
         try { abortCtl.abort(); } catch (e) { /* ignore */ }
         liveForge = null;
+        liveCondense = null;
     }
     convo = [];
     persistConvo();   // 用户功能请求：手动清空也清掉本聊天保存的历史（删元数据键）
@@ -16558,7 +17546,7 @@ function repaintHtmlForRoom(streamKey, content) {
 }
 // PURE：按房间算重画后该重挂哪些动作卡。参谋采纳卡 / 世界书应用控件从【字符串】可完整导出 →
 // 全记录重挂（采用 = 元数据 + 注入、应用 = 现读整本书，各自带守卫）；诊断补丁 / 校正应用只挂
-// 【最新一条 AI 回复】（Edwin 定案 2026-07-16：旧补丁对着已前进的状态回放不安全——校正另有
+// 【最新一条 AI 回复】（Prince 定案 2026-07-16：旧补丁对着已前进的状态回放不安全——校正另有
 // 陈旧守卫，但最新一条已覆盖全部真实价值）。校正材料在会话注册表里，这里只标记候选；挂载端凭
 // id+内容取材料，取不到（重载过 / 内容不符）= 保持只读（1.31.1 契约）。
 function repaintControlPlan(streamKey, list) {
@@ -16591,10 +17579,11 @@ function repaintControlPlan(streamKey, list) {
 // 生成，避免流式气泡继续写到被清掉的 DOM 上。
 function loadConvoForChat() {
     if (!messagesEl) return;                       // 窗口还没建好（极早期）——略过，init 末尾会再调一次
-    // keep-forging：切模式重画时【不】中断在途锻造——liveForge 存在 = 后台锻造正跑，让它继续（回房时
-    // 下方重挂气泡，完成后按原始房间归位）。切聊天 / 清空由 onChatChanged / clearConversation 显式中断并
-    // 清 liveForge，到这里已 null，照常中断其它在途生成（普通聊天/访谈/校正等，维持 1.28.0 起行为）。
-    if (isGenerating && abortCtl && !liveForge) { try { abortCtl.abort(); } catch (e) { /* ignore */ } }
+    // 保活：切模式重画时【不】中断在途的锻造 / 深度精简——liveForge / liveCondense 存在 = 后台保活运行
+    // 正跑，让它继续（回房时下方重挂气泡，完成后按原始房间归位）。切聊天 / 清空由 onChatChanged /
+    // clearConversation 显式中断并清掉两槽，到这里已 null，照常中断其它在途生成（普通聊天/访谈/校正等，
+    // 维持 1.28.0 起行为；1.36.0 起用户侧切换入口会先弹确认——见 confirmConvoSwap）。
+    if (isGenerating && abortCtl && !liveForge && !liveCondense) { try { abortCtl.abort(); } catch (e) { /* ignore */ } }
     const saved = getConvoMeta();
     convo = saved
         .filter((m) => m && (m.role === 'user' || m.role === 'assistant' || m.role === 'note') && typeof m.content === 'string')
@@ -16609,7 +17598,9 @@ function loadConvoForChat() {
         cue.textContent = cueText;
         messagesEl.appendChild(cue);
     }
-    if (!convo.length) { renderEmptyState(); return; }
+    // 保活修（1.36.0 :8001 smoke 抓到）：空房只画空态、【不得提前 return】——回房重挂在函数尾部，
+    // 提前退出会漏挂正在后台流式的锻造/深度精简气泡（空房 + 在途保活 = 清过本房记录再开跑的场景）。
+    if (!convo.length) renderEmptyState();
     for (const m of convo) {
         // note 重画时凭注册表重挂本会话的按钮（自动诊断撤销 / 自动校正用原文——重载后注册表为空 = 只读记录，契约不变）
         m._el = (m.role === 'note') ? addNoteMessage(m, peekNoteOpts(convoStreamKey, m)) : addMessage(m.role, m.content, m);
@@ -16638,15 +17629,17 @@ function loadConvoForChat() {
             if (fa) rehangFixApply(m._el, fa, m);
         }
     }
-    // keep-forging：后台锻造回房重挂——切模式离开工坊时锻造在后台继续流式；回到工坊且它仍在跑 → 重建一个
-    // 流式气泡、接上累积文本（entry._el 重指向新气泡，onDelta 的 paintForge 继续画到这里）。完成/失败的落盘由
-    // runForge 负责（按 originKey 归位），这里只恢复「正在流」的可见性；成稿后它已进 convo，故 id 去重防重挂。
-    if (liveForge && liveForge.streamKey === convoStreamKey && liveForge.entry
-        && !convo.some((m) => m.id === liveForge.entry.id)) {
-        const el = addMessage('assistant', '', liveForge.entry);
-        liveForge.entry._el = el;
+    // 保活回房重挂（锻造 / 深度精简同款）：切模式离开时保活运行在后台继续流式；回到原房且它仍在跑 →
+    // 重建一个流式气泡、接上累积文本（entry._el 重指向新气泡，paintForge 继续画到这里）。完成/失败的
+    // 落盘由各自 run 函数负责（按 originKey 归位），这里只恢复「正在流」的可见性；成稿后它已进 convo，
+    // 故 id 去重防重挂。
+    const liveRun = liveForge || liveCondense;
+    if (liveRun && liveRun.streamKey === convoStreamKey && liveRun.entry
+        && !convo.some((m) => m.id === liveRun.entry.id)) {
+        const el = addMessage('assistant', '', liveRun.entry);
+        liveRun.entry._el = el;
         const c = el.querySelector('.so-content');
-        if (c) { c.classList.add('so-streaming'); c.textContent = liveForge.text || ''; }
+        if (c) { c.classList.add('so-streaming'); c.textContent = liveRun.text || ''; }
     }
     scrollToBottom();
 }
@@ -16689,12 +17682,12 @@ function dropNoteOpts(roomKey, entry) { if (entry) noteOptsById.delete(`${roomKe
 
 /* ------------------------------------------------------------------ *
  * 持久「已应用」标记（1.33.2）。applied/撤销 一直只活在按钮闭包里——1.33.1 重挂动作卡后，
- * 以前应用过的世界书/诊断记录重画后又顶着崭新「应用」按钮出现（Edwin 报告）。撤销快照只在
+ * 以前应用过的世界书/诊断记录重画后又顶着崭新「应用」按钮出现（Prince 报告）。撤销快照只在
  * 内存（重放旧快照会把整本书/状态回滚到旧拷贝 = 1.31.1 同族危险，绝不落盘），所以跨重载能
  * 诚实提供的只有一个事实标记：这条记录应用过。落盘 chat 元数据 `MODULE_applied`：
  * 房间::记录id → fixFingerprint(content)（指纹校验挡 id 撞旧记录，同 1.31.1 内容守卫思路）。
  * 应用成功落标记、撤销去标记；重画时【有标记而无会话状态】= 重载过 → 不出应用按钮、只留
- * 「此前已应用过」说明（Edwin 定案 2026-07-16）。
+ * 「此前已应用过」说明（Prince 定案 2026-07-16）。
  * ------------------------------------------------------------------ */
 const APPLIED_META_KEY = MODULE + '_applied';
 const APPLIED_MARKS_MAX = 200;   // 元数据保险：超长聊天只留最近 200 条标记（先进先出）
@@ -16731,7 +17724,7 @@ function isRecordApplied(roomKey, entry) {
 // 它要把捕获时抠走的机制块/保留区接回（composeFixedReply）、写到捕获时的目标楼层、过陈旧守卫——
 // 这些是调用当时的内存材料（fixOriginalReply/fixTargetIdx/fixExtraKeep/fixScope/fixCaptured 都是
 // 单槽变量，下一次校正即被覆盖）。三个出卡点在挂应用控件前先按 房间::记录id 登记一份；换房重画时
-// 仅【最新一条 AI 回复】凭 id+内容取回重挂（Edwin 定案 2026-07-16）。材料从不落盘：重载后注册表
+// 仅【最新一条 AI 回复】凭 id+内容取回重挂（Prince 定案 2026-07-16）。材料从不落盘：重载后注册表
 // 为空 = 记录只读（与 1.31.1 同一契约）。noteText = 卡下「发现并修正 / 整体校正…」说明的原文。
 function registerFixApply(entry, parsed, originalReply, targetIdx, keepSections, scope, captured, finalOverride, noteText) {
     registerNoteOpts(convoStreamKey, entry, {

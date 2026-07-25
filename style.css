@@ -18,7 +18,7 @@
     z-index: 3000;
     display: flex;
     flex-direction: column;
-    min-width: 320px;
+    min-width: min(320px, 96vw);   /* 超窄屏（折叠屏外屏/高缩放）：min-width 会压过 max-width，别把窗口撑出屏外——右缘住着 ✕ */
     min-height: 340px;
     max-width: 96vw;
     max-height: 90vh;
@@ -85,7 +85,11 @@
     font-size: 0.82em;
 }
 
-#so-header-btns { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+/* 装不下就换行、绝不裁掉 ✕：「工具移到标题栏」在手机上多塞 5 键，整排比窗口还宽时，尾部的 ✕ 会被
+   #so-window 的 overflow:hidden 裁出窗外＝关不掉窗口（kill 2026-07-23）。max-width 只在整排超出标题栏
+   时生效 → 装得下的布局（默认/桌面）逐像素不变；flex-end 让换行后的末行仍右对齐、✕ 留在右上角。
+   故意不用 flex:0 1 auto（可收缩会让默认手机布局在标题还有宽度时提早换行）。 */
+#so-header-btns { display: flex; align-items: center; justify-content: flex-end; gap: 2px; flex: 0 0 auto; flex-wrap: wrap; max-width: 100%; }
 /* 分组细线：把标题栏 8 个图标按用途分成 模式切换 | 工具 | 窗口 三组（纯装饰，aria-hidden）。 */
 .so-hdr-div {
     flex: 0 0 auto;
@@ -1992,6 +1996,50 @@
 #so-fixsel-btns button:hover { background: rgba(255, 255, 255, 0.12); }
 .so-fixsel-go:not(:disabled) { background: var(--so-auto-red, #d9534f) !important; border-color: transparent !important; color: #fff !important; font-weight: 600; }
 .so-fixsel-go:disabled { opacity: 0.45; cursor: not-allowed; }
+/* 多段选段（1.37.0）——手机优先：钉按钮 ≥32px 点区；chips 行 flex-wrap，输入框挤不下换整行；
+   全部住在已滚动的 #so-fixsel-body 里，软键盘弹起也困不住控件 */
+.so-fixsel-inforow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: 0 0 auto; }
+.so-fixsel-inforow .so-fixsel-info { flex: 1 1 auto; }
+.so-fixsel-pin-btn {
+    flex: 0 0 auto; min-height: 32px; padding: 4px 10px; border-radius: 6px; cursor: pointer;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.2));
+    background: rgba(255, 255, 255, 0.06); color: inherit;
+}
+.so-fixsel-pin-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.so-fixsel-pins { display: none; flex-direction: column; gap: 6px; flex: 0 0 auto; }
+.so-fixsel-pinrow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.so-fixsel-pintag {
+    flex: 0 0 auto; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    background: rgba(90, 160, 255, 0.18); border: 1px solid rgba(90, 160, 255, 0.4);
+    border-radius: 10px; padding: 2px 8px; font-size: 0.85em;
+}
+.so-fixsel-pininstr {
+    flex: 1 1 160px; min-width: 160px; min-height: 30px; padding: 4px 8px; border-radius: 6px;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.2));
+    background: var(--black30a, rgba(0, 0, 0, 0.22)); color: var(--SmartThemeBodyColor, #e6e6e6);
+}
+.so-fixsel-pinrm {
+    flex: 0 0 auto; min-width: 32px; min-height: 30px; border-radius: 6px; border: none;
+    background: transparent; color: inherit; cursor: pointer; opacity: 0.7;
+}
+.so-fixsel-pinrm:hover { opacity: 1; background: rgba(255, 255, 255, 0.1); }
+.so-fixsel-hl-pin { background: rgba(90, 160, 255, 0.35); border-radius: 2px; color: transparent; }
+/* 多段评审卡（侧聊气泡内）：行卡 + 复选框大点区 + 按钮条可换行（窄屏不挤爆） */
+.so-multifix-box { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.so-multifix-row {
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15));
+    border-radius: 8px; padding: 6px 8px;
+}
+.so-multifix-rowhead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.so-multifix-rowhead label { display: flex; align-items: center; gap: 6px; min-height: 30px; cursor: pointer; flex: 1 1 auto; }
+.so-multifix-accept { width: 18px; height: 18px; flex: 0 0 auto; }
+.so-multifix-diffbtn { flex: 0 0 auto; }
+.so-multifix-bar { flex-wrap: wrap; }
+.so-multifix-nochange .so-multifix-rowhead,
+.so-multifix-failed .so-multifix-rowhead,
+.so-multifix-truncated .so-multifix-rowhead,
+.so-multifix-unparseable .so-multifix-rowhead,
+.so-multifix-aborted .so-multifix-rowhead { opacity: 0.75; }
 #so-autowarn-ok {
     background: var(--so-auto-red, #d9534f) !important;
     border-color: var(--so-auto-red, #d9534f) !important;
@@ -2056,3 +2104,41 @@
 #so-bld-chips-legend { font-size: 12px; line-height: 1.5; padding: 6px 8px; border: 1px dashed color-mix(in srgb, var(--so-bld-accent) 45%, transparent); border-radius: 8px; max-height: 30vh; overflow-y: auto; }
 #so-bld-chips-legend .so-bld-legend-row b { color: var(--so-bld-accent); }
 #so-bld-chips-legend .so-bld-legend-guide { opacity: .9; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px dashed color-mix(in srgb, var(--so-bld-accent) 30%, transparent); }
+
+/* ==================== 更新提醒（ENABLE_UPDATE_CHECK，1.38.0） ==================== */
+/* 红点：有新版时挂 ⋯ / ⚙ / 设置「更新」组标题。position:relative 只在亮点时上桩，平时零布局影响。 */
+#so-window.so-upd-on #so-tools-btn,
+#so-window.so-upd-on #so-settings-btn,
+#so-window.so-upd-on #so-upd-group > summary { position: relative; }
+#so-window.so-upd-on #so-tools-btn::after,
+#so-window.so-upd-on #so-settings-btn::after,
+#so-window.so-upd-on #so-upd-group > summary::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #e05b5b;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+    pointer-events: none;
+}
+/* 组标题是文字行：点挪到右缘垂直居中（覆盖上面的共享定位）。 */
+#so-window.so-upd-on #so-upd-group > summary::after {
+    top: 50%;
+    margin-top: -4px;
+    right: 10px;
+}
+.so-upd-row { display: flex; justify-content: space-between; gap: 8px; }
+#so-upd-status { opacity: 0.85; }
+#so-upd-status.so-upd-hot { color: #e05b5b; font-weight: 600; opacity: 1; }
+
+/* —— 自定义人格编辑器（1.39.0）——内联于设置面板滚动区（非覆盖卡，无需 #so-cur-card 骨架/逃生 ✕） */
+#so-persona-editor { border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px; padding: 8px; margin: 6px 0; display: flex; flex-direction: column; gap: 6px; }
+.so-pe-field { display: flex; flex-direction: column; gap: 3px; }
+.so-pe-field > span { opacity: 0.85; font-size: 0.92em; }
+#so-persona-editor textarea { width: 100%; box-sizing: border-box; resize: vertical; }
+.so-pe-btns { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.so-pe-btns button { min-height: 32px; }   /* 移动端点击目标（1.37.1 先例） */
+.so-pe-spacer { flex: 1 1 auto; }
