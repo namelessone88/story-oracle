@@ -2222,7 +2222,7 @@ function init() {
             if (typeof toastr !== 'undefined' && toastr.info) {
                 toastr.info('已为你默认启用内置破限「初心破限 1.0」（作者：' + BUILTIN_JB_AUTHOR + '）——'
                     + '它包裹在故事神谕自己的提示词外面，默认只作用于【普通聊天】。'
-                    + '不想要可在「系统提示词 → 补全预设」里换回「自定义」。主要对 DeepSeek 类模型生效，Gemini 基本无效。',
+                    + '不想要可在「系统提示词 → 补全预设」里换回「自定义」。',
                     '故事神谕', { timeOut: 15000 });
             }
         }
