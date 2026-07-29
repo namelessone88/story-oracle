@@ -1035,6 +1035,88 @@ function buildFixSelOverlayHtml(text, ranges) {
     return html + esc(t.slice(pos));
 }
 
+// ✂️ 选段校正·主聊天入口（1.42.0）：把「渲染层划选的字符串」映射回原始 m.mes 的字符区间。阶梯（spec
+// 2026-07-27-fixsel-chat-entry）：① 精确唯一命中；② 多处命中 → 渲染层前后文打分挑一处（平手取最早）；
+// ③ 零命中 → 模糊重扫（空白串互配 + raw 侧跳过渲染层看不见的 markdown 记号）；④ 仍无 → null（开卡不预选，
+// fail-open——宁可不选也不错选）。纯函数。sel 收首尾空白后 <2 字 → null（卡的最短选段门槛同款）。
+const FIXSEL_MAP_MAX_HITS = 200;   // 病态重复（整篇同一句）防护：收集到这么多命中就停，够消歧了
+function mapSelectionToRaw(selText, prefix, suffix, raw) {
+    const sel = String(selText || '').trim();
+    const hay = String(raw || '');
+    if (sel.length < 2 || !hay) return null;
+    const pre = String(prefix || '');
+    const suf = String(suffix || '');
+    const exact = [];
+    for (let i = hay.indexOf(sel); i !== -1; i = hay.indexOf(sel, i + 1)) {
+        exact.push({ start: i, end: i + sel.length });
+        if (exact.length >= FIXSEL_MAP_MAX_HITS) break;
+    }
+    if (exact.length === 1) return exact[0];
+    if (exact.length > 1) return pickByContext(exact, pre, suf, hay);
+    const fuzzy = fuzzyScanRaw(sel, hay);
+    if (fuzzy.length === 1) return fuzzy[0];
+    if (fuzzy.length > 1) return pickByContext(fuzzy, pre, suf, hay);
+    return null;
+}
+
+// 阶梯②：多处命中按前后文打分。得分 = prefix 贴着命中点的最长连续尾段匹配 + suffix 贴着命中尾的最长连续
+// 头段匹配（逐字符）；平手取最早（严格大于才换人）。
+function pickByContext(cands, pre, suf, hay) {
+    let best = cands[0], bestScore = -1;
+    for (const c of cands) {
+        let s = 0;
+        for (let k = 1; k <= pre.length && k <= c.start; k++) {
+            if (hay[c.start - k] === pre[pre.length - k]) s++; else break;
+        }
+        for (let k = 0; k < suf.length && c.end + k < hay.length; k++) {
+            if (hay[c.end + k] === suf[k]) s++; else break;
+        }
+        if (s > bestScore) { bestScore = s; best = c; }
+    }
+    return best;
+}
+
+// 阶梯③的记号集：markdown 强调/行内码，渲染层不可见、raw 里有 —— raw 侧允许跳过。
+const FIXSEL_MD_JUNK = '*_~`';
+// 单点模糊匹配：sel 侧空白串 ↔ hay 侧空白串（hay 侧空白串里可夹记号，但必须真吃到≥1个空白字符）；
+// 非空白处 hay 侧先跳记号再逐字符相等。成功返回终点偏移，失败 -1。
+function fuzzyMatchAt(sel, hay, start) {
+    let si = 0, hi = start;
+    while (si < sel.length) {
+        const sc = sel[si];
+        if (/\s/.test(sc)) {
+            let sj = si; while (sj < sel.length && /\s/.test(sel[sj])) sj++;
+            let hj = hi, ate = false;
+            while (hj < hay.length && (/\s/.test(hay[hj]) || FIXSEL_MD_JUNK.includes(hay[hj]))) {
+                if (/\s/.test(hay[hj])) ate = true;
+                hj++;
+            }
+            if (!ate) return -1;
+            si = sj; hi = hj;
+            continue;
+        }
+        while (hi < hay.length && FIXSEL_MD_JUNK.includes(hay[hi])) hi++;
+        if (hi >= hay.length || hay[hi] !== sc) return -1;
+        si++; hi++;
+    }
+    return hi;
+}
+// 阶梯③全扫：首字符相同的位置才试（剪枝）。O(n·m) 上界，消息万级字符毫秒级。
+function fuzzyScanRaw(sel, hay) {
+    const out = [];
+    const first = sel[0];
+    if (!first) return out;
+    for (let i = 0; i < hay.length; i++) {
+        if (hay[i] !== first) continue;
+        const end = fuzzyMatchAt(sel, hay, i);
+        if (end !== -1) {
+            out.push({ start: i, end });
+            if (out.length >= FIXSEL_MAP_MAX_HITS) break;
+        }
+    }
+    return out;
+}
+
 // 纯函数：勾选目标 + 非空约束 → 校正指令。T1 总附；T2 仅当依据上下文在场（八股需卡+前文、对话需卡、魔法需世界书）。
 // 无目标且两约束皆空 → ''。可单测。
 function compileFixTargets(targets, ctx, constraints) {
@@ -1302,6 +1384,27 @@ const ENABLE_AUTO_DIAGNOSE = true;
 // runAutoDiagnose 实读（constants-meta 守）。
 const AUTO_DIAGNOSE_WRITE_BACK = true;
 
+// 🩺 自动诊断【把修正写进正文】总开关（实验性）。默认行为（核验·甲）只把修正写进 MVU 实时状态、不碰消息
+// 正文 —— 于是用户一点 MVU 的【重新处理变量】（它把该楼变量清空、只按正文重新推一遍），诊断的修正就没了。
+// live 用户 smallmj：智绘姬插图加载不出来要靠那个按钮，于是陷入「重处理→修正丢→重新应用→插图又卡」的循环。
+// 开启后（另需运行期 opt-in 设置 diagInjectBody，默认关）把这次诊断的实际改动作为一段 <JSONPatch> 插进
+// 卡片【已有的那个更新区块内部】—— MVU 按【文本位置】排序执行全部命令（update_variables.ts extractCommands
+// → sortBy('$index')），插在最后 = 卡片自己的更新照常先跑、我们的修正后跑 = 重放结果与诊断当时逐字一致。
+// 为什么插进去而不是另起一块：卡片的显示正则普遍是贪婪的 `<update(?:variable)?>(.*)</update(?:variable)?>`
+// （/gsi）；正文里出现【两个】区块时它会从第一个开标签一路吃到最后一个闭标签，把夹在中间的
+// <StatusPlaceHolderImpl/> 一起吞进折叠面板 —— 实测本机 1734 张真卡里 1611 张（93%）状态栏会因此消失。
+// 区块被截断、找不到干净闭标签时【什么都不做】（绝不回落到另起一块，那正是上面这条 93% 的坑）。
+// false → 设置行不渲染、注入恒为空操作、撤销侧不做正文清理 = 与 1.40.2 逐字节相同。
+// 读点：设置行模板 / runAutoDiagnose 写回闸门 / bind 守卫 / 回填守卫。
+const ENABLE_DIAG_BODY_INJECT = true;
+
+// 插进卡片更新区块里的那段补丁的定界注释。用 HTML 注释是刻意的：① MVU 只认 <json_patch> 与 _.set(...)，
+// 注释对它完全透明；② 卡片显示正则把整块交给 $1 时，注释在渲染结果里【不可见】（实测 1734 张真卡：1724 张
+// 注释原样保留＝不可见、10 张连整块一起隐藏、0 张只剩半边）；③ 给撤销 / 重跑一个可精确定位的边界，于是
+// stripDiagPatchFromText 能把正文【逐字节】还原成插入前的样子。
+const DIAG_PATCH_OPEN = '<!--so-diag-->';
+const DIAG_PATCH_CLOSE = '<!--/so-diag-->';
+
 // 戏外守卫（1.32.0）总开关：普通聊天 + 剧情参谋的「高上下文续写失守」修复——transcript 数据
 // 围栏（<story_transcript> 只读引用材料信封）+ 尾锚【戏外提醒】（歧义短输入/戏内误投=讨论；
 // 用户明确点名代笔=照做、有框交付、写完即停）。实测（2026-07-14 电池，DS ~247 调用 + Gemini 13
@@ -1420,6 +1523,11 @@ const ENABLE_FIX_SELECT = true;
 // ST 服务逐请求独立 promise —— 皆可并行，中转限流靠这个帽 + 逐段 fail-open + 「重试失败段」兜）。
 const MULTIFIX_MAX_PINS = 8;
 const MULTIFIX_CONCURRENCY = 3;
+// ✂️ 选段校正·主聊天入口（1.42.0）总开关：最新 AI 楼层动作行的 ✂️ 按钮 + 划选追踪 + 预选开卡。false →
+// 按钮不注入、点击处理 no-op、selectionchange 追踪空转——主聊天字节回 1.41.x。读者：refreshFixChatEntry
+// 注入门 + onFixChatEntryClick 守卫 + onChatSelectionChange 守卫。另叠加 ENABLE_REPLY_FIX &&
+// ENABLE_FIX_SELECT（缺任一按钮不渲染——没有卡可开就不该有入口）。
+const ENABLE_FIXSEL_CHAT_ENTRY = true;
 // 角色工坊（第 6 模式）总开关。关 → ⋯ 菜单不显示入口、toggleBuilder no-op、设置栏 #so-bld-bar 恒 display:none
 // （so-bld-on 永不加上，模式不可达）、侧聊流恒主流、草稿卡随隐藏栏不可见——整模式对用户完全隐形。
 // 【1.25.0 发布暂时下架整个模式】= false：本次随其它修复发布 Story Oracle，工坊（含用户角色分家 + v2 锻造提示词）
@@ -1465,7 +1573,7 @@ const ENABLE_CUSTOM_PERSONAS = true;
 // —— 更新提醒（1.38.0）——
 // SO_VERSION 是代码内唯一版本号，必须与 manifest.json 的 version 完全一致——update-check.test.mjs
 // 有失配即红的漂移钉（发版清单：两处一起 bump）。
-const SO_VERSION = '1.40.2';
+const SO_VERSION = '1.43.1';
 // 更新提醒总开关。false → 设置面板不渲染「更新」组、开窗不检查、红点绘制器与一键更新 no-op、
 // 绑定/回填跳过——字节级零行为变化。运行期另有 opt-out 设置 updAutoCheck（默认开）。
 const ENABLE_UPDATE_CHECK = true;
@@ -1654,6 +1762,9 @@ const defaults = {
     autoDiagnoseEnabled: false,
     autoDiagnoseWarned: false,
     autoDiagnoseDelayMs: 1200,
+    // 🩺 把诊断修正写进正文（ENABLE_DIAG_BODY_INJECT，实验性，默认关）。开了才会动消息正文；
+    // 关着时核验（甲）分支的行为与 1.40.2 逐字节相同。详见该开关处的长注释。
+    diagInjectBody: false,
     // ✨ 自动校正 ↔ MVU「额外模型更新」抢写协调（opt-in，默认关）。开启后校正【照常立刻并行跑】——只在【落新 swipe
     // 之前】等 MVU 的额外模型解析写完（awaitMvuIdle 轮询 isDuringExtraAnalysis），再把它注入的机制块接到校正稿末尾
     // （mergeMvuTail），两者不抢写同一条消息、且几乎不增加等待。只有【用 MVU 额外模型更新】的人需要开；不用的保持
@@ -1694,6 +1805,11 @@ const defaults = {
     // when the model needs the preset's jailbreak to do the edit. The preset's
     // extra content can pull attention off the editing task.
     lorebookUsePreset: false,
+    // 诊断模式是否经用户策展的补全预设发送（1.43.0）。默认关——只有模型拒绝做这次
+    // 变量审计时才需要预设里的越狱。手动诊断与自动诊断【共用】这一个开关（两条路共用
+    // 同一个提示词构建器与同一套精选条目，没有校正那种手动/自动分家的基础）。
+    // 内置破限（哨兵）也跟着它走 —— 见 modeWantsJb。
+    diagnoseUsePreset: false,
     // 角色工坊（Task 4）——全局设置（不进 per-chat 覆盖）。
     // bldTarget：打造目标。'persona' = 写进 Persona；'npc' = 写进世界书条目。
     // bldBooks：选条目器的世界书多选（同 lorebookTargets 语义：[] = 当前激活的全部）。
@@ -2248,12 +2364,23 @@ function init() {
             ctx.eventSource.on(et.MESSAGE_RECEIVED || 'message_received', (id) => {
                 Promise.resolve(maybePostReply(id)).catch((e) => console.warn('[Story Oracle] 回复后编排调度失败：', e));
             });
+            // ✂️ 主聊天入口（1.42.0）：楼层重建事件全量重挂按钮；换聊天顺带弃划选记忆。
+            [
+                et.CHARACTER_MESSAGE_RENDERED || 'character_message_rendered',
+                et.USER_MESSAGE_RENDERED || 'user_message_rendered',
+                et.MESSAGE_SWIPED || 'message_swiped',
+                et.MESSAGE_EDITED || 'message_edited',
+                et.MESSAGE_DELETED || 'message_deleted',
+            ].forEach((ev) => ctx.eventSource.on(ev, refreshFixChatEntry));
+            ctx.eventSource.on(et.CHAT_CHANGED || 'chat_id_changed', () => { clearFixChatSel(); refreshFixChatEntry(); });
         }
     } catch (e) {
         console.warn('[Story Oracle] event wiring failed (plan injection will only refresh on reload):', e);
     }
     // Cover the chat that may already be loaded by the time the extension inits.
     onChatChanged();
+    document.addEventListener('selectionchange', onChatSelectionChange);   // ✂️ 划选追踪（守卫在函数内）
+    refreshFixChatEntry();   // ✂️ 首载补挂（此刻聊天可能已渲染完）
     if (ENABLE_HOOK_API) soExposeHookApi();   // 稳定挂载接口：全部接线就绪后再暴露 + 广播 ready
 }
 
@@ -2502,6 +2629,7 @@ async function buildWorldInfo(forceMode, extraScanText) {
             const entries = soApplyExcludeBooks(await mod.getSortedEntries(), excludeBooks);   // Hook API：剔除指定书
             const allBlock = (entries || [])
                 .filter((e) => e && !e.disable && typeof e.content === 'string' && e.content.trim())
+                .filter((e) => !isMvuRuleEntry(e))          // 机制规则诊断专属（此处喂原始内容 → 必须按条目剔）
                 .map((e) => e.content.trim())
                 .join('\n\n');
             // Mechanism rules are Diagnose-only; see stripMvuRuleContents.
@@ -2522,6 +2650,7 @@ async function buildWorldInfo(forceMode, extraScanText) {
                 let data; try { data = await mod.loadWorldInfo(name); } catch (e) { continue; }
                 const entries = Object.values((data && data.entries) || {})
                     .filter((e) => e && active[name].has(Number(e.uid)) && !e.disable && typeof e.content === 'string' && e.content.trim())
+                    .filter((e) => !isMvuRuleEntry(e))      // 机制规则诊断专属（此处喂原始内容 → 必须按条目剔）
                     .sort((a, b) => (Number(a.displayIndex ?? a.uid) - Number(b.displayIndex ?? b.uid)));
                 if (entries.length) blocks.push(entries.map((e) => e.content.trim()).join('\n\n'));
             }
@@ -2671,6 +2800,14 @@ async function buildWorldInfoSplit(forceMode, extraScanText) {
  */
 const MVU_UPDATE_TAG = /\[mvu_update\]/i;
 
+// 条目级判据：这条世界书条目是不是 [mvu_update] 机制规则（标题带标签即算）。
+// 'char' / 'all' 两条路径拿得到条目对象 —— 直接按标题剔除，比 stripMvuRuleContents 的
+// 内容比对可靠：那边比的是【展宏后】的规则文本，而这两条路径喂的是【原始未展宏】内容，
+// 规则里只要有 {{user}} 之类的宏就对不上、机制规则整段泄进普通/参谋提示词（2026-07-26 实测）。
+function isMvuRuleEntry(e) {
+    return !!e && MVU_UPDATE_TAG.test(String(e.comment || ''));
+}
+
 // Enumerate every enabled, constant [mvu_update] entry from the raw active
 // books. Returns substituted content strings, deduped, sorted by entry order.
 async function collectMvuRuleContents() {
@@ -2751,12 +2888,19 @@ function diagPickerActive() {
 }
 
 // 跑一次 ST 的 dry-run 世界书扫描（与 buildWorldInfo('st') 同输入），取当前【真正被激活】的条目，
-// 整理成 { 书名: Set<uid> }。用于诊断精选的两处：首开快照（蓝灯 + 当前命中绿灯）与混合模式（并入当前命中绿灯）。
-// 失败 / 老版本 ST 无 allActivatedEntries 时回 {}（调用方自然退化）。
+// 整理成 { 书名: Set<uid> }。用于「仅角色相关世界书」、工坊关键词补充、诊断精选两处（首开快照 / 混合模式）。
+//
+// ⚠ 入口必须是 world-info.js 的 checkWorldInfo，不能是 ctx.getWorldInfoPrompt：
+// getWorldInfoPrompt 只转发【装配好的插入位字符串】（worldInfoBefore/After/anBefore/…），
+// 带 world+uid 的 allActivatedEntries 从来只出现在内层 checkWorldInfo 的返回里（ST 历来如此，
+// 非新版回归）。读 getWorldInfoPrompt(...).allActivatedEntries 恒为 undefined → 本函数恒回 {}
+// → 「仅角色相关世界书」永远发不出任何世界书（2026-07-26 live 用户报障的真因）。
+// 老版本 ST 未导出 checkWorldInfo 时回 {}（= 修复前的行为，调用方自然退化）。
 async function getActiveScanUids(extraScanText) {
     const ctx = getCtx();
     try {
-        if (typeof ctx.getWorldInfoPrompt !== 'function') return {};
+        const wiMod = await loadWorldInfoModule();
+        if (!wiMod || typeof wiMod.checkWorldInfo !== 'function') return {};
         const coreChat = (ctx.chat || []).filter((m) => m && !m.is_system && typeof m.mes === 'string');
         const chatForWI = coreChat
             .map((m) => `${m.name || (m.is_user ? ctx.name1 : ctx.name2)}: ${m.mes}`)
@@ -2774,7 +2918,8 @@ async function getActiveScanUids(extraScanText) {
             trigger: 'normal',
         };
         const budget = await getWiScanBudget();
-        const res = await ctx.getWorldInfoPrompt(chatForWI, budget, /*isDryRun*/ true, globalScanData);
+        // isDryRun=true —— 与 buildWorldInfo('st') 同款：不动主聊天的 sticky / cooldown 状态。
+        const res = await wiMod.checkWorldInfo(chatForWI, budget, /*isDryRun*/ true, globalScanData);
         return activeUidsFromScan(res && res.allActivatedEntries);
     } catch (e) {
         console.warn('[Story Oracle] Active WI scan failed:', e);
@@ -3715,7 +3860,9 @@ function classifyBuilderReply(text) {
     if (p.ops.length || p.errors.length) return { kind: 'patch', ops: p.ops, errors: p.errors };
     const b = parseCharBrief(text);
     if (b.brief) return { kind: 'brief', brief: b.brief };
-    return { kind: 'none' };
+    // draftError 非空 ⟺ 有 <CharDraft> 开标签但没解析成（parseCharDraft 无开标签时恒返回 ''）——
+    // 调用方靠它把「整稿没落地」说出口，而不是把一整篇改写静默丢掉（1.43.1）。
+    return { kind: 'none', draftError: d.error || '' };
 }
 
 // 外科手术式改稿：逐条用世界书同款模糊锚点替换；未命中的记录原因、不阻断后续。
@@ -7792,10 +7939,15 @@ async function runAutoDiagnose(ctx, s, targetId) {
         : (latestBlock
             ? '【自动诊断】最新一条 AI 回复里带有变量更新区块。请按本卡 MVU 规则与当前状态核验它：有错就只输出一个修正后的 <UpdateVariable> 区块（仅含需改正的字段）；完全正确则在 <JSONPatch> 里输出空数组（[]）。'
             : '【自动诊断】最新一条 AI 回复里【含有】变量更新区块，但它用的标签不是标准写法、系统没能单独摘出来。请从下方回复正文里自行找到那段更新并核验：有错就只输出一个修正后的 <UpdateVariable> 区块（仅含需改正的字段）；完全正确则在 <JSONPatch> 里输出空数组（[]）。它【已经生效】了——绝不要把这回合的变化重新推导一遍。');
-    const messages = [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userMsg },
-    ];
+    // 经自定义补全预设（1.43.0，opt-in s.diagnoseUsePreset）：破限 / 越狱用，形状同 runAutoFix。
+    // ⚠ maybeWrapJb 的模式键必须是【字面量】'diagnose' —— 自动诊断在后台无头跑，触发时用户
+    // 可能正坐在任何一个模式里，currentJbModeKey() 会读到那个模式的 flag、给出错误判定。
+    const messages = (s.diagnoseUsePreset && presetCurationActive(s))
+        ? buildDiagnosePresetMessages(s, systemPrompt, userMsg)
+        : maybeWrapJb([
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMsg },
+        ], 'diagnose', s);
     // 调试提示词查看器快照（与 generateReply 同一形状）。自动诊断在后台跑、不经 generateReply，1.40.2 前
     // 从不入快照 —— 用户遇到自动诊断异常时，「调试提示词」面板里根本看不到它发了什么（smallmj 那个 bug
     // 因此多绕了好几轮）。这里补上。
@@ -7831,11 +7983,21 @@ async function runAutoDiagnose(ctx, s, targetId) {
     // 确有改动 → 把结果反映到消息 / 状态栏（auto 诊断走 replaceMvuData，不发刷新事件，状态栏不会自己更新）：
     //   衍生（乙，原回复无块）：写回推导块 + saveChat + 重渲染（与官方 MVU 更新一致）；
     //   核验（甲，原回复已有块）：只重渲染刷新状态栏，不碰消息正文（避免出现两个更新块）。
+    let writeBack = null;                                    // 实际写进正文的那段（撤销 / 重新应用时据此精确同步）
     if (AUTO_DIAGNOSE_WRITE_BACK && result.status === 'applied' && aiIdx >= 0) {
-        if (deriveMode) await writeUpdateBlockToMessage(aiIdx, patchBlock);
-        else refreshMessageBar(aiIdx);
+        if (deriveMode) {
+            if (await writeUpdateBlockToMessage(aiIdx, patchBlock)) writeBack = { idx: aiIdx, text: patchBlock, mode: 'derive' };
+        } else if (ENABLE_DIAG_BODY_INJECT && s.diagInjectBody) {
+            // 实验性 opt-in：把这次诊断的【实际改动】折成绝对值补丁，插进卡片已有的更新区块内部，
+            // 让 MVU 的【重新处理变量】重放正文时也落到同一结果。没写成 → 照旧只刷状态栏。
+            const injected = await injectDiagPatchIntoMessage(aiIdx, canonicalizeDiagOps(result.snapshot, Mvu), latestReply);
+            if (injected) writeBack = { idx: aiIdx, text: injected, mode: 'inject' };
+            else refreshMessageBar(aiIdx);
+        } else {
+            refreshMessageBar(aiIdx);
+        }
     }
-    notifyAutoDiagnose(result, patchBlock);
+    notifyAutoDiagnose(result, patchBlock, writeBack);
 }
 
 // 自动应用修复：解析补丁。回 {status:'applied', snapshot}（确有改动、已写入）/ {status:'nochange'}
@@ -7917,7 +8079,7 @@ function applyBlockToCurrentSwipe(m, block, placeholder) {
 async function writeUpdateBlockToMessage(idx, block) {
     const ctx = getCtx();
     const m = (ctx.chat || [])[idx];
-    if (!m || typeof m.mes !== 'string' || !block) return;
+    if (!m || typeof m.mes !== 'string' || !block) return false;
     const before = m.mes;
     applyBlockToCurrentSwipe(m, block, STATUS_PLACEHOLDER);
     if (m.mes !== before) {                                  // 确有追加才存盘
@@ -7925,6 +8087,210 @@ async function writeUpdateBlockToMessage(idx, block) {
         catch (e) { console.warn('[Story Oracle] 自动诊断写回消息后保存失败：', e); }
     }
     refreshMessageBar(idx);
+    // 返回「这次是否真把 block 追加进去了」——撤销据此决定该不该把它摘掉（幂等守卫可能压根没追加）。
+    // 旧调用点忽略返回值，行为不变。
+    return !before.includes(block) && m.mes.includes(block);
+}
+
+/* ------------------------------------------------------------------ *
+ * 🩺 把诊断修正写进正文（ENABLE_DIAG_BODY_INJECT，实验性 opt-in diagInjectBody）。
+ * 只作用于【核验·甲】这一支（衍生·乙 早就写回，见 writeUpdateBlockToMessage）。
+ * ------------------------------------------------------------------ */
+
+// 纯函数：这个值是不是 MVU 的 ValueWithDescription 对 —— [值, "说明"]（第二格是字符串、第一格不是数组）。
+// MVU 的 set 分支对这种路径【只写第一格】、保留说明（update_variables.ts:767-786）；所以给这类路径出补丁
+// 必须写【标量】，把整对写回去会变成 [[值,"说明"],"说明"]（或触发它紧随其后的 assertVWD）。生命值 / 好感度 /
+// 法力这类最常见的数值恰恰多是这种形状 —— 这是本功能唯一与变量【类型】相关的地方。可单测。
+function mvuIsVwdPair(v) {
+    return Array.isArray(v) && v.length === 2 && typeof v[1] === 'string' && !Array.isArray(v[0]);
+}
+
+// 纯函数：把「诊断前 → 诊断后」的 stat_data 差异折成一串【绝对值】JSONPatch 操作。
+// 为什么不把模型出的补丁原样写进正文：模型的补丁常含相对量（delta），那是按【诊断当时】的状态算的；
+// 一旦回放时的起点与当时不同（用户中途改过变量 / 别的扩展写过 / MVU 额外模型解析插过手），相对量就会漂。
+// 写进正文的是【MVU 实际算出来的结果】而非模型的意图 —— 回放多少次都落在同一个值上，且天然幂等。
+// 规则：VWD 对只出第一格标量；新增键出 add（MVU 的 set 碰到不存在的路径会直接跳过，只有 insert/add 建得了）；
+// 删除出 remove；其余出 replace。$internal 是 MVU 自己塞进 stat_data 的运行期字段（update_variables.ts:682），跳过。
+// 比较沿用本文件既有的 JSON.stringify 口径（同 autoApplyFix）。可单测。
+function diffMvuStat(oldStat, newStat, base) {
+    const prefix = base || '';
+    const isPlainObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+    const a = isPlainObj(oldStat) ? oldStat : {};
+    const b = isPlainObj(newStat) ? newStat : {};
+    const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+    const keys = Object.keys(a);
+    for (const k of Object.keys(b)) if (!has(a, k)) keys.push(k);
+    const ops = [];
+    for (const k of keys) {
+        if (!prefix && k === '$internal') continue;
+        const path = prefix + '/' + k;
+        if (has(a, k) && !has(b, k)) { ops.push({ op: 'remove', path }); continue; }
+        if (!has(a, k) && has(b, k)) { ops.push({ op: 'add', path, value: b[k] }); continue; }
+        const va = a[k], vb = b[k];
+        if (mvuIsVwdPair(va) && mvuIsVwdPair(vb)) {
+            if (JSON.stringify(va[0]) !== JSON.stringify(vb[0])) ops.push({ op: 'replace', path, value: vb[0] });
+            continue;
+        }
+        if (isPlainObj(va) && isPlainObj(vb)) { for (const op of diffMvuStat(va, vb, path)) ops.push(op); continue; }
+        if (JSON.stringify(va) !== JSON.stringify(vb)) ops.push({ op: 'replace', path, value: vb });
+    }
+    return ops;
+}
+
+// 纯函数：把 ops 拼成要插进区块里的那段文本（含定界注释）。ops 为空 → ''（调用方据此不注入）。可单测。
+function buildDiagPatchPayload(ops) {
+    if (!Array.isArray(ops) || !ops.length) return '';
+    return DIAG_PATCH_OPEN + '\n<JSONPatch>\n' + JSON.stringify(ops) + '\n</JSONPatch>\n' + DIAG_PATCH_CLOSE + '\n';
+}
+
+// 纯函数：把 payload 插进【文本里最早那个】更新区块的闭标签之前（跨方言，取块沿用 extractUpdateBlock）。
+// 闭标签靠【块尾】定位，不另写 `</name` 正则 —— 那会被 </update_analysis> 抢先命中（1.40.2 同款边界坑）。
+// 没有干净闭标签（区块被截断）→ 返回 null，调用方【什么都不做】。可单测。
+function insertDiagPatchIntoBlock(text, payload) {
+    const s = String(text == null ? '' : text);
+    if (!payload) return null;
+    const block = extractUpdateBlock(s);
+    if (!block) return null;
+    const tail = /<\/[A-Za-z_][\w.:-]*\s*>\s*$/.exec(block);
+    if (!tail) return null;
+    const at = s.indexOf(block);
+    if (at < 0) return null;
+    return s.slice(0, at + tail.index) + payload + s.slice(at + tail.index);
+}
+
+// 纯函数：把我们插进去的那段（含定界注释）整段摘掉，令正文【逐字节】回到插入前。幂等；没插过就原样返回。可单测。
+function stripDiagPatchFromText(text) {
+    const s = String(text == null ? '' : text);
+    return s.replace(new RegExp(DIAG_PATCH_OPEN + '[\\s\\S]*?' + DIAG_PATCH_CLOSE + '\\n?', 'g'), '');
+}
+
+// 纯函数：把我们自己会发的三种 op（replace / add / remove）按【MVU 的语义】重放到 base 上，返回新状态。
+// 只需覆盖这三种——补丁是我们生成的，不会出现 move / delta。唯一的语义要点就是 VWD：路径当前值是
+// `[值,"说明"]` 时，MVU 的 set 写的是第一格（update_variables.ts:767-786），这里照做。可单测。
+function replayDiagOps(baseStat, ops) {
+    const out = (baseStat == null) ? {} : JSON.parse(JSON.stringify(baseStat));
+    for (const op of (Array.isArray(ops) ? ops : [])) {
+        const segs = String((op && op.path) || '').split('/').slice(1);
+        if (!segs.length) continue;
+        let node = out;
+        for (let i = 0; i < segs.length - 1 && node && typeof node === 'object'; i++) node = node[segs[i]];
+        if (!node || typeof node !== 'object') continue;
+        const last = segs[segs.length - 1];
+        if (op.op === 'remove') { delete node[last]; continue; }
+        if (op.op === 'replace' && mvuIsVwdPair(node[last])) { node[last][0] = op.value; continue; }
+        node[last] = (op.value === undefined) ? null : JSON.parse(JSON.stringify(op.value));
+    }
+    return out;
+}
+
+// 纯函数：比对用的归一化 —— VWD 对折成它的第一格。理由：说明槽（第二格）不是状态，而且 MVU 的标量 set
+// 【够不着】它，所以「说明变了」既不该判成差异、也不该拖累别的路径。其余结构原样递归。可单测。
+function normalizeForVerify(v) {
+    if (mvuIsVwdPair(v)) return normalizeForVerify(v[0]);
+    if (Array.isArray(v)) return v.map(normalizeForVerify);
+    if (v && typeof v === 'object') {
+        const out = {};
+        for (const k of Object.keys(v)) { if (k !== '$internal') out[k] = normalizeForVerify(v[k]); }
+        return out;
+    }
+    return v;
+}
+
+// 纯函数：自检 —— 这串 ops 从「诊断前」按 MVU 语义重放，能不能精确落回「诊断后」？
+// 卡片的变量形状千奇百怪（各种命名、嵌套、数组、VWD、甚至键名里带斜杠），与其写一份会算出别的结果的
+// 补丁进用户存档，不如**一个字都不写**。这是本功能对「未知形状」的兜底闸门。可单测。
+function verifyDiagOps(beforeStat, afterStat, ops) {
+    try {
+        const got = normalizeForVerify(replayDiagOps(beforeStat, ops));
+        const want = normalizeForVerify(afterStat == null ? {} : afterStat);
+        return JSON.stringify(got) === JSON.stringify(want);
+    } catch (e) { return false; }
+}
+
+// 取「诊断前快照」与「诊断后现状」的差异 → 绝对值 ops。现取 MVU（autoApplyFix 刚 replaceMvuData 写过）。
+// 尽力而为：拿不到任一侧 / 抛错 / 自检不过 → []（调用方据此不注入，行为回到不开时的样子）。
+function canonicalizeDiagOps(snapshot, Mvu) {
+    try {
+        if (!snapshot || !Mvu || typeof Mvu.getMvuData !== 'function') return [];
+        const now = Mvu.getMvuData({ type: 'message', message_id: 'latest' });
+        if (!now) return [];
+        const ops = diffMvuStat(snapshot.stat_data, now.stat_data, '');
+        if (!ops.length) return [];
+        if (!verifyDiagOps(snapshot.stat_data, now.stat_data, ops)) {
+            console.warn('[Story Oracle] 诊断修正未写进正文：补丁自检没能精确重放出当前状态（这张卡的变量形状特殊），已跳过；变量修正照常生效。');
+            return [];
+        }
+        return ops;
+    } catch (e) {
+        console.warn('[Story Oracle] 诊断修正折算绝对值补丁失败：', e);
+        return [];
+    }
+}
+
+// 把这次诊断的实际改动插进第 idx 条消息已有的更新区块里。expectText = 诊断当时读到的正文，用作陈旧守卫：
+// 调用往返期间用户改了 / 划了 swipe / 别的扩展写过 → 正文已不是我们诊断的那份，直接放弃（绝不写进错的地方）。
+// 幂等：先摘掉上一次插进去的那段再插新的（同一条消息重跑诊断不会越堆越多）。
+// 与 writeUpdateBlockToMessage 同款收尾：镜像到当前 swipe 槽（校正换过 swipe 时不丢）+ saveChat + 重渲染。
+// 返回实际写进正文的那段文本（供撤销时精确摘除）；没写 → ''。
+async function injectDiagPatchIntoMessage(idx, ops, expectText) {
+    const ctx = getCtx();
+    const m = (ctx.chat || [])[idx];
+    if (!m || typeof m.mes !== 'string') return '';
+    if (expectText != null && m.mes !== expectText) {
+        console.warn('[Story Oracle] 诊断修正未写进正文：这条回复在诊断期间被改动过（已跳过，变量修正照常生效）。');
+        return '';
+    }
+    const payload = buildDiagPatchPayload(ops);
+    if (!payload) return '';
+    const next = insertDiagPatchIntoBlock(stripDiagPatchFromText(m.mes), payload);
+    if (next == null) {
+        console.warn('[Story Oracle] 诊断修正未写进正文：这条回复的更新区块没有完整的闭标签（不另起一块——两个区块会让多数卡的状态栏被折叠面板吞掉）。');
+        return '';
+    }
+    m.mes = next;
+    if (Array.isArray(m.swipes) && typeof m.swipes[m.swipe_id] === 'string') m.swipes[m.swipe_id] = m.mes;
+    try { if (typeof ctx.saveChat === 'function') await ctx.saveChat(); }
+    catch (e) { console.warn('[Story Oracle] 诊断修正写进正文后保存失败：', e); }
+    refreshMessageBar(idx);
+    return payload;
+}
+
+// 撤销 / 重新应用时同步正文。wb = { idx, text, mode:'derive'|'inject' }，由写回那一刻登记。
+// 内容校验：目标消息里确实有（确实没有）那段才动手 —— 用户改过正文 / 换过聊天就静默放手，绝不误伤。
+// 没有 wb（没开注入、或重载后按钮已只读）→ 无操作，行为与今天相同。
+async function removeDiagWriteBack(wb) {
+    if (!wb || !wb.text) return;
+    const ctx = getCtx();
+    const m = (ctx.chat || [])[wb.idx];
+    if (!m || typeof m.mes !== 'string') return;
+    const withSep = '\n\n' + wb.text;
+    if (m.mes.includes(withSep)) m.mes = m.mes.replace(withSep, '');
+    else if (m.mes.includes(wb.text)) m.mes = m.mes.replace(wb.text, '');
+    else return;                                   // 已经不在了（用户手改 / 已撤销过）→ 什么都不做
+    if (Array.isArray(m.swipes) && typeof m.swipes[m.swipe_id] === 'string') m.swipes[m.swipe_id] = m.mes;
+    try { if (typeof ctx.saveChat === 'function') await ctx.saveChat(); }
+    catch (e) { console.warn('[Story Oracle] 撤销诊断修正后保存失败：', e); }
+    refreshMessageBar(wb.idx);
+}
+
+// 「重新应用」时把那段文本放回正文（与 removeDiagWriteBack 对称，否则重新应用之后再点【重新处理变量】
+// 又会丢——正是本功能要根治的那个循环）。已在则不重复。
+async function restoreDiagWriteBack(wb) {
+    if (!wb || !wb.text) return;
+    const ctx = getCtx();
+    const m = (ctx.chat || [])[wb.idx];
+    if (!m || typeof m.mes !== 'string' || m.mes.includes(wb.text)) return;
+    if (wb.mode === 'inject') {
+        const next = insertDiagPatchIntoBlock(stripDiagPatchFromText(m.mes), wb.text);
+        if (next == null) return;
+        m.mes = next;
+    } else {
+        m.mes = m.mes.trimEnd() + '\n\n' + wb.text;
+    }
+    if (Array.isArray(m.swipes) && typeof m.swipes[m.swipe_id] === 'string') m.swipes[m.swipe_id] = m.mes;
+    try { if (typeof ctx.saveChat === 'function') await ctx.saveChat(); }
+    catch (e) { console.warn('[Story Oracle] 重新应用诊断修正后保存失败：', e); }
+    refreshMessageBar(wb.idx);
 }
 
 // 把校正稿作为【新 swipe】写入第 idx 条消息（非破坏性，原文留在 swipe 0），保存、重渲染、补发
@@ -8100,7 +8466,7 @@ function autoFixNoteContent({ status, problems, stamp }) {
 // 的那条还带一个【撤销按钮】（与手动诊断同款，经 applyFix/undoFix），撤销不再走 toast。toast 只作信息
 // 提示。注意：撤销按钮只在【刚跑完的本会话】可用——重载后记录变只读（重放旧补丁不安全，与手动诊断回复
 // 重载后失去按钮一致）。
-function notifyAutoDiagnose(result, patch) {
+function notifyAutoDiagnose(result, patch, writeBack) {
     const status = (result && result.status) || 'failed';
     const snapshot = status === 'applied' ? result.snapshot : null;
 
@@ -8128,7 +8494,7 @@ function notifyAutoDiagnose(result, patch) {
         const stamp = (() => { try { return new Date().toLocaleTimeString(); } catch (e) { return ''; } })();
         const entry = { id: ++cidSeq, role: 'note', content: autoDiagNoteContent({ status, patch, stamp }) };
         // 改动型记录在本会话挂可用的撤销按钮；其余（无改动 / 失败 / 重载后）是只读记录。
-        const undoable = (snapshot && patch) ? { snapshot, patch } : null;
+        const undoable = (snapshot && patch) ? { snapshot, patch, writeBack: writeBack || null } : null;
         appendNoteToRoom('diagnose', entry, undoable);   // 自动诊断记录归入【诊断房间】（不可见时直接落其元数据、不上屏）
     } catch (e) { console.warn('[Story Oracle] 自动诊断记录写入侧聊失败：', e); }
 }
@@ -8149,7 +8515,10 @@ function dismissToast(handle) {
 
 // 自动诊断记录上的「撤销 / 重新应用」按钮条（与 addApplyControls 同款，复用 applyFix/undoFix）。
 // 记录创建时修复【已自动应用】，故按钮初始就是「撤销」态。
-function addNoteUndoControls(wrap, initialSnapshot, patch) {
+// writeBack（可空）= 这次诊断往消息正文里写过的那段（衍生块 / 注入的补丁）。撤销 / 重新应用要【连正文一起】
+// 同步：只还原变量而把那段留在正文里，下次 MVU【重新处理变量】会照着正文把它重新算回来 —— 撤销就等于白撤。
+// 这是衍生（乙）路径一直存在的老毛病，随本轮一并修好；没有 writeBack 时两个调用都是空操作。
+function addNoteUndoControls(wrap, initialSnapshot, patch, writeBack) {
     const bar = document.createElement('div');
     bar.className = 'so-apply-bar so-note-undo';
     const btn = document.createElement('button');
@@ -8169,6 +8538,7 @@ function addNoteUndoControls(wrap, initialSnapshot, patch) {
             status.textContent = '正在还原…';
             try {
                 await undoFix(snapshot);
+                await removeDiagWriteBack(writeBack);   // 连正文里那段一起摘掉，否则「重新处理变量」会把它算回来
                 snapshot = null;
                 btn.innerHTML = '<i class="fa-solid fa-wand-magic-sparkles"></i> 重新应用';
                 status.textContent = '已还原到修复前的状态。';
@@ -8181,6 +8551,7 @@ function addNoteUndoControls(wrap, initialSnapshot, patch) {
             try {
                 snapshot = await applyFix(patch, status);
                 if (snapshot) {
+                    await restoreDiagWriteBack(writeBack);   // 与撤销对称：正文那段也放回去
                     btn.innerHTML = '<i class="fa-solid fa-rotate-left"></i> 撤销此次修复';
                     status.textContent = '已重新应用。';
                 }
@@ -8555,6 +8926,7 @@ function buildWindow() {
                 <div class="so-set-body">
                     <label class="so-check"><input id="so-chatbar-toggle" type="checkbox"><span>在聊天输入栏显示快捷按钮（🌙 一键开 / 关神谕）</span></label>
                     <label class="so-check"><input id="so-tools-header-toggle" type="checkbox"><span>把 ⋯ 里的工具按钮移到标题栏（关闭后刷新页面恢复）</span></label>
+                    ${ENABLE_DIAG_BODY_INJECT ? '<label class="so-check"><input id="so-diag-inject" type="checkbox"><span>把诊断修正写进正文（实验性）—— 开启后，自动诊断的修正会写进这条回复的更新区块里；非必要请保持关闭</span></label>' : ''}
                 </div>
             </details>
         </div>
@@ -8563,6 +8935,9 @@ function buildWindow() {
             <details class="so-mode-collapse" id="so-diag-collapse" open>
                 <summary class="so-mode-collapse-sum"><i class="fa-solid fa-stethoscope"></i><span>诊断设置</span></summary>
                 <div class="so-mode-collapse-body">
+            <label class="so-check so-lb-check"><input id="so-diag-preset" type="checkbox"><span>套用我的补全预设（诊断指令叠加其上）</span></label>
+            <div class="so-hint so-diag-preset-warn">⚠ 仅在诊断确实被模型拒绝时才勾选：预设的额外内容会分散模型注意力、影响诊断精度。</div>
+            <div id="so-diag-wisel">
             <label class="so-check so-lb-check"><input id="so-diag-usesel" type="checkbox"><span>诊断使用精选世界书条目（关闭则用默认扫描）</span></label>
             <div class="so-hint">开启后可【按本聊天】挑选要喂给诊断的世界书条目，无视其在 ST 里的启用 / 禁用状态——解决「禁用了变量规则条目后诊断就看不到」与「全量太吵」的两难。首次开启会按当前激活情况预选一份，之后随你增删、按聊天记忆。</div>
             <div id="so-diag-picker">
@@ -8589,6 +8964,7 @@ function buildWindow() {
                     <div id="so-diag-entries-list" class="so-lb-entries-list"></div>
                 </div>
                 <div class="so-hint" id="so-diag-hint"></div>
+            </div>
             </div>
                 </div>
             </details>
@@ -9062,7 +9438,18 @@ function bindControls() {
     win.querySelector('#so-lb-disabled').addEventListener('click', () => setLbEntriesByType('off'));
     win.querySelector('#so-lb-preview-toggle').addEventListener('click', () => toggleLbPreview());
     win.querySelector('#so-lb-entries-filter').addEventListener('input', (e) => filterLbEntries(e.target.value));
-    // 诊断「精选世界书条目」绑定（用户功能请求；ENABLE_DIAG_WI_PICKER）。关掉时隐藏整条栏、不挂任何处理器。
+    // 诊断经自定义补全预设（1.43.0，opt-in）——全局开关，同 advisorUsePreset 写法（写 getSettings + save）。
+    win.querySelector('#so-diag-preset').addEventListener('change', (e) => {
+        const s2 = getSettings();
+        s2.diagnoseUsePreset = e.target.checked;
+        save();
+        if (e.target.checked) {
+            addSystemNote(presetCurationActive(s2)
+                ? '已开启「套用补全预设」：诊断指令会叠加在你的补全预设之上（手动诊断与自动诊断都生效）。注意预设可能分散模型注意力、影响诊断精度——仅在诊断被模型拒绝时使用。'
+                : '已勾选「套用补全预设」，但目前还没有整理好的补全预设。请先到设置（齿轮）里选定并整理一个补全预设；在此之前，诊断仍用内置提示词。');
+        }
+    });
+    // 诊断「精选世界书条目」绑定（用户功能请求；ENABLE_DIAG_WI_PICKER）。关掉时隐藏那一段、不挂任何处理器。
     if (ENABLE_DIAG_WI_PICKER) {
         win.querySelector('#so-diag-usesel').addEventListener('change', (e) => onDiagUseSelToggle(e.target.checked));
         win.querySelector('#so-diag-hybrid').addEventListener('change', (e) => onDiagHybridToggle(e.target.checked));
@@ -9084,8 +9471,9 @@ function bindControls() {
         win.querySelector('#so-diag-disabled').addEventListener('click', () => setDiagEntriesByType('off'));
         win.querySelector('#so-diag-entries-filter').addEventListener('input', (e) => filterDiagEntries(e.target.value));
     } else {
-        const bar = win.querySelector('#so-diag-bar');
-        if (bar) bar.style.display = 'none';
+        // 只隐藏精选条目那一段 —— 预设行与它无关，不该被这个杀开关带走（1.43.0）
+        const wisel = win.querySelector('#so-diag-wisel');
+        if (wisel) wisel.style.display = 'none';
     }
     // 标题栏「⋯」工具下拉：把 剧情概要 / 调试 / 设置 三个次级按钮收进一个下拉里。它们的 id 与各自
     // 的点击处理保持不变（只是被挪进菜单内），所以下面 openDebug / 设置开关 / openSummary 的绑定照旧生效。
@@ -9273,6 +9661,7 @@ function bindControls() {
     bind('#so-stat', 'chatIncludeStat');
     bind('#so-world', 'chatIncludeWorld');
     if (ENABLE_BBS_BRIDGE) bind('#so-bbs', 'chatIncludeBbs');   // 柏宝书记忆桥（行仅在开关开时渲染）
+    if (ENABLE_DIAG_BODY_INJECT) bind('#so-diag-inject', 'diagInjectBody');   // 🩺 诊断修正写进正文（实验性，行同上）
     if (ENABLE_UPDATE_CHECK) {
         bind('#so-upd-auto', 'updAutoCheck');
         win.querySelector('#so-upd-go').addEventListener('click', () => soRunUpdate());
@@ -9571,6 +9960,7 @@ function loadSettingsIntoForm() {
     win.querySelector('#so-stat').checked = !!s.chatIncludeStat;
     win.querySelector('#so-world').checked = !!s.chatIncludeWorld;
     if (ENABLE_BBS_BRIDGE) win.querySelector('#so-bbs').checked = !!s.chatIncludeBbs;   // 柏宝书记忆桥
+    if (ENABLE_DIAG_BODY_INJECT) win.querySelector('#so-diag-inject').checked = !!s.diagInjectBody;   // 🩺 诊断修正写进正文
     if (ENABLE_UPDATE_CHECK) {
         win.querySelector('#so-upd-auto').checked = !!s.updAutoCheck;
         soPaintUpdateDot();   // 设置回填顺手重绘（检查结果晚到时 finally 里也会再绘，双保险幂等）
@@ -9600,6 +9990,7 @@ function loadSettingsIntoForm() {
     if (bldPreset) bldPreset.checked = !!s.bldUsePreset;
 
     win.querySelector('#so-adv-preset').checked = !!s.advisorUsePreset;
+    win.querySelector('#so-diag-preset').checked = !!s.diagnoseUsePreset;
     updateWiHint();
     populatePersonas();
     // 系统提示词模式编辑器：首次用 SYSPROMPT_MODES 填充模式下拉，再把当前所选模式的
@@ -10129,14 +10520,15 @@ function currentJbModeKey() {
 // 本模式要不要套破限。Prince 2026-07-26 定案：
 //   · 普通聊天 = 默认开（选了内置破限就生效，不需要再勾任何东西）
 //   · 其余模式 = 一律 opt-in，复用各自【已有的】「经自定义补全预设」开关，默认关
-//   · 诊断 = 永不接（纯机械 MVU 修复，无拒绝面，且其解析器最敏感）
+//   · 诊断 = 1.43.0 起也 opt-in（原判据「无拒绝面」不成立：诊断读的是主聊天正文，
+//     内容敏感时带审查的模型照样会拒绝这次审计）。默认仍关。
 // 复用旧开关而不新增五个复选框：语义就是「这个模式也走我选的那个『预设』」，内置破限
 // 只是下拉里的一个选项，语义天然一致；也不必为此再教用户一套新概念。
 function modeWantsJb(s, mode) {
     if (!builtinJbActive(s)) return false;
     switch (mode) {
         case 'chat': return true;
-        case 'diagnose': return false;
+        case 'diagnose': return !!s.diagnoseUsePreset;
         case 'lorebook': return !!s.lorebookUsePreset;
         case 'advisor': return !!s.advisorUsePreset;
         case 'builder': return !!s.bldUsePreset;
@@ -10255,7 +10647,7 @@ function applySysPromptPresetUiState() {
     if (jbOn) {
         hint.textContent = `已启用内置破限「初心破限 1.0」（作者：${BUILTIN_JB_AUTHOR}）。`
             + `它【包裹】在故事神谕自己的提示词外面，而不是替换——下方文本框照常生效。`
-            + `默认只作用于【普通聊天】；世界书 / 参谋 / 工坊访谈 / 校正 需各自在其设置里勾选「经自定义补全预设」才会套用，诊断永不接。`
+            + `默认只作用于【普通聊天】；世界书 / 参谋 / 工坊访谈 / 校正 / 诊断 需各自在其设置里勾选「经自定义补全预设」才会套用。`
             + `随时可在此下拉换回「自定义」或你自己的预设。`;
         return;
     }
@@ -10871,6 +11263,12 @@ async function toggleFix() {
         return;
     }
     if (!(await confirmModeSwitch('fix'))) return;   // 1.36.0 中断确认
+    enterFixMode();
+}
+
+// 进入校正模式的【无门】本体（1.42.0 抽出）：toggleFix = 确认门 + 本体。主聊天 ✂️ 入口的门放在【开窗之前】
+//（spec 决定 6「拒绝零足迹」），过门后直接调本体——不复用 toggleFix 是为了不弹第二次确认。行为与抽出前逐字节同。
+function enterFixMode() {
     priorOracleMode = currentOracleMode();
     setOracleMode('fix');
     modeEntryNote('校正模式已开启。我会读取最新一条 AI 回复，按你说的把它改一版——你想怎么改都行：重写某段、改语气、调节奏、删减、改掉某个设定或不合适的描写……任何要求都可以。直接说你想改什么，我给出一份可一键应用的校正稿（应用后原文仍在，左滑即可看回）。');
@@ -14337,6 +14735,10 @@ function buildMessages() {
     if (builderMode && s.bldUsePreset && presetCurationActive(s)) {
         return buildBuilderPresetMessages(s);   // 访谈经预设（opt-in）；锻造走 runForge，永不经此
     }
+    if (diagnoseMode && s.diagnoseUsePreset && presetCurationActive(s)) {
+        // 诊断经预设（1.43.0，opt-in）：破限 / 越狱用。directive 省略 = 用户那句话在 convoForPrompt() 里
+        return buildDiagnosePresetMessages(s, buildDiagnosePrompt(getCtx(), s));
+    }
     if (!diagnoseMode && !lorebookMode && !advisorMode && !fixMode && !builderMode && presetCurationActive(s)) {
         return buildPresetMessages(s);
     }
@@ -14584,6 +14986,52 @@ function buildAdvisorPresetMessages(s) {
     placeAdv(); // no chatHistory marker in the curation -> append at the end
 
     return out.length ? out : [{ role: 'system', content: advBlock }, ...convoForPrompt()];
+}
+
+/* ------------------------------------------------------------------ *
+ * 诊断模式 THROUGH a curated preset（opt-in: s.diagnoseUsePreset，1.43.0）。
+ * 骨架同 buildLorebookPresetMessages / buildAdvisorPresetMessages：保留预设的
+ * 【文本块（含其角色——破限 / 框架 / 格式 都照旧）】，【跳过全部 RP 内容标记】，把诊断
+ * 调用放进 chatHistory 位，好让 post-history 的破限块仍然落在最后。
+ *
+ * 标记一律跳过而不是像校正那样展开：buildDiagnosePromptFrom 自身已经带了角色卡 MVU
+ * 规则（世界书）+ stat_data + 最新更新区块 + 可选角色卡 + 故事对话记录 —— 再展开
+ * charDescription / worldInfo 就是重复投喂，还会把注意力从「机械核对变量」拽回 RP。
+ *
+ * systemPrompt 由调用方传入（不在函数内自建）：手动诊断走读模块级全局的
+ * buildDiagnosePrompt(ctx, s)，自动诊断走 runAutoDiagnose 里本地构建的那一份
+ * （它刻意不碰窗口共享的 worldInfoBlock / diagStatData / diagLatestUpdate）。
+ * directive 省略（手动：用户那句话在 convoForPrompt() 里）／给出（自动：固定那句
+ * 【自动诊断】指令），同 buildFixPresetMessages 的双形态。
+ * ------------------------------------------------------------------ */
+function buildDiagnosePresetMessages(s, systemPrompt, directive) {
+    const ctx = getCtx();
+    const snap = getCuratedSnapshot(s, s.sysPromptPresetName);
+    const items = (snap && snap.items) || [];
+    const out = [];
+
+    let placed = false;
+    const placeDiag = () => {
+        if (placed) return;
+        pushMsg(out, 'system', systemPrompt);
+        if (directive != null) pushMsg(out, 'user', directive);
+        else for (const m of convoForPrompt()) pushMsg(out, m.role, m.content);
+        placed = true;
+    };
+
+    for (const it of items) {
+        if (it.kind === 'marker') {
+            if (it.identifier === 'chatHistory') placeDiag();
+            // 其余标记在诊断模式一概跳过（诊断信封自带这些材料）
+        } else {
+            pushMsg(out, it.role || 'system', subst(ctx, it.content));
+        }
+    }
+    placeDiag(); // 预设里没有 chatHistory marker -> 追加到末尾
+
+    return out.length ? out : (directive != null
+        ? [{ role: 'system', content: systemPrompt }, { role: 'user', content: directive }]
+        : [{ role: 'system', content: systemPrompt }, ...convoForPrompt()]);
 }
 
 /* ------------------------------------------------------------------ *
@@ -14918,7 +15366,22 @@ async function generateReply() {
                 // 角色工坊：分流本轮回复——汇总（brief）→ 存状态 + 挂「🔨 生成」卡；修改区块（patch）→
                 // 对当前草稿做外科手术式拼接、回存、刷新常驻卡，并如实汇报命中数。用 cleanText（与 renderBuilderReplyHtml 同源）。
                 const cls = classifyBuilderReply(cleanText);
-                if (cls.kind === 'brief') {
+                if (cls.kind === 'draft') {
+                    // 访谈轮里模型直接给出【整稿】——用户要「重置版」这类全篇改写时，<DraftPatch> 的锚点表达不了，
+                    // 模型改发 <CharDraft> 是合理选择。此前这条路无人接手：状态不写、卡不刷、也不报错，用户只看见
+                    // 草稿印在聊天里、常驻卡永远停在「草稿还未生成」（1.43.1 用户上报）。照锻造成功路径入坞。
+                    const cur = getBuilderState();
+                    const draft = { ...cls.draft };
+                    if (draft.content) draft.content = sanitizePersonaDraft(draft.content, builderVariantKey(getSettings()));
+                    setBuilderState({ ...cur, draft, forgedAt: Date.now() });
+                    refreshDraftCard();
+                    // 与 runForge 成功分支同款：卡在收起的面板里等于没出现，替用户展开。
+                    const bldCollapse = win?.querySelector('#so-bld-collapse');
+                    if (bldCollapse && !bldCollapse.open) bldCollapse.open = true;
+                    modeEntryNote('这轮回复里带了完整草稿，已收进窗口顶部「角色工坊」面板的常驻卡'
+                        + (cur?.draft ? '（替换了原来那份——想要旧的就再说一次原来的写法）' : '')
+                        + '。想改哪里直接说；满意就点「写入」。');
+                } else if (cls.kind === 'brief') {
                     const cur = getBuilderState();
                     setBuilderState({ brief: cls.brief, draft: cur?.draft || null, forgedAt: cur?.forgedAt || null });
                     addBriefControls(assistantEl, cls.brief);
@@ -14936,6 +15399,11 @@ async function generateReply() {
                         const misses = results.filter((r) => !r.ok).map((r) => `「${r.anchor.slice(0, 24)}…」${r.reason}`);
                         modeEntryNote(`草稿已更新：${ok} / ${results.length} 处改动生效。` + (misses.length ? ' 未生效：' + misses.join('；') + ' ——可以再说一遍要改哪句，或让它改用「起始 || 结尾」两端锚点再试。' : '') + (hadCond ? '（修订落在当前显示的版本上；原稿/精简稿切换已收起，以修订后这份为准）' : ''));
                     }
+                } else if (cls.draftError) {
+                    // 有 <CharDraft> 但没解析成（多半是临时起意写整稿、漏了 target 这类机器读的头部键）。
+                    // 静默丢弃会让用户以为草稿已经收下了——如实说一声，并给两条出路。
+                    modeEntryNote(`这轮回复里的 <CharDraft> 没能收下（${cls.draftError}）——正文已原样留在上面。`
+                        + '可以让它「把刚才那版重发一次，头部带上 target」，或直接点常驻卡上的「🔨 生成」由锻造工序出稿。');
                 }
             }
         }
@@ -15342,6 +15810,133 @@ function renderFixCard(assistantEl, contentEl, aEntry, finalText) {
 }
 
 /* ------------------------------------------------------------------ *
+ * ✂️ 选段校正·主聊天入口（1.42.0，spec 2026-07-27-fixsel-chat-entry）：最新 AI 楼层动作行上的 ✂️ 按钮。
+ * RCMM（RightClickMessageMenu 三方扩展）的右键菜单靠克隆 .mes_button 行成菜单 → 真按钮 = 自动进菜单，
+ * 零耦合；没装 RCMM 的用户直接点按钮。划选追踪器：点按钮/菜单那一刻浏览器选区已塌，所以 selectionchange
+ * 时记下「最后一次完整落在带 mesid 楼层 .mes_text 里的选区」，点击时取用（是否最新楼层由取用侧判）。
+ * ------------------------------------------------------------------ */
+const FIXSEL_CHAT_CTX_LEN = 40;      // 渲染层前后文各取几字（映射阶梯②消歧）
+const FIXSEL_CHAT_TTL_MS = 180000;   // 划选记忆保鲜期 3 分钟（防很久前的旧划选还魂预选）
+let fixChatSelSnap = null;           // { text, prefix, suffix, mesIdx, ts } | null
+
+// 从 DOM Range 提取划选快照：两端点须同在【带 mesid 的 .mes】的同一个 .mes_text 里（状态栏 iframe 是另一份
+// document，天然进不来）。prefix/suffix 取渲染层文本（与 Range.toString 同一语义）。不读 ctx——纯 DOM 可单测。
+function extractChatSelRange(range) {
+    try {
+        if (!range || range.collapsed) return null;
+        const text = range.toString();
+        if (!text || text.trim().length < 2) return null;
+        const owner = (node) => {
+            const el = (node && node.nodeType === 1) ? node : (node ? node.parentElement : null);
+            return el ? el.closest('.mes_text') : null;
+        };
+        const a = owner(range.startContainer);
+        if (!a || a !== owner(range.endContainer)) return null;
+        const mes = a.closest('.mes');
+        const mesIdx = mes ? Number(mes.getAttribute('mesid')) : NaN;
+        if (!Number.isInteger(mesIdx)) return null;
+        const doc = range.startContainer.ownerDocument || document;
+        const pre = doc.createRange();
+        pre.selectNodeContents(a);
+        pre.setEnd(range.startContainer, range.startOffset);
+        const startOff = pre.toString().length;
+        const whole = doc.createRange();
+        whole.selectNodeContents(a);
+        const fullText = whole.toString();
+        const endOff = startOff + text.length;
+        return {
+            text,
+            prefix: fullText.slice(Math.max(0, startOff - FIXSEL_CHAT_CTX_LEN), startOff),
+            suffix: fullText.slice(endOff, endOff + FIXSEL_CHAT_CTX_LEN),
+            mesIdx,
+        };
+    } catch (e) { return null; }
+}
+
+// 记录：提取成功才覆盖——塌陷/出界的选区【不抹掉】刚记下的好选区（点菜单前选区常先塌一次，这正是追踪器
+// 存在的理由）。顺手清过期残留。
+function recordChatSelection(range) {
+    const snap = extractChatSelRange(range);
+    if (snap) fixChatSelSnap = { ...snap, ts: Date.now() };
+    else if (fixChatSelSnap && (Date.now() - fixChatSelSnap.ts) > FIXSEL_CHAT_TTL_MS) fixChatSelSnap = null;
+}
+function clearFixChatSel() { fixChatSelSnap = null; }
+// 取用（点 ✂️ 时）：楼层仍是最新 AI + 保鲜期内 → 返回快照。【不消费】——送达开卡那步才消费（spec 决定 5/6：
+// 确认弹窗被拒时留着，重试点一次还在）。
+function takeFixChatSel(latestIdx, now) {
+    const s = fixChatSelSnap;
+    if (!s) return null;
+    if (s.mesIdx !== latestIdx) return null;
+    if ((now === undefined ? Date.now() : now) - s.ts > FIXSEL_CHAT_TTL_MS) return null;
+    return s;
+}
+
+// selectionchange 驱动的划选追踪（守卫在函数内；try 包死——追踪器绝不打扰任何东西）。
+function onChatSelectionChange() {
+    if (!ENABLE_FIXSEL_CHAT_ENTRY || !ENABLE_REPLY_FIX || !ENABLE_FIX_SELECT) return;
+    try {
+        const s = window.getSelection && window.getSelection();
+        if (s && s.rangeCount && !s.isCollapsed) recordChatSelection(s.getRangeAt(0));
+    } catch (e) { /* 静默 */ }
+}
+
+// 最新 AI 楼层 ✂️ 按钮（幂等重挂）：先拔光旧的，再（门都开着且有最新 AI 楼层时）插到该楼 .mes_buttons 的
+// ✏️ 编辑键之前。ST 编辑/滑动会整层重建 DOM——「每次事件全量重挂」是唯一可靠形态。DOM 缺位一律静默
+//（jsdom / TauriTavern 异形安全）。RCMM 克隆 .mes_button 行成右键菜单 → 本按钮自动进菜单，零耦合。
+function refreshFixChatEntry() {
+    try {
+        document.querySelectorAll('.so-fixsel-chat-entry').forEach((b) => b.remove());
+        if (!ENABLE_FIXSEL_CHAT_ENTRY || !ENABLE_REPLY_FIX || !ENABLE_FIX_SELECT) return;
+        const latest = getLatestAiMessage();
+        if (!latest || latest.idx < 0) return;
+        const mes = document.querySelector('#chat .mes[mesid="' + latest.idx + '"]');
+        const row = mes ? mes.querySelector('.mes_buttons') : null;
+        if (!row) return;
+        const btn = document.createElement('div');
+        btn.className = 'mes_button so-fixsel-chat-entry fa-solid fa-scissors';
+        btn.title = '选段校正 (划选正文后点击)';   // ASCII 括号是刻意的：RCMM 竖排菜单按 (…) 拆成「标签 + 悬停提示」
+        btn.addEventListener('click', () => {   // RCMM 菜单会模拟 click + pointerup——只挂 click，天然单次
+            Promise.resolve(onFixChatEntryClick()).catch((e) => console.warn('[Story Oracle] 选段入口点击失败：', e));
+        });
+        const edit = row.querySelector('.mes_edit');
+        if (edit) row.insertBefore(btn, edit); else row.appendChild(btn);
+    } catch (e) { /* 主聊天 DOM 异形 → 静默不挂 */ }
+}
+
+// 过门收尾等待（终审修）：确认「仍要切换」后，被中止那次生成的 finally 要过一拍才放下 isGenerating——
+// 有界轮询等它落地（fail-open：超时照样往下走、撞原有守卫出提示，绝不弱化守卫本身、绝不卡死）。
+function soWaitGenIdle(maxMs) {
+    return new Promise((resolve) => {
+        const t0 = Date.now();
+        const tick = () => {
+            if (!isGenerating || (Date.now() - t0) >= maxMs) { resolve(); return; }
+            setTimeout(tick, 50);
+        };
+        tick();
+    });
+}
+
+// 点 ✂️（或 RCMM 菜单克隆项）：确认在前、动 UI 在后（spec 决定 6「拒绝零足迹」——确认是 ST 自己的主题化
+// 弹窗，与本窗开合无关；拒绝 = 屏上零变化、追踪器不消费、重试还在）。过门后走无门本体 enterFixMode()
+//（不复用 toggleFix＝不弹第二次确认）。
+async function onFixChatEntryClick() {
+    if (!ENABLE_FIXSEL_CHAT_ENTRY || !ENABLE_REPLY_FIX || !ENABLE_FIX_SELECT) return;
+    const latest = getLatestAiMessage();
+    if (!latest || latest.idx < 0) return;
+    const presel = takeFixChatSel(latest.idx);
+    const needEnter = !fixMode;   // enterFixMode 会翻转 fixMode——先拍板，两处分支同一判据
+    if (needEnter) {
+        if (!(await confirmModeSwitch('fix'))) return;
+    }
+    toggleWindow(true);
+    if (needEnter) {
+        enterFixMode();
+        await soWaitGenIdle(2000);   // 终审修：过门=用户已同意中止在途回复，等 abort 的 finally 放下 isGenerating 再开卡
+    }
+    openFixSelectCard(presel || undefined);
+}
+
+/* ------------------------------------------------------------------ *
  * ✂️ 选段校正（1.27.0，Part C）：划选卡 + 选区采集。手动模式专属；展示最新 AI 回复【当前 swipe 的原始 m.mes】
  * 于只读 textarea——划选定位到字符偏移，回插精确（片段之外的字节永不进模型、永不变，结构块构造性安全）。
  * 采集规则仿 GG corrections.js（5 条，见下）。开始校正 → runFixSelect。整篇手动校正独立并存、不受影响。
@@ -15350,7 +15945,7 @@ let fixSelState = null;    // { idx, swipeId, fingerprint, start, end, text, ful
 let fixSelCard = null;     // 懒建一次、复用
 let fixSelStored = null;   // 存下的选区 { start, end }（失焦后信它——浏览器失焦常报损坏范围）
 
-function openFixSelectCard() {
+function openFixSelectCard(presel) {
     if (!ENABLE_FIX_SELECT) return;                       // 杀死开关读点①
     // 生成中禁开卡（终审补钉）：并发单段跑会抢走共享 abortCtl（停止键错杀）＋提前清 isGenerating
     if (isGenerating) { addSystemNote('正在生成回复中——请等它完成或先停止，再开选段校正。'); return; }
@@ -15365,6 +15960,7 @@ function openFixSelectCard() {
     if (!fixSelCard) fixSelCard = buildFixSelCard();
     const ta = fixSelCard.querySelector('.so-fixsel-text');
     ta.value = full;
+    try { ta.setSelectionRange(0, 0); } catch (e) { /* ignore */ }   // 复开同文时 Chromium 不重置原生选区（值没变=赋值 no-op）——显式清掉，开卡必须真「未选中」
     fixSelCard.querySelector('.so-fixsel-instr').value = '';
     const info = fixSelCard.querySelector('.so-fixsel-info');
     info.textContent = '未选中片段——请在上方文本里划选。';
@@ -15374,6 +15970,21 @@ function openFixSelectCard() {
     const overlay = fixSelCard.querySelector('.so-fixsel-overlay');
     overlay.innerHTML = ''; overlay.style.display = 'none';
     fixSelCard.classList.add('open');
+    if (presel && presel.text) {   // 主聊天入口预选（1.42.0）：送达即消费——成败都算送达（spec 决定 5）
+        clearFixChatSel();
+        const mapped = mapSelectionToRaw(presel.text, presel.prefix, presel.suffix, full);
+        if (mapped) {
+            try {
+                ta.focus();
+                ta.setSelectionRange(mapped.start, mapped.end);
+                fixSelStored = { start: mapped.start, end: mapped.end };
+                ta.dispatchEvent(new Event('select'));   // 走卡自己的 record/apply 原路：已选中 N 字 + 📌 + go 态
+                scrollFixSelToOffset(fixSelCard, mapped.start);
+            } catch (e) { /* 预选设置失败 = 按未选中开卡（fail-open） */ }
+        } else {
+            info.textContent = '未能在原文定位所选片段，请在卡内重新划选。';
+        }
+    }
 }
 
 // 懒建选段卡 DOM + 一次性 wiring（复用 #so-fixwarn 的 inset:0 骨架 + .so-warn-x 逃生 + 点遮罩关闭，防手机遮罩锁死）。
@@ -15406,11 +16017,14 @@ function buildFixSelCard() {
     const overlay = el.querySelector('.so-fixsel-overlay');
     const info = el.querySelector('.so-fixsel-info');
     const go = el.querySelector('.so-fixsel-go');
-    const close = () => el.classList.remove('open');
+    const close = () => { el.classList.remove('open'); clearFixChatSel(); };   // 关卡即弃划选记忆（go 三分支都先 close() → 「开始校正」也覆盖）
 
     el.addEventListener('click', (e) => { if (e.target === el) close(); });   // 点遮罩关闭（点卡内不关）
     el.querySelector('.so-warn-x').addEventListener('click', close);
     el.querySelector('.so-fixsel-cancel').addEventListener('click', close);
+    document.addEventListener('keydown', (e) => {   // Esc 关卡（1.42.0；同 ⋯ 工具菜单的 document 级先例）
+        if (e.key === 'Escape' && el.classList.contains('open')) close();
+    });
 
     const apply = () => {
         const sel = resolveRecordedSelection(
@@ -15505,6 +16119,24 @@ function paintFixSelOverlayAll(card) {
     overlay.innerHTML = buildFixSelOverlayHtml(ta.value || '', ranges);
     overlay.style.display = 'block';
     overlay.scrollTop = ta.scrollTop; overlay.scrollLeft = ta.scrollLeft;
+}
+
+// 把 textarea 滚到指定字符偏移附近（预选送达时用）。textarea 无「滚到偏移」原生能力——借 overlay 镜像量高：
+// 临时画一个只含标记 span 的 overlay、读它的 offsetTop、把 ta 滚到上 1/3 处，再交还 paintFixSelOverlayAll
+// 重画常规态（钉/存档高亮 + 滚动同步在那边）。量不出（jsdom / 零高布局）→ 停在顶部，无害。
+function scrollFixSelToOffset(card, start) {
+    try {
+        const ta = card.querySelector('.so-fixsel-text');
+        const overlay = card.querySelector('.so-fixsel-overlay');
+        if (!ta || !overlay) return;
+        const len = (ta.value || '').length;
+        overlay.innerHTML = buildFixSelOverlayHtml(ta.value || '', [{ start, end: Math.min(start + 1, len), cls: 'so-fixsel-hl' }]);
+        overlay.style.display = 'block';
+        const mark = overlay.querySelector('span');
+        const top = mark ? mark.offsetTop : 0;
+        if (top > 0) ta.scrollTop = Math.max(0, top - Math.floor((ta.clientHeight || 0) / 3));
+    } catch (e) { /* 量高失败无害 */ }
+    paintFixSelOverlayAll(card);
 }
 
 // 钉选 chips 重画：每段一行 = 「片段k「摘要」」+ 该段要求输入 + 移除 ×。手机端：行 flex-wrap，输入框
@@ -17784,7 +18416,7 @@ function addNoteMessage(entry, opts) {
     txt.className = 'so-note-record-text';
     txt.textContent = entry ? entry.content : '';
     wrap.appendChild(txt);
-    if (opts && opts.snapshot && opts.patch) addNoteUndoControls(wrap, opts.snapshot, opts.patch);
+    if (opts && opts.snapshot && opts.patch) addNoteUndoControls(wrap, opts.snapshot, opts.patch, opts.writeBack);
     else if (opts && opts.fix) addAutoFixControls(wrap, opts.fix);
     messagesEl.appendChild(wrap);
     scrollToBottom();

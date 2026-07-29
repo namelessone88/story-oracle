@@ -824,6 +824,11 @@
 }
 #so-window.so-diag-on #so-diag-bar { display: flex; }
 #so-window.so-settings-open #so-diag-bar { display: none; }
+/* 精选条目那一段的包裹层（1.43.0）：加它是为了让 ENABLE_DIAG_WI_PICKER 杀开关只隐藏这一段，
+   不必带走整条诊断栏（栏里现在还住着与精选无关的「套用我的补全预设」行）。父级
+   .so-mode-collapse-body 是 column flex + gap:6px，包一层普通 div 会让被包住的三行间距塌成 0
+   —— 故这里照抄同一套竖向间距，包裹前后逐像素一致。 */
+#so-diag-wisel { display: flex; flex-direction: column; gap: 6px; }
 /* L2 混合开关 + 选条目区只在 L1（用精选条目）开启后才出现 */
 #so-diag-picker { display: none; flex-direction: column; gap: 6px; }
 #so-diag-bar.so-diag-usesel-on #so-diag-picker { display: flex; }
