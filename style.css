@@ -12,6 +12,15 @@
     --so-r-md: 12px;            /* 中圆角：聊天气泡 / 输入框 / 发送键统一同一圆角，消除 11/12/13 的细微抖动 */
     --so-gap: 12px;
 
+    /* 1.45.0 窗口配色三档：这三个变量把原先硬编码的蒙层 / 输入框底 / 遮罩底参数化，
+       固定皮肤只需重新声明它们（见文件末尾 so-skin-* 块）。此处的取值 = 参数化之前的
+       字面量，故「跟随酒馆主题」档渲染逐值不变。
+       注意 --so-field 的兜底值来自酒馆 :root 的常量（rgba(0,0,0,.3)），不随主题变 ——
+       浅色皮肤下必须换掉，否则浅底卡片上是个深色输入框。 */
+    --so-ink: 255, 255, 255;                          /* hover / 淡填充蒙层基色；用法 rgba(var(--so-ink), α) */
+    --so-field: var(--black30a, rgba(0, 0, 0, 0.3));  /* 输入框 / 文本域底色 */
+    --so-scrim: rgba(8, 9, 12, 0.84);                 /* 覆盖卡遮罩底 */
+
     position: fixed;
     top: 70px;
     right: 20px;
@@ -110,7 +119,7 @@
     opacity: 0.7;
     transition: opacity 0.15s, background-color 0.15s, color 0.15s, transform 0.1s;
 }
-.so-iconbtn:hover { opacity: 1; background-color: rgba(255, 255, 255, 0.09); }
+.so-iconbtn:hover { opacity: 1; background-color: rgba(var(--so-ink), 0.09); }
 .so-iconbtn:active { transform: scale(0.92); }
 /* 键盘聚焦环：负 offset 让描边画在元素内侧，不会被 #so-window 的 overflow:hidden 裁掉。
    :focus-visible 只在键盘聚焦时出现，鼠标点击不会留下边框。 */
@@ -182,7 +191,7 @@
     font-weight: 600;
     letter-spacing: 0.02em;
     opacity: 0.85;
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(var(--so-ink), 0.04);
     border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.1));
     transition: background-color 0.15s, opacity 0.15s;
 }
@@ -195,7 +204,7 @@
     transition: transform 0.15s;
 }
 .so-set-group[open] > summary::before { transform: rotate(90deg); }
-.so-set-group > summary:hover { background: rgba(255, 255, 255, 0.08); opacity: 1; }
+.so-set-group > summary:hover { background: rgba(var(--so-ink), 0.08); opacity: 1; }
 .so-set-group > summary:focus-visible { outline: 2px solid var(--so-accent); outline-offset: -2px; opacity: 1; }
 .so-set-body { display: flex; flex-direction: column; gap: 10px; padding: 10px 4px 4px; }
 
@@ -230,7 +239,7 @@
     width: 100%;
     box-sizing: border-box;
     color: var(--SmartThemeBodyColor, #e6e6e6);
-    background-color: var(--black30a, rgba(0, 0, 0, 0.32));
+    background-color: var(--so-field);
     border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.14));
     border-radius: 8px;
     padding: 6px 9px;
@@ -245,6 +254,11 @@
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--so-accent) 25%, transparent);
 }
 #so-settings textarea { resize: vertical; line-height: 1.4; }
+/* 1.45.0：.so-check 行里出现 <select> 是头一遭（「窗口配色」）。上面那条 width:100% 会把
+   select 的 flex 基准撑成整行宽，同一行的中日韩文标签就被挤到【逐字】换行 —— 390px 实测
+   「窗口配色」显示成「窗口配 / 色」（标签宽 40px、高 36px，单行才 15px）。只在 .so-check 内
+   改回自适应：标签占自然宽度，下拉吃掉剩下的。其余 .so-check 行是 checkbox + span，不受影响。 */
+#so-settings .so-check select { width: auto; flex: 1 1 auto; min-width: 0; }
 
 .so-profile-row { display: flex; gap: 6px; align-items: center; }
 .so-profile-row select { flex: 1 1 auto; }
@@ -317,7 +331,7 @@
 }
 .so-assistant .so-avatar {
     color: var(--so-accent);
-    background-color: rgba(255, 255, 255, 0.06);
+    background-color: rgba(var(--so-ink), 0.06);
     background: radial-gradient(circle at 30% 30%,
         color-mix(in srgb, var(--so-accent) 30%, transparent),
         color-mix(in srgb, var(--so-accent) 8%, transparent));
@@ -325,7 +339,7 @@
 }
 .so-user .so-avatar {
     opacity: 0.75;
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(var(--so-ink), 0.06);
 }
 
 .so-bubble { min-width: 0; display: flex; flex-direction: column; gap: 3px; max-width: 84%; }
@@ -427,7 +441,7 @@
     font-weight: 600;
 }
 .so-content tbody tr:nth-child(even) td {
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(var(--so-ink), 0.03);
 }
 
 #so-sysprompt:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -444,12 +458,12 @@
     padding: 2px 9px;
     border-radius: 7px;
     color: var(--SmartThemeBodyColor, #e6e6e6);
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(var(--so-ink), 0.05);
     border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
     opacity: 0.85;
     transition: opacity 0.15s, background-color 0.15s, transform 0.1s;
 }
-#so-sysprompt-reset:hover { opacity: 1; background: rgba(255, 255, 255, 0.1); }
+#so-sysprompt-reset:hover { opacity: 1; background: rgba(var(--so-ink), 0.1); }
 #so-sysprompt-reset:active { transform: scale(0.97); }
 
 /* assistant message header: label on the left, quick-copy button on the right */
@@ -487,7 +501,7 @@
     transition: opacity 0.15s, background-color 0.15s, transform 0.1s, color 0.15s;
 }
 .so-msg:hover .so-msg-btn { opacity: 0.62; }
-.so-msg-btn:hover { opacity: 1 !important; background-color: rgba(255, 255, 255, 0.09); }
+.so-msg-btn:hover { opacity: 1 !important; background-color: rgba(var(--so-ink), 0.09); }
 .so-msg-btn:active { transform: scale(0.9); }
 .so-del-btn:hover { color: var(--crimson70a, #e07c7c); }
 .so-copy-btn.so-copied { color: var(--so-accent); opacity: 1 !important; }
@@ -511,7 +525,7 @@
 }
 .so-edit-save { border-color: color-mix(in srgb, var(--so-accent) 55%, transparent); background: color-mix(in srgb, var(--so-accent) 18%, transparent); }
 .so-edit-save:hover { background: color-mix(in srgb, var(--so-accent) 30%, transparent); }
-.so-edit-cancel:hover { background: rgba(255, 255, 255, 0.08); }
+.so-edit-cancel:hover { background: rgba(var(--so-ink), 0.08); }
 
 /* typing dots */
 .so-typing { display: inline-flex; gap: 4px; align-items: center; padding: 2px 0; }
@@ -587,7 +601,7 @@
     flex: 1 1 auto;
     resize: none;
     color: var(--SmartThemeBodyColor, #e6e6e6);
-    background-color: var(--black30a, rgba(0, 0, 0, 0.32));
+    background-color: var(--so-field);
     border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.14));
     border-radius: var(--so-r-md);
     padding: 9px 12px;
@@ -930,7 +944,7 @@
     padding: 6px 8px;
     border-radius: 8px;
     color: var(--SmartThemeBodyColor, #e6e6e6);
-    background-color: var(--black30a, rgba(0, 0, 0, 0.3));
+    background-color: var(--so-field);
     border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
     font-family: inherit;
     font-size: 0.9em;
@@ -942,7 +956,7 @@
 .so-lb-bookpick-tools { display: flex; gap: 4px; margin: 4px 0; }
 .so-lb-book-list { max-height: 160px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
 .so-lb-book-opt { display: flex; align-items: center; gap: 6px; font-size: 0.9em; padding: 2px 4px; cursor: pointer; }
-.so-lb-book-opt:hover { background: var(--white20a, rgba(255,255,255,0.08)); border-radius: 4px; }
+.so-lb-book-opt:hover { background: rgba(var(--so-ink), 0.08); border-radius: 4px; }
 @media (max-width: 600px) { .so-lb-book-list { max-height: 120px; } }
 .so-lb-check {
     display: flex;
@@ -1001,7 +1015,7 @@
     display: flex; align-items: center; flex-wrap: wrap; gap: 7px; cursor: pointer;
     font-size: 0.82em; padding: 3px 4px; border-radius: 6px;
 }
-.so-lb-ent:hover { background: rgba(255, 255, 255, 0.05); }
+.so-lb-ent:hover { background: rgba(var(--so-ink), 0.05); }
 .so-lb-ent input { accent-color: var(--so-lb-accent); flex: 0 0 auto; }
 .so-lb-ent-type { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; background: #888; }
 .so-lb-type-blue { background: #5aa9e6; }
@@ -1027,7 +1041,7 @@
     display: flex; align-items: center; gap: 6px;
     font-size: 0.78em; font-weight: 600; opacity: 0.85;
     padding: 6px 3px 3px; margin-top: 3px;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-top: 1px solid rgba(var(--so-ink), 0.08);
 }
 .so-lb-book-head:first-child { border-top: none; margin-top: 0; padding-top: 2px; }
 .so-lb-book-head .fa-book { opacity: 0.55; flex: 0 0 auto; color: var(--so-lb-accent); }
@@ -1143,7 +1157,7 @@
     justify-content: center;
     padding: 12px;
     box-sizing: border-box;
-    background: rgba(8, 9, 12, 0.84);
+    background: var(--so-scrim);
     backdrop-filter: blur(4px);
 }
 #so-curate.open { display: flex; }
@@ -1205,7 +1219,7 @@
     cursor: default;
     font-size: 0.85em;
 }
-.so-cur-row:hover { background: rgba(255, 255, 255, 0.05); }
+.so-cur-row:hover { background: rgba(var(--so-ink), 0.05); }
 .so-cur-row.so-cur-off { opacity: 0.45; }
 .so-cur-row.so-cur-marker { background: color-mix(in srgb, var(--so-accent) 8%, transparent); }
 .so-cur-row.so-cur-drag { opacity: 0.5; }
@@ -1226,7 +1240,7 @@
     font-size: 0.82em;
     padding: 1px 6px;
     border-radius: 6px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(var(--so-ink), 0.1);
     opacity: 0.85;
 }
 .so-cur-disabled {
@@ -1243,7 +1257,7 @@
     font-size: 0.76em;
     padding: 1px 7px;
     border-radius: 6px;
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(var(--so-ink), 0.08);
     opacity: 0.9;
     white-space: nowrap;
 }
@@ -1254,7 +1268,7 @@
 .so-cur-tag-output,
 .so-cur-tag-prefill,
 .so-cur-tag-user-echo,
-.so-cur-tag-inert { background: rgba(255, 255, 255, 0.06); }
+.so-cur-tag-inert { background: rgba(var(--so-ink), 0.06); }
 .so-cur-tag-review { background: color-mix(in srgb, #f2c94c 26%, transparent); }
 .so-cur-chars { flex: 0 0 auto; font-size: 0.78em; opacity: 0.5; min-width: 48px; text-align: right; }
 
@@ -1274,12 +1288,12 @@
     padding: 6px 12px;
     border-radius: 8px;
     border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
-    background: rgba(255, 255, 255, 0.04);
+    background: rgba(var(--so-ink), 0.04);
     color: #e6e6e6;   /* 恒深色策展卡：钉死浅色文字，理由见 #so-cur-card */
     font-family: inherit;
     font-size: 0.82em;
 }
-.so-cur-btn:hover { background: rgba(255, 255, 255, 0.1); }
+.so-cur-btn:hover { background: rgba(var(--so-ink), 0.1); }
 .so-cur-btn:active { transform: scale(0.97); }
 .so-cur-btn.so-cur-save {
     border-color: var(--so-accent);
@@ -1375,7 +1389,7 @@
     color: var(--so-adv-accent); opacity: 0.7; font-size: 0.82em; line-height: 1;
     border-radius: 6px; transition: opacity 0.15s, background-color 0.15s;
 }
-.so-plan-collapse-btn:hover { opacity: 1; background: rgba(255, 255, 255, 0.08); }
+.so-plan-collapse-btn:hover { opacity: 1; background: rgba(var(--so-ink), 0.08); }
 #so-plan-float #so-plan-bar .so-plan-collapse-btn { display: none; }
 
 .so-plan-head {
@@ -1413,7 +1427,7 @@
     font-family: inherit;
     font-size: 0.78em;
     color: var(--SmartThemeBodyColor, #e6e6e6);
-    background-color: var(--black30a, rgba(0, 0, 0, 0.3));
+    background-color: var(--so-field);
     border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
     transition: filter 0.15s;
 }
@@ -1435,7 +1449,7 @@
     font-family: inherit;
     font-size: 0.76em;
     color: var(--SmartThemeBodyColor, #e6e6e6);
-    background-color: var(--black30a, rgba(0, 0, 0, 0.3));
+    background-color: var(--so-field);
     border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
 }
 .so-plan-mini:hover { filter: brightness(1.15); }
@@ -1452,7 +1466,7 @@
     white-space: pre-wrap;
     overflow-wrap: anywhere;
     color: var(--SmartThemeBodyColor, #e6e6e6);
-    background-color: var(--black30a, rgba(0, 0, 0, 0.35));
+    background-color: var(--so-field);
     border: 1px dashed var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
     max-height: 180px;
     overflow-y: auto;
@@ -1520,6 +1534,10 @@
     /* the accent vars are scoped to #so-window — re-declare for the float */
     --so-accent: var(--SmartThemeQuoteColor, #8ab4f8);
     --so-adv-accent: color-mix(in srgb, var(--so-accent) 45%, #4fb0a5 55%);
+    /* 1.45.0 皮肤变量，取值同 #so-window */
+    --so-ink: 255, 255, 255;
+    --so-field: var(--black30a, rgba(0, 0, 0, 0.3));
+    --so-scrim: rgba(8, 9, 12, 0.84);
 
     position: fixed;
     top: 64px;
@@ -1563,7 +1581,7 @@
     border-radius: 7px;
     opacity: 0.75;
 }
-#so-plan-float-open:hover { opacity: 1; background: rgba(255, 255, 255, 0.08); }
+#so-plan-float-open:hover { opacity: 1; background: rgba(var(--so-ink), 0.08); }
 
 /* the strip's in-window display rule is scoped to #so-window — float version */
 #so-plan-float #so-plan-bar { display: flex; border-bottom: none; }
@@ -1620,6 +1638,10 @@
 #so-live {
     --so-accent: var(--SmartThemeQuoteColor, #8ab4f8);
     --so-adv-accent: color-mix(in srgb, var(--so-accent) 45%, #4fb0a5 55%);
+    /* 1.45.0 皮肤变量，取值同 #so-window */
+    --so-ink: 255, 255, 255;
+    --so-field: var(--black30a, rgba(0, 0, 0, 0.3));
+    --so-scrim: rgba(8, 9, 12, 0.84);
     position: fixed;
     top: 80px;
     left: 12px;
@@ -1690,7 +1712,7 @@
     width: 100%;
     box-sizing: border-box;
     color: var(--SmartThemeBodyColor, #e6e6e6);
-    background-color: var(--black30a, rgba(0, 0, 0, 0.3));
+    background-color: var(--so-field);
     border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.16));
     border-radius: 8px;
     padding: 6px 9px;
@@ -1746,15 +1768,27 @@
 #so-window { --so-auto-red: color-mix(in srgb, var(--crimson70a, #d9534f) 88%, #ff5b52 12%); }
 
 /* ---------- 自动诊断：诊断按钮的红色 AUTO 态 ---------- */
-/* AUTO 标签：平时藏起，自动模式开启时显示在听诊器图标旁。 */
+/* 角标的定位上下文。.so-iconbtn 自己不带 position，少了这行，绝对定位的角标会去找 #so-window
+   （甚至视口）当参照，直接飞出按钮。 */
+#so-diagnose-btn { position: relative; }
+/* 自动模式角标「A」：平时藏起，开启时贴在按钮右下角。
+   刻意【绝对定位】而不是像从前那样当流内的第二个子项 —— .so-iconbtn 是钉死 30×30 的 flex 盒
+   （手机 33px），而图标 16px +「AUTO」21px + 间距 3px ≈ 40px 的内容塞不进去，
+   justify-content:center 把溢出平分到左右两边，听诊器就被挤出了红色背景之外
+   （用户上报 2026-07-29：「红色高亮没有包住图标」＋「上面这一排好挤」；主题把
+   --mainFontSize 调大只会让溢出更多，因为 30px 的盒子不跟着字号变）。
+   出了流之后按钮宽度一个像素都不变，红底自然完整包住居中的图标。 */
 #so-diagnose-btn .so-auto-tag {
     display: none;
-    margin-left: 3px;
-    font-size: 0.5em;
+    position: absolute;
+    right: 2px;
+    bottom: 1px;
+    font-size: 0.6em;
     font-weight: 800;
-    letter-spacing: 0.06em;
     line-height: 1;
-    vertical-align: middle;
+    pointer-events: none;   /* 纯装饰，点击照旧落在按钮上 */
+    /* 角标与听诊器同为白色，贴角时可能蹭到图标下缘 —— 一圈红描边把两者分开 */
+    text-shadow: 0 0 2px var(--so-auto-red, #d9534f), 0 0 2px var(--so-auto-red, #d9534f);
 }
 /* 实心强红覆盖手动诊断按钮的淡红高亮（本块在 #so-diagnose-btn.so-diag-active 之后，源序更高）。 */
 #so-diagnose-btn.so-diag-auto {
@@ -1762,7 +1796,7 @@
     background-color: var(--so-auto-red, #d9534f);
     opacity: 1;
 }
-#so-diagnose-btn.so-diag-auto .so-auto-tag { display: inline; }
+#so-diagnose-btn.so-diag-auto .so-auto-tag { display: block; }
 /* 自动模式给标题栏一抹更浓的红，呼应按钮（本块比 .so-diag-on 多一个类，故这抹浓红压过手动诊断的
    淡红标题栏）。仅在【确实处于诊断窗口模式】时染红——这样重载后 AUTO 仍开、但窗口停在聊天模式时，
    只有按钮红、标题栏不红。 */
@@ -1877,7 +1911,7 @@
     justify-content: center;
     padding: 16px;
     box-sizing: border-box;
-    background: rgba(8, 9, 12, 0.84);
+    background: var(--so-scrim);
     backdrop-filter: blur(4px);
 }
 #so-autowarn.open, #so-fixwarn.open { display: flex; }
@@ -1948,12 +1982,12 @@
     padding: 7px 14px;
     border-radius: 8px;
     border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.2));
-    background: rgba(255, 255, 255, 0.06);
+    background: rgba(var(--so-ink), 0.06);
     color: #ddd;   /* 恒深色警告卡：钉死浅色文字，理由见 #so-autowarn-card */
     cursor: pointer;
     font-size: 0.86em;
 }
-#so-autowarn-btns button:hover, #so-fixwarn-btns button:hover { background: rgba(255, 255, 255, 0.12); }
+#so-autowarn-btns button:hover, #so-fixwarn-btns button:hover { background: rgba(var(--so-ink), 0.12); }
 
 /* ✂️ 选段校正卡（1.27.0，Part C）：复用 #so-fixwarn 的 inset:0 骨架（手机遮罩防锁死：卡片 max-height 封顶、
    正文内滚、.so-warn-x 逃生 + 点遮罩关闭）。只读回复 textarea 划选定位字符偏移；失焦后 overlay 画持久黄高亮。
@@ -1963,7 +1997,7 @@
 #so-fixsel {
     display: none; position: absolute; inset: 0; z-index: 60;
     align-items: center; justify-content: center; padding: 16px; box-sizing: border-box;
-    background: rgba(8, 9, 12, 0.84); backdrop-filter: blur(4px);
+    background: var(--so-scrim); backdrop-filter: blur(4px);
 }
 #so-fixsel.open { display: flex; }
 #so-fixsel-card {
@@ -1984,21 +2018,21 @@
     min-height: 180px; max-height: 42vh;
     border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
 }
-.so-fixsel-text { position: relative; resize: vertical; overflow-y: auto; background: var(--black30a, rgba(0, 0, 0, 0.22)); color: var(--SmartThemeBodyColor, #e6e6e6); }
+.so-fixsel-text { position: relative; resize: vertical; overflow-y: auto; background: var(--so-field); color: var(--SmartThemeBodyColor, #e6e6e6); }
 .so-fixsel-overlay { position: absolute; inset: 0; z-index: 1; overflow-y: auto; pointer-events: none; color: transparent; background: transparent; display: none; }
 .so-fixsel-hl { background: rgba(224, 162, 58, 0.42); border-radius: 2px; color: transparent; }
 .so-fixsel-info { flex: 0 0 auto; }
 .so-fixsel-instr {
     width: 100%; box-sizing: border-box; border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 0.86em;
-    background: var(--black30a, rgba(0, 0, 0, 0.22)); color: var(--SmartThemeBodyColor, #e6e6e6); resize: vertical;
+    background: var(--so-field); color: var(--SmartThemeBodyColor, #e6e6e6); resize: vertical;
     border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
 }
 #so-fixsel-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; flex: 0 0 auto; }
 #so-fixsel-btns button {
     padding: 7px 14px; border-radius: 8px; border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.2));
-    background: rgba(255, 255, 255, 0.06); color: var(--SmartThemeBodyColor, #ddd); cursor: pointer; font-size: 0.86em;
+    background: rgba(var(--so-ink), 0.06); color: var(--SmartThemeBodyColor, #ddd); cursor: pointer; font-size: 0.86em;
 }
-#so-fixsel-btns button:hover { background: rgba(255, 255, 255, 0.12); }
+#so-fixsel-btns button:hover { background: rgba(var(--so-ink), 0.12); }
 .so-fixsel-go:not(:disabled) { background: var(--so-auto-red, #d9534f) !important; border-color: transparent !important; color: #fff !important; font-weight: 600; }
 .so-fixsel-go:disabled { opacity: 0.45; cursor: not-allowed; }
 /* 多段选段（1.37.0）——手机优先：钉按钮 ≥32px 点区；chips 行 flex-wrap，输入框挤不下换整行；
@@ -2008,7 +2042,7 @@
 .so-fixsel-pin-btn {
     flex: 0 0 auto; min-height: 32px; padding: 4px 10px; border-radius: 6px; cursor: pointer;
     border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.2));
-    background: rgba(255, 255, 255, 0.06); color: inherit;
+    background: rgba(var(--so-ink), 0.06); color: inherit;
 }
 .so-fixsel-pin-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .so-fixsel-pins { display: none; flex-direction: column; gap: 6px; flex: 0 0 auto; }
@@ -2021,13 +2055,13 @@
 .so-fixsel-pininstr {
     flex: 1 1 160px; min-width: 160px; min-height: 30px; padding: 4px 8px; border-radius: 6px;
     border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.2));
-    background: var(--black30a, rgba(0, 0, 0, 0.22)); color: var(--SmartThemeBodyColor, #e6e6e6);
+    background: var(--so-field); color: var(--SmartThemeBodyColor, #e6e6e6);
 }
 .so-fixsel-pinrm {
     flex: 0 0 auto; min-width: 32px; min-height: 30px; border-radius: 6px; border: none;
     background: transparent; color: inherit; cursor: pointer; opacity: 0.7;
 }
-.so-fixsel-pinrm:hover { opacity: 1; background: rgba(255, 255, 255, 0.1); }
+.so-fixsel-pinrm:hover { opacity: 1; background: rgba(var(--so-ink), 0.1); }
 .so-fixsel-hl-pin { background: rgba(90, 160, 255, 0.35); border-radius: 2px; color: transparent; }
 /* 多段评审卡（侧聊气泡内）：行卡 + 复选框大点区 + 按钮条可换行（窄屏不挤爆） */
 .so-multifix-box { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
@@ -2140,10 +2174,113 @@
 #so-upd-status.so-upd-hot { color: #e05b5b; font-weight: 600; opacity: 1; }
 
 /* —— 自定义人格编辑器（1.39.0）——内联于设置面板滚动区（非覆盖卡，无需 #so-cur-card 骨架/逃生 ✕） */
-#so-persona-editor { border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 8px; padding: 8px; margin: 6px 0; display: flex; flex-direction: column; gap: 6px; }
+#so-persona-editor { border: 1px solid rgba(var(--so-ink), 0.12); border-radius: 8px; padding: 8px; margin: 6px 0; display: flex; flex-direction: column; gap: 6px; }
 .so-pe-field { display: flex; flex-direction: column; gap: 3px; }
 .so-pe-field > span { opacity: 0.85; font-size: 0.92em; }
 #so-persona-editor textarea { width: 100%; box-sizing: border-box; resize: vertical; }
 .so-pe-btns { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .so-pe-btns button { min-height: 32px; }   /* 移动端点击目标（1.37.1 先例） */
 .so-pe-spacer { flex: 1 1 auto; }
+
+/* ---------- 窗口配色三档（1.45.0） ----------
+   用户上报：毛玻璃美化主题下神谕正文「看得字都糊了」。跟随酒馆主题是有意设计（见文件头
+   注释），但半透明底 + 高 blur 的主题会让主聊天渗上来。出路 = 两档【不跟随主题】的固定配色。
+
+   机制：<body> 上挂 so-skin-dark / so-skin-light（跟随主题 = 不挂），在三个 body 级根上
+   重新声明主题变量；既有规则本来就在读这些变量，故绝大部分界面自动改色。
+   特异度 body.so-skin-x #so-window (1,1,1) 压过 #so-window (1,0,0)，无需 !important。
+
+   深色一列全部逐字取自本文件原有的 var() 兜底值 —— 那就是这个扩展「没有任何主题」时
+   本来的样子，不是新设计。真正发明出来的只有浅色。
+   注意：#so-chatbar-button 与 ✂️ 快捷按钮住在酒馆自己的 UI 里，【有意】不在这三个根之下。 */
+body.so-skin-dark #so-window,
+body.so-skin-dark #so-plan-float,
+body.so-skin-dark #so-live {
+    --SmartThemeBodyColor: #e6e6e6;
+    --SmartThemeBlurTintColor: #16171a;
+    --SmartThemeBorderColor: rgba(255, 255, 255, 0.12);
+    --SmartThemeQuoteColor: #8ab4f8;
+    --SmartThemeBotMesBlurTintColor: rgba(255, 255, 255, 0.05);
+    --SmartThemeUserMesBlurTintColor: rgba(90, 120, 170, 0.28);
+    --SmartThemeBlurStrength: 0px;
+    /* 复选框对勾：酒馆把方框底画成 var(--SmartThemeBodyColor)（core style.css:4057，且 core
+       【没有】:checked 改底的规则），对勾则是 ::before 的 inset box-shadow 取
+       var(--SmartThemeCheckboxTickColor)（:4073）—— 而那个值是酒馆在 :root 上按【主题的】正文色
+       反推的（power-user.js applyThemeColor('main') 写 --SmartThemeCheckboxBgColorR/G/B，
+       :root 再算 (亮度-128)*-1000）。自定义属性在【声明处】就完成 var() 代换，所以在这里覆盖那
+       三个分量没有用，必须直接钉对勾色本身。
+       固定皮肤翻转了方框底却够不着对勾 → 深色主题的用户切到浅色档会得到「深方框 + 反推出来的
+       黑对勾」＝ 1.35:1，对勾等于看不见（浅色主题的用户切深色档则是镜像的另一半）。
+       两档的取值必须【互为反色】：深色档方框是浅的(#e6e6e6) → 对勾要深；浅色档方框是深的
+       (#1f2430) → 对勾要浅。深色档这一行在原生酒馆上恰好与继承来的值同向、看着像多余的，
+       但那只是巧合（取决于用户主题），所以照样钉死。 */
+    --SmartThemeCheckboxTickColor: #1f2430;
+    --so-ink: 255, 255, 255;
+    --so-field: rgba(0, 0, 0, 0.32);
+    --so-scrim: rgba(8, 9, 12, 0.84);
+}
+
+body.so-skin-light #so-window,
+body.so-skin-light #so-plan-float,
+body.so-skin-light #so-live {
+    --SmartThemeBodyColor: #1f2430;
+    --SmartThemeBlurTintColor: #f7f8fa;
+    --SmartThemeBorderColor: rgba(0, 0, 0, 0.14);
+    /* 强调色不能照抄深色档的 #8ab4f8 —— 那是压在近黑上才成立的淡蓝，放近白上会发飘 */
+    --SmartThemeQuoteColor: #3b6fd4;
+    --SmartThemeBotMesBlurTintColor: rgba(0, 0, 0, 0.035);
+    --SmartThemeUserMesBlurTintColor: rgba(59, 111, 212, 0.12);
+    --SmartThemeBlurStrength: 0px;
+    /* 见深色档同名声明的长注释。这一档的方框底是深的（#1f2430），对勾必须给浅色，
+       否则就是原生酒馆上实测的 1.35:1 —— 对勾看不见。 */
+    --SmartThemeCheckboxTickColor: #f7f8fa;
+    --so-ink: 0, 0, 0;
+    --so-field: rgba(0, 0, 0, 0.05);
+    --so-scrim: rgba(20, 22, 28, 0.55);
+}
+
+/* 固定配色下毛玻璃彻底关掉。底色已不透明、blur 本就不可见；置 none 是【构造性】保证 ——
+   无论用户的美化把 --blurStrength 调多高、把主聊天弄成什么样，都渗不进窗口 —— 顺带省一层
+   GPU 合成。--SmartThemeBlurStrength: 0px 是第二道防线，防将来有人新写一条 blur(calc(…))。 */
+body.so-skin-dark #so-window, body.so-skin-light #so-window,
+body.so-skin-dark #so-debug, body.so-skin-light #so-debug,
+body.so-skin-dark #so-curate, body.so-skin-light #so-curate,
+body.so-skin-dark #so-summary, body.so-skin-light #so-summary,
+body.so-skin-dark #so-autowarn, body.so-skin-light #so-autowarn,
+body.so-skin-dark #so-fixwarn, body.so-skin-light #so-fixwarn,
+body.so-skin-dark #so-fixsel, body.so-skin-light #so-fixsel,
+body.so-skin-dark #so-fixsel-card, body.so-skin-light #so-fixsel-card {
+    backdrop-filter: none;
+}
+
+/* 三张固定深色卡（1.27.1 起硬编码 #1b1d23 底 + 钉死浅色文字）：深色档与跟随主题档保持原样，
+   浅色档整体翻浅。在固定皮肤下这样做是安全的，因为固定皮肤【同时知道底色和文字色】——
+   1.27.1 当年只能「钉文字、不敢改底」，正是因为主题变量的取值不可知。
+   第四张 #so-fixsel-card 不在此列：1.27.1 已把它改成读 var(--SmartThemeBlurTintColor)，
+   随皮肤自动改色。卡内按钮的 hover 由 --so-ink 统一覆盖，三档下都自洽。 */
+body.so-skin-light #so-cur-card,
+body.so-skin-light #so-autowarn-card,
+body.so-skin-light #so-fixwarn-card {
+    background-color: #f7f8fa;
+    color: #1f2430;
+}
+
+/* 卡内按钮自带钉死的浅色文字（1.27.1 为恒深色卡而钉），子元素的显式 color 不会被上面那条
+   卡级覆盖继承 —— 浅色档下就是浅字压浅底、按钮直接隐形。故一并翻深。
+   注意 #so-autowarn-ok 不在此列：它是白字压红底（!important），任何皮肤下都正确。 */
+body.so-skin-light .so-cur-btn,
+body.so-skin-light #so-autowarn-btns button,
+body.so-skin-light #so-fixwarn-btns button {
+    color: #1f2430;
+}
+
+/* 同一缺陷族的第三例（1.45.0 终审补）：策展卡里的「预设已停用」徽章。它自带一层淡红底
+   rgba(224,124,124,.22)，压在浅色档的卡底 #f7f8fa 上合成出 rgb(242,221,222)，而文字色是
+   1.27.1 钉死的浅粉 #e89a9a —— 恒深色卡上 5.37:1，翻浅之后 1.70:1。
+   翻深【不能】直接用正文色 #1f2430：那样徽章就只是个灰底方块，读不出「这条被停用了」的
+   警示意味。取同一色相（#e89a9a 的深色对位，hsl 0° 62%）的 #952323 = 6.36:1。
+   ⚠ 这条能生效的前提：index.js 那个 <span> 上【没有】内联样式。它原本内联了一份与
+   .so-cur-disabled 逐条重复的声明，内联压过类规则 —— 本条会被静默吃掉。已一并删除。 */
+body.so-skin-light .so-cur-disabled {
+    color: #952323;
+}

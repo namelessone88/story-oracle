@@ -1573,7 +1573,7 @@ const ENABLE_CUSTOM_PERSONAS = true;
 // —— 更新提醒（1.38.0）——
 // SO_VERSION 是代码内唯一版本号，必须与 manifest.json 的 version 完全一致——update-check.test.mjs
 // 有失配即红的漂移钉（发版清单：两处一起 bump）。
-const SO_VERSION = '1.43.1';
+const SO_VERSION = '1.45.0';
 // 更新提醒总开关。false → 设置面板不渲染「更新」组、开窗不检查、红点绘制器与一键更新 no-op、
 // 绑定/回填跳过——字节级零行为变化。运行期另有 opt-out 设置 updAutoCheck（默认开）。
 const ENABLE_UPDATE_CHECK = true;
@@ -1778,7 +1778,13 @@ const defaults = {
     // 只影响「神谕读取对话记录」的所有模式；不影响世界书关键词扫描，也不影响弧线节奏计数。
     includeHiddenFloors: false,
     sendTemperature: true,     // include temperature in the request (some models reject it)
+    // 1.45.0 窗口配色：'dark' | 'light' | 'theme'（跟随酒馆主题 = 1.44.x 及以前的行为）。
+    // 这里写 'dark' 是给【全新安装】的默认；老档由 getSettings 里的一次性迁移补 'theme'，
+    // 那段跑在本循环之前，所以老用户读不到这个默认值。
+    windowSkin: 'dark',
     showChatBarButton: false,  // 用户功能请求：在 ST 聊天输入栏（☰ 旁）放一个 🌙 快捷按钮一键开 / 关神谕窗口；默认关、设置里开
+    // ✂️ 选段校正快捷按钮：放在输入框【上方】那一排（快速回复条）。默认关；开关在【校正设置 → 手动】里。
+    fixSelBarButton: false,
     // A5：把 ⋯ 工具菜单里的项搬到标题栏（省一次点击）。默认关——⋯ 菜单留给未来的小模式。原生化自二创 tools-expand。
     toolsInHeader: false,
     // A6：连接预设（端点 URL + API 密钥 + 模型 的命名快照，随时切换服务商）。原生化自二创 connection-presets。
@@ -2035,6 +2041,14 @@ function getSettings() {
         ctx.extensionSettings[MODULE] = {};
     }
     const s = ctx.extensionSettings[MODULE];
+    // 一次性迁移：窗口配色（1.45.0）。新装默认【深色】（固定不透明，不受主题毛玻璃影响）；
+    // 但老用户的窗口一直跟着酒馆主题走，升级不该悄悄改掉他们的外观 —— 老档补写 'theme'。
+    // 判据 = 进函数时设置对象是否为空（空 = 全新安装）。装了扩展但从未触发过任何一次
+    // save() 的人与全新安装无从区分，Prince 2026-07-29 定案：就按新用户处理，不为此
+    // 引入「我见过你」持久标记。
+    // 必须在下面的默认值填充【之前】：那个循环会先把 'dark' 写进去，之后就判不出新旧档了。
+    const soFreshInstall = Object.keys(s).length === 0;
+    if (s.windowSkin === undefined) s.windowSkin = soFreshInstall ? 'dark' : 'theme';
     // 一次性迁移（须在填默认值之前——否则下面的默认填充会先把分家键设成 false，迁移就判不出旧值）：
     // 旧版单个全局 fixUsePreset（手动 + 自动共用）→ 手动/自动分家的 fixM_/fixA_usePreset；删旧键，幂等。
     if (s.fixUsePreset !== undefined) {
@@ -2343,10 +2357,12 @@ function init() {
             }
         }
     } catch (e) { console.warn('[Story Oracle] 内置破限迁移失败：', e); }
+    applyWindowSkin(getSettings());   // 1.45.0：先上皮肤再建窗，避免开窗瞬间闪一下旧配色
     injectWandButton();
     buildWindow();
     if (getSettings().toolsInHeader) applyToolsInHeader();   // A5：开了「工具移到标题栏」就在建窗后搬一次
     syncChatBarButton();   // 用户功能请求：按设置在聊天栏放 / 撤快捷按钮
+    syncFixSelBarButton();   // ✂️ 按设置在输入框上方那一排放 / 撤「选段校正」快捷按钮（1.44.0）
     loadRegexEngine(); // warm the cache so it's ready by first send
 
     // Advisor plan lifecycle: re-register (or clear) the injection whenever a
@@ -8695,6 +8711,134 @@ function removeChatBarButton() {
     if (btn) btn.remove();
 }
 
+/* ✂️ 选段校正·输入框上方快捷按钮（1.44.0，opt-in `fixSelBarButton`）——把选段校正入口放到聊天
+   输入框【上方】那一排（ST 的快速回复条）。这段代码所有看起来奇怪的地方都源自两条 ST 事实：
+   ① 快速回复按钮的原生外观全靠【祖先选择器】`#qr--bar > .qr--buttons .qr--button` —— 按钮必须
+      物理落在这个结构里才长得对，光给自己挂 class / 自己写样式都是四不像；
+   ② ST 会在切聊天、改快速回复设置时【重建】 `#qr--bar`，把条里的按钮一并冲掉 —— 故必须盯住
+      `#send_form` 补挂，一次性注入活不过第一次切聊天。
+   点击一律委托 onFixChatEntryClick()（1.42.0 那条已验证的路：确认门 → 选区送达 → 预选开卡），
+   本处不另写一套开卡逻辑。 */
+const FIXSEL_BAR_BTN_ID = 'so-fixsel-qr-btn';
+const FIXSEL_BAR_OWN_CLASS = 'so-fixsel-own-bar';   // 只给【我们自建】的条打标：撤按钮时据此回收，绝不误删 ST 自己的
+let fixSelBarObserver = null;
+let fixSelBarTimer = null;
+
+// 取（或建）`#qr--bar`，返回挂按钮用的 `.qr--buttons` 容器。用遍历比对 id 而非 `#qr--bar` 选择器：
+// 快速回复弹出模式会在 body 上另留一条同 id 的，document.querySelector 会挑错那一条。
+function fixSelBarHolder(sendForm) {
+    let bar = Array.from(sendForm.querySelectorAll('div')).find((d) => d.id === 'qr--bar');
+    if (!bar) {
+        bar = document.createElement('div');
+        bar.id = 'qr--bar';
+        bar.className = FIXSEL_BAR_OWN_CLASS + ' flex-container flexGap5';
+        sendForm.prepend(bar);
+    }
+    let holder = bar.querySelector('.qr--buttons');
+    if (!holder) {   // 原生条在「未组合」模式下可能没有这层
+        holder = document.createElement('div');
+        holder.className = 'qr--buttons';
+        bar.appendChild(holder);
+    }
+    return holder;
+}
+
+// 注入（幂等）。#send_form 尚未渲染 → 返回 false，由 syncFixSelBarButton 的轮询重试。
+function injectFixSelBarButton() {
+    if (!ENABLE_FIXSEL_CHAT_ENTRY || !ENABLE_REPLY_FIX || !ENABLE_FIX_SELECT) return false;
+    const sendForm = document.getElementById('send_form');
+    if (!sendForm) return false;
+    // 【先拔光再插】而不是「已存在就返回」：有的扩展会把整条快速回复条搬进自己的容器，搬动过程中
+    // 我们的按钮一度不可达，观察者据此判定「按钮没了」又插一颗 → 两颗（实机 race，已复现）。
+    // 恰好一颗 = 常态，直接返回、一个字节都不碰 DOM（碰了会让观察者自激）。
+    const existing = document.querySelectorAll('#' + FIXSEL_BAR_BTN_ID);
+    if (existing.length === 1) return true;
+    existing.forEach((b) => b.remove());
+    const btn = document.createElement('div');
+    btn.id = FIXSEL_BAR_BTN_ID;
+    btn.className = 'qr--button menu_button interactable';
+    btn.setAttribute('tabindex', '0');
+    btn.title = '选段校正 —— 在最新一条回复里划选一段再点我（不划选 = 直接开卡）';
+    btn.textContent = '✂️ 选段校正';
+    const go = (e) => {
+        if (e && e.preventDefault) { e.preventDefault(); e.stopPropagation(); }
+        // 这颗按钮【常驻】，可能在还没有 AI 回复时被点到——楼层入口那颗不会（它只长在 AI 楼层上）。
+        // 静默 no-op 会让人以为按钮坏了，故这里出声。
+        const latest = getLatestAiMessage();
+        if (!latest || latest.idx < 0) {
+            if (window.toastr) window.toastr.info('还没有可校正的 AI 回复', '故事神谕');
+            return;
+        }
+        Promise.resolve(onFixChatEntryClick()).catch((err) => console.warn('[Story Oracle] 选段入口点击失败：', err));
+    };
+    btn.addEventListener('click', go);
+    btn.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') go(e); });
+    fixSelBarHolder(sendForm).appendChild(btn);
+    return true;
+}
+
+function removeFixSelBarButton() {
+    const btn = document.getElementById(FIXSEL_BAR_BTN_ID);
+    if (btn) btn.remove();
+    // 只回收【我们自建】的那条空壳（没装快速回复的人不该被留下一条空白条）；ST 自己的条一个字节都不动。
+    const own = document.querySelector('div#qr--bar.' + FIXSEL_BAR_OWN_CLASS);
+    if (own && !(own.querySelector('.qr--buttons')?.children.length)) own.remove();
+}
+
+// 盯住 #send_form：ST 重建 `#qr--bar` 会把我们的按钮冲掉，掉了就补回。不会自激——补回后
+// getElementById 即命中，回调直接返回。
+function startFixSelBarObserver() {
+    if (fixSelBarObserver) return;
+    const sendForm = document.getElementById('send_form');
+    if (!sendForm) return;
+    fixSelBarObserver = new MutationObserver(() => {
+        injectFixSelBarButton();   // 自带「恰好一颗就什么都不做」的常态短路 + 多了就收敛，故可无条件调
+    });
+    fixSelBarObserver.observe(sendForm, { childList: true, subtree: true });
+}
+
+function stopFixSelBarObserver() {
+    if (fixSelBarObserver) fixSelBarObserver.disconnect();
+    fixSelBarObserver = null;
+}
+
+// 按设置同步（init 时 + 设置里勾选 / 取消时调用；幂等）。#send_form 懒加载 → 轮询等它出现，
+// 封顶 40 次（~20s）后放弃，绝不常驻空转。
+function syncFixSelBarButton() {
+    if (fixSelBarTimer) { clearInterval(fixSelBarTimer); fixSelBarTimer = null; }
+    if (!getSettings().fixSelBarButton) { stopFixSelBarObserver(); removeFixSelBarButton(); return; }
+    if (injectFixSelBarButton()) { startFixSelBarObserver(); return; }
+    let attempts = 0;
+    fixSelBarTimer = setInterval(() => {
+        if (injectFixSelBarButton() || ++attempts > 40) {
+            clearInterval(fixSelBarTimer);
+            fixSelBarTimer = null;
+            if (document.getElementById(FIXSEL_BAR_BTN_ID)) startFixSelBarObserver();
+        }
+    }, 500);
+}
+
+/**
+ * 窗口配色三档（1.45.0）。在 <body> 上挂恰好一个 so-skin-* 类；'theme'（跟随酒馆主题）
+ * 时一个都不挂 —— 不挂类 = 不命中任何皮肤规则 = 与 1.44.x 逐值相同的渲染。
+ *
+ * 放在 body 而不是各个根上：一次写入同时覆盖 #so-window / #so-plan-float / #so-live
+ * 三个 body 级根，以后新增根也免费。特异度 body.so-skin-x #so-window (1,1,1) 压过
+ * #so-window (1,0,0)，故皮肤块不需要 !important。
+ *
+ * 无效值一律按 'theme' 处理（fail-open）：配色出错不该把窗口变成没法用的样子。
+ *
+ * @param {{windowSkin?: string}} s 设置对象（getSettings() 的返回）
+ */
+function applyWindowSkin(s) {
+    const b = document.body;
+    if (!b) return;
+    b.classList.remove('so-skin-dark', 'so-skin-light');
+    const skin = s && s.windowSkin;
+    if (skin === 'dark') b.classList.add('so-skin-dark');
+    else if (skin === 'light') b.classList.add('so-skin-light');
+}
+
 // 按设置同步聊天栏按钮的有无（init 时 + 设置里勾选 / 取消时调用）。
 function syncChatBarButton() {
     if (getSettings().showChatBarButton) injectChatBarButton();
@@ -8727,7 +8871,7 @@ function buildWindow() {
             <div id="so-header-btns">
                 <div class="so-iconbtn" id="so-advisor-btn" title="剧情参谋 —— 构思新剧情走向，并引导主线靠近它"><i class="fa-solid fa-compass"></i></div>
                 <div class="so-iconbtn" id="so-lorebook-btn" title="世界书模式 —— 聊聊或修改世界书"><i class="fa-solid fa-book"></i></div>
-                <div class="so-iconbtn" id="so-diagnose-btn" title="诊断模式 —— 修复 MVU 状态变量（再点一次开启自动模式）"><i class="fa-solid fa-stethoscope"></i><span class="so-auto-tag">AUTO</span></div>
+                <div class="so-iconbtn" id="so-diagnose-btn" title="诊断模式 —— 修复 MVU 状态变量（再点一次开启自动模式）"><i class="fa-solid fa-stethoscope"></i><span class="so-auto-tag">A</span></div>
                 <div class="so-iconbtn" id="so-fix-btn" title="校正模式 —— 修一修最新这条回复（AI 味 / 对话 / 设定 / 详略…），应用后原文仍在"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
                 <span class="so-hdr-div" aria-hidden="true"></span>
                 <div class="so-tools-wrap">
@@ -8924,6 +9068,7 @@ function buildWindow() {
             <details class="so-set-group">
                 <summary>界面</summary>
                 <div class="so-set-body">
+                    <label class="so-check"><span>窗口配色</span><select id="so-window-skin" title="深色 / 浅色为固定配色，不跟随酒馆主题"><option value="dark">深色</option><option value="light">浅色</option><option value="theme">跟随酒馆主题</option></select></label>
                     <label class="so-check"><input id="so-chatbar-toggle" type="checkbox"><span>在聊天输入栏显示快捷按钮（🌙 一键开 / 关神谕）</span></label>
                     <label class="so-check"><input id="so-tools-header-toggle" type="checkbox"><span>把 ⋯ 里的工具按钮移到标题栏（关闭后刷新页面恢复）</span></label>
                     ${ENABLE_DIAG_BODY_INJECT ? '<label class="so-check"><input id="so-diag-inject" type="checkbox"><span>把诊断修正写进正文（实验性）—— 开启后，自动诊断的修正会写进这条回复的更新区块里；非必要请保持关闭</span></label>' : ''}
@@ -8991,6 +9136,7 @@ function buildWindow() {
                         <label class="so-check so-lb-check"><span>校正回复上限</span>&nbsp;<input id="so-fix-maxtok" type="number" min="0" step="1024" style="width:6em" placeholder="自动·4096" title="校正调用的 max_tokens 下限自动为 4096；长楼层（约 3000 字以上）改写被截断、校正总失败时可调高（如 8192/12288）。对手动与自动校正都生效。注意：超过服务商单次输出上限会被直接拒绝——报错就调回来。留空 = 自动。"></label>
                         <div class="so-hint">手动：在下方输入框直接说要改哪里（如「换种写法重写这段」「她这里不该笑」），只改最新这一条回复，单稿、更快。</div>
                         ${ENABLE_FIX_SELECT ? '<button type="button" id="so-fixsel-open" class="so-fix-run-btn" title="划选回复里的一段，只把这段发给模型改——弱模型 / 长聊天下更稳，绝不动你没选的部分（状态栏 / 面板等）"><i class="fa-solid fa-scissors"></i> 选段校正（只改划选的一段）</button>' : ''}
+                        ${ENABLE_FIXSEL_CHAT_ENTRY && ENABLE_FIX_SELECT ? '<label class="so-check so-lb-check"><input id="so-fixsel-barbtn" type="checkbox"><span>在聊天输入框上方放一个「✂️ 选段校正」快捷按钮</span></label><div class="so-hint">免去每次开窗切模式：在主聊天里划选一段，点它即可直接打开选段卡（不划选 = 直接开卡）。</div>' : ''}
                     </div>
 
                     <!-- 自动模式（1.18.3 新手优先重排）：判定行 → 跑一次 / 每条 → 目标 → 强度 → 警告盒 → 进阶折叠 → 恢复推荐。 -->
@@ -9649,6 +9795,13 @@ function bindControls() {
         save();
         syncChatBarButton();
     });
+    // 1.45.0 窗口配色：改完立刻生效，不用刷新（同 #so-chatbar-toggle 的手感）。
+    // 不走 bind()：bind 只存值，这里还要 applyWindowSkin 真去换类。
+    win.querySelector('#so-window-skin').addEventListener('change', (e) => {
+        getSettings().windowSkin = e.target.value;
+        save();
+        applyWindowSkin(getSettings());
+    });
     bind('#so-profile', 'profileId');
     bind('#so-temp', 'temperature', (v) => parseFloat(v));
     bind('#so-maxtok', 'maxTokens', (v) => parseInt(v, 10));
@@ -9830,6 +9983,12 @@ function bindControls() {
     bindFix('#so-fixa-summary', 'fixA_includeSummary');
     win.querySelector('#so-fix-run').addEventListener('click', () => { runFixByTargets(); });
     win.querySelector('#so-fixsel-open')?.addEventListener('click', () => openFixSelectCard());   // ✂️ 选段校正（1.27.0）
+    // ✂️ 输入框上方快捷按钮开关（1.44.0）：改设置后立刻放 / 撤按钮（不只是存），同 🌙 那颗的手感。
+    win.querySelector('#so-fixsel-barbtn')?.addEventListener('change', (e) => {
+        getSettings().fixSelBarButton = e.target.checked;
+        save();
+        syncFixSelBarButton();
+    });
     win.querySelector('#so-fix-scan')?.addEventListener('click', () => { scanFixScope(); });   // ✨ Phase 6：扫描本卡正文标签
     win.querySelector('#so-fix-reset')?.addEventListener('click', () => { resetFixCfg(); });   // ✨ Phase 7（M4）：恢复推荐设置
     bindFix('#so-fix-auto', 'autoFixEnabled');   // 自动校正每条新回复（message_received 编排读 cfg.autoFixEnabled）
@@ -9970,6 +10129,9 @@ function loadSettingsIntoForm() {
     seedFixControls();
     populateFixBundles();   // ✨ 校正 Phase 4：填充全局命名套餐下拉
     win.querySelector('#so-chatbar-toggle').checked = !!s.showChatBarButton;
+    win.querySelector('#so-window-skin').value = s.windowSkin;   // 1.45.0 窗口配色
+    const fixSelBarBox = win.querySelector('#so-fixsel-barbtn');   // 门控关时该行不存在
+    if (fixSelBarBox) fixSelBarBox.checked = !!s.fixSelBarButton;
     win.querySelector('#so-tools-header-toggle').checked = !!s.toolsInHeader;
     win.querySelector('#so-regex').checked = !!s.applyRegex;
     win.querySelector('#so-wi').value = s.worldInfoMode;
@@ -10888,8 +11050,10 @@ function renderCurationRows() {
         const cb = `<input type="checkbox" class="so-cur-cb" ${r.keep ? 'checked' : ''}>`;
         const roleBadge = (r.role && r.role !== 'system')
             ? `<span class="so-cur-role">${r.role}</span>` : '';
+        // 【不要】把样式再内联回来（1.45.0）：这一串曾与 .so-cur-disabled 逐条重复，而内联优先级
+        // 压过任何类规则 —— 浅色皮肤给它写的 color 覆盖会被静默吃掉、徽章浅粉压浅底约 1.7:1。
         const disabledBadge = r.disabled
-            ? `<span class="so-cur-disabled" style="flex:0 0 auto;font-size:0.74em;padding:1px 6px;border-radius:6px;background:rgba(224,124,124,0.22);color:#e89a9a;white-space:nowrap;">预设已停用</span>`
+            ? `<span class="so-cur-disabled">预设已停用</span>`
             : '';
         const tag = `<span class="so-cur-tag so-cur-tag-${r.category}">${CUR_TAG_LABEL[r.category] || r.category}</span>`;
         const chars = r.kind === 'marker' ? '插槽' : `${r.chars} 字`;
@@ -14683,13 +14847,14 @@ function renderReplyHtml(text) {
 
 // PURE：把参谋回复按 <StoryPlan> 块切成有序段表（1.18.2 参谋 Markdown）。平铺不变量：
 // segments.map(g=>g.text).join('') === 原文——渲染层怎么分道都绝不丢字。闭合块与 parseStoryPlans 同一
-// 配对规则（大小写不敏感、非贪婪到最近闭合）；未闭合的尾部 <StoryPlan>（截断回复）整段算方案块，
-// 免得半截方案被 Markdown 搅碎。孤儿 </StoryPlan> 留在散文里（parseStoryPlans 同样无视它）。
+// 配对规则（大小写不敏感、非贪婪到最近闭合、同样容错 <story_plan>/<story-plan> 等方言变体）；未闭合的
+// 尾部 <StoryPlan>（截断回复）整段算方案块，免得半截方案被 Markdown 搅碎——这条 EOF 救援 parseStoryPlans
+// 也有，两侧【完全一致】。孤儿 </StoryPlan> 留在散文里（parseStoryPlans 同样无视它）。
 function splitStoryPlanSegments(text) {
     const t = String(text || '');
     if (!t) return [];
     const out = [];
-    const re = /<StoryPlan>[\s\S]*?<\/StoryPlan>|<StoryPlan>[\s\S]*$/gi;
+    const re = /<Story[_-]?Plan>[\s\S]*?<\/Story[_-]?Plan>|<Story[_-]?Plan>[\s\S]*$/gi;
     let last = 0;
     let m;
     while ((m = re.exec(t)) !== null) {
@@ -18247,13 +18412,16 @@ function parseFixReply(text, mode) {
  * 参谋方案区块的解析与「开始引导」卡片。
  * <StoryPlan> 用「键: 值」逐行解析（容错中英文键名与全角冒号）；解析不出 goal
  * 的区块直接忽略——卡片是加分项而非硬依赖，模型不出区块时回复照常显示。
+ * 标签容错：模型偶发写成 <story_plan>/<story-plan> 等变体（真实上报：第三块闭标签 snake_case →
+ * 只出两张卡），开闭标签均按 Story[_-]?Plan 匹配；未闭合的尾部块（截断回复）救援到文末——与
+ * splitStoryPlanSegments 的配对规则【完全一致】（此前救援只在渲染侧 = 方案看得见、选不了）。
  * ------------------------------------------------------------------ */
 function parseStoryPlans(text) {
     const out = [];
-    const re = /<StoryPlan>([\s\S]*?)<\/StoryPlan>/gi;
+    const re = /<Story[_-]?Plan>([\s\S]*?)<\/Story[_-]?Plan>|<Story[_-]?Plan>([\s\S]*)$/gi;
     let m;
     while ((m = re.exec(String(text || ''))) !== null) {
-        const inner = m[1];
+        const inner = m[1] !== undefined ? m[1] : (m[2] || '');
         const get = (keys) => {
             for (const k of keys) {
                 const r = new RegExp('^\\s*' + k + '\\s*[:：]\\s*(.+)$', 'mi');
