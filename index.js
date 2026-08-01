@@ -1166,6 +1166,8 @@ function fixTargetOverrides(s) {
 
 // 强度三档：label 用于按钮、caption 用于界面说明、directive 拼进注入指令。
 // label 即指令的浓缩版——界面承诺与注入现实保持一致。
+// ⚠ directive 三句必须保持【无宏】：1.48.0 的节奏行探测（directivePaceLine 上方长注释）拿它们
+// 的字面量去比对已展开的自定义文本，加宏会让强度档对所有自定义用户静默失效。
 const ADVISOR_INTENSITIES = {
     seed: {
         label: '只铺垫',
@@ -1597,7 +1599,7 @@ const ENABLE_CUSTOM_PERSONAS = true;
 // —— 更新提醒（1.38.0）——
 // SO_VERSION 是代码内唯一版本号，必须与 manifest.json 的 version 完全一致——update-check.test.mjs
 // 有失配即红的漂移钉（发版清单：两处一起 bump）。
-const SO_VERSION = '1.47.0';
+const SO_VERSION = '1.48.0';
 // 更新提醒总开关。false → 设置面板不渲染「更新」组、开窗不检查、红点绘制器与一键更新 no-op、
 // 绑定/回填跳过——字节级零行为变化。运行期另有 opt-out 设置 updAutoCheck（默认开）。
 const ENABLE_UPDATE_CHECK = true;
@@ -1846,6 +1848,9 @@ const defaults = {
     // 那段跑在本循环之前，所以老用户读不到这个默认值。
     windowSkin: 'dark',
     showChatBarButton: false,  // 用户功能请求：在 ST 聊天输入栏（☰ 旁）放一个 🌙 快捷按钮一键开 / 关神谕窗口；默认关、设置里开
+    // 用户功能请求（1.48.0）：点击窗外（酒馆正文等非本扩展区域）自动收起神谕窗。默认关＝行为字节不变；
+    // 收起只是隐藏（toggleWindow(false)），一切状态保留，从魔杖 / 🌙 再点开即恢复。
+    clickOutsideClose: false,
     // ✂️ 选段校正快捷按钮：放在输入框【上方】那一排（快速回复条）。默认关；开关在【校正设置 → 手动】里。
     fixSelBarButton: false,
     // A5：把 ⋯ 工具菜单里的项搬到标题栏（省一次点击）。默认关——⋯ 菜单留给未来的小模式。原生化自二创 tools-expand。
@@ -4256,7 +4261,8 @@ function getChatMetadataSafe() {
 }
 
 // The active plan for the CURRENT chat, or null.
-// Shape: { goal, seed, why, title, intensity, adoptedAt, reminded }
+// Shape: { goal, seed, why, title, intensity, adoptedAt, reminded, customText? }
+// customText（1.48.0 ✏️）：用户整份自定义的注入文本；缺席 = 按字段自动生成。随方案生灭。
 function getPlan() {
     const md = getChatMetadataSafe();
     const p = md ? md[PLAN_META_KEY] : null;
@@ -4961,12 +4967,35 @@ function chatMsgCount() {
     } catch (e) { return 0; }
 }
 
+// ✏️ 注入内容编辑（1.48.0）的节奏行三件套。节奏行是【已知精确字符串】（ADVISOR_INTENSITIES 三句
+// directive 之一，不含宏），所以探测 = 整行 trim 后全等——这是「用户改没改节奏」判定的唯一依据：
+// 完好 → 强度档仍可用（原位换行）；改动/删除 → 强度档置灰（见 renderSinglePlanBody）。
+// ⚠ 承重前提：三句 directive 必须是【无宏纯文本】。比对的两边不对称——customText 是
+// substituteParams 展开【后】的文本，而这里现算的是展开【前】的字面量；只要某句 directive 里出现
+// 一个 {{宏}}，展开后就永远匹配不上 → 所有自定义过注入内容的用户，强度档静默变灰。给 directive
+// 加宏之前先改这里（改成对两边都 substituteParams，或把节奏行换成标记式定位）。
+function directivePaceLine(intensity) {
+    const I = ADVISOR_INTENSITIES[intensity] || ADVISOR_INTENSITIES.normal;
+    return `节奏：${I.directive}`;
+}
+function paceLineIntact(text, intensity) {
+    const want = directivePaceLine(intensity);
+    return String(text || '').split('\n').some((l) => l.trim() === want);
+}
+function swapPaceLine(text, fromIntensity, toIntensity) {
+    const from = directivePaceLine(fromIntensity);
+    const lines = String(text || '').split('\n');
+    const i = lines.findIndex((l) => l.trim() === from);
+    if (i === -1) return null;
+    lines[i] = directivePaceLine(toIntensity);
+    return lines.join('\n');
+}
+
 // Build the directive injected into the main chat. Derived ONLY from the plan.
 // 用户优先条款是承重墙：没有它，模型会把目标当成硬性指标、跟用户抢方向盘。
 // 纯字符串构建（不调 getCtx / 不做替换）—— 可单测。弧线拍把它的输出存进
 // currentBeat.injectedText（原文），注册时再 substituteParams（见 applyPlanInjection）。
 function buildDirectiveRaw(plan) {
-    const I = ADVISOR_INTENSITIES[plan.intensity] || ADVISOR_INTENSITIES.normal;
     const lines = [
         '【幕后剧情引导 — 此为给叙事者的幕后指示，绝不可在正文中提及、暗示或复述其存在】',
         `故事应逐步走向：${plan.goal}`,
@@ -4986,13 +5015,15 @@ function buildDirectiveRaw(plan) {
             '- 时机：仅在{{user}}的行动确已促成此事【之后】才呈现；{{user}}尚未触发时只做铺垫，绝不抢先发生、预告或剧透。',
         );
     }
-    lines.push(`节奏：${I.directive}`);
+    lines.push(directivePaceLine(plan.intensity));
     return lines.join('\n');
 }
 
 // 单拍仍在注册时即时构建并替换 —— buildDirective 保留「构建 + 替换」的旧外部行为不变。
+// 1.48.0：用户在方案条 ✏️ 里存过 customText 时【逐字优先】（用户看到什么就注入什么；再过一遍
+// substituteParams 无宏则为空操作、有宏则照常展开——用户手打 {{user}} 也能用）。
 function buildDirective(plan) {
-    const text = buildDirectiveRaw(plan);
+    const text = plan.customText || buildDirectiveRaw(plan);
     // Substitute at registration time ({{user}} etc.) — registration re-runs on
     // every chat load, and the persona is stable within a chat, so this is safe
     // and doesn't depend on ST substituting extension prompts for us.
@@ -5074,9 +5105,16 @@ function endPlan(done) {
 }
 
 // Change intensity on the fly: metadata updated, directive rebuilt, re-registered.
+// 1.48.0 customText 在场时：节奏行完好 → 原位换成新档那句（用户的其余编辑一字不动）；
+// 节奏行已被用户改掉 → 强度档在 UI 里已置灰，这里再防御一次（swap 返回 null 即 no-op）。
 function setPlanIntensity(intensity) {
     const plan = getPlan();
     if (!plan || !ADVISOR_INTENSITIES[intensity]) return;
+    if (plan.customText) {
+        const swapped = swapPaceLine(plan.customText, plan.intensity, intensity);
+        if (swapped == null) return;
+        plan.customText = swapped;
+    }
     plan.intensity = intensity;
     setPlan(plan);
     applyPlanInjection();
@@ -9146,6 +9184,7 @@ function buildWindow() {
                 <div class="so-set-body">
                     <label class="so-check"><span>窗口配色</span><select id="so-window-skin" title="深色 / 浅色为固定配色，不跟随酒馆主题"><option value="dark">深色</option><option value="light">浅色</option><option value="theme">跟随酒馆主题</option></select></label>
                     <label class="so-check"><input id="so-chatbar-toggle" type="checkbox"><span>在聊天输入栏显示快捷按钮（🌙 一键开 / 关神谕）</span></label>
+                    <label class="so-check"><input id="so-clickout-toggle" type="checkbox"><span>点击窗外自动收起（点击酒馆页面其他区域时收起本窗口）</span></label>
                     <label class="so-check"><input id="so-tools-header-toggle" type="checkbox"><span>把 ⋯ 里的工具按钮移到标题栏（关闭后刷新页面恢复）</span></label>
                     ${ENABLE_DIAG_BODY_INJECT ? '<label class="so-check"><input id="so-diag-inject" type="checkbox"><span>把诊断修正写进正文（实验性）—— 开启后，自动诊断的修正会写进这条回复的更新区块里；非必要请保持关闭</span></label>' : ''}
                 </div>
@@ -9399,6 +9438,7 @@ function buildWindow() {
             </div>
             <div class="so-plan-actions">
                 <button type="button" class="so-plan-mini" id="so-plan-show">▸ 查看注入内容</button>
+                <button type="button" class="so-plan-mini" id="so-plan-edit" title="编辑注入内容（保留原样的「节奏：」行则上方强度档仍可用）"><i class="fa-solid fa-pencil"></i></button>
                 <span class="so-plan-spacer"></span>
                 <button type="button" class="so-plan-mini so-plan-done" id="so-plan-done" title="目标已达成，停止引导">完成</button>
                 <button type="button" class="so-plan-mini so-plan-drop" id="so-plan-drop" title="不再需要，停止引导">放弃</button>
@@ -9413,6 +9453,15 @@ function buildWindow() {
                 <button type="button" class="so-plan-mini" id="so-arc-live" title="开一个浮窗看模型的实时输出——确认是在流式生成、还是真卡住了" style="display:none">📡 实时输出</button>
             </div>
             <pre id="so-plan-directive"></pre>
+            <div id="so-plan-editwrap" style="display:none">
+                <textarea id="so-plan-editbox" rows="9" spellcheck="false"></textarea>
+                <div class="so-plan-actions">
+                    <button type="button" class="so-plan-mini so-plan-done" id="so-plan-edit-save">保存</button>
+                    <button type="button" class="so-plan-mini" id="so-plan-edit-cancel">取消</button>
+                    <span class="so-plan-spacer"></span>
+                    <button type="button" class="so-plan-mini" id="so-plan-edit-reset" title="丢弃自定义，回到按方案自动生成的注入内容">恢复默认</button>
+                </div>
+            </div>
         </div>
 
         <div id="so-messages"></div>
@@ -9567,6 +9616,17 @@ function bindControls() {
         const pre = planBarEl.querySelector('#so-plan-directive');
         if (pre.classList.contains('so-spoiler')) { pre.classList.toggle('peek'); e.stopPropagation(); }
     });
+    // ✏️ 注入内容编辑（1.48.0）。经 planBarEl 查询（条可能已被搬进浮窗）。
+    win.querySelector('#so-plan-edit').addEventListener('click', enterPlanEdit);
+    win.querySelector('#so-plan-edit-save').addEventListener('click', savePlanEdit);
+    win.querySelector('#so-plan-edit-cancel').addEventListener('click', closePlanEdit);
+    win.querySelector('#so-plan-edit-reset').addEventListener('click', resetPlanEdit);
+    /* 点击窗外自动收起（1.48.0，opt-in clickOutsideClose）。监听 click 而非 pointerdown：
+     * 滚屏滑动、长按选字都不产生 click——选段校正的主聊天划选流程（1.42.0）不受影响；再加
+     * 「有选区不收」保险。capture 阶段注册：别人 stopPropagation 也拦不住我们看见这次点击。
+     * 排除面 = 一切 so- 前缀元素（本扩展全部选择器按约定带 so- 前缀，含浮条/toast/🌙/✂️）
+     * + ST 弹窗 + 魔杖菜单（不排除会出现「点菜单先关窗、点菜单项又开窗」的双开关打架）。 */
+    document.addEventListener('click', onDocClickOutside, true);
     win.querySelector('#so-plan-done').addEventListener('click', () => endPlan(true));
     win.querySelector('#so-plan-drop').addEventListener('click', () => endPlan(false));
     // Arc lifecycle buttons. Hidden unless the matching arc kind is the active construct
@@ -9870,6 +9930,11 @@ function bindControls() {
         getSettings().showChatBarButton = e.target.checked;
         save();
         syncChatBarButton();
+    });
+    // 点击窗外自动收起（1.48.0）：只是存设置——监听器常驻，由 onDocClickOutside 每次读设置决定收不收。
+    win.querySelector('#so-clickout-toggle').addEventListener('change', (e) => {
+        getSettings().clickOutsideClose = e.target.checked;
+        save();
     });
     // 1.45.0 窗口配色：改完立刻生效，不用刷新（同 #so-chatbar-toggle 的手感）。
     // 不走 bind()：bind 只存值，这里还要 applyWindowSkin 真去换类。
@@ -10215,6 +10280,7 @@ function loadSettingsIntoForm() {
     seedFixControls();
     populateFixBundles();   // ✨ 校正 Phase 4：填充全局命名套餐下拉
     win.querySelector('#so-chatbar-toggle').checked = !!s.showChatBarButton;
+    win.querySelector('#so-clickout-toggle').checked = !!s.clickOutsideClose;   // 1.48.0 点击窗外自动收起
     win.querySelector('#so-window-skin').value = s.windowSkin;   // 1.45.0 窗口配色
     const fixSelBarBox = win.querySelector('#so-fixsel-barbtn');   // 门控关时该行不存在
     if (fixSelBarBox) fixSelBarBox.checked = !!s.fixSelBarButton;
@@ -11285,6 +11351,28 @@ function toggleWindow(show) {
     placePlanBar(); // strip moves home (window) or out (float) with visibility
 }
 
+// 纯判定：这次点击是否落在「不该触发收起」的 UI 上。so- 前缀带连字符全匹配（sod-/sot- 孪生
+// 不在排除面——孪生并装是开发场景，误收起无害且可再开）。
+// #toast-container 单列：我们自己的可交互提示（「点此中断」回复后中断、自动校正金色提示）是
+// toastr 的元素，挂在酒馆的 toast 容器里、不带 so- 前缀——不排除就会「点中断顺手把窗口收了」。
+function isOracleUiEvent(target) {
+    if (!target || typeof target.closest !== 'function') return false;
+    return !!target.closest(
+        '#so-window, #so-plan-float, #so-live, #extensionsMenu, #extensionsMenuButton,'
+        + ' #toast-container, dialog, .popup, [id^="so-"], [class^="so-"], [class*=" so-"]',
+    );
+}
+function onDocClickOutside(e) {
+    if (!getSettings().clickOutsideClose) return;
+    if (!win || win.style.display === 'none') return;
+    if (isOracleUiEvent(e.target)) return;
+    try {
+        const sel = window.getSelection();
+        if (sel && String(sel).length) return;   // 正在选字（含选段校正划选）→ 不收
+    } catch (err) { /* ignore */ }
+    toggleWindow(false);
+}
+
 /* ------------------------------------------------------------------ *
  * 模式切换。四种互斥模式：chat / diagnose / lorebook / advisor。
  * setOracleMode 是唯一的写入口（booleans、CSS 类、按钮高亮、输入框占位符
@@ -12250,6 +12338,8 @@ function renderPlanBar() {
     if (!active) {
         pre.classList.remove('open');
         planBarEl.querySelector('#so-plan-show').textContent = '▸ 查看注入内容';
+        planBarSetDisplay('#so-plan-editwrap', false);
+        pre.style.display = '';
         placePlanBar();
         return;
     }
@@ -12269,6 +12359,9 @@ function renderPlanBar() {
     planBarSetDisplay('#so-arc-reject', isBlind);
     planBarSetDisplay('#so-arc-exit', isArc);
     planBarSetDisplay('#so-arc-retry', isArc && !!arcRetryPending);   // shown only after a compile failure
+    planBarSetDisplay('#so-plan-edit', !isArc);          // ✏️ 仅单拍（弧线提示词 code-only + 盲盒防剧透）
+    planBarSetDisplay('#so-plan-editwrap', false);        // 任何重画都收起编辑器
+    pre.style.display = '';
     if (isArc) renderArcBarBody(active.arc);
     else renderSinglePlanBody(active.plan);
     if (pre.classList.contains('open')) pre.textContent = currentInjectionPreview();
@@ -12295,7 +12388,9 @@ function syncPlanBarCollapsed() {
 
 // Rebuild the intensity segmented control, wiring each button to onPick(key).
 // label IS the compressed directive; the caption underneath is its one-line expansion.
-function renderIntensitySegments(current, onPick) {
+// disabled（1.48.0，可选）：置灰且不接线——单拍自定义了注入文本且节奏行已被改掉时用；
+// 弧线那处调用只传两个参数（undefined = 假）→ 行为与 1.47.0 逐字节一致。
+function renderIntensitySegments(current, onPick, disabled) {
     const seg = planBarEl.querySelector('#so-plan-intensity');
     seg.innerHTML = '';
     for (const [key, I] of Object.entries(ADVISOR_INTENSITIES)) {
@@ -12303,7 +12398,8 @@ function renderIntensitySegments(current, onPick) {
         b.type = 'button';
         b.className = 'so-plan-int' + (current === key ? ' active' : '');
         b.textContent = I.label;
-        b.addEventListener('click', () => onPick(key));
+        if (disabled) b.disabled = true;                  // 节奏已自定义：置灰不接线
+        else b.addEventListener('click', () => onPick(key));
         seg.appendChild(b);
     }
 }
@@ -12319,9 +12415,12 @@ function renderSinglePlanBody(plan) {
     pre.classList.remove('so-spoiler', 'peek');
     pre.title = '';
     planBarEl.querySelector('#so-plan-goal').textContent = plan.title ? `${plan.title}：${plan.goal}` : plan.goal;
-    renderIntensitySegments(plan.intensity, setPlanIntensity);
+    // ✏️ 1.48.0：customText 在场且节奏行被改/删 → 强度档置灰（换档无处落笔）；完好则照常可换档。
+    const paceLocked = !!(plan.customText && !paceLineIntact(plan.customText, plan.intensity));
+    renderIntensitySegments(plan.intensity, setPlanIntensity, paceLocked);
     const I = ADVISOR_INTENSITIES[plan.intensity] || ADVISOR_INTENSITIES.normal;
-    planBarEl.querySelector('#so-plan-caption').textContent = I.caption;
+    planBarEl.querySelector('#so-plan-caption').textContent =
+        paceLocked ? '节奏已自定义——强度档暂不可用；点 ✏️ 里的「恢复默认」可找回' : I.caption;
 }
 
 // Arc body. Transparent: waypoint intent + beat goal + per-beat intensity segments.
@@ -12404,6 +12503,71 @@ function currentInjectionPreview() {
 function arcInjectionPreview(arc) {
     const raw = (arc.currentBeat && arc.currentBeat.injectedText) || '';
     try { return getCtx().substituteParams(raw); } catch (e) { return raw; }
+}
+
+/* ✏️ 注入内容编辑（1.48.0，用户功能请求「引导总是差点内容」）。铅笔常显（不必先展开预览）、
+ * 仅单拍；编辑态用 textarea 顶替 <pre> 的位置。保存＝所见即所存（预览是 substitute 过的文本，
+ * 用户改哪存哪）；与自动生成全等则视为「改回默认」删掉 customText。任何 renderPlanBar 重画都
+ * 无条件收起编辑器——陈旧编辑框绝不跨状态存活（切聊天 / 换构造 / 换强度）。
+ * 一律经 planBarEl 查询：条可能已被搬进浮窗（与 #so-plan-show 监听器同规矩）。 */
+function enterPlanEdit() {
+    const active = getActiveConstruct();
+    if (!active || active.type !== 'plan') return;
+    const wrap = planBarEl.querySelector('#so-plan-editwrap');
+    // 已在编辑中 → 再点无操作。铅笔在编辑期间【仍然可见】，不挡这一下的话，误点第二次
+    // 就会把用户正在写的整段字换成自动生成文本——一个手势、没有撤销。
+    if (wrap.style.display !== 'none') return;
+    const pre = planBarEl.querySelector('#so-plan-directive');
+    pre.classList.add('open');                                   // 退出编辑后预览保持展开
+    planBarEl.querySelector('#so-plan-show').textContent = '▾ 收起注入内容';
+    pre.style.display = 'none';
+    wrap.style.display = '';
+    const box = planBarEl.querySelector('#so-plan-editbox');
+    box.value = buildDirective(active.plan);
+    box.focus();
+    // 赋值后光标默认落在【末尾】，focus() 会把它滚进视野 —— 于是编辑器一开就停在底部，把开头两行
+    // （【幕后剧情引导…】抬头 + 「故事应逐步走向：<目标>」）顶出框外。用户要读的正是这两行，故显式
+    // 回到顶部：光标归零 + 滚动条归零（两句都要——只归光标，已发生的滚动不会自己退回来）。
+    box.setSelectionRange(0, 0);
+    box.scrollTop = 0;
+    // 编辑期间强度档一律置灰。换档会走 setPlanIntensity → renderPlanBar → 收起编辑器，
+    // 没保存的字就没了；而首次编辑（还没有 customText）恰恰是档位全部可点的常见情形。
+    // 「任何重画都收编辑器」这条不变量不动，改成把触发源掐掉。
+    planBarEl.querySelectorAll('#so-plan-intensity .so-plan-int').forEach((b) => { b.disabled = true; });
+}
+function exitPlanEdit() {
+    const pre = planBarEl.querySelector('#so-plan-directive');
+    planBarEl.querySelector('#so-plan-editwrap').style.display = 'none';
+    pre.style.display = '';
+    if (pre.classList.contains('open')) pre.textContent = currentInjectionPreview();
+}
+// 收编辑器 + 重画 = 唯一的还原点。重画把强度档整条重建（新按钮天然不带 disabled，且由
+// paceLocked 重新判定该不该灰），所以【每一条】退出路径都走这里——保存 / 取消 / 恢复默认 /
+// 中途方案没了。任何一条改回裸 exitPlanEdit，档位就会永远停在编辑期的灰态。
+function closePlanEdit() {
+    exitPlanEdit();
+    renderPlanBar();
+}
+function savePlanEdit() {
+    const plan = getPlan();
+    if (!plan) { closePlanEdit(); return; }
+    const text = String(planBarEl.querySelector('#so-plan-editbox').value || '').trim();
+    if (!text) { closePlanEdit(); return; }                      // 全删＝无效编辑，不存
+    let generated = buildDirectiveRaw(plan);
+    try { generated = getCtx().substituteParams(generated); } catch (e) { /* keep raw */ }
+    if (text === generated.trim()) delete plan.customText;       // 手动改回默认 → 回到派生态
+    else plan.customText = text;
+    setPlan(plan);
+    applyPlanInjection();
+    closePlanEdit();
+}
+function resetPlanEdit() {
+    const plan = getPlan();
+    if (!plan) { closePlanEdit(); return; }
+    delete plan.customText;
+    setPlan(plan);
+    applyPlanInjection();
+    closePlanEdit();
 }
 
 // One-line label for the active construct (collapsed-float tooltip).
