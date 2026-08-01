@@ -1599,7 +1599,7 @@ const ENABLE_CUSTOM_PERSONAS = true;
 // —— 更新提醒（1.38.0）——
 // SO_VERSION 是代码内唯一版本号，必须与 manifest.json 的 version 完全一致——update-check.test.mjs
 // 有失配即红的漂移钉（发版清单：两处一起 bump）。
-const SO_VERSION = '1.48.0';
+const SO_VERSION = '1.48.1';
 // 更新提醒总开关。false → 设置面板不渲染「更新」组、开窗不检查、红点绘制器与一键更新 no-op、
 // 绑定/回填跳过——字节级零行为变化。运行期另有 opt-out 设置 updAutoCheck（默认开）。
 const ENABLE_UPDATE_CHECK = true;
@@ -11357,10 +11357,14 @@ function toggleWindow(show) {
 // toastr 的元素，挂在酒馆的 toast 容器里、不带 so- 前缀——不排除就会「点中断顺手把窗口收了」。
 function isOracleUiEvent(target) {
     if (!target || typeof target.closest !== 'function') return false;
-    return !!target.closest(
+    const hit = target.closest(
         '#so-window, #so-plan-float, #so-live, #extensionsMenu, #extensionsMenuButton,'
         + ' #toast-container, dialog, .popup, [id^="so-"], [class^="so-"], [class*=" so-"]',
     );
+    // 1.48.1：命中 body/html 不算数——1.45.0 皮肤把 so-skin-* 类挂在 <body> 上（applyWindowSkin），
+    // closest 会一路走到 body；不排掉的话 dark/light 皮肤下【页面上任何点击】都被当成自家 UI，
+    // 收起永远不触发（theme 皮肤不挂类，所以单测和 smoke 全绿着漏过了它）。
+    return !!(hit && hit !== document.body && hit !== document.documentElement);
 }
 function onDocClickOutside(e) {
     if (!getSettings().clickOutsideClose) return;
