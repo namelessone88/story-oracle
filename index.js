@@ -1599,7 +1599,7 @@ const ENABLE_CUSTOM_PERSONAS = true;
 // —— 更新提醒（1.38.0）——
 // SO_VERSION 是代码内唯一版本号，必须与 manifest.json 的 version 完全一致——update-check.test.mjs
 // 有失配即红的漂移钉（发版清单：两处一起 bump）。
-const SO_VERSION = '1.48.1';
+const SO_VERSION = '1.49.0';
 // 更新提醒总开关。false → 设置面板不渲染「更新」组、开窗不检查、红点绘制器与一键更新 no-op、
 // 绑定/回填跳过——字节级零行为变化。运行期另有 opt-out 设置 updAutoCheck（默认开）。
 const ENABLE_UPDATE_CHECK = true;
@@ -3164,6 +3164,13 @@ function resolveLbTargetNames(targets, allBookNames, activeBookNames) {
         if (n && all.has(n) && !seen.has(n)) { seen.add(n); out.push(n); }
     }
     return out;
+}
+
+// 世界书选书器的书名搜索：查询按大小写不敏感的子串匹配书名；空 / 空白查询＝全部匹配。
+// 纯函数，双选书器（filterLbBooks / filterBldBooks）共用，可单测。
+function bookNameMatchesQuery(name, query) {
+    const needle = String(query || '').trim().toLowerCase();
+    return !needle || String(name || '').toLowerCase().includes(needle);
 }
 
 // 工坊「写入」目标世界书回退判定（纯函数）：picked = resolveLbTargetNames(s.bldBooks, all, active) 的结果
@@ -9319,7 +9326,7 @@ function buildWindow() {
                     <label class="so-check so-lb-check"><span>打造目标</span>&nbsp;<select id="so-bld-target" title="用户角色 = 写进 Persona（抢话:AI 也扮演你 / 不抢话:AI 只回应你）；NPC = 写进世界书条目"></select></label>
                     <div class="so-bld-chips-row"><span class="so-bld-chips-label">草稿包含：<button type="button" id="so-bld-chips-help" title="每个部分是什么？点开看说明">?</button></span><div id="so-bld-chips"></div></div>
                     <div id="so-bld-chips-legend" style="display:none"></div>
-                    <details class="so-lb-books"><summary id="so-bld-bookpick-sum">世界书：当前激活的</summary><div class="so-lb-bookpick-tools"><button type="button" class="so-lb-mini" id="so-bld-books-active" title="清空选择、回到「跟随当前所有激活的世界书」">用当前激活的</button></div><div id="so-bld-book-list"></div></details>
+                    <details class="so-lb-books"><summary id="so-bld-bookpick-sum">世界书：当前激活的</summary><div class="so-lb-bookpick-tools"><button type="button" class="so-lb-mini" id="so-bld-books-active" title="清空选择、回到「跟随当前所有激活的世界书」">用当前激活的</button></div><input type="text" id="so-bld-book-filter" class="so-lb-book-filter" placeholder="筛选世界书（名称）…"><div id="so-bld-book-list"></div><div id="so-bld-book-empty" class="so-lb-book-empty" hidden>（没有匹配的世界书）</div></details>
                     <details class="so-lb-books"><summary id="so-bld-entries-sum">条目：全部发送</summary>
                         <div class="so-lb-entries-tools"><button type="button" class="so-lb-mini" id="so-bld-ent-all">全选</button><button type="button" class="so-lb-mini" id="so-bld-ent-none">全不选</button><button type="button" class="so-lb-mini" id="so-bld-ent-filtered" disabled title="只选中当前筛选 / 搜索结果里的条目（先在搜索框输入关键词）">全选筛选</button><button type="button" class="so-lb-mini so-lb-mini-blue" id="so-bld-ent-blue" title="只选常驻（蓝灯）条目，不含已禁用">仅蓝灯</button><button type="button" class="so-lb-mini so-lb-mini-green" id="so-bld-ent-green" title="只选关键词触发（绿灯）条目，不含已禁用">仅绿灯</button><input id="so-bld-ent-filter" type="text" placeholder="搜索条目…"></div>
                         <div id="so-bld-entry-list"></div>
@@ -9350,7 +9357,9 @@ function buildWindow() {
                         <button type="button" class="so-lb-mini" id="so-lb-book-all">全选</button>
                         <button type="button" class="so-lb-mini" id="so-lb-book-none">全不选（＝全部激活）</button>
                     </div>
+                    <input type="text" id="so-lb-book-filter" class="so-lb-book-filter" placeholder="筛选世界书（名称）…">
                     <div id="so-lb-book-list" class="so-lb-book-list"></div>
+                    <div id="so-lb-book-empty" class="so-lb-book-empty" hidden>（没有匹配的世界书）</div>
                 </details>
                 <div class="so-iconbtn" id="so-lb-refresh" title="刷新世界书列表"><i class="fa-solid fa-rotate-right"></i></div>
             </div>
@@ -9720,6 +9729,7 @@ function bindControls() {
     win.querySelector('#so-lb-disabled').addEventListener('click', () => setLbEntriesByType('off'));
     win.querySelector('#so-lb-preview-toggle').addEventListener('click', () => toggleLbPreview());
     win.querySelector('#so-lb-entries-filter').addEventListener('input', (e) => filterLbEntries(e.target.value));
+    win.querySelector('#so-lb-book-filter').addEventListener('input', (e) => filterLbBooks(e.target.value));
     // 诊断经自定义补全预设（1.43.0，opt-in）——全局开关，同 advisorUsePreset 写法（写 getSettings + save）。
     win.querySelector('#so-diag-preset').addEventListener('change', (e) => {
         const s2 = getSettings();
@@ -10048,6 +10058,7 @@ function bindControls() {
     win.querySelector('#so-bld-ent-blue')?.addEventListener('click', () => setBldEntriesByType('blue'));
     win.querySelector('#so-bld-ent-green')?.addEventListener('click', () => setBldEntriesByType('green'));
     win.querySelector('#so-bld-ent-filter')?.addEventListener('input', (e) => filterBldEntries(e.target.value));
+    win.querySelector('#so-bld-book-filter')?.addEventListener('input', (e) => filterBldBooks(e.target.value));
     // ✨ 校正模式 Phase 4：校正配置按【当前聊天】持久化（chat A 的目标不渗进 chat B）。专用 bindFix——
     // 写到 setFixCfg（per-chat 元数据）而非 getSettings()；不写全局、不调 save()（setFixCfg 自己触发 saveChatMetadata）。
     const bindFix = (id, key, parse = (v) => v) => {
@@ -12896,6 +12907,8 @@ async function populateBuilderBooks(announce) {
             listEl.appendChild(row);
         }
     }
+    const bf = win.querySelector('#so-bld-book-filter');
+    if (bf && bf.value) filterBldBooks(bf.value);
     updateBldBookSummary();
     populateBuilderEntries();
     if (announce) addSystemNote('已刷新世界书列表。');
@@ -12925,6 +12938,21 @@ function onBldBookSelectionChange() {
     save();
     updateBldBookSummary();
     populateBuilderEntries();
+}
+
+// 角色工坊选书器的书名搜索（同 filterLbBooks，纯可见性，绝不改选择）。
+function filterBldBooks(q) {
+    const list = win.querySelector('#so-bld-book-list');
+    if (!list) return;
+    let anyRow = false, anyVisible = false;
+    for (const row of list.querySelectorAll('.so-lb-book-opt')) {
+        anyRow = true;
+        const show = bookNameMatchesQuery(row.dataset.book, q);
+        row.style.display = show ? '' : 'none';
+        if (show) anyVisible = true;
+    }
+    const empty = win.querySelector('#so-bld-book-empty');
+    if (empty) empty.hidden = !(anyRow && !anyVisible);
 }
 
 // 某本书当前渲染出的全部条目 uid（不论勾选状态）。
@@ -13194,6 +13222,8 @@ async function populateLorebookBooks(announce) {
             listEl.appendChild(row);
         }
     }
+    const bf = win.querySelector('#so-lb-book-filter');
+    if (bf && bf.value) filterLbBooks(bf.value);
     updateLbBookSummary();
     updateLbHint();
     populateLorebookEntries();
@@ -13232,6 +13262,22 @@ function updateLbHint() {
     hint.textContent = (Array.isArray(t) && t.length)
         ? `将聊 / 编辑：已选 ${t.length} 本世界书（${t.join('、')}）。可在下方按条目精选以控制 token。`
         : '将聊 / 编辑：当前角色卡 / 聊天 / 全局所激活的全部世界书。可在下方按条目精选（含仅蓝灯 / 仅绿灯等快捷选择）以控制 token 消耗。';
+}
+
+// 世界书选书器的书名搜索（纯可见性筛选，绝不改选择 / 设置）：按书名子串隐藏 / 显示复选行；
+// 有书但全被筛掉时亮出「没有匹配」提示。是条目搜索 filterLbEntries 的书本版孪生。
+function filterLbBooks(q) {
+    const list = win.querySelector('#so-lb-book-list');
+    if (!list) return;
+    let anyRow = false, anyVisible = false;
+    for (const row of list.querySelectorAll('.so-lb-book-opt')) {
+        anyRow = true;
+        const show = bookNameMatchesQuery(row.dataset.book, q);
+        row.style.display = show ? '' : 'none';
+        if (show) anyVisible = true;
+    }
+    const empty = win.querySelector('#so-lb-book-empty');
+    if (empty) empty.hidden = !(anyRow && !anyVisible);
 }
 
 /* ---- per-entry picker (single targeted book, OR every active book grouped) ----

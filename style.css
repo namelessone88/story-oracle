@@ -958,6 +958,15 @@
 .so-lb-book-opt { display: flex; align-items: center; gap: 6px; font-size: 0.9em; padding: 2px 4px; cursor: pointer; }
 .so-lb-book-opt:hover { background: rgba(var(--so-ink), 0.08); border-radius: 4px; }
 @media (max-width: 600px) { .so-lb-book-list { max-height: 120px; } }
+.so-lb-book-filter {
+    display: block; width: 100%; box-sizing: border-box;
+    font: inherit; font-size: 0.82em; color: inherit;
+    padding: 5px 9px; border-radius: 8px; margin: 2px 0;
+    background: var(--SmartThemeBlurTintColor, rgba(0, 0, 0, 0.2));
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.16));
+}
+.so-lb-book-filter:focus { outline: none; border-color: var(--so-lb-accent); }
+.so-lb-book-empty { font-size: 0.82em; opacity: 0.7; padding: 4px; }
 .so-lb-check {
     display: flex;
     align-items: center;
