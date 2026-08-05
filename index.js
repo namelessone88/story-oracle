@@ -1589,6 +1589,19 @@ const SO_API_VERSION = 1;
 // false → 解析器恒返回空串、设置行不渲染（读点：getBbsHistoryText 早退 / 设置行模板 / bind+回填守卫）——
 // 字节级零变化。运行期另有 opt-in 设置 chatIncludeBbs（默认关）；未装柏宝书时开着也零开销（无全局即空）。
 const ENABLE_BBS_BRIDGE = true;
+// 小白X 剧情总结桥（ENABLE_LWB_BRIDGE，1.50.0）：小白X（LittleWhiteBox）「剧情总结」模块把早期剧情压成
+// 记忆、只在主聊天生成时短暂注入主模型（公共槽 extension_prompts["LittleWhiteBox_StorySummary"]，生成完即删）。
+// 神谕默认读不到 → 本桥在生成期抓拍那份总结缓存，问答时当背景一起看。取数无同步公开 API，故：主干=抓拍缓存，
+// 另补 metadata 持久化(a) + 缓存空时动态 import 小白X buildNonVectorPromptText() 暖启动(b)。
+// false → 抓拍钩子不注册 / 读取器恒空 / 设置行不渲染，字节级零变化。opt-in 设置 chatIncludeLwb 默认关。
+const ENABLE_LWB_BRIDGE = true;
+// 世界书 EJS 渲染桥（ENABLE_WI_EJS_RENDER，1.52.0）：装了「提示词模板」（ST-Prompt-Template）的用户，其世界书条目
+// 里可能写有 <% %> EJS 模板（如按好感度切人设）；那些模板只在主聊天生成管线里执行，神谕读到的是【模板原文】，
+// 于是「读不懂」。opt-in 设置 wiRenderEjs 开启后，神谕读世界书（普通 / 参谋 / 手动校正）时先经 ST-Prompt-Template
+// 的公开执行器 globalThis.EjsTemplate 跑一遍（先展宏后 EJS，镜像柏宝书 renderWorldInfoContent），拿到成品文本。
+// false → 渲染器 renderWiEjs 恒 pass-through（字节级零变化）、设置行不渲染、布线不接——与本功能前逐字节相同。
+// 读点：renderWiEjs 门 + 设置行模板 + bind + 回填 + 三处允许调用点（普通 / 参谋 / 手动校正各经第三参传 opt-in）。
+const ENABLE_WI_EJS_RENDER = true;
 // 自定义说话人格（1.39.0，spec docs/superpowers/specs/2026-07-24-custom-personas-design.md）：
 // 用户自建语气皮肤（名称 + 腔调描述 + 可选示例），存全局设置 customPersonas；编辑器内含
 // 「✨ AI 帮我完善」一键扩写（走 soCallModel、本地 AbortController——绝不共用主发送 abortCtl）。
@@ -1599,7 +1612,7 @@ const ENABLE_CUSTOM_PERSONAS = true;
 // —— 更新提醒（1.38.0）——
 // SO_VERSION 是代码内唯一版本号，必须与 manifest.json 的 version 完全一致——update-check.test.mjs
 // 有失配即红的漂移钉（发版清单：两处一起 bump）。
-const SO_VERSION = '1.49.0';
+const SO_VERSION = '1.52.0';
 // 更新提醒总开关。false → 设置面板不渲染「更新」组、开窗不检查、红点绘制器与一键更新 no-op、
 // 绑定/回填跳过——字节级零行为变化。运行期另有 opt-out 设置 updAutoCheck（默认开）。
 const ENABLE_UPDATE_CHECK = true;
@@ -1818,6 +1831,9 @@ const defaults = {
     // 旧楼层的自动总结，插在对话记录之前（普通 / 参谋；校正 / 工坊勾「带上剧情概要」时也一并带）。
     // 默认关（opt-in）：开了才去读 window.STBaiBaiBook；未装柏宝书时开着也零开销。
     chatIncludeBbs: false,
+    // 小白X 剧情总结桥（ENABLE_LWB_BRIDGE）：镜像小白X 注入主模型的剧情总结，同位柏宝书。
+    // 默认关（opt-in）；开了才去抓小白X 的注入槽；未装小白X 时开着也零开销。
+    chatIncludeLwb: false,
     // 更新提醒（ENABLE_UPDATE_CHECK）：开窗时自动检查新版本（opt-out；开关关则整组不渲染、恒不检查）。
     updAutoCheck: true,
     applyRegex: true,          // run ST's prompt-altering regex (thinking strip, summaries, etc.)
@@ -1839,6 +1855,10 @@ const defaults = {
     // 与 autoDiagnoseWarned 同款一次性警告：勾「不再提示」后置真，从此不再弹。
     autoFixWarned: false,
     worldInfoMode: 'off',      // 'off' | 'st' (constant + keyword) | 'all' (every entry)
+    // 世界书 EJS 渲染（ENABLE_WI_EJS_RENDER，opt-in，默认关）：开了才在神谕读世界书（普通 / 参谋 / 手动校正）时
+    // 执行条目里的 <% %> 模板（需已装「提示词模板」ST-Prompt-Template）。含【写变量】的模板会被额外执行、可能
+    // 影响卡内变量，故默认关；未装该扩展时开着也自动按原样读取（零副作用）。
+    wiRenderEjs: false,
     // 读取隐藏楼层（用户功能请求）：默认关。开启后神谕读取主聊天时也纳入被 /hide 隐藏的消息。
     // 只影响「神谕读取对话记录」的所有模式；不影响世界书关键词扫描，也不影响弧线节奏计数。
     includeHiddenFloors: false,
@@ -2020,6 +2040,7 @@ let advStatData = '';       // stringified current MVU stat_data for advisor sen
                             // (computed fresh in generateReply, '' when no MVU)
 let chatStatData = '';      // same, for NORMAL mode (gated by s.chatIncludeStat)
 let chatWorldData = '';     // 外部扩展（世界引擎等）世界信息，普通 / 参谋模式附带（gated by s.chatIncludeWorld）
+let lwbSummaryCache = '';   // 小白X 记忆桥：当前聊天镜像到的剧情总结（抓拍 / metadata 回填 / 冷启动暖 三源写入）
 let planBarEl = null;       // the ONE plan strip element — lives inside the window
                             // OR reparented into the floating container (never both)
 let planFloat = null;       // floating container shown when window closed + plan active
@@ -2455,6 +2476,11 @@ function init() {
             ctx.eventSource.on(et.MESSAGE_RECEIVED || 'message_received', (id) => {
                 Promise.resolve(maybePostReply(id)).catch((e) => console.warn('[Story Oracle] 回复后编排调度失败：', e));
             });
+            if (ENABLE_LWB_BRIDGE) {
+                // 小白X 记忆桥：主聊天生成期（小白X 已写注入槽、尚未清）抓一份总结缓存。只读、不改提示词。
+                // ST 真实事件名是 GENERATE_*（events.js 无 GENERATION_AFTER_COMBINE_PROMPTS 这个键）。
+                ctx.eventSource.on(et.GENERATE_AFTER_COMBINE_PROMPTS || 'generate_after_combine_prompts', captureLwbSnapshot);
+            }
             // ✂️ 主聊天入口（1.42.0）：楼层重建事件全量重挂按钮；换聊天顺带弃划选记忆。
             [
                 et.CHARACTER_MESSAGE_RENDERED || 'character_message_rendered',
@@ -2699,7 +2725,58 @@ function wiContextMode(s) {
     const m = s.worldInfoMode;
     return m === 'all' ? 'all' : (m === 'char' ? 'char' : 'st');
 }
-async function buildWorldInfo(forceMode, extraScanText) {
+
+// 提示词模板（ST-Prompt-Template）挂在 globalThis 的执行器接口（见其 exports.ts / 柏宝书 getEjsTemplate）。
+// 只用到 prepareContext + evalTemplate；未安装 / 接口不完整时返回 null（调用方据此降级为不执行 EJS）。
+function getEjsTemplateApi() {
+    try {
+        const g = (typeof globalThis !== 'undefined') ? globalThis : window;
+        const api = g && g.EjsTemplate;
+        if (api && typeof api.prepareContext === 'function' && typeof api.evalTemplate === 'function') return api;
+    } catch (e) { /* globalThis 不可用 → 视作未装插件 */ }
+    return null;
+}
+
+// 渲染一段世界书文本，让神谕读到「执行后」成品而非模板原文（镜像柏宝书 renderWorldInfoContent + 官方 evaluateWIEntities 的「先宏后 EJS」顺序）：
+//   opts.level==='entry'（'char'/'all' 拿得到条目对象）：① substituteParams 展宏（guarded，抛错保留原文）→
+//     ② 文本含 <% %> 且装了提示词模板 → env = prepareContext({ world_info: entry })（恒省略 end/取最新楼；柏宝书才需历史楼）
+//     → evalTemplate；返回非字符串则弃用（保留展宏 / 原文）。
+//   opts.level==='chunk'（'st' 已由 ST 拼装、宏已展开）：跳过展宏（重跑会重掷 {{random}} 等）→ 仅 EJS，prepareContext({})（无条目对象，同柏宝书降级路径）。
+// opts.renderEjs 关（或旗 ENABLE_WI_EJS_RENDER 关）→ 原样返回（字节级 pass-through，连 substituteParams 都不跑）。
+// 单条失败（EJS / prepareContext 抛错）→ console.warn + 退回该步文本（展宏后 / 原文），绝不让一条 EJS 崩掉整块。
+// ⚠ 导出接口的 evalTemplate 强制 isDryRun=false：含 setvar 等【写】变量的模板会被真执行，故本功能 opt-in。
+async function renderWiEjs(text, entry, opts) {
+    const o = opts || {};
+    if (!ENABLE_WI_EJS_RENDER || !o.renderEjs) return text;      // 字节级 pass-through（旗关 / 设置关）
+    if (typeof text !== 'string' || text === '') return text;
+    const level = (o.level === 'chunk') ? 'chunk' : 'entry';
+    let out = text;
+    try {
+        // ① 展宏：仅条目级（'st' 分块 ST 已展宏，重跑会重掷 {{random}} / 重扫世界书）
+        if (level === 'entry') {
+            let ctx = null;
+            try { ctx = getCtx(); } catch (e) { ctx = null; }
+            if (ctx && typeof ctx.substituteParams === 'function') {
+                try { out = ctx.substituteParams(text); } catch (e) { out = text; }   // 展宏失败保留原文
+            }
+        }
+        // ② 无 EJS 标签 → 免调模板插件（省 prepareContext/sandbox 开销，复刻柏宝书 gate）
+        if (!out.includes('<%')) return out;
+        const ejs = getEjsTemplateApi();
+        if (!ejs) return out;                                    // 未装提示词模板：条目级只做了展宏，分块级原样
+        const env = (level === 'entry')
+            ? await ejs.prepareContext({ world_info: entry })    // 恒省略 end（最新楼）
+            : await ejs.prepareContext({});                      // 分块级无条目对象
+        const rendered = await ejs.evalTemplate(out, env);
+        if (typeof rendered === 'string') out = rendered;        // 非字符串返回 → 保留展宏 / 原文
+    } catch (e) {
+        console.warn('[Story Oracle] 世界书 EJS 渲染失败（退回未执行文本）：', e);
+        return out;                                              // 退回该步，不崩整块
+    }
+    return out;
+}
+
+async function buildWorldInfo(forceMode, extraScanText, opts) {
     // Hook API：允许 buildWorldInfo({ forceMode, extraScanText, excludeBooks }) 的对象式调用（api.context 用）；
     // 位置式调用（buildWorldInfo() / buildWorldInfo('char') / buildWorldInfo(mode, scan)）保持原样。
     let excludeBooks = [];
@@ -2708,6 +2785,10 @@ async function buildWorldInfo(forceMode, extraScanText) {
         extraScanText = forceMode.extraScanText;
         forceMode = forceMode.forceMode;
     }
+    // 世界书 EJS 渲染（1.52.0）：opt-in 只由【普通 / 参谋 / 手动校正】三处 READ 调用点经【第三参】传 { renderEjs:true }。
+    // Hook API 的对象式调用（api.context.buildWorldInfo）不经第三参 → 恒 raw（插件通道有意排除，同柏宝书 / 小白X 桥）；
+    // arc 编译器 / 诊断 / 工坊等位置式调用亦不传第三参 → 恒 raw。未知 / 未来调用点默认 raw，安全。
+    const renderEjs = !!(opts && opts.renderEjs);
     const ctx = getCtx();
     const s = getSettings();
     const mode = forceMode || s.worldInfoMode;
@@ -2718,10 +2799,11 @@ async function buildWorldInfo(forceMode, extraScanText) {
             const mod = await loadWorldInfoModule();
             if (!mod || !mod.getSortedEntries) return '';
             const entries = soApplyExcludeBooks(await mod.getSortedEntries(), excludeBooks);   // Hook API：剔除指定书
-            const allBlock = (entries || [])
+            const kept = (entries || [])
                 .filter((e) => e && !e.disable && typeof e.content === 'string' && e.content.trim())
-                .filter((e) => !isMvuRuleEntry(e))          // 机制规则诊断专属（此处喂原始内容 → 必须按条目剔）
-                .map((e) => e.content.trim())
+                .filter((e) => !isMvuRuleEntry(e));         // 机制规则诊断专属（此处喂原始内容 → 必须按条目剔）
+            // 世界书 EJS 渲染在 isMvuRuleEntry 过滤【之后】按条目做（渲染器 opt-in 关时逐字节 pass-through = 原 .map 行为）。
+            const allBlock = (await Promise.all(kept.map((e) => renderWiEjs(e.content.trim(), e, { renderEjs, level: 'entry' }))))
                 .join('\n\n');
             // Mechanism rules are Diagnose-only; see stripMvuRuleContents.
             return await stripMvuRuleContents(allBlock);
@@ -2743,7 +2825,11 @@ async function buildWorldInfo(forceMode, extraScanText) {
                     .filter((e) => e && active[name].has(Number(e.uid)) && !e.disable && typeof e.content === 'string' && e.content.trim())
                     .filter((e) => !isMvuRuleEntry(e))      // 机制规则诊断专属（此处喂原始内容 → 必须按条目剔）
                     .sort((a, b) => (Number(a.displayIndex ?? a.uid) - Number(b.displayIndex ?? b.uid)));
-                if (entries.length) blocks.push(entries.map((e) => e.content.trim()).join('\n\n'));
+                if (entries.length) {
+                    // EJS 渲染在 isMvuRuleEntry 过滤之后按条目做（opt-in 关时 pass-through = 原 .map 行为）。
+                    const rendered = await Promise.all(entries.map((e) => renderWiEjs(e.content.trim(), e, { renderEjs, level: 'entry' })));
+                    blocks.push(rendered.join('\n\n'));
+                }
             }
             return await stripMvuRuleContents(blocks.join('\n\n').trim());
         }
@@ -2792,8 +2878,12 @@ async function buildWorldInfo(forceMode, extraScanText) {
         for (const e of (res?.worldInfoExamples || [])) push(typeof e === 'string' ? e : e?.content); // 5/6 Example Messages
         for (const arr of Object.values(res?.outletEntries || {})) (arr || []).forEach(push);          // 7  Outlet
 
+        // 世界书 EJS 渲染（1.52.0）：'st' 是 ST 拼装好的分块（宏已展）→ 分块级仅跑 EJS，在 stripMvuRuleContents 之前逐块渲染。
+        const stParts = renderEjs
+            ? await Promise.all(parts.map((p) => renderWiEjs(p, undefined, { renderEjs, level: 'chunk' })))
+            : parts;
         // Mechanism rules are Diagnose-only; see stripMvuRuleContents.
-        return await stripMvuRuleContents(parts.join('\n\n').trim());
+        return await stripMvuRuleContents(stParts.join('\n\n').trim());
     } catch (e) {
         console.warn('[Story Oracle] World info build failed:', e);
         return '';
@@ -2806,18 +2896,21 @@ async function buildWorldInfo(forceMode, extraScanText) {
  * After-Char-Defs plus every other bucket (AN, @D, examples, outlet) so nothing
  * is lost. 'all' mode dumps everything into 'before'; 'off' yields empties.
  */
-async function buildWorldInfoSplit(forceMode, extraScanText) {
+async function buildWorldInfoSplit(forceMode, extraScanText, opts) {
     const ctx = getCtx();
     const s = getSettings();
     const mode = forceMode || s.worldInfoMode;
     if (mode === 'off') return { before: '', after: '' };
 
+    // 世界书 EJS 渲染（1.52.0）：仅经【第三参】从允许调用点（普通预设策展 / 手动校正预设槽）传入；默认 raw。
+    const renderEjs = !!(opts && opts.renderEjs);
+
     if (mode === 'all') {
-        return { before: await buildWorldInfo('all'), after: '' };
+        return { before: await buildWorldInfo('all', undefined, { renderEjs }), after: '' };
     }
 
     if (mode === 'char') {
-        return { before: await buildWorldInfo('char', extraScanText), after: '' };
+        return { before: await buildWorldInfo('char', extraScanText, { renderEjs }), after: '' };
     }
 
     try {
@@ -2855,10 +2948,13 @@ async function buildWorldInfoSplit(forceMode, extraScanText) {
         for (const e of (res?.worldInfoExamples || [])) push(afterParts, typeof e === 'string' ? e : e?.content);
         for (const arr of Object.values(res?.outletEntries || {})) (arr || []).forEach((e) => push(afterParts, e));
 
+        // 世界书 EJS 渲染（1.52.0）：'st' 分块级仅跑 EJS，两槽各自在 stripMvuRuleContents 之前逐块渲染（opt-in 关时 pass-through）。
+        const beforeR = renderEjs ? await Promise.all(beforeParts.map((p) => renderWiEjs(p, undefined, { renderEjs, level: 'chunk' }))) : beforeParts;
+        const afterR = renderEjs ? await Promise.all(afterParts.map((p) => renderWiEjs(p, undefined, { renderEjs, level: 'chunk' }))) : afterParts;
         // Mechanism rules are Diagnose-only; see stripMvuRuleContents.
         return {
-            before: await stripMvuRuleContents(beforeParts.join('\n\n').trim()),
-            after: await stripMvuRuleContents(afterParts.join('\n\n').trim()),
+            before: await stripMvuRuleContents(beforeR.join('\n\n').trim()),
+            after: await stripMvuRuleContents(afterR.join('\n\n').trim()),
         };
     } catch (e) {
         console.warn('[Story Oracle] World info split failed:', e);
@@ -3382,6 +3478,8 @@ function buildBuilderPrompt(ctx, s) {
         if (sum) parts.push(sum);
         const bbs = buildBbsHistorySection(getBbsHistoryText());   // 柏宝书记忆桥（沿用概要开关）
         if (bbs) parts.push(bbs);
+        const lwb = buildLwbHistorySection(getLwbSummaryText());   // 小白X 记忆桥（同位柏宝书）
+        if (lwb) parts.push(lwb);
     }
     const transcript = buildTranscript(ctx, { ...s, contextDepth: s.bldDepth });
     if (transcript) parts.push('=== 故事对话记录（最新的在最后）===\n' + transcript);
@@ -3410,6 +3508,8 @@ function buildForgeMessages(ctx, s, brief) {
         if (sum) parts.push(sum);
         const bbs = buildBbsHistorySection(getBbsHistoryText());   // 柏宝书记忆桥（沿用概要开关）
         if (bbs) parts.push(bbs);
+        const lwb = buildLwbHistorySection(getLwbSummaryText());   // 小白X 记忆桥（同位柏宝书）
+        if (lwb) parts.push(lwb);
     }
     const transcript = buildTranscript(ctx, { ...s, contextDepth: s.bldDepth });
     if (transcript) parts.push('=== 故事对话记录（最新的在最后）===\n' + transcript);
@@ -4021,12 +4121,34 @@ function lbFuzzyRegex(str) {
     // 分词也按标点切开：模型转述锚点时 、↔，、丢个句号之类的漂移很常见，让 SEP 把标点差异吸收掉。
     // 引号【不当分隔符】——只走 lbNormQuotes 归一：当分隔符会让匹配跨度停在配对引号之前，
     // 替换后正文里留下孤儿 」（守卫测试会红）。
-    const tokens = lbNormQuotes(str).trim().split(/[\s\-—_~*，。；：！？、,.;:!?…]+/).filter(Boolean).map(lbEscapeRegex);
+    const normed = lbNormQuotes(str);
+    const tokens = normed.trim().split(/[\s\-—_~*，。；：！？、,.;:!?…]+/).filter(Boolean).map(lbEscapeRegex);
+    if (!tokens.length) return new RegExp('\\b\\B', 'i');   // 纯符号锚点（零 token）：永不命中（守卫，行为不变）
     // SEP 必须能吸收分词器切掉的每一种字符（split 类 ⊆ SEP 类）：分词按 — 切开锚点，正文里的 ——
     // 就得由 SEP 消化，否则锚点一跨中文破折号就永远未命中（1.19.x 评估轮 A 的真实补丁复现——
-    // 逐字相同也匹配失败）。不对称就是那类 bug 的根源，改这两行前先跑 lb-fuzzy-replace 的守卫测试。
+    // 逐字相同也匹配失败）。不对称就是那类 bug 的根源，改这几行前先跑 lb-fuzzy-replace 的守卫测试。
     const SEP = '(?:\\s|<[^>]+>|[*_~.,;:!?，。；：！？、—…-])*';
-    return new RegExp(tokens.join(SEP) || '\\b\\B', 'i');
+    // 边缘符号吸收（2026-08-03，GLM-5.2 逐字照抄整行 `- xxx。` → 补丁每次多出 `-`/`。。`）：分词把锚点
+    // 【两端】的分隔符切掉，join 又不在两端补 glue，于是逐字照抄的首 `- `/尾 `。` 落在替换跨度【之外】
+    // 而残留，replace 文本再供一遍 → 重复。故某端的边缘符号串若含非空白符，就在正则该端加一个「同符号
+    // 可选吸收组」，把正文侧的【同类】符号（含中间空格/制表符）纳入跨度。铁律：绝不跨换行（WS 不含
+    // CR/LF）；LEAD 至少含 1 个符号（不吃孤立空格），可吃末符号之后的空格；TRAIL 必以符号收尾（不吃尾部
+    // 纯空白）；只吸收锚点该端真的写过的符号——异类符号即刹车（尾类只 `。` 时正文侧 ` - ` 原封不动）；
+    // 无边缘符号时 LEAD/TRAIL 皆为空串，正则与旧版字节一致（安全钉：`红色斗篷` 决不吞相邻 `。`）。
+    // edgeCls：边缘串里去重的【非空白】符号 → 正则字符类；无非空白符则 ''。char class 里唯一危险的 `-`
+    // 单独转成 `\-`；其余分隔符只来自 split 集，lbEscapeRegex 的 `\.`/`\*`/`\?` 在字符类内亦合法。
+    const edgeCls = (run) => {
+        if (!run) return '';
+        const uniq = [...new Set(run[0].split('').filter((c) => !/\s/.test(c)))];
+        if (!uniq.length) return '';
+        return '[' + uniq.map((c) => (c === '-' ? '\\-' : lbEscapeRegex(c))).join('') + ']';
+    };
+    const leadCls = edgeCls(normed.match(/^[\s\-—_~*，。；：！？、,.;:!?…]+/));
+    const trailCls = edgeCls(normed.match(/[\s\-—_~*，。；：！？、,.;:!?…]+$/));
+    const WS = '[^\\S\\r\\n]';   // 空白但排除 CR/LF——吸收绝不跨行
+    const LEAD = leadCls ? `(?:(?:${leadCls}|${WS})*${leadCls}${WS}*)?` : '';
+    const TRAIL = trailCls ? `(?:(?:${trailCls}|${WS})*${trailCls})?` : '';
+    return new RegExp(LEAD + tokens.join(SEP) + TRAIL, 'i');
 }
 // Replace the span identified by a "start || end" anchor (or a single anchor) with
 // `replace`. Quote-normalize a same-length copy for matching so indices map back to
@@ -5161,6 +5283,7 @@ function checkPlanReminder() {
 // registers its plan, or clears any previous chat's injection. The extension's
 // only event-driven side effect; everything else stays pull-based.
 function onChatChanged() {
+    primeLwbFromMetadata();   // 小白X 记忆桥(a)：从本聊天 metadata 快照回填缓存（重开酒馆 / 切聊天即暖；自守门）
     cancelPostReply();    // ✨ Phase 4 P-CORRUPT：切聊天先尽力中断在途的自动校正 / 诊断，避免它带着旧聊天的目标写回新聊天（应用前还有 fixTargetStale 兜底）
     // 保活：切聊天必须显式中断在途的后台锻造 / 深度精简并清两槽——它们属于【旧聊天】（用旧卡/草稿生成），
     // 绝不能把结果写进新聊天。清空后 runForge / runCondenseDepth 的完成/失败分支会看到身份不符而丢弃落盘。
@@ -9001,6 +9124,7 @@ function buildWindow() {
                 </div>
                 <span class="so-hdr-div" aria-hidden="true"></span>
                 <div class="so-iconbtn" id="so-clear-btn" title="清空对话"><i class="fa-solid fa-trash-can"></i></div>
+                <div class="so-iconbtn" id="so-fullscreen-btn" title="全屏" aria-label="全屏" aria-pressed="false"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></div>
                 <div class="so-iconbtn" id="so-close-btn" title="关闭"><i class="fa-solid fa-xmark"></i></div>
             </div>
         </div>
@@ -9104,7 +9228,8 @@ function buildWindow() {
                     <label class="so-check"><input id="so-card" type="checkbox"><span>包含角色卡（描述 / 性格 / 场景）</span></label>
                     <label class="so-check"><input id="so-stat" type="checkbox"><span>附带变量状态（MVU stat_data，普通模式）—— 数值问题的权威来源；关掉则如实拒答数值</span></label>
                     <label class="so-check"><input id="so-world" type="checkbox"><span>附带「世界引擎」后台世界状态（普通 / 参谋模式）—— 目前仅适配世界引擎（World Engine，含本机改版）的当前版本；其它世界状态类扩展需日后单独适配。喂完整数据较吃 token，未识别到相关扩展时无开销</span></label>
-                    ${ENABLE_BBS_BRIDGE ? '<label class="so-check"><input id="so-bbs" type="checkbox"><span>附带「柏宝书」历史剧情摘要（普通 / 参谋模式；世界书模式勾选「同时带上最近剧情对话」时随之附带；已注册的插件模式 / 二创经接口读取故事记录时也一并附带）—— 需已安装柏宝书（ST-BaiBai-Book）记忆扩展。它会把窗口外的旧楼层隐藏、只留摘要；开启后神谕也能读到这些被隐藏早期剧情的摘要，不再「只看得见最近几十楼」。校正 / 工坊勾选「带上剧情概要」时也一并附带。请保持上面「读取隐藏楼层」关闭（否则原文与摘要重复）；未安装柏宝书时无开销</span></label>' : ''}
+                    ${ENABLE_BBS_BRIDGE ? '<label class="so-check"><input id="so-bbs" type="checkbox"><span>附带「柏宝书」的剧情总结，让神谕也记得住早期剧情 —— 需已安装柏宝书（ST-BaiBai-Book）。</span></label>' : ''}
+                    ${ENABLE_LWB_BRIDGE ? '<label class="so-check"><input id="so-lwb" type="checkbox"><span>附带「小白X」的剧情总结，让神谕也记得住早期剧情 —— 需已安装小白X（LittleWhiteBox）并开启其「剧情总结」。</span></label>' : ''}
                     <label class="so-check"><input id="so-hidden" type="checkbox"><span>读取隐藏楼层（被 /hide 隐藏的消息）—— 默认关；开启后神谕读对话时也会看到隐藏楼层（不影响世界书关键词扫描与弧线节奏）</span></label>
                     <label class="so-check"><input id="so-regex" type="checkbox"><span>应用剧情正则（剥离思维链 / 状态栏、使用总结）—— 与主聊天保持一致</span></label>
 
@@ -9117,6 +9242,7 @@ function buildWindow() {
                         </select>
                     </label>
                     <div class="so-hint" id="so-wi-hint"></div>
+                    ${ENABLE_WI_EJS_RENDER ? '<label class="so-check"><input id="so-wi-ejs" type="checkbox"><span>读世界书时先执行条目里的 &lt;% %&gt; 模板（需已安装「提示词模板」ST-Prompt-Template）—— 让神谕看到与主聊天一致的成品文本；⚠ 含「写变量」的条目会被额外执行、可能影响卡内变量，遇异常请关闭；未安装该扩展时自动按原样读取。</span></label>' : ''}
                 </div>
             </details>
 
@@ -9264,7 +9390,7 @@ function buildWindow() {
                     <!-- 自动模式（1.18.3 新手优先重排）：判定行 → 跑一次 / 每条 → 目标 → 强度 → 警告盒 → 进阶折叠 → 恢复推荐。 -->
                     <div id="so-fix-auto-wrap">
                         <button type="button" id="so-fix-run" class="so-fix-run-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> 按目标校正最新回复</button>
-                        <label class="so-check so-lb-check"><input id="so-fix-auto" type="checkbox"><span>自动校正每条新回复（实验）</span></label>
+                        <label class="so-check so-lb-check"><input id="so-fix-auto" type="checkbox"><span>自动校正每条新回复</span></label>
                         <div class="so-fix-targets-head">校正目标</div>
                         <div class="so-fix-tgt-grid">
                             <label class="so-check so-lb-check"><input id="so-fix-tgt-slop" type="checkbox"><span>AI 八股 / 套话</span></label>
@@ -9586,6 +9712,8 @@ function bindControls() {
     const s = getSettings();
 
     win.querySelector('#so-close-btn').addEventListener('click', () => toggleWindow(false));
+    win.querySelector('#so-fullscreen-btn').addEventListener('click', () => setFullscreen());   // 全屏阅读切换（1.51.0）
+    document.addEventListener('keydown', onFullscreenEscKeydown, true);   // 全屏时 ESC 退出（捕获阶段，gated on 全屏）
     win.querySelector('#so-clear-btn').addEventListener('click', clearConversation);
     win.querySelector('#so-diagnose-btn').addEventListener('click', toggleDiagnose);
     win.querySelector('#so-lorebook-btn').addEventListener('click', toggleLorebook);
@@ -9965,6 +10093,7 @@ function bindControls() {
     bind('#so-stat', 'chatIncludeStat');
     bind('#so-world', 'chatIncludeWorld');
     if (ENABLE_BBS_BRIDGE) bind('#so-bbs', 'chatIncludeBbs');   // 柏宝书记忆桥（行仅在开关开时渲染）
+    if (ENABLE_LWB_BRIDGE) bind('#so-lwb', 'chatIncludeLwb');   // 小白X 记忆桥（行仅在开关开时渲染）
     if (ENABLE_DIAG_BODY_INJECT) bind('#so-diag-inject', 'diagInjectBody');   // 🩺 诊断修正写进正文（实验性，行同上）
     if (ENABLE_UPDATE_CHECK) {
         bind('#so-upd-auto', 'updAutoCheck');
@@ -10177,6 +10306,7 @@ function bindControls() {
     });
     bind('#so-regex', 'applyRegex');
     bind('#so-wi', 'worldInfoMode');
+    if (ENABLE_WI_EJS_RENDER) bind('#so-wi-ejs', 'wiRenderEjs');   // 世界书 EJS 渲染（行仅在开关开时渲染）
     bind('#so-sendtemp', 'sendTemperature');
     win.querySelector('#so-wi').addEventListener('change', updateWiHint);
     bind('#so-persona', 'personaId');
@@ -10281,6 +10411,7 @@ function loadSettingsIntoForm() {
     win.querySelector('#so-stat').checked = !!s.chatIncludeStat;
     win.querySelector('#so-world').checked = !!s.chatIncludeWorld;
     if (ENABLE_BBS_BRIDGE) win.querySelector('#so-bbs').checked = !!s.chatIncludeBbs;   // 柏宝书记忆桥
+    if (ENABLE_LWB_BRIDGE) win.querySelector('#so-lwb').checked = !!s.chatIncludeLwb;   // 小白X 记忆桥
     if (ENABLE_DIAG_BODY_INJECT) win.querySelector('#so-diag-inject').checked = !!s.diagInjectBody;   // 🩺 诊断修正写进正文
     if (ENABLE_UPDATE_CHECK) {
         win.querySelector('#so-upd-auto').checked = !!s.updAutoCheck;
@@ -10298,6 +10429,7 @@ function loadSettingsIntoForm() {
     win.querySelector('#so-tools-header-toggle').checked = !!s.toolsInHeader;
     win.querySelector('#so-regex').checked = !!s.applyRegex;
     win.querySelector('#so-wi').value = s.worldInfoMode;
+    if (ENABLE_WI_EJS_RENDER) { const soWiEjs = win.querySelector('#so-wi-ejs'); if (soWiEjs) soWiEjs.checked = !!s.wiRenderEjs; }   // 世界书 EJS 渲染（回填勾选态）
     win.querySelector('#so-sendtemp').checked = !!s.sendTemperature;
     win.querySelector('#so-lb-story').checked = !!s.lorebookIncludeStory;
     win.querySelector('#so-lb-preset').checked = !!s.lorebookUsePreset;
@@ -14394,6 +14526,9 @@ function buildSystemPrompt() {
     // 柏宝书记忆桥：被隐藏旧楼层的摘要，紧跟概要、贴着对话记录（时间线：概要 → 摘要 → 可见对话）。
     const bbsSection = buildBbsHistorySection(getBbsHistoryText());
     if (bbsSection) parts.push(bbsSection);
+    // 小白X 记忆桥：镜像小白X 注入主模型的剧情总结，同位柏宝书。
+    const lwbSection = buildLwbHistorySection(getLwbSummaryText());
+    if (lwbSection) parts.push(lwbSection);
 
     const transcript = buildTranscript(ctx, s);
     if (transcript) {
@@ -14536,6 +14671,109 @@ function composeSummaryWithBbs(userText) {
     if (!b) return u;
     const block = '【柏宝书 · 历史剧情摘要（被隐藏旧楼层的自动总结，是下方前文之前的剧情）】\n' + b;
     return u.trim() ? u + '\n\n' + block : block;
+}
+
+// ==================== 小白X 剧情总结桥（ENABLE_LWB_BRIDGE，1.50.0） ====================
+// 取数与柏宝书不同：小白X 无同步公开 API，其总结只在主聊天生成时写进公共槽、生成完即删。故读取器读的是
+// lwbSummaryCache（由抓拍钩子 / metadata 回填 / 冷启动暖填充），而非现调 API。格式化 / 信封 / 插桩全镜像柏宝书。
+const LWB_EXT_PROMPT_KEY = 'LittleWhiteBox_StorySummary';   // 小白X 注入公共槽的 key（其内部常量，硬编码）
+const LWB_SNAPSHOT_META_KEY = 'storyOracle_lwbSummary';     // 抓拍持久化到 chat_metadata 的 key（(a)）
+
+// 读取器（同步、自守门）：镜像 getBbsHistoryText 的契约，数据源换成缓存。
+function getLwbSummaryText() {
+    if (!ENABLE_LWB_BRIDGE) return '';
+    try {
+        if (!getSettings().chatIncludeLwb) return '';
+        return String(lwbSummaryCache || '').trim();
+    } catch (e) {
+        console.warn('[Story Oracle] 读取小白X 总结缓存失败（本次跳过）：', e);
+        return '';
+    }
+}
+
+// 切聊天回填(a)：先清缓存，再从本聊天 metadata 快照回填（不设门于开关——缓存即事实，读取器负责按开关拦）。
+function primeLwbFromMetadata() {
+    lwbSummaryCache = '';
+    if (!ENABLE_LWB_BRIDGE) return;
+    try {
+        const md = getCtx().chatMetadata;
+        const t = md && typeof md[LWB_SNAPSHOT_META_KEY] === 'string' ? md[LWB_SNAPSHOT_META_KEY].trim() : '';
+        if (t) lwbSummaryCache = t;
+    } catch (e) { /* 静默 */ }
+}
+
+// 小白X 节格式化（镜像 buildBbsHistorySection）：空 → ''；有货 → 大标题 + 原文。
+function buildLwbHistorySection(text) {
+    const t = String(text || '').trim();
+    if (!t) return '';
+    return '=== 历史剧情摘要（小白X「剧情总结」记忆扩展的自动总结——它把更早的剧情压成记忆注入模型；'
+        + '这里镜像同一份总结，时间上紧接在下方对话记录之前）===\n' + t;
+}
+
+// 单槽合成（校正信封）：镜像 composeSummaryWithBbs。桥空时【原样返回入参】（不 trim），字节稳定。
+function composeSummaryWithLwb(userText) {
+    const u = String(userText || '');
+    const b = getLwbSummaryText();
+    if (!b) return u;
+    const block = '【小白X · 剧情总结（自动记忆，是下方前文之前的剧情）】\n' + b;
+    return u.trim() ? u + '\n\n' + block : block;
+}
+
+// 两桥串接：用户概要 → 柏宝书块 → 小白X 块。两桥皆空 → 原样返回入参（字节稳定）。
+function composeSummaryWithBridges(userText) {
+    return composeSummaryWithLwb(composeSummaryWithBbs(userText));
+}
+
+// 从 extension_prompts 形状对象取小白X 注入文本（纯、自守门）。
+function extractLwbInjectedText(extPrompts) {
+    try {
+        const slot = extPrompts && extPrompts[LWB_EXT_PROMPT_KEY];
+        return slot && typeof slot.value === 'string' ? slot.value.trim() : '';
+    } catch (e) { return ''; }
+}
+
+// 抓拍(A)：主聊天生成期、小白X 已写槽时读一份缓存并持久化(a)。空则不覆盖已有缓存。
+function captureLwbSnapshot() {
+    if (!ENABLE_LWB_BRIDGE) return;
+    try {
+        if (!getSettings().chatIncludeLwb) return;
+        const ctx = getCtx();
+        const text = extractLwbInjectedText(ctx.extensionPrompts);
+        if (!text) return;
+        lwbSummaryCache = text;
+        const md = ctx.chatMetadata;
+        if (md) {
+            md[LWB_SNAPSHOT_META_KEY] = text;
+            (ctx.saveMetadataDebounced || ctx.saveMetadata || (() => {}))();
+        }
+    } catch (e) { /* 静默：绝不连累生成 */ }
+}
+
+// 暖启动判定（纯）：开关开且缓存空才该暖。
+function shouldWarmLwb() {
+    if (!ENABLE_LWB_BRIDGE) return false;
+    try {
+        return !!getSettings().chatIncludeLwb && !String(lwbSummaryCache || '').trim();
+    } catch (e) { return false; }
+}
+
+// 冷启动兜底(b)：缓存空时破例动态 import 小白X 内部组装函数暖一份（仅非向量静态版）。受保护、自降级——
+// 小白X 未装 / 改版路径或导出变了 / 抛错 / 返回空 → 一律不暖（保持空，等下次主聊天生成由抓拍钩子接管）。
+async function warmLwbSummaryIfCold() {
+    if (!shouldWarmLwb()) return;
+    try {
+        const mod = await import('/scripts/extensions/third-party/LittleWhiteBox/modules/story-summary/generate/prompt.js');
+        if (!mod || typeof mod.buildNonVectorPromptText !== 'function') return;
+        const text = String(mod.buildNonVectorPromptText() || '').trim();
+        if (!text) return;
+        if (String(lwbSummaryCache || '').trim()) return;   // 竞态兜底：期间被真实抓拍填了就不覆盖
+        lwbSummaryCache = text;
+        const md = getCtx().chatMetadata;
+        if (md) {
+            md[LWB_SNAPSHOT_META_KEY] = text;
+            (getCtx().saveMetadataDebounced || getCtx().saveMetadata || (() => {}))();
+        }
+    } catch (e) { /* 静默降级：小白X 未装 / 改版 / 抛错 */ }
 }
 
 // ==================== 更新提醒（ENABLE_UPDATE_CHECK，1.38.0） ====================
@@ -14883,6 +15121,8 @@ function buildLorebookPrompt(ctx, s) {
         if (summarySection) parts.push(summarySection);
         const bbsSection = buildBbsHistorySection(getBbsHistoryText());
         if (bbsSection) parts.push(bbsSection);
+        const lwbSection = buildLwbHistorySection(getLwbSummaryText());   // 小白X 记忆桥（同位柏宝书）
+        if (lwbSection) parts.push(lwbSection);
         const transcript = buildTranscript(ctx, s);
         if (transcript) parts.push('=== 最近的故事对话记录（仅供参考，最新的在最后）===\n' + transcript);
     }
@@ -14998,6 +15238,9 @@ function buildAdvisorPrompt(ctx, s) {
     // 柏宝书记忆桥：与普通聊天同位（概要 → 摘要 → 对话记录）。参谋预设路径复用本函数产物（advBlock）。
     const bbsSection = buildBbsHistorySection(getBbsHistoryText());
     if (bbsSection) parts.push(bbsSection);
+    // 小白X 记忆桥：与普通聊天同位。
+    const lwbSection = buildLwbHistorySection(getLwbSummaryText());
+    if (lwbSection) parts.push(lwbSection);
 
     // 遵循设置面板共享的「上下文深度」设置（T13：此前强制全量 contextDepth:-1）。
     const transcript = buildTranscript(ctx, s);
@@ -15320,6 +15563,7 @@ function expandMarker(out, identifier, ctx, s) {
             pushMsg(out, 'system', buildSummarySection(getSummary()));
             // 柏宝书记忆桥：预设路径不 substituteParams 概要块（宏方案在此失效）——桥文本已是成品，直接插。
             pushMsg(out, 'system', buildBbsHistorySection(getBbsHistoryText()));
+            pushMsg(out, 'system', buildLwbHistorySection(getLwbSummaryText()));   // 小白X 记忆桥（同 marker 位）
             // Story context first, then the Oracle's own Q&A — as real turns.
             let sawStoryTurns = false;
             for (const t of buildTranscriptTurns(ctx, s)) {
@@ -15371,6 +15615,7 @@ function buildPresetMessages(s) {
     if (!sawHistory) {
         pushMsg(out, 'system', buildSummarySection(getSummary()));
         pushMsg(out, 'system', buildBbsHistorySection(getBbsHistoryText()));   // 柏宝书记忆桥（同 marker 位）
+        pushMsg(out, 'system', buildLwbHistorySection(getLwbSummaryText()));   // 小白X 记忆桥（同 marker 位）
         let sawStoryTurns = false;
         for (const t of buildTranscriptTurns(ctx, s)) { pushMsg(out, t.role, t.text); sawStoryTurns = true; }
         // 戏外守卫（1.32.1）：与 chatHistory marker 分支同拍——尾锚紧跟故事轮（指代正确位）。
@@ -15624,6 +15869,7 @@ async function generateReply() {
     if (isGenerating) return;
     const s = getSettings();
     if (s.applyRegex) await loadRegexEngine(); // ensure engine is ready before building context
+    await warmLwbSummaryIfCold();   // 小白X 记忆桥(b)：缓存空且开关开时，建提示词前破例暖一份（受保护自降级）
 
     if (activeRegisteredModeId) {
         // Hook API：注册模式的提示词完全由插件 onSend 自建（见下方发送分支），跳过全部内置上下文
@@ -15657,7 +15903,7 @@ async function generateReply() {
         // 参谋（含弧线系统）现在遵循设置面板的「世界书」选择，包括「关」——不传 forceMode = 用
         // s.worldInfoMode，'off' 返回空串（与普通聊天分支同款）。剧情概要仍在 buildAdvisorPrompt 里默认读取，
         // 对话记录也改为遵循「上下文深度」设置（见 buildAdvisorPrompt）。侧聊最近问答参与绿灯扫描（1.31.0）。
-        worldInfoBlock = await buildWorldInfo(undefined, await sideChatScanBlob());
+        worldInfoBlock = await buildWorldInfo(undefined, await sideChatScanBlob(), { renderEjs: ENABLE_WI_EJS_RENDER && !!s.wiRenderEjs });   // 参谋 = READ 家族，opt-in 时执行世界书 EJS
         // Live MVU variable state (好感度 / 时间 / 资源…) — hard story facts the
         // proposed beats must not contradict. Silently absent for non-MVU cards.
         const stat = await getMvuStatData();
@@ -15677,12 +15923,12 @@ async function generateReply() {
         }
     } else if (presetCurationActive(s)) {
         // Faithful assembly needs WI split into the Before/After-Char-Defs slots.
-        const split = await buildWorldInfoSplit(undefined, await sideChatScanBlob());   // 侧聊问答参与绿灯扫描（1.31.0）
+        const split = await buildWorldInfoSplit(undefined, await sideChatScanBlob(), { renderEjs: ENABLE_WI_EJS_RENDER && !!s.wiRenderEjs });   // 侧聊问答参与绿灯扫描（1.31.0）；普通聊天 = READ 家族，opt-in 时执行世界书 EJS
         wiBefore = split.before;
         wiAfter = split.after;
         worldInfoBlock = ''; // legacy single-block path unused while preset is active
     } else {
-        worldInfoBlock = await buildWorldInfo(undefined, await sideChatScanBlob()); // 'off' 时仍空串；侧聊问答参与绿灯扫描（1.31.0）
+        worldInfoBlock = await buildWorldInfo(undefined, await sideChatScanBlob(), { renderEjs: ENABLE_WI_EJS_RENDER && !!s.wiRenderEjs }); // 'off' 时仍空串；侧聊问答参与绿灯扫描（1.31.0）；普通聊天 = READ 家族，opt-in 时执行世界书 EJS
     }
 
     // Normal chat mode only: fetch the authoritative variable state (or leave ''
@@ -16242,7 +16488,7 @@ async function captureFixContext(s, { mode = 'manual', targetId } = {}) {
     };
     // 📜剧情概要（手动默认带、自动可选）；buildFixEnvelope 包成 <story_summary>。柏宝书记忆桥沿用同一
     // 开关（勾了概要才一并带柏宝书摘要——信封只有一个概要槽，composeSummaryWithBbs 合成；桥空 = 原样）。
-    fixSummaryBlock = norm.includeSummary ? composeSummaryWithBbs(getSummary()) : '';
+    fixSummaryBlock = norm.includeSummary ? composeSummaryWithBridges(getSummary()) : '';
     fixActiveMode = mode;              // buildFixPrompt 据此选系统提示：手动 → FIX_SYSTEM_PROMPT_MANUAL；自动 → 轻校恒收紧版 / 精校按侧重（1.18.3）
     fixAutoPromptVersion = norm.promptVersion;   // ✨ 精校版本（仅自动生效；手动 norm 恒 'light'）；'thorough' → buildFixPrompt 用精校
     fixAutoPromptFlavor = norm.promptFlavor;     // ✨ 精校侧重（'deepseek' / 'opus'）
@@ -16264,12 +16510,12 @@ async function captureFixContext(s, { mode = 'manual', targetId } = {}) {
     if (fixUsePresetFor(s, mode) && presetCurationActive(s)) {
         fixCardBlock = '';
         fixWorldBlock = '';
-        const split = await buildWorldInfoSplit(undefined, fixSideScan);
+        const split = await buildWorldInfoSplit(undefined, fixSideScan, { renderEjs: ENABLE_WI_EJS_RENDER && !!s.wiRenderEjs && mode === 'manual' });   // 仅【手动】校正 = READ 家族；自动校正后台跑 → 恒 raw
         wiBefore = split.before;
         wiAfter = split.after;
     } else {
         fixCardBlock = norm.includeCard ? buildCardSection(ctx) : '';
-        fixWorldBlock = norm.includeWorld ? await buildWorldInfo('st', fixSideScan) : '';
+        fixWorldBlock = norm.includeWorld ? await buildWorldInfo('st', fixSideScan, { renderEjs: ENABLE_WI_EJS_RENDER && !!s.wiRenderEjs && mode === 'manual' }) : '';   // 仅【手动】校正执行世界书 EJS；自动 → raw
     }
 }
 
@@ -19353,11 +19599,26 @@ function centeredWindowBox(view, opts) {
     return { left, top, width, height };
 }
 
+// 全屏阅读模式（1.51.0，用户功能请求·手机）。纯几何：把【可见】视口原样变成一个铺满盒子
+// （left/top 跟随 visualViewport 的可见原点，故软键盘弹出时也贴着可见区）。缺字段按 0。
+// 与 clampWindowBox / centeredWindowBox 同族的纯函数，单测 fullscreen.test.mjs。
+function fullscreenBox(view) {
+    const v = view || {};
+    return { left: v.offX || 0, top: v.offY || 0, width: v.w || 0, height: v.h || 0 };
+}
+
+// ESC 分层的纯判定：全屏时按 ESC 该不该退出。仅当【全屏】且没有更近的可关 UI（⋯ 工具菜单 /
+// ✂️ 选段卡 / 聚焦中的编辑框）抢走这次 ESC 时才退出。薄 DOM 处理器读这些布尔再调本函数。
+function fullscreenEscShouldExit(state) {
+    return !!(state && state.fullscreen && !state.toolsMenuOpen && !state.fixselOpen && !state.editorFocused);
+}
+
 // 把当前窗口重新夹回可见视口（开窗 / 旋屏 / 键盘弹收时调用）。宽高基准取「用户存的几何」或与
 // applyInitialGeometry 一致的默认（380×540），这样键盘压扁后收起还能长回原尺寸。【不 save()】——
 // 这只是临时贴合显示，不覆盖用户拖 / 拽存下来的几何。
 function ensureWindowInView() {
     if (!win || win.style.display === 'none') return;
+    if (win.classList.contains('so-fullscreen')) { fitFullscreen(); autoGrowInput(); return; }   // 全屏：铺满可见视口，跳过夹取
     autoGrowInput();                                        // #4 窗口尺寸变化时重算输入框高度上限（上限=窗口高度一半）
     const s = getSettings();
     const vv = window.visualViewport;
@@ -19380,6 +19641,92 @@ function ensureWindowInView() {
     win.style.left = `${c.left}px`;
     win.style.top = `${c.top}px`;
     win.style.right = 'auto';
+}
+
+// 全屏阅读模式的尺寸器：把 #so-window 铺满【可见】视口（visualViewport-aware，故手机软键盘弹出时
+// 是缩小而非把输入框藏到键盘后面）。只写内联几何、【绝不 save()】——用户拖/拽存下的悬浮窗几何
+// （winLeft/winTop/winWidth/winHeight）原样保留，退出全屏即复原。经 ensureWindowInView 的全屏分支
+// 触达，故 resize/旋屏/键盘等视口变化都会自动保持铺满。单测 fullscreen.test.mjs。
+function fitFullscreen() {
+    const el = win || document.getElementById('so-window');
+    if (!el) return;
+    const vv = window.visualViewport;
+    const box = fullscreenBox({
+        w: (vv && vv.width) || window.innerWidth,
+        h: (vv && vv.height) || window.innerHeight,
+        offX: (vv && vv.offsetLeft) || 0,
+        offY: (vv && vv.offsetTop) || 0,
+    });
+    el.style.left = `${box.left}px`;
+    el.style.top = `${box.top}px`;
+    el.style.width = `${box.width}px`;
+    el.style.height = `${box.height}px`;
+    el.style.right = 'auto';
+}
+
+// 变形标题栏的全屏按钮：展开 ⇄ 收缩图标 + 中文标签 + aria-pressed。按 id 直取（id 唯一）。
+function updateFullscreenBtn(on) {
+    const btn = document.getElementById('so-fullscreen-btn');
+    if (!btn) return;
+    const icon = btn.querySelector('i');
+    if (icon) icon.className = on
+        ? 'fa-solid fa-down-left-and-up-right-to-center'   // 收缩（退出全屏）
+        : 'fa-solid fa-up-right-and-down-left-from-center'; // 展开（进入全屏）
+    const label = on ? '退出全屏' : '全屏';
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+}
+
+// 进入全屏前的内联几何快照（仅内存 module 变量、【绝不落盘】）：退出时逐字还原它才能复原【从未拖过】的窗口
+// —— 那种窗口 winLeft/winTop=null、靠 CSS `top:70px right:20px` 定位，若走 ensureWindowInView 的
+// `s.winLeft ?? r.left` 复原路径，退出时 r.left 还是全屏的 0 → 窗口被算到左上角(8,8)而非原位（真机 smoke 逮到）。
+let _soPreFsGeom = null;
+
+// 全屏阅读模式的唯一写入口。on 省略=切换。显示级切换、会话内瞬态、【绝不落盘】。
+function setFullscreen(on) {
+    const el = win || document.getElementById('so-window');
+    if (!el) return;
+    const cur = el.classList.contains('so-fullscreen');
+    const next = (on === undefined) ? !cur : !!on;
+    if (next === cur) { updateFullscreenBtn(next); return; }   // 已是该态：别重复快照（否则会把全屏几何存成"悬浮"快照）
+    if (next) {
+        _soPreFsGeom = { left: el.style.left, top: el.style.top, right: el.style.right, width: el.style.width, height: el.style.height };
+        el.classList.add('so-fullscreen');
+        updateFullscreenBtn(true);
+        fitFullscreen();                                       // 铺满可见视口
+    } else {
+        el.classList.remove('so-fullscreen');
+        updateFullscreenBtn(false);
+        if (_soPreFsGeom) {                                    // 逐字还原进入前的内联样式（含"无 left/top、纯 CSS 定位"的默认态）
+            el.style.left = _soPreFsGeom.left;
+            el.style.top = _soPreFsGeom.top;
+            el.style.right = _soPreFsGeom.right;
+            el.style.width = _soPreFsGeom.width;
+            el.style.height = _soPreFsGeom.height;
+            _soPreFsGeom = null;
+        }
+        ensureWindowInView();   // 还原后再夹一次：旋屏/键盘期间几何若变把窗口收回可见区（此刻 r 已是还原后的原位）；仍不 save
+    }
+}
+
+// 全屏时按 ESC 退出——【零改动】设计：捕获阶段注册 + gated on so-fullscreen，故在每一条【非全屏】流里
+// 立即 return，对既有 ESC 行为零影响；且捕获阶段能在冒泡处理器清掉 .open 之前【读到】更近 UI 的开合状态。
+// 让位于本文件仅有的三个 ESC 消费者（grep 确认无他）：⋯ 工具菜单、✂️ 选段卡、聚焦中的编辑框。
+// 绝不 preventDefault/stopPropagation——ST 自己的 ESC 照常收到。#so-input 主输入框不算编辑框（在里面按 ESC 也退出）。
+function onFullscreenEscKeydown(e) {
+    if (e.key !== 'Escape') return;
+    if (!win || win.style.display === 'none') return;
+    if (!win.classList.contains('so-fullscreen')) return;   // 非全屏流：立即 no-op（零回归的结构性保证）
+    const ae = document.activeElement;
+    const editorFocused = !!(ae && ae !== win && win.contains(ae) && ae.id !== 'so-input'
+        && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT' || ae.isContentEditable));
+    if (fullscreenEscShouldExit({
+        fullscreen: true,
+        toolsMenuOpen: !!win.querySelector('#so-tools-menu.open'),
+        fixselOpen: !!win.querySelector('#so-fixsel.open'),
+        editorFocused,
+    })) setFullscreen(false);
 }
 
 // 视口变化会连发很多次（键盘动画 / 旋屏过渡）——合并到下一帧只夹一次，避免抖动。
@@ -19421,6 +19768,7 @@ function makeDraggable(panel, handle, keys = { left: 'winLeft', top: 'winTop' },
     let sx, sy, sl, st, pid = null, moved = false, fromButton = false;
     handle.style.touchAction = 'none';   // stop the page scrolling under a drag
     handle.addEventListener('pointerdown', (e) => {
+        if (panel.classList.contains('so-fullscreen')) return;   // 全屏时不拖动（否则移动窗口并存下坏几何）
         const onButton = !!(e.target.closest('button') || e.target.closest('.so-iconbtn'));
         const dragFromButtons = typeof opts.dragFromButtons === 'function' && opts.dragFromButtons();
         if (!dragShouldBegin({ onButton, secondaryButton: e.button != null && e.button > 0, dragFromButtons })) return;
@@ -19470,6 +19818,7 @@ function makeResizable(panel, grip) {
     if (!grip) return;
     let sx, sy, sw, sh, left, top, pid = null;
     grip.addEventListener('pointerdown', (e) => {
+        if (panel.classList.contains('so-fullscreen')) return;   // 全屏时不缩放
         if (e.button != null && e.button > 0) return;
         pid = e.pointerId;
         const r = panel.getBoundingClientRect();

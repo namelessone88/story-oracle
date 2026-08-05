@@ -55,6 +55,22 @@
     animation: so-open 0.22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+/* 全屏阅读模式（1.51.0，用户功能请求·手机）：JS 把 #so-window 尺寸设为可见视口，这里只去掉悬浮窗的
+   圆角 / 尺寸上限 / 阴影，让它铺满到屏幕边缘（max-width/height:none 是必须的——否则 96vw/90vh 上限会
+   把 JS 设的满屏尺寸夹小）。几何全由 JS 掌管，故不需要 !important。皮肤 / 主题 / 各模式强调色照常生效。 */
+#so-window.so-fullscreen {
+    border-radius: 0;
+    max-width: none;
+    max-height: none;
+    box-shadow: none;
+    /* 悬浮态窗口(3000)在酒馆固定顶栏 #top-bar(3005) 之下——悬浮时窗口贴 top:70px 不重叠故无碍，但全屏铺到顶
+       就被顶栏盖住标题栏（⛶/✕ 够不着）。全屏抬到 20000：盖过顶栏 + 抽屉(10000) 等所有固定 chrome，真正覆盖
+       酒馆；仍低于酒馆弹窗 / 菜单(29999) 与 toast(≈999999)——中断提示条、确认框照常在最上层。 */
+    z-index: 20000;
+}
+#so-window.so-fullscreen #so-resize-grip { display: none; }   /* 全屏无从缩放 */
+#so-window.so-fullscreen #so-header { cursor: default; }       /* 全屏不可拖动 */
+
 /* ---------- header ---------- */
 #so-header {
     display: flex;
