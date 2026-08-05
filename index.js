@@ -1612,7 +1612,7 @@ const ENABLE_CUSTOM_PERSONAS = true;
 // —— 更新提醒（1.38.0）——
 // SO_VERSION 是代码内唯一版本号，必须与 manifest.json 的 version 完全一致——update-check.test.mjs
 // 有失配即红的漂移钉（发版清单：两处一起 bump）。
-const SO_VERSION = '1.52.0';
+const SO_VERSION = '1.52.1';
 // 更新提醒总开关。false → 设置面板不渲染「更新」组、开窗不检查、红点绘制器与一键更新 no-op、
 // 绑定/回填跳过——字节级零行为变化。运行期另有 opt-out 设置 updAutoCheck（默认开）。
 const ENABLE_UPDATE_CHECK = true;
@@ -9242,7 +9242,7 @@ function buildWindow() {
                         </select>
                     </label>
                     <div class="so-hint" id="so-wi-hint"></div>
-                    ${ENABLE_WI_EJS_RENDER ? '<label class="so-check"><input id="so-wi-ejs" type="checkbox"><span>读世界书时先执行条目里的 &lt;% %&gt; 模板（需已安装「提示词模板」ST-Prompt-Template）—— 让神谕看到与主聊天一致的成品文本；⚠ 含「写变量」的条目会被额外执行、可能影响卡内变量，遇异常请关闭；未安装该扩展时自动按原样读取。</span></label>' : ''}
+                    ${ENABLE_WI_EJS_RENDER ? '<label class="so-check"><input id="so-wi-ejs" type="checkbox"><span>支持读取 EJS 世界书条目；⚠ 含「写变量」的条目会被额外执行、可能影响卡内变量，遇异常请关闭。</span></label>' : ''}
                 </div>
             </details>
 
