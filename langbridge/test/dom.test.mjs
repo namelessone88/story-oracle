@@ -2,32 +2,24 @@
  * LangBridge — display-runtime DOM tests (jsdom).
  *
  * Covers the invariants that only exist once there is a DOM:
- *   I1  the rendered text changes but the SOURCE string never does
+ *   I1  the source string never changes — spans wrap, text stays identical
  *   idempotency — a second pass is a no-op, spans never nest
  *   reversibility — strip() restores the DOM byte-for-byte
- *   skip-list — code/structured containers are never rewritten
+ *   skip-list — code/structured containers are never touched
  *
- * Requires jsdom. Run:
- *   NODE_PATH=<scratchpad>/node_modules node langbridge/test/dom.test.mjs
- * (see run-tests.sh)
+ * Requires jsdom (dev-only). Missing → suite skips rather than fails.
  */
 import { readFileSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 
-// jsdom is a dev-only dependency and is not vendored. Resolve it normally when
-// installed; otherwise accept an explicit path via LB_JSDOM (ESM ignores
-// NODE_PATH). Missing entirely → skip rather than fail, so the DOM suite never
-// blocks the pure suites in an environment without it.
 let JSDOM = null;
 try {
     ({ JSDOM } = await import('jsdom'));
 } catch {
     const override = process.env.LB_JSDOM;
     if (override) {
-        try {
-            ({ JSDOM } = await import(pathToFileURL(join(override, 'jsdom/lib/api.js')).href));
-        } catch (e) { /* reported below */ }
+        try { ({ JSDOM } = await import(pathToFileURL(join(override, 'jsdom/lib/api.js')).href)); } catch (e) { /* below */ }
     }
 }
 if (!JSDOM) {
@@ -36,17 +28,16 @@ if (!JSDOM) {
 }
 
 const here = dirname(fileURLToPath(import.meta.url));
-
 const dom = new JSDOM('<!doctype html><html><body><div id="chat"></div></body></html>');
 globalThis.window = dom.window;
 globalThis.document = dom.window.document;
 globalThis.Node = dom.window.Node;
 globalThis.NodeFilter = dom.window.NodeFilter;
 globalThis.MutationObserver = dom.window.MutationObserver;
-globalThis.DocumentFragment = dom.window.DocumentFragment;
 
 const { DisplayRuntime, stripIn, collectTextNodes } = await import('../runtime.js');
 const { normalizeRegistry, DEFAULT_TOGGLES } = await import('../registry.js');
+const { buildCardHtml } = await import('../tooltip.js');
 
 const REG = normalizeRegistry(JSON.parse(readFileSync(join(here, '..', 'sample-registry.json'), 'utf8')));
 
@@ -66,7 +57,6 @@ const runtime = new DisplayRuntime({
     getToggles: () => toggles,
 });
 
-/** Build a message element the way SillyTavern does. */
 function message(html, { isUser = false, id = 0 } = {}) {
     chat.innerHTML = '';
     const mes = document.createElement('div');
@@ -78,51 +68,31 @@ function message(html, { isUser = false, id = 0 } = {}) {
     return mes;
 }
 
-/* ---------------------------------------------------------------- *
- * Rendering
- * ---------------------------------------------------------------- */
+/* ---------------- highlighting ---------------- */
 {
-    const source = '<p>沈慕微抬起头，望向东海海域。</p>';
+    const source = '<p>沈慕微用传送阵抵达东海海域。</p>';
     const mes = message(source);
     runtime.passMessage(mes);
-    const text = mes.querySelector('.mes_text').textContent;
-    check('zh name is rendered as English', text, 'Shen Muwei抬起头，望向East Sea Waters。');
-
-    const span = mes.querySelector('.lb-name');
-    check('canonical is preserved on the span', span.dataset.lbCanonical, '沈慕微');
-    check('original text is preserved for strip', span.dataset.lbOrig, '沈慕微');
-    ok('renamed span carries entity id', span.dataset.lbEntity === 'shen-muwei');
+    const host = mes.querySelector('.mes_text');
+    check('visible text is UNCHANGED', host.textContent, '沈慕微用传送阵抵达东海海域。');
+    check('trigger words are wrapped', [...host.querySelectorAll('.lb-span')].map((s) => s.textContent),
+        ['沈慕微', '传送阵', '东海海域']);
+    ok('every span carries the highlight class',
+        [...host.querySelectorAll('.lb-span')].every((s) => s.classList.contains('lb-hl')));
+    ok('originals preserved for strip',
+        [...host.querySelectorAll('.lb-span')].every((s) => s.dataset.lbOrig === s.textContent));
 }
 {
-    // Concepts are highlighted but NEVER renamed.
-    const mes = message('<p>他问起传送阵的价钱。</p>');
+    const mes = message('<p>这里是苍玄界，她穿着红色的衣服。</p>');
     runtime.passMessage(mes);
-    check('concept text is unchanged', mes.querySelector('.mes_text').textContent, '他问起传送阵的价钱。');
-    const span = mes.querySelector('.lb-span');
-    ok('concept span is highlight-only', span.classList.contains('lb-hl') && !span.classList.contains('lb-name'));
-    check('concept index recorded', span.dataset.lbConcept, '0');
-}
-{
-    // zh-policy entity: highlighted, not renamed.
-    const mes = message('<p>天剑宗的弟子。</p>');
-    runtime.passMessage(mes);
-    check('zh-policy name not renamed', mes.querySelector('.mes_text').textContent, '天剑宗的弟子。');
-    ok('zh-policy name still highlighted', !!mes.querySelector('.lb-hl'));
-}
-{
-    // 红 must be untouched by default (acceptance test 6).
-    const mes = message('<p>她换上红色的外袍。</p>');
-    runtime.passMessage(mes);
-    check('单字名 leaves prose alone', mes.querySelector('.mes_text').innerHTML, '<p>她换上红色的外袍。</p>');
+    check('blue-entry key and single-hanzi name untouched',
+        mes.querySelector('.mes_text').innerHTML, '<p>这里是苍玄界，她穿着红色的衣服。</p>');
 }
 
-/* ---------------------------------------------------------------- *
- * Idempotency + reversibility  (risk R5)
- * ---------------------------------------------------------------- */
+/* ---------------- idempotency + reversibility ---------------- */
 {
-    const source = '<p>沈慕微与慕海棠在东海相遇，谈起传送阵。</p>';
+    const source = '<p>沈慕微与慕海棠谈起传送阵与灵石价格。</p>';
     const mes = message(source);
-
     runtime.passMessage(mes);
     const afterFirst = mes.querySelector('.mes_text').innerHTML;
     const spanCount = mes.querySelectorAll('.lb-span').length;
@@ -130,58 +100,51 @@ function message(html, { isUser = false, id = 0 } = {}) {
     runtime.passMessage(mes);
     runtime.passMessage(mes);
     check('second and third passes change nothing', mes.querySelector('.mes_text').innerHTML, afterFirst);
-    check('span count is stable', mes.querySelectorAll('.lb-span').length, spanCount);
+    check('span count stable', mes.querySelectorAll('.lb-span').length, spanCount);
     check('spans never nest', mes.querySelectorAll('.lb-span .lb-span').length, 0);
 
     stripIn(mes.querySelector('.mes_text'));
-    check('strip restores the DOM exactly', mes.querySelector('.mes_text').innerHTML, '<p>沈慕微与慕海棠在东海相遇，谈起传送阵。</p>');
+    check('strip restores the DOM exactly', mes.querySelector('.mes_text').innerHTML, source);
 }
 {
-    // A forced re-pass after a toggle change must also round-trip cleanly.
-    const source = '<p>沈慕微走向归墟潮眼。</p>';
+    // Toggle off → refresh strips everything and stays clean.
+    const source = '<p>传送阵在东海。</p>';
     const mes = message(source);
     runtime.passMessage(mes);
-    ok('rendered with characters=EN', mes.querySelector('.mes_text').textContent.startsWith('Shen Muwei'));
+    ok('decorated while on', mes.querySelectorAll('.lb-span').length > 0);
 
-    toggles = { ...DEFAULT_TOGGLES, renderCharacters: false };
+    toggles = { ...DEFAULT_TOGGLES, highlight: false };
     runtime.refresh();
-    const flipped = document.querySelector('.mes_text').textContent;
-    check('toggling to ZH flips it back in place', flipped, '沈慕微走向Guixu Tide Eye。');
+    check('toggle off restores the source', document.querySelector('.mes_text').innerHTML, source);
 
     toggles = { ...DEFAULT_TOGGLES };
     runtime.refresh();
-    check('toggling back restores English', document.querySelector('.mes_text').textContent, 'Shen Muwei走向Guixu Tide Eye。');
+    ok('toggle back on re-decorates', document.querySelectorAll('.lb-span').length > 0);
 }
 
-/* ---------------------------------------------------------------- *
- * Skip list  (I1 defense in depth)
- * ---------------------------------------------------------------- */
+/* ---------------- skip list ---------------- */
 {
-    const mes = message('<p>沈慕微说：</p><code>沈慕微</code><pre>东海</pre>');
+    const mes = message('<p>传送阵说明：</p><code>传送阵</code><pre>东海</pre>');
     runtime.passMessage(mes);
-    check('code is untouched', mes.querySelector('code').textContent, '沈慕微');
-    check('pre is untouched', mes.querySelector('pre').textContent, '东海');
-    ok('prose outside code is still rendered', mes.querySelector('p').textContent.includes('Shen Muwei'));
+    check('code untouched', mes.querySelector('code').innerHTML, '传送阵');
+    check('pre untouched', mes.querySelector('pre').innerHTML, '东海');
+    ok('prose outside code still decorated', !!mes.querySelector('p .lb-span'));
 }
 {
-    // Structured extension regions (MVU / status bar / draw images).
     const mes = message('<p>东海</p><div class="mvu-status">东海 HP:80</div>');
     runtime.passMessage(mes);
-    check('structured region is untouched', mes.querySelector('.mvu-status').textContent, '东海 HP:80');
-    ok('normal prose still decorated', !!mes.querySelector('p .lb-span'));
+    check('structured region untouched', mes.querySelector('.mvu-status').innerHTML, '东海 HP:80');
 }
 {
-    // <插图> is already an <img> post-render; its attributes must not be touched.
     const mes = message('<p>沈慕微</p><img src="x.png" alt="沈慕微-温泉" class="mes_img">');
     runtime.passMessage(mes);
     check('image alt/src untouched', mes.querySelector('img').getAttribute('alt'), '沈慕微-温泉');
 }
 
-/* ---------------------------------------------------------------- *
- * User messages
- * ---------------------------------------------------------------- */
+/* ---------------- user messages ---------------- */
 {
     toggles = { ...DEFAULT_TOGGLES, highlightUserMessages: false };
+    runtime.refresh();
     const mes = message('<p>How much does the teleport array cost?</p>', { isUser: true });
     runtime.passMessage(mes);
     check('user message untouched by default', mes.querySelector('.mes_text').innerHTML,
@@ -189,27 +152,46 @@ function message(html, { isUser = false, id = 0 } = {}) {
 
     toggles = { ...DEFAULT_TOGGLES, highlightUserMessages: true };
     runtime.refresh();
-    const el = document.querySelector('.mes_text');
-    ok('typed English lights up when enabled', !!el.querySelector('.lb-span'));
-    check('typed English is highlighted, never renamed', el.textContent,
-        'How much does the teleport array cost?');
+    const host = document.querySelector('.mes_text');
+    check('typed English lights up when enabled',
+        [...host.querySelectorAll('.lb-span')].map((s) => s.textContent), ['teleport array']);
+    check('text itself unchanged', host.textContent, 'How much does the teleport array cost?');
 }
 {
-    // Drift detection: unanticipated phrasing lights nothing up.
     toggles = { ...DEFAULT_TOGGLES, highlightUserMessages: true };
     const mes = message('<p>how much for a warp gate?</p>', { isUser: true });
     runtime.passMessage(mes);
-    check('unknown phrasing produces no spans', mes.querySelectorAll('.lb-span').length, 0);
+    check('unknown phrasing produces no spans (drift signal)', mes.querySelectorAll('.lb-span').length, 0);
 }
 
-/* ---------------------------------------------------------------- *
- * Helpers
- * ---------------------------------------------------------------- */
+/* ---------------- hover card content ---------------- */
 {
     toggles = { ...DEFAULT_TOGGLES };
-    const mes = message('<p>沈慕微</p><code>x</code>');
+    runtime.refresh();
+    const mes = message('<p>传送阵。</p>');
+    runtime.passMessage(mes);
+    const span = mes.querySelector('.lb-span');
+    const html = buildCardHtml(REG, span);
+    ok('card names the entry', html.includes('传送阵开销与购买力'));
+    ok('card lists sibling keys', html.includes('跨域传送') && html.includes('路费'));
+    ok('card shows english ways to type it', html.includes('teleport array') && html.includes('travel cost'));
+    ok('card states the honest semantics', html.includes('可触发 ≠ 已注入'));
+}
+{
+    const mes = message('<p>沈慕微。</p>');
+    runtime.passMessage(mes);
+    const html = buildCardHtml(REG, mes.querySelector('.lb-span'));
+    ok('a shared key shows ALL its entries', html.includes('【人设】沈慕微') && html.includes('CG触发'));
+}
+{
+    check('card for unknown span is empty', buildCardHtml(REG, null), '');
+}
+
+/* ---------------- helpers ---------------- */
+{
+    const mes = message('<p>传送阵</p><code>x</code>');
     const nodes = collectTextNodes(mes.querySelector('.mes_text'));
-    check('collectTextNodes skips code', nodes.map((n) => n.nodeValue), ['沈慕微']);
+    check('collectTextNodes skips code', nodes.map((n) => n.nodeValue), ['传送阵']);
 }
 {
     const mes = message('<p>无名之辈走过。</p>');

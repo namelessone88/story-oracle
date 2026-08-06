@@ -1,143 +1,75 @@
 /**
- * LangBridge — Name Registry (PURE: no DOM, no SillyTavern).
+ * LangBridge — registry (PURE: no DOM, no SillyTavern).
  *
- * One registry per worldbook. Backs the setup pass output, the name renderer,
- * and the tooltip. Schema and field semantics: spec §3.
+ * One registry per worldbook, and it holds exactly what the two features need:
  *
- * This module owns normalization/validation and the compilation of a registry
- * into matcher tokens under the current display toggles. It never touches
+ *   entryIndex       uid → { title, keys[], gated }   what's in the book
+ *   keyTranslations  uid → [english trigger words]    how you type it
+ *   addedKeys        uid → [keys we actually wrote]   the idempotency ledger
+ *
+ * `gated` = the entry is keyword-triggered (green light): not constant, not
+ * disabled. Only gated entries participate in anything — a blue (constant)
+ * entry fires every turn regardless of keywords, so English triggers buy it
+ * nothing and highlighting its keys is noise.
+ *
+ * This module also compiles the registry into matcher tokens. It never touches
  * storage — that is host.js — so it stays unit-testable.
  */
 
 import { buildMatcher, looksChinese } from './matcher.js';
 
-export const REGISTRY_VERSION = 1;
-
-export const CATEGORIES = ['character', 'location', 'faction', 'concept'];
-
-/** Categories that participate in NAME RENDERING. Concepts are highlight-only. */
-export const RENDERABLE = new Set(['character', 'location', 'faction']);
+export const REGISTRY_VERSION = 2;
 
 export const DEFAULT_TOGGLES = {
-    renderCharacters: true,      // zh → display_en for category 'character'
-    renderPlaces: true,          // …for 'location' + 'faction'
-    highlight: true,             // trigger-key underline
-    highlightUserMessages: false, // also scan user messages (doubles as drift detection)
+    highlight: true,              // underline trigger words in AI replies
+    highlightUserMessages: false, // also scan what YOU type (drift detection:
+                                  // an English phrase that lights nothing up
+                                  // means no key covers it yet)
 };
 
-/** A single hanzi substring-matches ordinary prose (红 hits 红色/脸红/红衣). */
+/** A single hanzi substring-matches ordinary prose (红 hits 红色/脸红/红衣),
+ *  so single-hanzi keys are excluded from HIGHLIGHTING. They are still fine to
+ *  TRANSLATE — "Hong" has word boundaries on the English side. */
 export function isSingleHanzi(text) {
     const s = String(text || '');
     return [...s].length === 1 && looksChinese(s);
 }
 
-/** Empty registry for a book. */
 export function emptyRegistry(bookName = '') {
     return {
         version: REGISTRY_VERSION,
         bookName: String(bookName || ''),
         bookFingerprint: '',
-        entities: [],
-        conceptKeys: [],
-        addedKeys: {},
-        // uid → English equivalents of THAT entry's existing Chinese trigger
-        // words. Grounded in what the author actually wrote rather than invented
-        // from the entry as a whole, so every Chinese key the user might reach
-        // for has an English sibling.
-        keyTranslations: {},
-        // uid → { title, keys[] }, captured at setup time.
-        //
-        // ADDITION TO THE HANDOFF SPEC §3: the spec's schema stored only
-        // sourceEntryUids / entryUids, but acceptance test 4 requires the hover
-        // card to name the entry ("传送阵开销与购买力") and list its sibling
-        // trigger keys. Resolving that from the live book at hover time would
-        // need an async world-info read per hover; snapshotting it here keeps
-        // the tooltip synchronous and keeps the runtime free of ST coupling.
         entryIndex: {},
+        keyTranslations: {},
+        addedKeys: {},
     };
 }
 
 /**
  * Coerce anything loaded from storage into a valid registry, dropping junk
  * rather than throwing — a corrupt registry must degrade to "fewer tokens",
- * never to a broken chat (invariant I5).
+ * never to a broken chat. Old v1 registries (which carried an entity model for
+ * name rendering) load cleanly: the three fields above existed there too, and
+ * everything else is simply ignored.
  */
 export function normalizeRegistry(raw, bookName = '') {
     const base = emptyRegistry(bookName);
     if (!raw || typeof raw !== 'object') return base;
 
-    base.version = Number(raw.version) || REGISTRY_VERSION;
     base.bookName = String(raw.bookName || bookName || '');
     base.bookFingerprint = String(raw.bookFingerprint || '');
 
-    const seenIds = new Set();
-    for (const item of Array.isArray(raw.entities) ? raw.entities : []) {
-        if (!item || typeof item !== 'object') continue;
-        const canonical = String(item.canonical || '').trim();
-        if (!canonical) continue;
-
-        let id = String(item.id || '').trim() || canonical;
-        while (seenIds.has(id)) id += '_';                   // ids must be unique
-        seenIds.add(id);
-
-        const category = CATEGORIES.includes(item.category) ? item.category : 'character';
-        const singleChar = (item.singleChar === true) || isSingleHanzi(canonical);
-        // Single-hanzi names are ALWAYS displayed in Chinese — there is no
-        // override, deliberately. 红 is both a character and the word "red";
-        // with no word boundary in CJK, renaming would corrupt ordinary prose
-        // (她换上红色的外袍 → 她换上Hong色的外袍) every time the word appears.
-        //
-        // DELIBERATE DEVIATION from handoff spec acceptance test 6, which reads
-        // as though the per-entity override should restore renaming as well as
-        // highlighting. Decided by Edwin: keep renaming unreachable. A false
-        // highlight is cosmetic noise; a false rename silently breaks the text.
-        // allowSingleCharHighlight re-enables the underline/hover card only.
-        // Do not "fix" this back without asking.
-        const policy = singleChar ? 'zh' : (item.displayPolicy === 'zh' ? 'zh' : 'en');
-
-        base.entities.push({
-            id,
-            canonical,
-            display_en: String(item.display_en || '').trim(),
-            category,
-            aliases_zh: uniqueStrings(item.aliases_zh),
-            aliases_en: uniqueStrings(item.aliases_en),
-            displayPolicy: policy,
-            singleChar,
-            // opt-in: allow a single-hanzi entity to be highlighted anyway
-            allowSingleCharHighlight: item.allowSingleCharHighlight === true,
-            // true = created by the non-LLM 扫描 with placeholder category/policy,
-            // so the Setup Pass may replace those wholesale. Cleared once
-            // classified. Anything false is a decision someone made on purpose
-            // and is only ever added to, never overwritten (risk R8).
-            provisional: item.provisional === true,
-            // The classifier was torn between showing the Chinese or the English
-            // form (归墟 = a real place name that is ALSO literally "return to the
-            // void"). Surfaced for a human decision instead of being guessed
-            // silently; cleared once decided.
-            policyUncertain: item.policyUncertain === true && item.policyDecided !== true,
-            // The user chose this displayPolicy by hand. Never re-asked, never
-            // overwritten by a later Setup Pass.
-            policyDecided: item.policyDecided === true,
-            sourceEntryUids: uniqueNumbers(item.sourceEntryUids),
-        });
-    }
-
-    for (const item of Array.isArray(raw.conceptKeys) ? raw.conceptKeys : []) {
-        if (!item || typeof item !== 'object') continue;
-        const zh = String(item.zh || '').trim();
-        if (!zh) continue;
-        base.conceptKeys.push({
-            zh,
-            en: uniqueStrings(item.en),
-            entryUids: uniqueNumbers(item.entryUids),
-        });
-    }
-
-    if (raw.addedKeys && typeof raw.addedKeys === 'object') {
-        for (const [uid, keys] of Object.entries(raw.addedKeys)) {
-            const list = uniqueStrings(keys);
-            if (list.length) base.addedKeys[String(uid)] = list;
+    if (raw.entryIndex && typeof raw.entryIndex === 'object') {
+        for (const [uid, meta] of Object.entries(raw.entryIndex)) {
+            if (!meta || typeof meta !== 'object') continue;
+            base.entryIndex[String(uid)] = {
+                title: String(meta.title || '').trim() || `条目 #${uid}`,
+                keys: uniqueStrings(meta.keys),
+                // v1 had no gated flag; default true so old data keeps working
+                // until the next 扫描 refreshes it from the book.
+                gated: meta.gated !== false,
+            };
         }
     }
 
@@ -148,30 +80,14 @@ export function normalizeRegistry(raw, bookName = '') {
         }
     }
 
-    if (raw.entryIndex && typeof raw.entryIndex === 'object') {
-        for (const [uid, meta] of Object.entries(raw.entryIndex)) {
-            if (!meta || typeof meta !== 'object') continue;
-            base.entryIndex[String(uid)] = {
-                title: String(meta.title || '').trim(),
-                keys: uniqueStrings(meta.keys),
-            };
+    if (raw.addedKeys && typeof raw.addedKeys === 'object') {
+        for (const [uid, keys] of Object.entries(raw.addedKeys)) {
+            const list = uniqueStrings(keys);
+            if (list.length) base.addedKeys[String(uid)] = list;
         }
     }
 
     return base;
-}
-
-/** Entry metadata for the hover card: [{ uid, title, keys[] }]. */
-export function describeEntries(registry, uids) {
-    const index = (registry && registry.entryIndex) || {};
-    return (Array.isArray(uids) ? uids : []).map((uid) => {
-        const meta = index[String(uid)] || {};
-        return {
-            uid,
-            title: meta.title || `条目 #${uid}`,
-            keys: Array.isArray(meta.keys) ? meta.keys : [],
-        };
-    });
 }
 
 function uniqueStrings(value) {
@@ -186,117 +102,92 @@ function uniqueStrings(value) {
     return out;
 }
 
-function uniqueNumbers(value) {
-    const out = [];
-    for (const item of Array.isArray(value) ? value : []) {
-        const n = Number(item);
-        if (Number.isFinite(n) && !out.includes(n)) out.push(n);
-    }
-    return out;
-}
-
-/** Cheap revision stamp — changes whenever content or toggles change, so the
- *  display pass knows a re-render is required (data-lb-pass marker). */
+/** Cheap revision stamp — changes when content or toggles change, so the
+ *  display pass knows a processed message needs re-rendering. */
 export function registryRevision(registry, toggles) {
     const r = registry || emptyRegistry();
     const t = { ...DEFAULT_TOGGLES, ...(toggles || {}) };
-    let hash = 5381;
     const stamp = JSON.stringify([
-        r.bookName, r.entities.length, r.conceptKeys.length,
-        r.entities.map((e) => e.id + e.displayPolicy + e.display_en).join(','),
-        t.renderCharacters, t.renderPlaces, t.highlight, t.highlightUserMessages,
+        r.bookName,
+        Object.entries(r.entryIndex).map(([uid, m]) => uid + m.gated + m.keys.join(',')),
+        r.keyTranslations,
+        t.highlight, t.highlightUserMessages,
     ]);
+    let hash = 5381;
     for (let i = 0; i < stamp.length; i++) hash = (((hash << 5) + hash) + stamp.charCodeAt(i)) | 0;
     return (hash >>> 0).toString(36);
 }
 
-/** Should this entity's name be rendered in English under these toggles? */
-export function shouldRenderEnglish(entity, toggles) {
-    if (!entity || entity.displayPolicy !== 'en' || !entity.display_en) return false;
-    const t = { ...DEFAULT_TOGGLES, ...(toggles || {}) };
-    if (entity.category === 'character') return !!t.renderCharacters;
-    if (entity.category === 'location' || entity.category === 'faction') return !!t.renderPlaces;
-    return false;                                            // concepts never rename
-}
-
 /**
- * Compile the registry into matcher tokens under the current toggles.
+ * Compile the registry into matcher tokens.
  *
- * @param {object} registry
- * @param {object} toggles
- * @param {{includeEnglish?: boolean}} opts  includeEnglish is set when scanning
- *        USER messages, where the user's typed English should light up (drift
- *        detection). AI text is Chinese, so English tokens are pointless there
- *        and only add collision surface.
- *
- * Token order matters: names are pushed before concepts so that when a string is
- * both (e.g. a sect name that is also a concept key) the name wins in buildMatcher.
+ * AI replies are Chinese, so their scan uses only the Chinese keys of gated
+ * entries. With includeEnglish (user messages), the English side joins in:
+ * ASCII keys already in the book (including ones we wrote) plus the planned
+ * translations — that is what makes typed English light up.
  */
 export function buildTokens(registry, toggles, opts = {}) {
     const r = normalizeRegistry(registry);
     const t = { ...DEFAULT_TOGGLES, ...(toggles || {}) };
-    const includeEnglish = !!opts.includeEnglish;
+    if (!t.highlight) return [];
+
     const tokens = [];
+    const push = (text, kind) => tokens.push({ text, kind });
 
-    for (const entity of r.entities) {
-        const renders = shouldRenderEnglish(entity, t);
-        // A single-hanzi entity is excluded from highlighting by default because
-        // it substring-matches ordinary prose; the per-entity override re-enables it.
-        const highlightable = t.highlight && (!entity.singleChar || entity.allowSingleCharHighlight);
-        if (!renders && !highlightable) continue;
-
-        const push = (text, kind) => tokens.push({
-            text, kind, type: 'name', entityId: entity.id, renders, highlightable,
-        });
-
-        push(entity.canonical, 'zh');
-        for (const alias of entity.aliases_zh) push(alias, 'zh');
-        if (includeEnglish && highlightable) {
-            // English forms only ever HIGHLIGHT — rewriting "Shen Muwei" to
-            // "Shen Muwei" is a no-op, and the user's own typing is never renamed.
-            if (entity.display_en) tokens.push({ text: entity.display_en, kind: 'en', type: 'name', entityId: entity.id, renders: false, highlightable: true });
-            for (const alias of entity.aliases_en) tokens.push({ text: alias, kind: 'en', type: 'name', entityId: entity.id, renders: false, highlightable: true });
-        }
-    }
-
-    if (t.highlight) {
-        r.conceptKeys.forEach((concept, index) => {
-            if (isSingleHanzi(concept.zh)) return;           // same prose-collision rule
-            tokens.push({ text: concept.zh, kind: 'zh', type: 'concept', conceptIndex: index, renders: false, highlightable: true });
-            if (includeEnglish) {
-                for (const en of concept.en) {
-                    tokens.push({ text: en, kind: 'en', type: 'concept', conceptIndex: index, renders: false, highlightable: true });
-                }
+    for (const [uid, meta] of Object.entries(r.entryIndex)) {
+        if (!meta.gated) continue;
+        for (const key of meta.keys) {
+            if (looksChinese(key)) {
+                if (!isSingleHanzi(key)) push(key, 'zh');
+            } else if (opts.includeEnglish && key.length >= 3) {
+                push(key, 'en');
             }
-        });
+        }
+        if (opts.includeEnglish) {
+            for (const key of r.keyTranslations[uid] || []) {
+                if (key.length >= 3) push(key, 'en');
+            }
+        }
     }
 
     return tokens;
 }
 
-/** Convenience: compiled matcher for a registry + toggles. */
+/** Compiled matcher for a registry + toggles. buildMatcher dedupes texts. */
 export function compile(registry, toggles, opts = {}) {
     return buildMatcher(buildTokens(registry, toggles, opts));
 }
 
-/** Look up an entity by id. */
-export function findEntity(registry, entityId) {
-    if (!registry || !entityId) return null;
-    return (registry.entities || []).find((e) => e.id === entityId) || null;
+/**
+ * Which entries a matched word belongs to. A key can belong to several entries
+ * (沈慕微 keys her 人设 entry AND her CG触发 entry) — always returns all.
+ * Case-insensitive so English hits resolve regardless of typed casing.
+ */
+export function entriesForText(registry, text) {
+    const needle = String(text || '').trim().toLowerCase();
+    if (!needle) return [];
+    const r = registry || emptyRegistry();
+    const uids = [];
+    for (const [uid, meta] of Object.entries(r.entryIndex || {})) {
+        const inKeys = (meta.keys || []).some((k) => k.toLowerCase() === needle);
+        const inTranslations = (r.keyTranslations?.[uid] || []).some((k) => k.toLowerCase() === needle);
+        if (inKeys || inTranslations) uids.push(uid);
+    }
+    return uids;
 }
 
-/**
- * Every worldbook entry uid a token belongs to, plus the sibling trigger keys
- * of those entries — the tooltip's "keys entry X, whose other keys are …".
- * A key can belong to several entries (沈慕微 keys her own entry, her CG触发
- * entry, and 天剑宗's member list), so this always returns a list.
- */
-export function tokenEntryRefs(registry, token) {
-    if (!registry || !token) return [];
-    if (token.type === 'concept') {
-        const concept = (registry.conceptKeys || [])[token.conceptIndex];
-        return concept ? concept.entryUids.slice() : [];
-    }
-    const entity = findEntity(registry, token.entityId);
-    return entity ? entity.sourceEntryUids.slice() : [];
+/** Hover-card data for one entry: title, Chinese keys, English ways to type it. */
+export function describeEntry(registry, uid) {
+    const r = registry || emptyRegistry();
+    const meta = r.entryIndex?.[String(uid)] || {};
+    const keys = Array.isArray(meta.keys) ? meta.keys : [];
+    const translations = r.keyTranslations?.[String(uid)] || [];
+    const en = uniqueStrings([...keys.filter((k) => !looksChinese(k)), ...translations]);
+    return {
+        uid: String(uid),
+        title: meta.title || `条目 #${uid}`,
+        zhKeys: keys.filter((k) => looksChinese(k)),
+        enKeys: en,
+        gated: meta.gated !== false,
+    };
 }

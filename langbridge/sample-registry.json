@@ -1,136 +1,29 @@
 {
-  "_comment": "Hand-seeded 苍玄界 slice (spec §9 build step 1). Import via LangBridge → 导入 to exercise the display runtime without running a Setup Pass. Entry titles/keys under entryIndex are illustrative placeholders — run 扫描 against the real book to replace them with the author's actual entries.",
-  "version": 1,
+  "_comment": "Hand-seeded 苍玄界 slice. Import via LangBridge → 导入 to see highlighting + hover cards working before touching your own book. keyTranslations simulate a completed 翻译触发词 run; entry 1 is a blue (constant) entry to show gating.",
+  "version": 2,
   "bookName": "我的苍玄界（才不会这么跌宕起伏）",
   "bookFingerprint": "",
-  "entities": [
-    {
-      "id": "shen-muwei",
-      "canonical": "沈慕微",
-      "display_en": "Shen Muwei",
-      "category": "character",
-      "aliases_zh": ["无情道首座"],
-      "aliases_en": ["Muwei", "Shen Mu-wei"],
-      "displayPolicy": "en",
-      "singleChar": false,
-      "sourceEntryUids": [8, 136]
-    },
-    {
-      "id": "mu-haitang",
-      "canonical": "慕海棠",
-      "display_en": "Mu Haitang",
-      "category": "character",
-      "aliases_zh": [],
-      "aliases_en": ["Haitang"],
-      "displayPolicy": "en",
-      "sourceEntryUids": [9]
-    },
-    {
-      "id": "lin-xuelu",
-      "canonical": "林雪鹿",
-      "display_en": "Lin Xuelu",
-      "category": "character",
-      "aliases_zh": [],
-      "aliases_en": ["Xuelu"],
-      "displayPolicy": "en",
-      "sourceEntryUids": [10]
-    },
-    {
-      "id": "hong",
-      "canonical": "红",
-      "display_en": "Hong",
-      "category": "character",
-      "aliases_zh": [],
-      "aliases_en": [],
-      "displayPolicy": "zh",
-      "singleChar": true,
-      "sourceEntryUids": [90]
-    },
-    {
-      "id": "tianjian-zong",
-      "canonical": "天剑宗",
-      "display_en": "Heavenly Sword Sect",
-      "category": "faction",
-      "aliases_zh": [],
-      "aliases_en": [],
-      "displayPolicy": "zh",
-      "sourceEntryUids": [12]
-    },
-    {
-      "id": "donghai",
-      "canonical": "东海",
-      "display_en": "East Sea",
-      "category": "location",
-      "aliases_zh": [],
-      "aliases_en": [],
-      "displayPolicy": "en",
-      "sourceEntryUids": [40]
-    },
-    {
-      "id": "donghai-haiyu",
-      "canonical": "东海海域",
-      "display_en": "East Sea Waters",
-      "category": "location",
-      "aliases_zh": [],
-      "aliases_en": [],
-      "displayPolicy": "en",
-      "sourceEntryUids": [41]
-    },
-    {
-      "id": "guixu",
-      "canonical": "归墟",
-      "display_en": "Guixu",
-      "category": "location",
-      "aliases_zh": [],
-      "aliases_en": [],
-      "displayPolicy": "en",
-      "sourceEntryUids": [42]
-    },
-    {
-      "id": "guixu-chaoyan",
-      "canonical": "归墟潮眼",
-      "display_en": "Guixu Tide Eye",
-      "category": "location",
-      "aliases_zh": [],
-      "aliases_en": [],
-      "displayPolicy": "en",
-      "sourceEntryUids": [43]
-    },
-    {
-      "id": "cangxuan-jie",
-      "canonical": "苍玄界",
-      "display_en": "Cangxuan Realm",
-      "category": "location",
-      "aliases_zh": [],
-      "aliases_en": ["Cangxuan"],
-      "displayPolicy": "en",
-      "sourceEntryUids": [1]
-    }
-  ],
-  "conceptKeys": [
-    { "zh": "传送阵", "en": ["teleport array", "teleportation", "teleport"], "entryUids": [32] },
-    { "zh": "灵石", "en": ["spirit stones", "spirit stone price"], "entryUids": [33] },
-    { "zh": "筑基", "en": ["foundation establishment"], "entryUids": [50] },
-    { "zh": "金丹", "en": ["golden core"], "entryUids": [51] },
-    { "zh": "渡劫", "en": ["tribulation"], "entryUids": [52] }
-  ],
-  "addedKeys": {},
   "entryIndex": {
-    "1":   { "title": "苍玄界·总览", "keys": ["苍玄界"] },
-    "8":   { "title": "【人设】沈慕微", "keys": ["沈慕微", "无情道首座"] },
-    "9":   { "title": "【人设】慕海棠", "keys": ["慕海棠"] },
-    "10":  { "title": "【人设】林雪鹿", "keys": ["林雪鹿"] },
-    "12":  { "title": "天剑宗", "keys": ["天剑宗", "剑宗", "宗门"] },
-    "32":  { "title": "传送阵开销与购买力", "keys": ["传送阵", "传送费用", "购买力", "灵石价格", "跨域传送", "路费"] },
-    "33":  { "title": "灵石与货币", "keys": ["灵石", "下品灵石", "中品灵石"] },
-    "40":  { "title": "东海", "keys": ["东海"] },
-    "41":  { "title": "东海海域", "keys": ["东海海域"] },
-    "42":  { "title": "归墟", "keys": ["归墟"] },
-    "43":  { "title": "归墟潮眼", "keys": ["归墟潮眼"] },
-    "50":  { "title": "境界·筑基", "keys": ["筑基"] },
-    "51":  { "title": "境界·金丹", "keys": ["金丹"] },
-    "52":  { "title": "境界·渡劫", "keys": ["渡劫"] },
-    "90":  { "title": "【人设】红", "keys": ["红"] },
-    "136": { "title": "[mvu_plot]沈慕微CG触发", "keys": ["沈慕微", "温泉"] }
-  }
+    "1":   { "title": "苍玄界·总览", "keys": ["苍玄界"], "gated": false },
+    "8":   { "title": "【人设】沈慕微", "keys": ["沈慕微", "无情道首座"], "gated": true },
+    "9":   { "title": "【人设】慕海棠", "keys": ["慕海棠"], "gated": true },
+    "12":  { "title": "天剑宗", "keys": ["天剑宗", "剑宗"], "gated": true },
+    "32":  { "title": "传送阵开销与购买力", "keys": ["传送阵", "传送费用", "购买力", "灵石价格", "跨域传送", "路费"], "gated": true },
+    "40":  { "title": "东海", "keys": ["东海"], "gated": true },
+    "41":  { "title": "东海海域", "keys": ["东海海域"], "gated": true },
+    "42":  { "title": "归墟", "keys": ["归墟"], "gated": true },
+    "43":  { "title": "归墟潮眼", "keys": ["归墟潮眼"], "gated": true },
+    "50":  { "title": "境界·筑基", "keys": ["筑基"], "gated": true },
+    "90":  { "title": "【人设】红", "keys": ["红"], "gated": true },
+    "136": { "title": "[mvu_plot]沈慕微CG触发", "keys": ["沈慕微", "温泉"], "gated": true }
+  },
+  "keyTranslations": {
+    "8":   ["Shen Muwei", "Muwei", "Merciless Path First Seat"],
+    "9":   ["Mu Haitang", "Haitang"],
+    "32":  ["teleport array", "teleportation", "teleport fee", "purchasing power", "spirit stone price", "cross-region teleport", "travel cost"],
+    "42":  ["Guixu"],
+    "50":  ["foundation establishment"],
+    "136": ["Shen Muwei", "hot spring"]
+  },
+  "addedKeys": {}
 }

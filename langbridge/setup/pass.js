@@ -1,30 +1,31 @@
 /**
- * LangBridge — Setup Pass orchestration (spec §4).
+ * LangBridge — translation pass orchestration.
  *
- * Runs ONCE per card. Everything here is setup-time; nothing in this file is
- * ever reachable from a chat turn (invariant I2).
+ * Runs once per card, on demand. Nothing here is reachable from a chat turn.
  *
  * Shape of a run:
- *   collectEntries → classify in batches (LLM) → mergeClassifications →
- *   planKeyEmission (collision-screened) → USER REVIEWS → applyPlan (writes)
+ *   collectEntries → split (green / blue / disabled / AND-logic) →
+ *   translate in batches (LLM, self-healing) → planWrites (collision-screened)
+ *   → USER REVIEWS → applyPlan (single write + ledger)
  *
- * The planning half is pure and unit-tested. Only runSetupPass and applyPlan
- * touch host.js, and the worldbook is not written until the user approves.
+ * The planning halves are pure and unit-tested. Only the two exported async
+ * runners touch host.js, and the worldbook is not written until approval.
  */
 
 import { setupCompletion, appendKeysToBook, fingerprintBook } from '../host.js';
-import { normalizeRegistry, emptyRegistry, isSingleHanzi } from '../registry.js';
+import { normalizeRegistry, emptyRegistry } from '../registry.js';
 import {
-    parseClassificationBatch, planBatches, entryHash, nameVariants, screenKeys,
+    parseTranslationBatch, planBatches, entryHash, screenKeys,
     batchSizeForBudget, DEFAULT_OUTPUT_BUDGET,
 } from './analysis.js';
-import { buildBatchMessages, FIXED_JARGON } from './prompts.js';
+import { buildBatchMessages } from './prompts.js';
+import { looksChinese } from '../matcher.js';
 
 /* ------------------------------------------------------------------ *
  * PURE: input preparation
  * ------------------------------------------------------------------ */
 
-/** Flatten a loaded worldbook into classifiable rows. */
+/** Flatten a loaded worldbook into rows. */
 export function collectEntries(bookData) {
     const out = [];
     for (const [uid, entry] of Object.entries(bookData?.entries || {})) {
@@ -35,9 +36,6 @@ export function collectEntries(bookData) {
             content: String(entry.content || ''),
             keys: (Array.isArray(entry.key) ? entry.key : []).map((k) => String(k).trim()).filter(Boolean),
             hasSecondary: Array.isArray(entry.keysecondary) && entry.keysecondary.length > 0,
-            // Blue-light entries fire every turn regardless of keywords, so an
-            // English trigger word buys them nothing. Disabled entries never
-            // fire at all. Both are excluded from key emission (spec §4 Step 1).
             constant: entry.constant === true,
             disabled: entry.disable === true,
             hash: entryHash(entry),
@@ -47,14 +45,50 @@ export function collectEntries(bookData) {
 }
 
 /**
- * Text the collision screen tests candidates against: the card's own machinery.
+ * Sort entries into what gets translated and what gets reported.
  *
- * Sources, in order of value:
- *   · worldbook entries that LOOK like machinery (status-bar templates, variable
- *     lists, script blocks) — these are what the scanner sees every turn
- *   · a real sample AI reply, when the caller can supply one
- *
- * An English key appearing anywhere in here would fire constantly.
+ *   translatable — green (keyword-triggered), no AND logic, has Chinese keys
+ *   flagged      — green but uses keysecondary (AND): auto-adding an English
+ *                  primary could shift its activation timing; manual decision
+ *   skipped      — blue (constant) or disabled: a trigger word buys nothing
+ *   inert        — green but nothing to translate (no Chinese keys)
+ */
+export function splitEntries(entries) {
+    const translatable = [];
+    const flagged = [];
+    const skipped = [];
+    const inert = [];
+
+    for (const entry of entries || []) {
+        if (entry.constant || entry.disabled) {
+            skipped.push({
+                uid: entry.uid,
+                title: entry.comment || `条目 #${entry.uid}`,
+                reason: entry.disabled ? '条目被禁用' : '蓝灯常驻条目，本来就每回合注入，不需要触发词',
+            });
+            continue;
+        }
+        const zhKeys = entry.keys.filter((k) => looksChinese(k));
+        if (!zhKeys.length) { inert.push(entry.uid); continue; }
+        if (entry.hasSecondary) {
+            flagged.push({
+                uid: entry.uid,
+                title: entry.comment || `条目 #${entry.uid}`,
+                zhKeys,
+                reason: '这个条目用了「次要关键词」(AND 逻辑)，自动加英文词可能改变它的触发时机——请手动决定。',
+            });
+            continue;
+        }
+        translatable.push(entry);
+    }
+
+    return { translatable, flagged, skipped, inert };
+}
+
+/**
+ * Text the collision screen tests candidates against: the card's own machinery
+ * (status-bar templates, variable lists, script blocks — what the WI scanner
+ * sees every turn) plus a real sample AI reply when available.
  */
 export function gatherMachineryText(bookData, sampleReply = '') {
     const chunks = [];
@@ -74,112 +108,52 @@ function looksLikeMachinery(text) {
 }
 
 /* ------------------------------------------------------------------ *
- * PURE: merge classifications into a registry
+ * PURE: plan what gets written
  * ------------------------------------------------------------------ */
 
 /**
- * Fold LLM classifications into the registry.
- *
- * OVERRIDE SAFETY (risk R8): entities marked `provisional` came from the
- * non-LLM 扫描 skeleton and carry placeholder values, so the classifier may
- * replace them wholesale. Anything NOT provisional was set by the setup pass
- * previously or edited by the user — those keep their category, displayPolicy
- * and display_en, and only gain new aliases. Re-running never clobbers a
- * decision someone made on purpose.
+ * Screen the translations and diff them against the book.
+ * @param {Record<string, string[]>} translations  uid → English keys
+ * @returns {{writes, rejected, stats}} — writes is uid → keys to append.
  */
-export function mergeClassifications(registry, bookData, classifications) {
-    const base = normalizeRegistry(registry, registry?.bookName || '');
-    const byUid = new Map((classifications || []).map((c) => [c.uid, c]));
-    const next = { ...base, entities: [], conceptKeys: [], entryIndex: { ...base.entryIndex } };
+export function planWrites(translations, bookData, machineryText = '') {
+    const entries = bookData?.entries || {};
+    const writes = {};
+    const rejected = [];
 
-    // Refresh the entry index (titles + author keys) — the hover cards read it.
+    for (const [uid, candidates] of Object.entries(translations || {})) {
+        const entry = entries[uid] ?? entries[String(uid)];
+        if (!entry) continue;
+        const { accepted, rejected: bad } = screenKeys(candidates, { machineryText });
+        const title = String(entry.comment || `条目 #${uid}`);
+        for (const item of bad) rejected.push({ ...item, owner: title });
+
+        const existing = new Set((Array.isArray(entry.key) ? entry.key : [])
+            .map((k) => String(k).toLowerCase()));
+        const fresh = accepted.filter((k) => !existing.has(k.toLowerCase()));
+        if (fresh.length) writes[String(uid)] = fresh;
+    }
+
+    const keyCount = Object.values(writes).reduce((n, list) => n + list.length, 0);
+    return {
+        writes,
+        rejected,
+        stats: { entries: Object.keys(writes).length, keys: keyCount, rejected: rejected.length },
+    };
+}
+
+/** Refresh the registry's entry index from the live book (gated flags included). */
+export function refreshEntryIndex(registry, bookData) {
+    const next = normalizeRegistry(registry, registry?.bookName || '');
+    next.entryIndex = {};
     for (const [uid, entry] of Object.entries(bookData?.entries || {})) {
         next.entryIndex[String(uid)] = {
             title: String(entry?.comment || '').trim() || `条目 #${uid}`,
             keys: (Array.isArray(entry?.key) ? entry.key : []).map((k) => String(k).trim()).filter(Boolean),
+            gated: entry?.constant !== true && entry?.disable !== true,
         };
     }
-
-    // Per-entry key translations apply to every category: a character entry's
-    // 无情道首座 deserves an English sibling just as much as a concept's 灵石价格.
-    next.keyTranslations = { ...base.keyTranslations };
-    for (const verdict of (classifications || [])) {
-        if (verdict.key_en?.length) {
-            next.keyTranslations[String(verdict.uid)] =
-                mergeUnique(next.keyTranslations[String(verdict.uid)], verdict.key_en);
-        }
-    }
-
-    const conceptByZh = new Map(base.conceptKeys.map((c) => [c.zh, { ...c }]));
-
-    for (const entity of base.entities) {
-        const uid = entity.sourceEntryUids[0];
-        const verdict = byUid.get(uid);
-
-        if (!verdict) { next.entities.push(entity); continue; }
-
-        if (verdict.category === 'concept') {
-            // Reclassified as a concept: it stops being a renderable name and
-            // becomes a highlight-only concept key.
-            if (entity.provisional) {
-                const existing = conceptByZh.get(entity.canonical);
-                const en = mergeUnique(existing?.en, verdict.key_en);
-                conceptByZh.set(entity.canonical, {
-                    zh: entity.canonical,
-                    en,
-                    entryUids: mergeUniqueNumbers(existing?.entryUids, entity.sourceEntryUids),
-                });
-                continue;
-            }
-            next.entities.push(entity);
-            continue;
-        }
-
-        if (entity.provisional) {
-            next.entities.push({
-                ...entity,
-                category: verdict.category,
-                display_en: verdict.display_en || '',
-                // Single-hanzi names are pinned to Chinese display regardless of
-                // what the classifier says (see registry.js).
-                displayPolicy: isSingleHanzi(entity.canonical) ? 'zh' : verdict.displayPolicy,
-                aliases_en: mergeUnique(entity.aliases_en, verdict.aliases_en),
-                provisional: false,
-                // Single-hanzi names are pinned regardless, so there is nothing
-                // to ask about; likewise anything the user already decided.
-                policyUncertain: !isSingleHanzi(entity.canonical)
-                    && !entity.policyDecided && verdict.policyUncertain === true,
-            });
-        } else {
-            next.entities.push({
-                ...entity,
-                display_en: entity.display_en || verdict.display_en || '',
-                aliases_en: mergeUnique(entity.aliases_en, verdict.aliases_en),
-                // A name the user settled is never raised again.
-                policyUncertain: entity.policyDecided
-                    ? false
-                    : (entity.policyUncertain || verdict.policyUncertain === true),
-            });
-        }
-    }
-
-    // Concepts the classifier found on entries that had no entity at all.
-    for (const verdict of byUid.values()) {
-        if (verdict.category !== 'concept' || !verdict.key_en.length) continue;
-        const entry = bookData?.entries?.[verdict.uid] ?? bookData?.entries?.[String(verdict.uid)];
-        const zh = String(entry?.comment || '').replace(/^[【\[（(]{1}[^】\]）)]*[】\]）)]\s*/, '').trim();
-        if (!zh || conceptByZh.has(zh)) continue;
-        conceptByZh.set(zh, { zh, en: verdict.key_en.slice(), entryUids: [verdict.uid] });
-    }
-
-    // Pinned jargon renderings win over anything the model improvised.
-    for (const [zh, en] of Object.entries(FIXED_JARGON)) {
-        const existing = conceptByZh.get(zh);
-        if (existing) existing.en = mergeUnique(en, existing.en);
-    }
-
-    next.conceptKeys = [...conceptByZh.values()];
-    return normalizeRegistry(next, next.bookName);
+    return next;
 }
 
 function mergeUnique(a, b) {
@@ -194,133 +168,20 @@ function mergeUnique(a, b) {
     return out;
 }
 
-function mergeUniqueNumbers(a, b) {
-    const out = [];
-    for (const item of [...(a || []), ...(b || [])]) {
-        const n = Number(item);
-        if (Number.isFinite(n) && !out.includes(n)) out.push(n);
-    }
-    return out;
-}
-
-/* ------------------------------------------------------------------ *
- * PURE: plan which English keys get written where
- * ------------------------------------------------------------------ */
-
-/**
- * @returns {{
- *   writes: Record<string, string[]>,   // uid → keys to append
- *   flagged: Array<{uid, title, reason}>,
- *   rejected: Array<{key, reason, owner}>,
- *   stats: object
- * }}
- *
- * Nothing here mutates anything; the caller shows this to the user first.
- */
-export function planKeyEmission(registry, bookData, machineryText = '') {
-    const reg = normalizeRegistry(registry, registry?.bookName || '');
-    const entries = bookData?.entries || {};
-    const writes = {};
-    const flagged = [];
-    const rejected = [];
-
-    const skipped = [];
-
-    const addWrites = (uids, keys, owner) => {
-        for (const uid of uids) {
-            const entry = entries[uid] ?? entries[String(uid)];
-            if (!entry) continue;
-
-            // A blue-light (constant) entry is injected every turn no matter
-            // what the message says — a trigger word cannot make it fire any
-            // harder. A disabled entry never fires at all. Writing English keys
-            // to either is pure noise in the author's key list.
-            if (entry.constant === true || entry.disable === true) {
-                skipped.push({
-                    uid: Number(uid),
-                    title: String(entry.comment || `条目 #${uid}`),
-                    reason: entry.disable === true ? '条目被禁用' : '蓝灯常驻条目，本来就每回合注入，不需要触发词',
-                });
-                continue;
-            }
-
-            // AND-logic entries are never auto-augmented: an English primary
-            // matching the user's message while the Chinese secondaries only
-            // ever appear in AI text would shift activation timing.
-            if (Array.isArray(entry.keysecondary) && entry.keysecondary.length) {
-                flagged.push({
-                    uid: Number(uid),
-                    title: String(entry.comment || `条目 #${uid}`),
-                    reason: '这个条目用了「次要关键词」(AND 逻辑)，自动加英文词可能改变它的触发时机——请手动决定。',
-                    proposed: keys.slice(),
-                });
-                continue;
-            }
-
-            const existing = new Set((Array.isArray(entry.key) ? entry.key : [])
-                .map((k) => String(k).toLowerCase()));
-            const fresh = keys.filter((k) => !existing.has(k.toLowerCase()));
-            if (!fresh.length) continue;
-            writes[String(uid)] = mergeUnique(writes[String(uid)], fresh);
-        }
-    };
-
-    for (const entity of reg.entities) {
-        if (entity.category === 'concept' || !entity.display_en) continue;
-        const candidates = nameVariants(entity.display_en, { extraAliases: entity.aliases_en });
-        const { accepted, rejected: bad } = screenKeys(candidates, { machineryText });
-        for (const item of bad) rejected.push({ ...item, owner: entity.canonical });
-        if (accepted.length) addWrites(entity.sourceEntryUids, accepted, entity.canonical);
-    }
-
-    for (const concept of reg.conceptKeys) {
-        if (!concept.en.length) continue;
-        const { accepted, rejected: bad } = screenKeys(concept.en, { machineryText });
-        for (const item of bad) rejected.push({ ...item, owner: concept.zh });
-        if (accepted.length) addWrites(concept.entryUids, accepted, concept.zh);
-    }
-
-    // English equivalents of each entry's OWN Chinese trigger words. This is the
-    // bulk of the recall: entry 32's 传送费用 / 购买力 / 灵石价格 / 跨域传送 / 路费
-    // each gain an English sibling, instead of the entry getting a few invented
-    // phrases that may not match how the user actually asks.
-    for (const [uid, keys] of Object.entries(reg.keyTranslations || {})) {
-        if (!keys.length) continue;
-        const { accepted, rejected: bad } = screenKeys(keys, { machineryText });
-        for (const item of bad) rejected.push({ ...item, owner: `条目 #${uid}` });
-        if (accepted.length) addWrites([uid], accepted, `条目 #${uid}`);
-    }
-
-    const keyCount = Object.values(writes).reduce((n, list) => n + list.length, 0);
-    const uniqueSkipped = [...new Map(skipped.map((s2) => [s2.uid, s2])).values()];
-    return {
-        writes,
-        flagged,
-        rejected,
-        skipped: uniqueSkipped,
-        stats: {
-            entries: Object.keys(writes).length,
-            keys: keyCount,
-            flagged: flagged.length,
-            rejected: rejected.length,
-            skipped: uniqueSkipped.length,
-        },
-    };
-}
-
 /* ------------------------------------------------------------------ *
  * Orchestration (touches host.js)
  * ------------------------------------------------------------------ */
 
 /**
- * Classify a whole book. Returns { classifications, failedBatches, cache }.
+ * Translate a set of entries. Bounded concurrency, abortable, cached by
+ * entry-content hash so a re-run or resumed run does not re-spend tokens.
  *
- * Bounded concurrency, abortable, and cached by entry-content hash so a re-run
- * or a resumed run does not re-spend tokens on unchanged entries. A batch that
- * fails or returns unreadable JSON fails ALONE — its entries simply stay
- * unclassified and are reported.
+ * Self-healing: a reply that comes back short (truncated array, or the model
+ * summarising instead of enumerating) requeues ONLY the missing entries at half
+ * batch size — a bad reply costs those rows, not the batch. Failures that
+ * survive the retry ladder are reported by uid, never silently dropped.
  */
-export async function classifyBook(entries, opts = {}) {
+export async function translateBook(entries, opts = {}) {
     const {
         profileId = '', signal, onProgress = () => {}, concurrency = 2, cache = {},
         outputBudget = DEFAULT_OUTPUT_BUDGET,
@@ -332,14 +193,9 @@ export async function classifyBook(entries, opts = {}) {
     const pending = entries.filter((entry) => !cache[entry.hash]);
     const cached = entries.filter((entry) => cache[entry.hash]).map((entry) => cache[entry.hash]);
 
-    const classifications = [...cached];
+    const rows = [...cached];
     const failedBatches = [];
 
-    // A dynamic work queue rather than a fixed list: a call that comes back
-    // short (truncated array, model summarised instead of enumerating) requeues
-    // ONLY THE MISSING ENTRIES at half size. Big batches therefore stay cheap
-    // when they work and degrade gracefully when they don't, instead of losing
-    // every entry in the batch to one bad reply.
     const queue = planBatches(pending, batchSize).map((batch) => ({ batch, attempt: 1 }));
     let issued = queue.length;
     let done = 0;
@@ -348,7 +204,7 @@ export async function classifyBook(entries, opts = {}) {
 
     const requeue = (missing, attempt, reason) => {
         if (!missing.length) return;
-        if (attempt >= maxAttempts || missing.length === 0) {
+        if (attempt >= maxAttempts) {
             failedBatches.push({ uids: missing.map((m) => m.uid), reason });
             return;
         }
@@ -369,14 +225,14 @@ export async function classifyBook(entries, opts = {}) {
                 const raw = await complete(buildBatchMessages(batch), {
                     profileId, signal, maxTokens: outputBudget,
                 });
-                const parsed = parseClassificationBatch(raw);
+                const parsed = parseTranslationBatch(raw);
                 const byUid = new Map(parsed.map((p) => [p.uid, p]));
                 const missing = [];
                 for (const entry of batch) {
                     const verdict = byUid.get(entry.uid);
                     if (!verdict) { missing.push(entry); continue; }
                     cache[entry.hash] = verdict;
-                    classifications.push(verdict);
+                    rows.push(verdict);
                 }
                 requeue(missing, attempt, parsed.length ? '这些条目没出现在返回结果里（多半被截断了）' : '返回内容无法解析');
             } catch (e) {
@@ -393,7 +249,11 @@ export async function classifyBook(entries, opts = {}) {
     const lanes = Math.max(1, Math.min(concurrency, queue.length || 1));
     await Promise.all(Array.from({ length: lanes }, worker));
 
-    return { classifications, failedBatches, cache, batchSize };
+    const translations = {};
+    for (const row of rows) {
+        if (row.key_en.length) translations[String(row.uid)] = mergeUnique(translations[String(row.uid)], row.key_en);
+    }
+    return { translations, failedBatches, cache, batchSize };
 }
 
 /**
@@ -402,29 +262,31 @@ export async function classifyBook(entries, opts = {}) {
  */
 export async function runSetupPass(bookName, bookData, registry, opts = {}) {
     const entries = collectEntries(bookData);
+    const { translatable, flagged, skipped, inert } = splitEntries(entries);
     const machineryText = gatherMachineryText(bookData, opts.sampleReply || '');
 
-    const { classifications, failedBatches, cache, batchSize } = await classifyBook(entries, opts);
+    const { translations, failedBatches, cache, batchSize } = await translateBook(translatable, opts);
 
-    const merged = mergeClassifications(
-        registry || emptyRegistry(bookName),
-        bookData,
-        classifications,
-    );
-    merged.bookName = bookName;
-    merged.bookFingerprint = fingerprintBook(bookData);
+    let next = refreshEntryIndex(registry || emptyRegistry(bookName), bookData);
+    next.bookName = bookName;
+    next.bookFingerprint = fingerprintBook(bookData);
+    for (const [uid, keys] of Object.entries(translations)) {
+        next.keyTranslations[uid] = mergeUnique(next.keyTranslations[uid], keys);
+    }
 
-    const plan = planKeyEmission(merged, bookData, machineryText);
+    const plan = planWrites(translations, bookData, machineryText);
 
     return {
-        registry: merged,
-        plan,
+        registry: next,
+        plan: { ...plan, flagged, skipped },
         failedBatches,
         cache,
         stats: {
             entries: entries.length,
-            classified: classifications.length,
-            unclassified: entries.length - classifications.length,
+            translatable: translatable.length,
+            inert: inert.length,
+            flagged: flagged.length,
+            skipped: skipped.length,
             batchSize,
             ...plan.stats,
         },
@@ -432,10 +294,9 @@ export async function runSetupPass(bookName, bookData, registry, opts = {}) {
 }
 
 /**
- * Apply an approved plan: write the keys, then record the ledger.
- *
- * The ledger records only what was ACTUALLY appended (appendKeysToBook re-reads
- * the book and skips keys that already exist), so re-running produces no diff.
+ * Apply an approved plan: one write, then record the ledger. appendKeysToBook
+ * re-reads the book first and returns the ACTUAL delta, so re-running the whole
+ * pass afterwards produces an empty plan.
  */
 export async function applyPlan(bookName, registry, plan, expectedFingerprint = '') {
     const result = await appendKeysToBook(bookName, plan.writes, expectedFingerprint);
@@ -444,6 +305,14 @@ export async function applyPlan(bookName, registry, plan, expectedFingerprint = 
     const next = normalizeRegistry(registry, bookName);
     for (const [uid, keys] of Object.entries(result.written)) {
         next.addedKeys[uid] = mergeUnique(next.addedKeys[uid], keys);
+        // The written keys are now part of the entry — reflect them in the index
+        // immediately so hover cards show them without waiting for a re-scan.
+        if (next.entryIndex[uid]) {
+            next.entryIndex[uid] = {
+                ...next.entryIndex[uid],
+                keys: mergeUnique(next.entryIndex[uid].keys, keys),
+            };
+        }
     }
     const written = Object.values(result.written).reduce((n, list) => n + list.length, 0);
     return { ok: true, registry: next, written, skipped: result.skipped };

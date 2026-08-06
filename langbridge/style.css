@@ -6,8 +6,8 @@
 /* ---------- decorated spans in the chat ---------- */
 
 .lb-span {
-    /* A renamed span must read as ordinary prose — no layout shift, no colour
-       change. Only the highlight variant is visually marked. */
+    /* The visible text is never changed — the span exists only to carry the
+       underline and the hover card. No layout shift, no colour change. */
     all: unset;
     font: inherit;
     color: inherit;
@@ -25,14 +25,6 @@
     background: color-mix(in srgb, var(--SmartThemeQuoteColor, #8ab4f8) 12%, transparent);
     border-radius: 2px;
 }
-
-.lb-span.lb-name {
-    /* Renamed but not highlighted: no marking at all, it should read as if the
-       model wrote it in English. */
-    cursor: default;
-}
-
-.lb-span.lb-name.lb-hl { cursor: help; }
 
 /* ---------- hover card ---------- */
 
@@ -63,7 +55,6 @@
 }
 
 .lb-tt-title { font-weight: 600; font-size: 1.05em; }
-.lb-tt-en { opacity: 0.85; font-weight: 400; margin-inline-start: 6px; }
 .lb-tt-cat { opacity: 0.65; font-size: 0.85em; white-space: nowrap; }
 
 .lb-tt-row { margin: 3px 0; display: flex; flex-wrap: wrap; gap: 4px; align-items: baseline; }
@@ -103,19 +94,6 @@
     gap: 8px;
 }
 
-.lb-tt-copy {
-    font: inherit;
-    font-size: 0.85em;
-    padding: 2px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    color: inherit;
-    background: transparent;
-    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.25));
-}
-
-.lb-tt-copy:hover { background: color-mix(in srgb, var(--SmartThemeQuoteColor, #8ab4f8) 18%, transparent); }
-
 /* "可触发 ≠ 已注入" — the card is a STATIC LOOKUP, not activation state. */
 .lb-tt-note { opacity: 0.5; font-size: 0.78em; white-space: nowrap; }
 
@@ -130,8 +108,6 @@
 .lb-hint { font-size: 0.82em; opacity: 0.65; line-height: 1.45; }
 .lb-warn { color: var(--warning, #e8a33d); }
 .lb-check { display: flex; align-items: center; gap: 6px; font-size: 0.9em; cursor: pointer; }
-.lb-editor { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
-.lb-json { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.8em; }
 
 /* ---------- setup pass modal ---------- */
 
@@ -207,50 +183,3 @@
 .lb-plan-row:last-child { border-bottom: none; }
 .lb-plan-title { font-weight: 500; margin-inline-end: 4px; }
 
-/* Severity marks for the consistency report. */
-.lb-sev-high { border-inline-start: 3px solid var(--warning, #e8a33d); padding-inline-start: 7px; }
-.lb-sev-medium { border-inline-start: 3px solid color-mix(in srgb, var(--warning, #e8a33d) 55%, transparent); padding-inline-start: 7px; }
-.lb-sev-low { opacity: 0.75; }
-
-/* ---------- name display decisions ---------- */
-
-.lb-decide { display: flex; flex-direction: column; gap: 4px; max-height: 300px; overflow-y: auto; }
-
-.lb-decide-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 5px 6px;
-    border-radius: 6px;
-    background: color-mix(in srgb, var(--SmartThemeBodyColor, #fff) 5%, transparent);
-}
-
-/* Names the classifier could not settle — the ones actually awaiting an answer. */
-.lb-decide-pending { border-inline-start: 3px solid var(--warning, #e8a33d); }
-
-.lb-decide-name { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
-.lb-decide-zh { font-weight: 500; }
-.lb-decide-cat { font-size: 0.78em; opacity: 0.55; }
-.lb-decide-flag { font-size: 0.75em; color: var(--warning, #e8a33d); }
-.lb-decide-choice { display: flex; gap: 4px; flex-shrink: 0; }
-
-.lb-decide-btn {
-    font: inherit;
-    font-size: 0.82em;
-    padding: 3px 9px;
-    border-radius: 5px;
-    cursor: pointer;
-    color: inherit;
-    background: transparent;
-    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.22));
-    opacity: 0.6;
-}
-
-.lb-decide-btn:hover { opacity: 0.9; }
-
-.lb-decide-btn.lb-on {
-    opacity: 1;
-    border-color: var(--SmartThemeQuoteColor, #8ab4f8);
-    background: color-mix(in srgb, var(--SmartThemeQuoteColor, #8ab4f8) 20%, transparent);
-}

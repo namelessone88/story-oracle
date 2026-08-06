@@ -1,10 +1,10 @@
 /**
- * LangBridge — Setup Pass analysis (PURE: no DOM, no SillyTavern, no network).
+ * LangBridge — translation-pass analysis (PURE: no DOM, no SillyTavern, no network).
  *
- * Three jobs, all unit-testable:
+ * Two jobs, both unit-testable:
  *   · COLLISION SCREEN — reject English keys that would fire on machinery text
- *   · VARIANT GENERATION — derive the English forms a user actually types
- *   · RESPONSE PARSING — tolerate the JSON a cheap model actually returns
+ *   · RESPONSE PARSING — tolerate the JSON a cheap model actually returns,
+ *     plus output-budget-driven batch sizing
  */
 
 /* ------------------------------------------------------------------ *
@@ -106,73 +106,7 @@ export function screenKeys(candidates, context = {}) {
 }
 
 /* ------------------------------------------------------------------ *
- * 2. English variant generation   (spec §4 Step 2/3)
- *
- * The user types "Muwei", not "Shen Muwei". Chinese names are surname-first, so
- * the given name is everything after the first token.
- *
- * DEVIATION FROM SPEC §4 Step 2 (deliberate, see README): the spec called for a
- * bundled JS pinyin library for mechanical romanization. That would mean
- * vendoring a large character table for something the setup LLM already does
- * accurately in the same call it is making anyway — and §10 R7 forbids fetching
- * one from a CDN. So the LLM supplies the base romanization and this function
- * derives the mechanical VARIANTS from it. Same recall, no 200KB table.
- *
- * Surname-only is deliberately NOT generated: single common surnames (Shen, Lin,
- * Mu) collide with ordinary English text far too easily.
- * ------------------------------------------------------------------ */
-
-export function nameVariants(displayEn, opts = {}) {
-    const full = String(displayEn == null ? '' : displayEn).trim().replace(/\s+/g, ' ');
-    if (!full) return [];
-
-    const out = [full];
-    const tokens = full.split(' ');
-
-    if (tokens.length > 1) {
-        const given = tokens.slice(1).join(' ');            // 沈慕微 → "Muwei"
-        if (given.length >= 3) out.push(given);
-        // "Shen Mu-wei" / "ShenMuwei" spellings people actually type.
-        if (tokens.length === 2) {
-            out.push(tokens.join(''));
-            const hyphenated = hyphenateSyllables(tokens[1]);
-            if (hyphenated && hyphenated !== tokens[1]) out.push(`${tokens[0]} ${hyphenated}`);
-        }
-    }
-
-    for (const alias of Array.isArray(opts.extraAliases) ? opts.extraAliases : []) {
-        const text = String(alias || '').trim();
-        if (text) out.push(text);
-    }
-
-    // Dedupe case-insensitively, keep first spelling, drop anything too short.
-    const seen = new Set();
-    return out.filter((value) => {
-        const lower = value.toLowerCase();
-        if (value.length < 3 || seen.has(lower)) return false;
-        seen.add(lower);
-        return true;
-    });
-}
-
-/**
- * Split a two-syllable pinyin given name for the hyphenated spelling
- * ("Muwei" → "Mu-wei"). Heuristic and intentionally conservative: it only fires
- * on a clean vowel-consonant-vowel shape, and a wrong guess costs nothing
- * because it is an EXTRA alias, never a replacement.
- */
-export function hyphenateSyllables(token) {
-    const word = String(token || '');
-    if (word.length < 4 || !/^[A-Za-z]+$/.test(word)) return '';
-    const match = word.match(/^([A-Za-z]*?[aeiouAEIOU]+(?:ng|n|r)?)([bcdfghjklmnpqrstwxyz][A-Za-z]*)$/);
-    if (!match) return '';
-    const [, head, tail] = match;
-    if (head.length < 2 || tail.length < 2) return '';
-    return `${head}-${tail}`;
-}
-
-/* ------------------------------------------------------------------ *
- * 3. Response parsing   (spec §4 Step 1/2)
+ * 2. Response parsing   (spec §4 Step 1/2)
  *
  * Cheap models wrap JSON in prose, fence it, add trailing commas, and use smart
  * quotes. Parse defensively; a batch that cannot be read must fail ALONE and
@@ -223,49 +157,32 @@ export function repairJson(text) {
 }
 
 /**
- * Normalize one classified entry from the model into the shape the pass uses.
- * Unknown categories fall back to 'concept' — the conservative choice, since
- * concepts are highlight-only and never rename anything.
+ * Normalize one translated entry from the model: { uid, key_en[] }.
+ * Anything unusable is dropped; a row with an empty key_en is kept (it is a
+ * valid answer meaning "nothing here translates well").
  */
-export function normalizeClassification(item) {
+export function normalizeTranslation(item) {
     if (!item || typeof item !== 'object') return null;
     const uid = Number(item.uid);
     if (!Number.isFinite(uid)) return null;
-
-    const category = ['character', 'location', 'faction', 'concept'].includes(item.category)
-        ? item.category : 'concept';
-
+    const list = Array.isArray(item.key_en) ? item.key_en
+        : (Array.isArray(item.keys_en) ? item.keys_en : []);
     return {
         uid,
-        category,
-        display_en: String(item.display_en || '').trim(),
-        aliases_en: (Array.isArray(item.aliases_en) ? item.aliases_en : [])
-            .map((a) => String(a || '').trim()).filter(Boolean),
-        // English equivalents of the entry's EXISTING Chinese trigger words.
-        // concept_en is the older field name and is still accepted.
-        key_en: (Array.isArray(item.key_en) ? item.key_en
-            : (Array.isArray(item.concept_en) ? item.concept_en : []))
-            .map((a) => String(a || '').trim()).filter(Boolean),
-        // 'zh' when the Chinese form is semantically meaningful (圣所 "Sanctuary"),
-        // 'en' when it is phonetic (阿德森帝国). Wrong guesses are expected; the
-        // per-entity override in the registry editor is the fix.
-        displayPolicy: item.displayPolicy === 'zh' ? 'zh' : 'en',
-        // The model says this one could legitimately go either way — the user
-        // decides rather than living with a coin flip.
-        policyUncertain: item.policy_uncertain === true || item.policyUncertain === true,
+        key_en: list.map((k) => String(k || '').trim()).filter(Boolean),
     };
 }
 
-/** Parse a whole classification batch reply. Always returns an array. */
-export function parseClassificationBatch(raw) {
+/** Parse a whole translation batch reply. Always returns an array. */
+export function parseTranslationBatch(raw) {
     const parsed = extractJson(raw);
     const list = Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.entries) ? parsed.entries : null);
     if (!list) return [];
-    return list.map(normalizeClassification).filter(Boolean);
+    return list.map(normalizeTranslation).filter(Boolean);
 }
 
 /* ------------------------------------------------------------------ *
- * 4. Batching   (spec §3.0)
+ * 3. Batching   (spec §3.0)
  * ------------------------------------------------------------------ */
 
 /** Split entries into batches for the classification calls. */
