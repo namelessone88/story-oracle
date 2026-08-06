@@ -1,0 +1,12 @@
+{
+    "display_name": "LangBridge · 中英名称桥",
+    "loading_order": 102,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
+    "author": "built for Edwin",
+    "version": "0.1.0",
+    "homePage": "",
+    "auto_update": false
+}

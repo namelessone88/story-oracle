@@ -1,0 +1,134 @@
+/* LangBridge — all selectors prefixed .lb- so nothing can collide with
+   SillyTavern or another extension (Story Oracle owns #so-* / .so-*).
+   Colours come from ST theme variables so the module inherits the user's theme;
+   no external fonts, no CDNs (installs are frequently offline/self-hosted). */
+
+/* ---------- decorated spans in the chat ---------- */
+
+.lb-span {
+    /* A renamed span must read as ordinary prose — no layout shift, no colour
+       change. Only the highlight variant is visually marked. */
+    all: unset;
+    font: inherit;
+    color: inherit;
+}
+
+.lb-span.lb-hl {
+    /* Deliberately subtle: entries like 天剑宗 carry ~20 keys and a dense scene
+       would otherwise underline half the message. */
+    border-bottom: 1px dotted color-mix(in srgb, var(--SmartThemeQuoteColor, #8ab4f8) 55%, transparent);
+    cursor: help;
+}
+
+.lb-span.lb-hl:hover {
+    border-bottom-color: var(--SmartThemeQuoteColor, #8ab4f8);
+    background: color-mix(in srgb, var(--SmartThemeQuoteColor, #8ab4f8) 12%, transparent);
+    border-radius: 2px;
+}
+
+.lb-span.lb-name {
+    /* Renamed but not highlighted: no marking at all, it should read as if the
+       model wrote it in English. */
+    cursor: default;
+}
+
+.lb-span.lb-name.lb-hl { cursor: help; }
+
+/* ---------- hover card ---------- */
+
+.lb-tooltip {
+    position: absolute;
+    z-index: 10000;
+    max-width: min(420px, 92vw);
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+    background: var(--SmartThemeBlurTintColor, rgba(20, 20, 24, 0.96));
+    color: var(--SmartThemeBodyColor, #e6e6e6);
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+    font-size: 0.9em;
+    line-height: 1.5;
+}
+
+.lb-tooltip[hidden] { display: none; }
+
+.lb-tt-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 6px;
+}
+
+.lb-tt-title { font-weight: 600; font-size: 1.05em; }
+.lb-tt-en { opacity: 0.85; font-weight: 400; margin-inline-start: 6px; }
+.lb-tt-cat { opacity: 0.65; font-size: 0.85em; white-space: nowrap; }
+
+.lb-tt-row { margin: 3px 0; display: flex; flex-wrap: wrap; gap: 4px; align-items: baseline; }
+.lb-tt-label { opacity: 0.6; font-size: 0.85em; margin-inline-end: 4px; }
+
+.lb-tt-alias,
+.lb-tt-key {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--SmartThemeQuoteColor, #8ab4f8) 16%, transparent);
+    font-size: 0.85em;
+}
+
+.lb-tt-section {
+    margin: 8px 0 4px;
+    font-size: 0.8em;
+    letter-spacing: 0.04em;
+    opacity: 0.6;
+    text-transform: uppercase;
+}
+
+.lb-tt-entry {
+    padding: 5px 0;
+    border-top: 1px solid color-mix(in srgb, var(--SmartThemeBodyColor, #fff) 12%, transparent);
+}
+
+.lb-tt-entry-title { font-weight: 500; }
+.lb-tt-keys { margin-top: 3px; display: flex; flex-wrap: wrap; gap: 4px; }
+.lb-tt-none { opacity: 0.55; font-size: 0.85em; }
+
+.lb-tt-foot {
+    margin-top: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.lb-tt-copy {
+    font: inherit;
+    font-size: 0.85em;
+    padding: 2px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    color: inherit;
+    background: transparent;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.25));
+}
+
+.lb-tt-copy:hover { background: color-mix(in srgb, var(--SmartThemeQuoteColor, #8ab4f8) 18%, transparent); }
+
+/* "可触发 ≠ 已注入" — the card is a STATIC LOOKUP, not activation state. */
+.lb-tt-note { opacity: 0.5; font-size: 0.78em; white-space: nowrap; }
+
+/* ---------- settings panel ---------- */
+
+.lb-root { display: flex; flex-direction: column; gap: 6px; padding: 4px 2px; }
+.lb-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.lb-book-row #lb-book { flex: 1; min-width: 140px; }
+.lb-label { opacity: 0.75; font-size: 0.9em; }
+.lb-section { margin-top: 8px; font-size: 0.8em; letter-spacing: 0.04em; opacity: 0.6; text-transform: uppercase; }
+.lb-status { font-size: 0.85em; opacity: 0.8; line-height: 1.45; }
+.lb-hint { font-size: 0.82em; opacity: 0.65; line-height: 1.45; }
+.lb-warn { color: var(--warning, #e8a33d); }
+.lb-check { display: flex; align-items: center; gap: 6px; font-size: 0.9em; cursor: pointer; }
+.lb-editor { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.lb-json { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.8em; }
