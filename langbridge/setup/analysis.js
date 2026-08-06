@@ -263,11 +263,47 @@ export function parseClassificationBatch(raw) {
  * ------------------------------------------------------------------ */
 
 /** Split entries into batches for the classification calls. */
-export function planBatches(items, batchSize = 20) {
-    const size = Math.max(1, Number(batchSize) || 20);
+export function planBatches(items, batchSize = DEFAULT_BATCH_SIZE) {
+    const size = Math.max(1, Number(batchSize) || DEFAULT_BATCH_SIZE);
     const batches = [];
     for (let i = 0; i < (items || []).length; i += size) batches.push(items.slice(i, i + size));
     return batches;
+}
+
+/**
+ * Batch sizing is bounded by OUTPUT tokens, not input.
+ *
+ * A conversational worldbook call can put all 176 entries in one prompt because
+ * its answer is short. This pass is the opposite shape: it must emit one JSON
+ * row PER ENTRY, so the reply grows linearly with the batch. Overrun the output
+ * cap and the array is truncated mid-row and the whole reply is unparseable.
+ *
+ * A row like
+ *   {"uid":8,"category":"character","display_en":"Shen Muwei",
+ *    "displayPolicy":"en","aliases_en":["Muwei"],"concept_en":[]}
+ * costs roughly 55-75 tokens; concept rows with several Chinese-derived phrases
+ * run higher. 80 is the conservative per-row figure used here.
+ *
+ * Input is not the binding constraint: each entry contributes only its title,
+ * its keys and 300 characters of content (~150 tokens), so even a full book sits
+ * inside an ordinary context window.
+ */
+export const OUTPUT_TOKENS_PER_ENTRY = 80;
+export const DEFAULT_OUTPUT_BUDGET = 8192;
+/** Leave headroom so a model that pads its rows still lands inside the cap. */
+export const OUTPUT_SAFETY = 0.7;
+export const DEFAULT_BATCH_SIZE = batchSizeForBudget(DEFAULT_OUTPUT_BUDGET);
+
+/** Largest batch whose expected reply fits the output budget. */
+export function batchSizeForBudget(outputBudget, perEntry = OUTPUT_TOKENS_PER_ENTRY) {
+    const budget = Math.max(512, Number(outputBudget) || DEFAULT_OUTPUT_BUDGET);
+    const per = Math.max(1, Number(perEntry) || OUTPUT_TOKENS_PER_ENTRY);
+    return Math.max(1, Math.floor((budget * OUTPUT_SAFETY) / per));
+}
+
+/** Rough expected reply size for a batch — used for logging and sizing checks. */
+export function estimateOutputTokens(count, perEntry = OUTPUT_TOKENS_PER_ENTRY) {
+    return Math.max(0, Number(count) || 0) * (Number(perEntry) || OUTPUT_TOKENS_PER_ENTRY);
 }
 
 /** Stable hash of an entry's classifiable content — the result cache key, so a

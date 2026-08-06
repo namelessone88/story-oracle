@@ -16,6 +16,7 @@ import { setupCompletion, appendKeysToBook, fingerprintBook } from '../host.js';
 import { normalizeRegistry, emptyRegistry, isSingleHanzi } from '../registry.js';
 import {
     parseClassificationBatch, planBatches, entryHash, nameVariants, screenKeys,
+    batchSizeForBudget, DEFAULT_OUTPUT_BUDGET,
 } from './analysis.js';
 import { buildBatchMessages, FIXED_JARGON } from './prompts.js';
 
@@ -269,49 +270,78 @@ export function planKeyEmission(registry, bookData, machineryText = '') {
  */
 export async function classifyBook(entries, opts = {}) {
     const {
-        profileId = '', signal, onProgress = () => {}, batchSize = 20, concurrency = 2, cache = {},
+        profileId = '', signal, onProgress = () => {}, concurrency = 2, cache = {},
+        outputBudget = DEFAULT_OUTPUT_BUDGET,
+        batchSize = batchSizeForBudget(outputBudget),
+        maxAttempts = 3,
+        complete = setupCompletion,   // injectable for tests
     } = opts;
 
     const pending = entries.filter((entry) => !cache[entry.hash]);
     const cached = entries.filter((entry) => cache[entry.hash]).map((entry) => cache[entry.hash]);
-    const batches = planBatches(pending, batchSize);
 
     const classifications = [...cached];
     const failedBatches = [];
+
+    // A dynamic work queue rather than a fixed list: a call that comes back
+    // short (truncated array, model summarised instead of enumerating) requeues
+    // ONLY THE MISSING ENTRIES at half size. Big batches therefore stay cheap
+    // when they work and degrade gracefully when they don't, instead of losing
+    // every entry in the batch to one bad reply.
+    const queue = planBatches(pending, batchSize).map((batch) => ({ batch, attempt: 1 }));
+    let issued = queue.length;
     let done = 0;
-    let cursor = 0;
+
+    const report = () => onProgress({ done, total: issued, cachedCount: cached.length, batchSize });
+
+    const requeue = (missing, attempt, reason) => {
+        if (!missing.length) return;
+        if (attempt >= maxAttempts || missing.length === 0) {
+            failedBatches.push({ uids: missing.map((m) => m.uid), reason });
+            return;
+        }
+        const half = Math.max(1, Math.ceil(missing.length / 2));
+        for (const chunk of planBatches(missing, half)) {
+            queue.push({ batch: chunk, attempt: attempt + 1 });
+            issued += 1;
+        }
+    };
 
     const worker = async () => {
         for (;;) {
             if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
-            const index = cursor++;
-            if (index >= batches.length) return;
-            const batch = batches[index];
+            const job = queue.shift();
+            if (!job) return;
+            const { batch, attempt } = job;
             try {
-                const raw = await setupCompletion(buildBatchMessages(batch), { profileId, signal, maxTokens: 4096 });
+                const raw = await complete(buildBatchMessages(batch), {
+                    profileId, signal, maxTokens: outputBudget,
+                });
                 const parsed = parseClassificationBatch(raw);
                 const byUid = new Map(parsed.map((p) => [p.uid, p]));
+                const missing = [];
                 for (const entry of batch) {
                     const verdict = byUid.get(entry.uid);
-                    if (!verdict) continue;
+                    if (!verdict) { missing.push(entry); continue; }
                     cache[entry.hash] = verdict;
                     classifications.push(verdict);
                 }
-                if (!parsed.length) failedBatches.push({ index, uids: batch.map((b) => b.uid), reason: '返回内容无法解析' });
+                requeue(missing, attempt, parsed.length ? '这些条目没出现在返回结果里（多半被截断了）' : '返回内容无法解析');
             } catch (e) {
                 if (e?.name === 'AbortError') throw e;
-                failedBatches.push({ index, uids: batch.map((b) => b.uid), reason: String(e?.message || e) });
+                requeue(batch, attempt, String(e?.message || e));
             } finally {
                 done += 1;
-                onProgress({ done, total: batches.length, cachedCount: cached.length });
+                report();
             }
         }
     };
 
-    onProgress({ done: 0, total: batches.length, cachedCount: cached.length });
-    await Promise.all(Array.from({ length: Math.max(1, Math.min(concurrency, batches.length || 1)) }, worker));
+    report();
+    const lanes = Math.max(1, Math.min(concurrency, queue.length || 1));
+    await Promise.all(Array.from({ length: lanes }, worker));
 
-    return { classifications, failedBatches, cache };
+    return { classifications, failedBatches, cache, batchSize };
 }
 
 /**
@@ -322,7 +352,7 @@ export async function runSetupPass(bookName, bookData, registry, opts = {}) {
     const entries = collectEntries(bookData);
     const machineryText = gatherMachineryText(bookData, opts.sampleReply || '');
 
-    const { classifications, failedBatches, cache } = await classifyBook(entries, opts);
+    const { classifications, failedBatches, cache, batchSize } = await classifyBook(entries, opts);
 
     const merged = mergeClassifications(
         registry || emptyRegistry(bookName),
@@ -343,6 +373,7 @@ export async function runSetupPass(bookName, bookData, registry, opts = {}) {
             entries: entries.length,
             classified: classifications.length,
             unclassified: entries.length - classifications.length,
+            batchSize,
             ...plan.stats,
         },
     };

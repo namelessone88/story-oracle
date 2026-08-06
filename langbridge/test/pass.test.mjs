@@ -3,8 +3,9 @@
  * Run:  node langbridge/test/pass.test.mjs
  */
 import {
-    collectEntries, gatherMachineryText, mergeClassifications, planKeyEmission,
+    collectEntries, gatherMachineryText, mergeClassifications, planKeyEmission, classifyBook,
 } from '../setup/pass.js';
+import { batchSizeForBudget, estimateOutputTokens, DEFAULT_BATCH_SIZE } from '../setup/analysis.js';
 import { normalizeRegistry, emptyRegistry } from '../registry.js';
 
 let pass = 0, fail = 0;
@@ -180,6 +181,102 @@ const CLASSIFICATIONS = [
     check('flagged for manual review', plan.flagged.map((f) => f.uid), [80]);
     ok('flag carries the proposed keys', plan.flagged[0].proposed.includes('Secret Chamber'));
     ok('flag explains why', plan.flagged[0].reason.includes('次要关键词'));
+}
+
+/* ================================================================== *
+ * Batch sizing + self-healing classification
+ *
+ * Batch size is bounded by OUTPUT tokens, not input: this pass emits one JSON
+ * row per entry, so the reply grows linearly with the batch and an overrun is
+ * truncated mid-array. (A conversational worldbook call has no such limit —
+ * its answer is short no matter how many entries went in.)
+ * ================================================================== */
+
+ok('default batch is far larger than a token-timid guess', DEFAULT_BATCH_SIZE >= 60);
+check('sizing respects a small budget', batchSizeForBudget(2000, 80), 17);
+check('sizing scales with the budget', batchSizeForBudget(16384, 80), 143);
+ok('a full 176-entry book fits a couple of calls at default size',
+    Math.ceil(176 / DEFAULT_BATCH_SIZE) <= 3);
+ok('estimate is linear in entry count', estimateOutputTokens(10, 80) === 800);
+ok('a 176-row reply would blow a 4096 cap (why batching exists at all)',
+    estimateOutputTokens(176, 80) > 4096);
+
+const rows = (entries) => JSON.stringify(entries.map((e) => ({
+    uid: e.uid, category: 'concept', display_en: '', displayPolicy: 'en',
+    aliases_en: [], concept_en: [],
+})));
+
+const fakeEntries = Array.from({ length: 24 }, (_, i) => ({
+    uid: i + 1, comment: `E${i + 1}`, content: '', keys: [], hash: `h${i + 1}`,
+}));
+
+{
+    const calls = [];
+    const result = await classifyBook(fakeEntries, {
+        batchSize: 24, cache: {},
+        complete: async (messages) => { calls.push(messages); return rows(fakeEntries); },
+    });
+    check('one good call classifies the whole book', calls.length, 1);
+    check('every entry is classified', result.classifications.length, 24);
+    check('nothing is reported failed', result.failedBatches.length, 0);
+}
+{
+    // A truncated reply: the model returns only the first 10 of 24 rows.
+    // The missing 14 must be requeued at half size, not lost with the batch.
+    let call = 0;
+    const result = await classifyBook(fakeEntries, {
+        batchSize: 24, cache: {},
+        complete: async (messages) => {
+            call += 1;
+            const uids = [...String(messages[1].content).matchAll(/uid:\s*(\d+)/g)].map((m) => Number(m[1]));
+            const subset = fakeEntries.filter((e) => uids.includes(e.uid));
+            return call === 1 ? rows(subset.slice(0, 10)) : rows(subset);
+        },
+    });
+    check('every entry still ends up classified', result.classifications.length, 24);
+    check('and none are reported failed', result.failedBatches.length, 0);
+    ok('the retry was split, not a blind repeat', call > 2);
+}
+{
+    // A model that never returns usable JSON: entries must be REPORTED, not
+    // silently dropped, and the retry ladder must terminate.
+    let call = 0;
+    const result = await classifyBook(fakeEntries.slice(0, 4), {
+        batchSize: 4, cache: {}, maxAttempts: 2,
+        complete: async () => { call += 1; return 'sorry, I cannot help with that'; },
+    });
+    check('nothing is classified', result.classifications.length, 0);
+    ok('the failures are reported', result.failedBatches.length > 0);
+    const reported = result.failedBatches.flatMap((f) => f.uids).sort((a, b) => a - b);
+    check('every entry is accounted for', reported, [1, 2, 3, 4]);
+    ok('retries terminate', call <= 8);
+}
+{
+    // Cache means a re-run costs nothing.
+    const cache = {};
+    await classifyBook(fakeEntries, {
+        batchSize: 24, cache, complete: async () => rows(fakeEntries),
+    });
+    let calls = 0;
+    const second = await classifyBook(fakeEntries, {
+        batchSize: 24, cache,
+        complete: async () => { calls += 1; return rows(fakeEntries); },
+    });
+    check('a cached re-run makes no calls', calls, 0);
+    check('…and still returns every classification', second.classifications.length, 24);
+}
+{
+    // Abort must propagate out, not be swallowed as a batch failure.
+    const controller = new AbortController();
+    controller.abort();
+    let threw = '';
+    try {
+        await classifyBook(fakeEntries, {
+            batchSize: 24, cache: {}, signal: controller.signal,
+            complete: async () => rows(fakeEntries),
+        });
+    } catch (e) { threw = e?.name || 'error'; }
+    check('abort propagates', threw, 'AbortError');
 }
 
 console.log(lines.join('\n'));

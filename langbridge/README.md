@@ -74,8 +74,8 @@ output the sync is a hardening step, not load-bearing.
 
 ### What the Setup Pass does
 
-One LLM call per batch of ~20 entries (bounded concurrency 2, abortable, cached
-by entry-content hash so re-runs and resumed runs don't re-spend tokens):
+Batched LLM calls (bounded concurrency 2, abortable, cached by entry-content
+hash so re-runs and resumed runs don't re-spend tokens):
 
 1. Classifies each entry as character / location / faction / concept.
 2. Romanizes names (surname-first pinyin) and decides whether the Chinese or
@@ -104,6 +104,26 @@ Safety properties, all tested:
   it twice produces no second diff.
 * **Fingerprint-guarded.** If the book changed between analysis and write, the
   write is refused rather than applied to a book that moved.
+
+### Why it batches at all
+
+A conversational worldbook call can put all 176 entries in one prompt, because
+its *answer* is short. This pass is the opposite shape: it emits one JSON row
+**per entry**, so the reply grows linearly with the batch. At roughly 80 output
+tokens per row, a 176-entry book wants ~14k output tokens — well past any
+ordinary cap, and an overrun truncates the array mid-row and makes the whole
+reply unparseable.
+
+So batch size is derived from the **output budget**, not picked by feel:
+`floor(budget × 0.7 / 80)` — about 71 entries per call at the default 8192, so
+a 176-entry book takes three calls. Raise `outputBudget` and batches grow with
+it. Input is never the constraint: each entry contributes only its title, keys
+and 300 characters of content.
+
+Batches are also **self-healing**. If a reply comes back short (truncated, or
+the model summarised instead of enumerating), only the *missing* entries are
+requeued at half size — a bad reply costs those rows, not the batch. Failures
+that survive the retry ladder are listed by entry rather than silently dropped.
 
 Fixed renderings for cultivation jargon (炼气/筑基/金丹/元婴/化神/合体/渡劫) are
 pinned in `setup/prompts.js` so a model can't invent "Foundation Building" on

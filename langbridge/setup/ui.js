@@ -177,16 +177,17 @@ async function run(deps) {
             signal: controller.signal,
             sampleReply: sampleAiReply(),
             cache,
-            onProgress: ({ done, total, cachedCount }) => {
+            onProgress: ({ done, total, cachedCount, batchSize }) => {
                 progress.textContent = total
-                    ? `分析中… ${done}/${total} 批${cachedCount ? `（${cachedCount} 条用了缓存）` : ''}`
+                    ? `分析中… ${done}/${total} 批（每批约 ${batchSize} 条）${cachedCount ? `，${cachedCount} 条走缓存` : ''}`
                     : '没有需要分析的新条目（全部命中缓存）。';
             },
         });
 
         cache = outcome.cache;
         state = { bookName, bookData, result: outcome };
-        progress.textContent = `分析完成：${outcome.stats.entries} 个条目，识别 ${outcome.stats.classified} 个。`;
+        progress.textContent = `分析完成：${outcome.stats.entries} 个条目，识别 ${outcome.stats.classified} 个`
+            + `（每批 ${outcome.stats.batchSize} 条）。`;
         renderResult(deps, outcome, bookData);
         panel.querySelector('#lb-setup-apply').disabled = outcome.stats.keys === 0;
     } catch (e) {
