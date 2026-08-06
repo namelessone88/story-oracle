@@ -77,9 +77,17 @@ export function normalizeRegistry(raw, bookName = '') {
 
         const category = CATEGORIES.includes(item.category) ? item.category : 'character';
         const singleChar = (item.singleChar === true) || isSingleHanzi(canonical);
-        // Single-hanzi names are forced to zh display regardless of what the
-        // setup pass guessed; the per-entity override lives in displayPolicy
-        // but cannot make a single hanzi render as English by accident.
+        // Single-hanzi names are ALWAYS displayed in Chinese — there is no
+        // override, deliberately. 红 is both a character and the word "red";
+        // with no word boundary in CJK, renaming would corrupt ordinary prose
+        // (她换上红色的外袍 → 她换上Hong色的外袍) every time the word appears.
+        //
+        // DELIBERATE DEVIATION from handoff spec acceptance test 6, which reads
+        // as though the per-entity override should restore renaming as well as
+        // highlighting. Decided by Edwin: keep renaming unreachable. A false
+        // highlight is cosmetic noise; a false rename silently breaks the text.
+        // allowSingleCharHighlight re-enables the underline/hover card only.
+        // Do not "fix" this back without asking.
         const policy = singleChar ? 'zh' : (item.displayPolicy === 'zh' ? 'zh' : 'en');
 
         base.entities.push({

@@ -92,10 +92,20 @@ intent (per spec) is that *semantically meaningful* names stay Chinese and
 *phonetic transliterations* become English — but this is a judgement call, so it
 is per-entity and always overridable.
 
-**Single-hanzi names** (红, 陶, 瓷, 窑, 蛸) are forced to `zh` and excluded from
-highlighting: a single hanzi substring-matches ordinary prose (红 hits 红色,
-脸红, 红衣) and CJK has no word boundaries. Set
-`"allowSingleCharHighlight": true` on that entity to override.
+**Single-hanzi names** (红, 陶, 瓷, 窑, 蛸) are a special case: a single hanzi
+substring-matches ordinary prose (红 is both a character and the word "red", so
+it hits 红色, 脸红, 红衣) and CJK has no word boundaries to anchor against.
+
+* They are **never rendered in English** — no override. Renaming would corrupt
+  the sentence every time the ordinary word appears
+  (`她换上红色的外袍` → `她换上Hong色的外袍`).
+* They are **not highlighted by default**. Set
+  `"allowSingleCharHighlight": true` on that entity to get the underline and
+  hover card back — a false highlight is only cosmetic noise.
+
+This affects **display only**. Their World Info entries still fire on the
+Chinese key exactly as the author configured them; LangBridge never touches
+World Info matching.
 
 ### Hover cards are a static lookup, not activation state
 
