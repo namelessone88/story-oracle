@@ -7,6 +7,9 @@ import {
 } from '../setup/pass.js';
 import { batchSizeForBudget, estimateOutputTokens, DEFAULT_BATCH_SIZE } from '../setup/analysis.js';
 import { normalizeRegistry, emptyRegistry } from '../registry.js';
+import {
+    decidableEntities, pendingDecisions, applyDecision, applyDisplayName, decisionRowsHtml,
+} from '../decisions.js';
 
 let pass = 0, fail = 0;
 const lines = [];
@@ -277,6 +280,55 @@ const fakeEntries = Array.from({ length: 24 }, (_, i) => ({
         });
     } catch (e) { threw = e?.name || 'error'; }
     check('abort propagates', threw, 'AbortError');
+}
+
+/* ================================================================== *
+ * Display decisions — 归墟-class names are asked about, then latched
+ * ================================================================== */
+{
+    const reg = normalizeRegistry({ entities: [
+        { id: 'guixu', canonical: '归墟', display_en: 'Guixu', category: 'location',
+          displayPolicy: 'en', policyUncertain: true, sourceEntryUids: [42] },
+        { id: 'muwei', canonical: '沈慕微', display_en: 'Shen Muwei', category: 'character',
+          displayPolicy: 'en', sourceEntryUids: [8] },
+        { id: 'hong', canonical: '红', display_en: 'Hong', category: 'character', sourceEntryUids: [90] },
+        { id: 'jian', canonical: '传送阵', display_en: '', category: 'concept', sourceEntryUids: [32] },
+    ] }, 'B');
+
+    check('only renderable names with an english form are decidable',
+        decidableEntities(reg).map((e) => e.id), ['guixu', 'muwei']);
+    ok('single-hanzi names are never offered (pinned to Chinese)',
+        !decidableEntities(reg).some((e) => e.id === 'hong'));
+    check('only the uncertain one is pending', pendingDecisions(reg).map((e) => e.id), ['guixu']);
+
+    const decided = applyDecision(reg, 'guixu', 'zh');
+    const guixu = decided.entities.find((e) => e.id === 'guixu');
+    check('the choice is recorded', guixu.displayPolicy, 'zh');
+    ok('and latched as decided', guixu.policyDecided);
+    ok('so it stops being pending', pendingDecisions(decided).length === 0);
+
+    // A later Setup Pass must not raise it again, even if the model still says
+    // it is unsure.
+    const reRun = mergeClassifications(decided, { entries: { 42: { comment: '归墟' } } },
+        [{ uid: 42, category: 'location', display_en: 'The Return to Void', displayPolicy: 'en',
+           aliases_en: [], concept_en: [], policyUncertain: true }]);
+    const after = reRun.entities.find((e) => e.canonical === '归墟');
+    check('a decided policy survives a re-run', after.displayPolicy, 'zh');
+    ok('and is not re-asked', !after.policyUncertain);
+
+    ok('the decision is reversible', applyDecision(decided, 'guixu', 'en')
+        .entities.find((e) => e.id === 'guixu').displayPolicy === 'en');
+    check('display names are editable',
+        applyDisplayName(reg, 'guixu', 'Return-to-Void').entities.find((e) => e.id === 'guixu').display_en,
+        'Return-to-Void');
+}
+{
+    const rows = decisionRowsHtml([{ id: 'guixu', canonical: '归墟', display_en: 'Guixu',
+        category: 'location', displayPolicy: 'en', policyUncertain: true }]);
+    ok('row offers both concrete forms', rows.includes('归墟') && rows.includes('Guixu'));
+    ok('pending rows are marked', rows.includes('lb-decide-pending'));
+    ok('the active side is highlighted', rows.includes('lb-on'));
+    check('empty list renders a message', decisionRowsHtml([]).includes('没有需要决定的名字'), true);
 }
 
 console.log(lines.join('\n'));

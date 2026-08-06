@@ -247,6 +247,9 @@ export function normalizeClassification(item) {
         // 'en' when it is phonetic (阿德森帝国). Wrong guesses are expected; the
         // per-entity override in the registry editor is the fix.
         displayPolicy: item.displayPolicy === 'zh' ? 'zh' : 'en',
+        // The model says this one could legitimately go either way — the user
+        // decides rather than living with a coin flip.
+        policyUncertain: item.policy_uncertain === true || item.policyUncertain === true,
     };
 }
 

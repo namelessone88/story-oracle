@@ -130,12 +130,20 @@ export function mergeClassifications(registry, bookData, classifications) {
                 displayPolicy: isSingleHanzi(entity.canonical) ? 'zh' : verdict.displayPolicy,
                 aliases_en: mergeUnique(entity.aliases_en, verdict.aliases_en),
                 provisional: false,
+                // Single-hanzi names are pinned regardless, so there is nothing
+                // to ask about; likewise anything the user already decided.
+                policyUncertain: !isSingleHanzi(entity.canonical)
+                    && !entity.policyDecided && verdict.policyUncertain === true,
             });
         } else {
             next.entities.push({
                 ...entity,
                 display_en: entity.display_en || verdict.display_en || '',
                 aliases_en: mergeUnique(entity.aliases_en, verdict.aliases_en),
+                // A name the user settled is never raised again.
+                policyUncertain: entity.policyDecided
+                    ? false
+                    : (entity.policyUncertain || verdict.policyUncertain === true),
             });
         }
     }

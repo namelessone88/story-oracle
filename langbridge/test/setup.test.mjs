@@ -217,6 +217,22 @@ check('extractCgNames reads [mvu_plot] titles',
     } }),
     ['沈慕微', '慕海棠']);
 
+/* ================================================================== *
+ * Uncertain display policy — asked, not guessed
+ * ================================================================== */
+{
+    const batch = parseClassificationBatch(`[
+      {"uid": 41, "category": "location", "display_en": "Guixu", "displayPolicy": "en", "policy_uncertain": true},
+      {"uid": 8,  "category": "character", "display_en": "Shen Muwei", "displayPolicy": "en", "policy_uncertain": false},
+      {"uid": 12, "category": "faction", "display_en": "Heavenly Sword Sect", "displayPolicy": "zh"}
+    ]`);
+    ok('归墟-class name is flagged uncertain', batch.find((b) => b.uid === 41).policyUncertain);
+    ok('a clear phonetic name is not flagged', !batch.find((b) => b.uid === 8).policyUncertain);
+    ok('a missing flag defaults to certain', !batch.find((b) => b.uid === 12).policyUncertain);
+}
+ok('camelCase spelling of the flag is also accepted',
+    normalizeClassification({ uid: 1, policyUncertain: true }).policyUncertain);
+
 console.log(lines.join('\n'));
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

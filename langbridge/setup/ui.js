@@ -12,6 +12,7 @@ import {
 } from '../host.js';
 import { runSetupPass, applyPlan } from './pass.js';
 import { buildReport, extractCgNames } from './report.js';
+import { pendingDecisions, decisionRowsHtml, bindDecisionRows, applyDecision } from '../decisions.js';
 
 const PANEL_ID = 'lb-setup';
 let panel = null;
@@ -208,6 +209,16 @@ function renderResult(deps, outcome, bookData) {
     const { plan, stats, failedBatches } = outcome;
     const parts = [];
 
+    // Names the classifier could not settle (归墟-class: a proper noun that also
+    // means something). Asked, not guessed — and answerable right here.
+    const pending = pendingDecisions(outcome.registry);
+    if (pending.length) {
+        parts.push(`<div class="lb-section">需要你决定（${pending.length}）</div>
+          <div class="lb-hint">这些名字<b>两种显示方式都说得通</b>，AI 不替你拍板。
+          点一下选中文或英文——之后随时可以在「🈳 名称显示」里改。</div>
+          <div id="lb-setup-decide">${decisionRowsHtml(pending)}</div>`);
+    }
+
     parts.push(`<div class="lb-section">将写入</div>
       <div class="lb-status">往 <b>${stats.entries}</b> 个条目追加 <b>${stats.keys}</b> 个英文触发词。
       作者原有的触发词、条目设置、正文一律不动。</div>`);
@@ -247,6 +258,16 @@ function renderResult(deps, outcome, bookData) {
 
     parts.push(renderReportHtml(deps, outcome.registry, bookData));
     panel.querySelector('#lb-setup-result').innerHTML = parts.join('');
+
+    // Decisions apply to the in-flight result immediately; they are persisted
+    // with the rest of the registry when the plan is written.
+    const decide = panel.querySelector('#lb-setup-decide');
+    if (decide) {
+        bindDecisionRows(decide, (entityId, policy) => {
+            state.result.registry = applyDecision(state.result.registry, entityId, policy);
+            renderResult(deps, state.result, bookData);
+        });
+    }
 }
 
 function reasonText(reason) {

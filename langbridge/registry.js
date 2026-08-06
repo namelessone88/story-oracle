@@ -106,6 +106,14 @@ export function normalizeRegistry(raw, bookName = '') {
             // classified. Anything false is a decision someone made on purpose
             // and is only ever added to, never overwritten (risk R8).
             provisional: item.provisional === true,
+            // The classifier was torn between showing the Chinese or the English
+            // form (归墟 = a real place name that is ALSO literally "return to the
+            // void"). Surfaced for a human decision instead of being guessed
+            // silently; cleared once decided.
+            policyUncertain: item.policyUncertain === true && item.policyDecided !== true,
+            // The user chose this displayPolicy by hand. Never re-asked, never
+            // overwritten by a later Setup Pass.
+            policyDecided: item.policyDecided === true,
             sourceEntryUids: uniqueNumbers(item.sourceEntryUids),
         });
     }

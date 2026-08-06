@@ -23,6 +23,7 @@ import {
 import { DisplayRuntime } from './runtime.js';
 import { bindHover, hideCard } from './tooltip.js';
 import { openSetupPanel } from './setup/ui.js';
+import { openDecisionsPanel, pendingDecisions } from './decisions.js';
 
 const PANEL_ID = 'lb-panel';
 let runtime = null;
@@ -157,6 +158,7 @@ function panelHtml() {
   <div id="lb-status" class="lb-status"></div>
   <div class="lb-row">
     <button type="button" id="lb-setup-open" class="menu_button" title="用 AI 通读世界书：分类、生成拼音、补上英文触发词（写入前先让你过目）">⚙️ 自动设置</button>
+    <button type="button" id="lb-decide-open" class="menu_button" title="逐个名字决定屏幕上显示中文还是英文；随时可改">🈳 名称显示</button>
   </div>
 
   <div class="lb-section">显示</div>
@@ -241,6 +243,11 @@ function wirePanel(root) {
     $('#lb-setup-open').addEventListener('click', () => openSetupPanel({
         getBookName: activeBookName,
         getRegistry: currentRegistry,
+        saveRegistry: (registry) => { saveRegistry(registry); renderPanel(); },
+    }));
+
+    $('#lb-decide-open').addEventListener('click', () => openDecisionsPanel({
+        getRegistry: () => currentRegistry() || { entities: [] },
         saveRegistry: (registry) => { saveRegistry(registry); renderPanel(); },
     }));
 
@@ -332,6 +339,10 @@ async function renderPanel() {
         status.innerHTML = `登记表：${registry.entities.length} 个名称（${named} 个已有英文）、` +
             `${registry.conceptKeys.length} 个概念词、${Object.keys(registry.entryIndex).length} 个条目索引。` +
             (named === 0 ? ' <span class="lb-warn">还没有任何英文名——填好 display_en 后才会改写显示。</span>' : '');
+        const waiting = pendingDecisions(registry).length;
+        if (waiting) {
+            status.innerHTML += ` <span class="lb-warn">有 ${waiting} 个名字等你决定显示中文还是英文（点「🈳 名称显示」）。</span>`;
+        }
     }
 }
 

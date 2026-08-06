@@ -49,7 +49,13 @@ export const SYSTEM_PROMPT = `你是一个中文角色扮演世界书的整理�
 【displayPolicy】只给 character / location / faction，决定屏幕上显示中文还是英文：
 - "en"：名字是【音译】的（沈慕微、归墟、阿德森帝国这类）——显示英文更好读
 - "zh"：名字是【有含义的中文词】（天剑宗、圣所、大教堂这类）——这些中文本身就好懂，翻成英文反而丢味道
-- 拿不准就填 "en"（用户可以逐条改）
+- 拿不准就填 "en"，【并且把 policy_uncertain 设为 true】——见下
+
+【policy_uncertain】只给 character / location / faction。当这个名字【两种做法都说得通】时设为 true：
+- 典型情况：它既是一个专有名词，字面又确实有含义。例：归墟——它是个地名（音译 "Guixu" 合理），但字面意思又是「万物归于虚无之处」（意译 "The Return to Void" 也合理）
+- 这种名字不要替用户拍板：填上你倾向的 displayPolicy，同时把 policy_uncertain 设为 true，交给用户决定
+- 明显的情况就设 false：沈慕微（纯人名音译）false；天剑宗（含义清楚）false
+- 宁可多标几个 true，也不要悄悄替用户定下一个他不同意的显示方式
 
 【aliases_en】该名字用户还可能怎么打（不含姓的名、常见简称）。不确定就给空数组。
 
@@ -62,8 +68,9 @@ export const SYSTEM_PROMPT = `你是一个中文角色扮演世界书的整理�
 
 【输出】只输出一个 JSON 数组，不要任何解释、不要代码块以外的文字：
 [
-  {"uid": 8, "category": "character", "display_en": "Shen Muwei", "displayPolicy": "en", "aliases_en": ["Muwei"], "concept_en": []},
-  {"uid": 32, "category": "concept", "display_en": "", "displayPolicy": "en", "aliases_en": [], "concept_en": ["teleport array", "teleportation"]}
+  {"uid": 8, "category": "character", "display_en": "Shen Muwei", "displayPolicy": "en", "policy_uncertain": false, "aliases_en": ["Muwei"], "concept_en": []},
+  {"uid": 41, "category": "location", "display_en": "Guixu", "displayPolicy": "en", "policy_uncertain": true, "aliases_en": [], "concept_en": []},
+  {"uid": 32, "category": "concept", "display_en": "", "displayPolicy": "en", "policy_uncertain": false, "aliases_en": [], "concept_en": ["teleport array", "teleportation"]}
 ]
 
 每个给你的条目都必须在数组里出现一次，uid 必须原样照抄。`;

@@ -211,3 +211,46 @@
 .lb-sev-high { border-inline-start: 3px solid var(--warning, #e8a33d); padding-inline-start: 7px; }
 .lb-sev-medium { border-inline-start: 3px solid color-mix(in srgb, var(--warning, #e8a33d) 55%, transparent); padding-inline-start: 7px; }
 .lb-sev-low { opacity: 0.75; }
+
+/* ---------- name display decisions ---------- */
+
+.lb-decide { display: flex; flex-direction: column; gap: 4px; max-height: 300px; overflow-y: auto; }
+
+.lb-decide-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 5px 6px;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--SmartThemeBodyColor, #fff) 5%, transparent);
+}
+
+/* Names the classifier could not settle — the ones actually awaiting an answer. */
+.lb-decide-pending { border-inline-start: 3px solid var(--warning, #e8a33d); }
+
+.lb-decide-name { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.lb-decide-zh { font-weight: 500; }
+.lb-decide-cat { font-size: 0.78em; opacity: 0.55; }
+.lb-decide-flag { font-size: 0.75em; color: var(--warning, #e8a33d); }
+.lb-decide-choice { display: flex; gap: 4px; flex-shrink: 0; }
+
+.lb-decide-btn {
+    font: inherit;
+    font-size: 0.82em;
+    padding: 3px 9px;
+    border-radius: 5px;
+    cursor: pointer;
+    color: inherit;
+    background: transparent;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.22));
+    opacity: 0.6;
+}
+
+.lb-decide-btn:hover { opacity: 0.9; }
+
+.lb-decide-btn.lb-on {
+    opacity: 1;
+    border-color: var(--SmartThemeQuoteColor, #8ab4f8);
+    background: color-mix(in srgb, var(--SmartThemeQuoteColor, #8ab4f8) 20%, transparent);
+}

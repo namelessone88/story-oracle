@@ -143,12 +143,27 @@ typing vocabulary, so edit them there once if you want different wording.
 3. Toggle what you want rendered. `sample-registry.json` can be **导入** to see
    the whole thing working before touching your own book.
 
-### Display policy
+### Display policy — and the names it asks you about
 
 `displayPolicy: "en"` renders the English form; `"zh"` leaves the Chinese. The
-intent (per spec) is that *semantically meaningful* names stay Chinese and
-*phonetic transliterations* become English — but this is a judgement call, so it
-is per-entity and always overridable.
+rule of thumb is that *phonetic* names become English (沈慕微 → "Shen Muwei")
+and *semantically meaningful* ones stay Chinese (天剑宗 stays 天剑宗).
+
+Plenty of names sit on the fence. 归墟 is a real place name — so "Guixu" reads
+fine — but it also literally means "where all things return to the void", so a
+translation reads fine too. **The Setup Pass does not decide those for you.** It
+marks them and asks:
+
+* During setup, pending names appear at the top of the results as
+  **需要你决定**, each showing both concrete forms — click the one you want.
+* Any time afterwards, **🈳 名称显示** lists every switchable name with the same
+  two-way toggle, so a decision is never final. Tick *只看待定的* to see only
+  what is still unanswered.
+
+A choice you make is latched: a later Setup Pass will never overwrite it or ask
+about that name again, even if the model still thinks it is ambiguous. Names the
+classifier is confident about are set without bothering you, and remain
+flippable in the same panel.
 
 **Single-hanzi names** (红, 陶, 瓷, 窑, 蛸) are a special case: a single hanzi
 substring-matches ordinary prose (红 is both a character and the word "red", so
