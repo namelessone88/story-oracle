@@ -322,7 +322,15 @@ function boot() {
     runtime = new DisplayRuntime({
         getRegistry: () => currentRegistry(),
         getToggles: () => currentToggles(),
-        onHoverBind: (host) => bindHover(host, () => currentRegistry()),
+        onHoverBind: (host) => bindHover(host, () => currentRegistry(), {
+            onSetRenderOn: (zh, on) => {
+                const registry = currentRegistry();
+                if (!registry?.renderMap?.[zh]) return;
+                registry.renderMap[zh].on = on;
+                saveRegistry(registry);       // persists + refreshes the chat
+                renderPanel();                // keep the settings list in sync
+            },
+        }),
     });
 
     onEvents({

@@ -20,6 +20,9 @@ const HOST_ID = 'lb-tooltip-host';
 let hostEl = null;
 let hideTimer = null;
 let boundGlobals = false;
+// Set by bindHover: (zh, on) => void — persists a display flip and re-renders
+// the chat. Lives at module level because the card's click handler is global.
+let onSetRenderOn = null;
 
 function host() {
     if (hostEl && hostEl.isConnected) return hostEl;
@@ -64,11 +67,25 @@ export function buildCardHtml(registry, span) {
     // A renamed span shows English on screen; the card leads with the Chinese
     // original so "what was that actually called?" is answered at a glance.
     const en = renderPair ? ` <span class="lb-tt-en">${esc(renderPair.en)}</span>` : '';
+
+    // In-card display switch: flip this name between 中文 and English right
+    // where you noticed it, without leaving the chat. Both sides show the
+    // CONCRETE form (「归墟」 vs 「Guixu」), active side marked. The choice
+    // persists to the 名称显示 list and the whole chat re-renders on click.
+    const zhOn = renderPair && renderPair.on === false;
+    const switchRow = renderPair ? `
+      <div class="lb-tt-sw" data-lb-sw-zh="${esc(word)}">
+        <span class="lb-tt-label">显示为</span>
+        <button type="button" class="lb-tt-sw-btn${zhOn ? ' lb-on' : ''}" data-lb-sw-on="0" title="屏幕上显示中文原名">${esc(word)}</button>
+        <button type="button" class="lb-tt-sw-btn${zhOn ? '' : ' lb-on'}" data-lb-sw-on="1" title="屏幕上显示英文">${esc(renderPair.en)}</button>
+      </div>` : '';
+
     return `
       <div class="lb-tt-head">
         <div class="lb-tt-title">${esc(word)}${en}</div>
         <div class="lb-tt-cat">${uids.length ? '触发词' : '名称'}</div>
       </div>
+      ${switchRow}
       ${uids.length ? `<div class="lb-tt-section">可触发以下条目</div>${entryBlocks}` : ''}
       <div class="lb-tt-foot"><span class="lb-tt-note">${uids.length ? '可触发 ≠ 已注入' : '仅显示为英文，存储仍是中文'}</span></div>`;
 }
@@ -109,7 +126,8 @@ export function showCardFor(registry, span) {
  * Attach delegated hover handling to a message container. Idempotent per root;
  * global dismissal (scroll / escape / click-away) is bound once.
  */
-export function bindHover(root, getRegistry) {
+export function bindHover(root, getRegistry, deps = {}) {
+    if (deps.onSetRenderOn) onSetRenderOn = deps.onSetRenderOn;
     if (!root || root.dataset?.lbHover === '1') return;
     if (root.dataset) root.dataset.lbHover = '1';
 
@@ -134,6 +152,17 @@ export function bindHover(root, getRegistry) {
     const el = host();
     el.addEventListener('mouseenter', () => clearTimeout(hideTimer));
     el.addEventListener('mouseleave', hideCard);
+    el.addEventListener('click', (event) => {
+        const button = event.target?.closest?.('.lb-tt-sw-btn');
+        if (!button || !onSetRenderOn) return;
+        event.stopPropagation();
+        const zh = button.closest('[data-lb-sw-zh]')?.dataset.lbSwZh;
+        if (!zh) return;
+        onSetRenderOn(zh, button.dataset.lbSwOn === '1');
+        // The re-render replaces the span this card was anchored to; the text
+        // flipping in place IS the feedback, so the card simply closes.
+        hideCard();
+    });
     window.addEventListener('scroll', hideCard, true);
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape') hideCard(); });
     document.addEventListener('click', (event) => {

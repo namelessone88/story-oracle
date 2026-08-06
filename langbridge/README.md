@@ -14,7 +14,12 @@ A standalone SillyTavern extension with three features:
 3. **名称显示 (name rendering)** — names in the list (沈慕微 → "Shen Muwei",
    归墟 → "Guixu") display as English in AI replies. DOM only: the chat file
    and World Info matching stay 100% Chinese; per-name on/off; your own
-   messages are never renamed; hover a rendered name to see the Chinese.
+   messages are never renamed. The hover card carries the **中文/English
+   switch itself** — spot a rendering you dislike mid-play, click the other
+   form on the card, and the whole chat flips instantly (persisted to the
+   名称显示 list). One edge: a name that is *not* also a trigger word loses
+   its hoverable span once switched to Chinese — flip it back from the
+   settings list in that case.
 
 No per-turn LLM calls and no input transformation, ever.
 

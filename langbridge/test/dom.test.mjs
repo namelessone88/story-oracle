@@ -37,7 +37,7 @@ globalThis.MutationObserver = dom.window.MutationObserver;
 
 const { DisplayRuntime, stripIn, collectTextNodes } = await import('../runtime.js');
 const { normalizeRegistry, DEFAULT_TOGGLES } = await import('../registry.js');
-const { buildCardHtml } = await import('../tooltip.js');
+const { buildCardHtml, bindHover, showCardFor } = await import('../tooltip.js');
 
 const REG = normalizeRegistry(JSON.parse(readFileSync(join(here, '..', 'sample-registry.json'), 'utf8')));
 
@@ -255,6 +255,60 @@ function message(html, { isUser = false, id = 0 } = {}) {
 }
 {
     check('card for unknown span is empty', buildCardHtml(REG, null), '');
+}
+
+/* ---------------- in-card 中文/English switch ---------------- */
+{
+    toggles = { ...DEFAULT_TOGGLES };
+    runtime.refresh();
+    const mes = message('<p>沈慕微。</p>');
+    runtime.passMessage(mes);
+    const span = mes.querySelector('.lb-span');
+    const html = buildCardHtml(REG, span);
+    ok('card offers both concrete forms as a switch',
+        html.includes('lb-tt-sw') && html.includes('>沈慕微</button>') && html.includes('>Shen Muwei</button>'));
+    ok('active side is the English one (pair is on)',
+        /data-lb-sw-on="1"[^>]*>Shen Muwei/.test(html.replace(/class="[^"]*lb-on[^"]*" data-lb-sw-on="1"/, 'data-lb-sw-on="1"'))
+        && html.includes('lb-on'));
+
+    // A plain concept word gets no switch — concepts are never renamed.
+    const mes2 = message('<p>传送阵。</p>');
+    runtime.passMessage(mes2);
+    ok('concept card has no switch', !buildCardHtml(REG, mes2.querySelector('.lb-span')).includes('lb-tt-sw'));
+}
+{
+    // Full click-through: show the card, click the 中文 side, and the persist
+    // callback must receive (zh, false).
+    const calls = [];
+    const mes = message('<p>沈慕微。</p>');
+    runtime.passMessage(mes);
+    bindHover(mes.querySelector('.mes_text'), () => REG, {
+        onSetRenderOn: (zh, on) => calls.push([zh, on]),
+    });
+    showCardFor(REG, mes.querySelector('.lb-span'));
+    const card = document.getElementById('lb-tooltip-host');
+    ok('card is visible', card && !card.hidden);
+    const zhButton = card.querySelector('.lb-tt-sw-btn[data-lb-sw-on="0"]');
+    zhButton.dispatchEvent(new window.Event('click', { bubbles: true }));
+    check('clicking 中文 persists on:false', calls, [['沈慕微', false]]);
+    ok('card closes after the flip (the prose flipping is the feedback)', card.hidden);
+}
+{
+    // Off pair shows 中文 as the active side.
+    const offReg = normalizeRegistry({
+        ...REG, renderMap: { ...REG.renderMap, 沈慕微: { en: 'Shen Muwei', on: false } },
+    }, 'B');
+    const mes = message('<p>沈慕微。</p>');
+    // With the pair off, the name still highlights (it is a trigger key) so a
+    // span exists to hover — that is what makes flipping BACK possible in chat.
+    const offRuntime = new DisplayRuntime({ getRegistry: () => offReg, getToggles: () => ({ ...DEFAULT_TOGGLES }) });
+    offRuntime.passMessage(mes);
+    const span = mes.querySelector('.lb-span');
+    ok('off pair still leaves a hoverable span', !!span);
+    check('…showing Chinese', span.textContent, '沈慕微');
+    const html = buildCardHtml(offReg, span);
+    ok('switch marks 中文 as active when pair is off',
+        /lb-on[^>]*data-lb-sw-on="0"|data-lb-sw-on="0"[^>]*lb-on/.test(html) || html.includes('lb-on" data-lb-sw-on="0"'));
 }
 
 /* ---------------- helpers ---------------- */

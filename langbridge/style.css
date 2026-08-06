@@ -95,6 +95,34 @@
 .lb-tt-keys { margin-top: 3px; display: flex; flex-wrap: wrap; gap: 4px; }
 .lb-tt-none { opacity: 0.55; font-size: 0.85em; }
 
+.lb-tt-sw {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin: 6px 0 2px;
+    flex-wrap: wrap;
+}
+
+.lb-tt-sw-btn {
+    font: inherit;
+    font-size: 0.85em;
+    padding: 2px 9px;
+    border-radius: 5px;
+    cursor: pointer;
+    color: inherit;
+    background: transparent;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.22));
+    opacity: 0.6;
+}
+
+.lb-tt-sw-btn:hover { opacity: 0.9; }
+
+.lb-tt-sw-btn.lb-on {
+    opacity: 1;
+    border-color: var(--SmartThemeQuoteColor, #8ab4f8);
+    background: color-mix(in srgb, var(--SmartThemeQuoteColor, #8ab4f8) 20%, transparent);
+}
+
 .lb-tt-foot {
     margin-top: 8px;
     display: flex;
