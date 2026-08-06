@@ -81,6 +81,12 @@ ok('repairJson is a no-op on clean input', repairJson('[{"a":1}]') === '[{"a":1}
 }
 check('unparseable batch yields empty array', parseTranslationBatch('nope'), []);
 check('row without uid rejected', normalizeTranslation({ key_en: ['x'] }), null);
+{
+    const row = normalizeTranslation({ uid: 8, key_en: ['Shen Muwei'], render: { zh: '沈慕微', en: 'Shen Muwei' } });
+    check('render pair carried through', row.render, { zh: '沈慕微', en: 'Shen Muwei' });
+    check('null render stays null', normalizeTranslation({ uid: 9, key_en: [], render: null }).render, null);
+    check('junk render becomes null', normalizeTranslation({ uid: 10, key_en: [], render: { zh: '', en: 'X' } }).render, null);
+}
 
 /* ---------------- batching / caching ---------------- */
 

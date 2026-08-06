@@ -1,12 +1,14 @@
 /**
  * LangBridge — entry point.
  *
- * Two features, nothing else:
- *   1. TRANSLATE — green (keyword-triggered) entries' Chinese trigger words
- *      gain English versions, appended to the worldbook once, so typed English
- *      fires them. LLM use is confined to that one on-demand pass.
+ * Three features:
+ *   1. TRANSLATE — every entry with Chinese trigger words gains English
+ *      versions, appended to the worldbook once, so typed English fires them.
+ *      LLM use is confined to that one on-demand pass.
  *   2. HIGHLIGHT — trigger words are underlined in the chat, with a hover card
  *      showing what they trigger and how to type them in English.
+ *   3. RENDER — names in the 名称显示 list show as English in AI replies
+ *      (DOM only; storage stays Chinese; per-name switchable).
  *
  * Invariants:
  *   I1 never modifies message.mes or the chat file — DOM only
@@ -21,7 +23,7 @@ import {
     onEvents, loadBook, getActiveBookNames, getAllBookNames,
     canEditWorldInfo, toast, LOG,
 } from './host.js';
-import { normalizeRegistry, emptyRegistry, DEFAULT_TOGGLES } from './registry.js';
+import { normalizeRegistry, emptyRegistry, isSingleHanzi, DEFAULT_TOGGLES } from './registry.js';
 import { refreshEntryIndex } from './setup/pass.js';
 import { fingerprintBook } from './host.js';
 import { DisplayRuntime } from './runtime.js';
@@ -106,12 +108,22 @@ function panelHtml() {
   </div>
   <div id="lb-status" class="lb-status"></div>
   <div class="lb-row">
-    <button type="button" id="lb-setup-open" class="menu_button" title="把绿灯条目的中文触发词翻成英文并追加进世界书（写入前先让你过目）">⚙️ 翻译触发词</button>
+    <button type="button" id="lb-setup-open" class="menu_button" title="把条目的中文触发词翻成英文并追加进世界书，顺带收集英文显示名（写入前先让你过目）">⚙️ 翻译触发词</button>
   </div>
 
   <div class="lb-section">高亮</div>
   <label class="lb-check"><input type="checkbox" id="lb-t-hl"><span>标出触发词（虚线下划线，悬停看它触发什么、英文怎么打）</span></label>
   <label class="lb-check"><input type="checkbox" id="lb-t-hluser"><span>也标出我自己发的消息——打的英文没亮，就说明还缺这个词的触发词</span></label>
+
+  <div class="lb-section">名称显示</div>
+  <label class="lb-check"><input type="checkbox" id="lb-t-render"><span>把下列名字显示为英文（只改屏幕；存档和触发始终是中文）</span></label>
+  <div id="lb-names" class="lb-names"></div>
+  <div class="lb-row">
+    <input type="text" id="lb-name-zh" class="text_pole lb-name-input" placeholder="中文名">
+    <input type="text" id="lb-name-en" class="text_pole lb-name-input" placeholder="英文显示">
+    <button type="button" id="lb-name-add" class="menu_button">添加</button>
+  </div>
+  <div class="lb-hint">「翻译触发词」会自动把音译式名字（沈慕微、归墟）加进来；有含义的名字（天剑宗）不会。单字名（红）不允许——中文没有词边界，改了会毁掉普通句子。悬停聊天里的英文名可看中文原名。</div>
 
   <div class="lb-section">数据</div>
   <div class="lb-hint">索引和翻译存在扩展设置里，可导出备份 / 换设备导入。世界书本体只在「翻译触发词」写入时被追加过触发词，其余一概不动。</div>
@@ -182,6 +194,39 @@ function wirePanel(root) {
 
     $('#lb-t-hl').addEventListener('change', (e) => setToggle('highlight', e.target.checked));
     $('#lb-t-hluser').addEventListener('change', (e) => setToggle('highlightUserMessages', e.target.checked));
+    $('#lb-t-render').addEventListener('change', (e) => setToggle('renderNames', e.target.checked));
+
+    // Names list: toggle a pair on/off, delete it, or add one by hand.
+    $('#lb-names').addEventListener('click', (e) => {
+        const row = e.target?.closest?.('[data-lb-zh]');
+        if (!row) return;
+        const zh = row.dataset.lbZh;
+        const registry = currentRegistry();
+        if (!registry || !registry.renderMap[zh]) return;
+        if (e.target.closest('.lb-name-del')) {
+            delete registry.renderMap[zh];
+        } else if (e.target.closest('input[type="checkbox"]')) {
+            registry.renderMap[zh].on = e.target.checked;
+        } else {
+            return;
+        }
+        saveRegistry(registry);
+        renderPanel();
+    });
+    $('#lb-name-add').addEventListener('click', () => {
+        const zh = $('#lb-name-zh').value.trim();
+        const en = $('#lb-name-en').value.trim();
+        if (!zh || !en) { toast('warning', '中文名和英文显示都要填。'); return; }
+        if (isSingleHanzi(zh)) { toast('warning', '单字名不能改写显示——它会命中普通词句（如 红色）。'); return; }
+        const registry = currentRegistry() || emptyRegistry(activeBookName());
+        registry.renderMap[zh] = { en, on: true };
+        const normalized = normalizeRegistry(registry, activeBookName());
+        if (!normalized.renderMap[zh]) { toast('warning', '这个名字不能用作显示名（需要是中文、至少两个字）。'); return; }
+        saveRegistry(normalized);
+        $('#lb-name-zh').value = '';
+        $('#lb-name-en').value = '';
+        renderPanel();
+    });
 
     $('#lb-export').addEventListener('click', () => {
         const registry = currentRegistry() || emptyRegistry(activeBookName());
@@ -218,6 +263,20 @@ async function renderPanel() {
 
     $('#lb-t-hl').checked = !!toggles.highlight;
     $('#lb-t-hluser').checked = !!toggles.highlightUserMessages;
+    $('#lb-t-render').checked = !!toggles.renderNames;
+
+    const names = $('#lb-names');
+    const pairs = Object.entries(currentRegistry()?.renderMap || {});
+    names.innerHTML = pairs.length
+        ? pairs.map(([zh, pair]) => `
+            <div class="lb-name-row" data-lb-zh="${zh.replace(/"/g, '&quot;')}">
+              <label class="lb-check"><input type="checkbox" ${pair.on ? 'checked' : ''}>
+                <span class="lb-name-zh">${escapeText(zh)}</span>
+                <span class="lb-name-arrow">→</span>
+                <span class="lb-name-en">${escapeText(pair.en)}</span></label>
+              <span class="lb-name-del" title="删除">✕</span>
+            </div>`).join('')
+        : '<div class="lb-hint">（空——跑一次「翻译触发词」自动收集，或在下方手动添加）</div>';
 
     const [active, all] = await Promise.all([getActiveBookNames(), getAllBookNames()]);
     const names = [...new Set([...active, ...all])];
@@ -247,6 +306,11 @@ async function renderPanel() {
 /* ------------------------------------------------------------------ *
  * Boot
  * ------------------------------------------------------------------ */
+
+function escapeText(text) {
+    return String(text == null ? '' : text)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
 
 function boot() {
     if (!getContext()) {

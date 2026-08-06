@@ -47,27 +47,22 @@ export function collectEntries(bookData) {
 /**
  * Sort entries into what gets translated and what gets reported.
  *
- *   translatable — green (keyword-triggered), no AND logic, has Chinese keys
- *   flagged      — green but uses keysecondary (AND): auto-adding an English
- *                  primary could shift its activation timing; manual decision
- *   skipped      — blue (constant) or disabled: a trigger word buys nothing
- *   inert        — green but nothing to translate (no Chinese keys)
+ *   translatable — has Chinese trigger words and no AND logic. This INCLUDES
+ *                  blue (constant) and disabled entries: appending an English
+ *                  key to them changes nothing today (blue ignores keys,
+ *                  disabled never fires) and simply works the moment the
+ *                  author flips the entry green — the key list stays complete.
+ *   flagged      — uses keysecondary (AND): auto-adding an English primary
+ *                  could shift activation timing (now or once re-enabled);
+ *                  listed for a manual decision.
+ *   inert        — nothing to translate (no Chinese keys).
  */
 export function splitEntries(entries) {
     const translatable = [];
     const flagged = [];
-    const skipped = [];
     const inert = [];
 
     for (const entry of entries || []) {
-        if (entry.constant || entry.disabled) {
-            skipped.push({
-                uid: entry.uid,
-                title: entry.comment || `条目 #${entry.uid}`,
-                reason: entry.disabled ? '条目被禁用' : '蓝灯常驻条目，本来就每回合注入，不需要触发词',
-            });
-            continue;
-        }
         const zhKeys = entry.keys.filter((k) => looksChinese(k));
         if (!zhKeys.length) { inert.push(entry.uid); continue; }
         if (entry.hasSecondary) {
@@ -82,7 +77,7 @@ export function splitEntries(entries) {
         translatable.push(entry);
     }
 
-    return { translatable, flagged, skipped, inert };
+    return { translatable, flagged, inert };
 }
 
 /**
@@ -250,10 +245,12 @@ export async function translateBook(entries, opts = {}) {
     await Promise.all(Array.from({ length: lanes }, worker));
 
     const translations = {};
+    const renders = [];
     for (const row of rows) {
         if (row.key_en.length) translations[String(row.uid)] = mergeUnique(translations[String(row.uid)], row.key_en);
+        if (row.render) renders.push(row.render);
     }
-    return { translations, failedBatches, cache, batchSize };
+    return { translations, renders, failedBatches, cache, batchSize };
 }
 
 /**
@@ -262,10 +259,10 @@ export async function translateBook(entries, opts = {}) {
  */
 export async function runSetupPass(bookName, bookData, registry, opts = {}) {
     const entries = collectEntries(bookData);
-    const { translatable, flagged, skipped, inert } = splitEntries(entries);
+    const { translatable, flagged, inert } = splitEntries(entries);
     const machineryText = gatherMachineryText(bookData, opts.sampleReply || '');
 
-    const { translations, failedBatches, cache, batchSize } = await translateBook(translatable, opts);
+    const { translations, renders, failedBatches, cache, batchSize } = await translateBook(translatable, opts);
 
     let next = refreshEntryIndex(registry || emptyRegistry(bookName), bookData);
     next.bookName = bookName;
@@ -273,12 +270,24 @@ export async function runSetupPass(bookName, bookData, registry, opts = {}) {
     for (const [uid, keys] of Object.entries(translations)) {
         next.keyTranslations[uid] = mergeUnique(next.keyTranslations[uid], keys);
     }
+    // Render pairs: model suggestions never overwrite an existing pair — the
+    // user may have edited the spelling or switched it off, and both survive
+    // re-runs. New pairs default to on; normalizeRegistry enforces the hard
+    // rules (single-hanzi and non-Chinese names are refused).
+    let newRenderPairs = 0;
+    for (const pair of renders) {
+        if (!next.renderMap[pair.zh]) {
+            next.renderMap[pair.zh] = { en: pair.en, on: true };
+            newRenderPairs += 1;
+        }
+    }
+    next = normalizeRegistry(next, bookName);
 
     const plan = planWrites(translations, bookData, machineryText);
 
     return {
         registry: next,
-        plan: { ...plan, flagged, skipped },
+        plan: { ...plan, flagged },
         failedBatches,
         cache,
         stats: {
@@ -286,7 +295,7 @@ export async function runSetupPass(bookName, bookData, registry, opts = {}) {
             translatable: translatable.length,
             inert: inert.length,
             flagged: flagged.length,
-            skipped: skipped.length,
+            newRenderPairs,
             batchSize,
             ...plan.stats,
         },

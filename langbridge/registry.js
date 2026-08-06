@@ -8,9 +8,11 @@
  *   addedKeys        uid → [keys we actually wrote]   the idempotency ledger
  *
  * `gated` = the entry is keyword-triggered (green light): not constant, not
- * disabled. Only gated entries participate in anything — a blue (constant)
- * entry fires every turn regardless of keywords, so English triggers buy it
- * nothing and highlighting its keys is noise.
+ * disabled. Gating governs HIGHLIGHTING only — a blue entry fires every turn
+ * regardless of keywords, so underlining its keys as "triggers" would be a
+ * lie. Translation WRITES cover every entry that has trigger words (appending
+ * a key to a blue entry changes nothing today and simply works if the author
+ * flips it green later), and renderMap is independent of gating entirely.
  *
  * This module also compiles the registry into matcher tokens. It never touches
  * storage — that is host.js — so it stays unit-testable.
@@ -25,6 +27,8 @@ export const DEFAULT_TOGGLES = {
     highlightUserMessages: false, // also scan what YOU type (drift detection:
                                   // an English phrase that lights nothing up
                                   // means no key covers it yet)
+    renderNames: true,            // show renderMap names in English (AI replies
+                                  // only — the user's own text is never renamed)
 };
 
 /** A single hanzi substring-matches ordinary prose (红 hits 红色/脸红/红衣),
@@ -43,6 +47,13 @@ export function emptyRegistry(bookName = '') {
         entryIndex: {},
         keyTranslations: {},
         addedKeys: {},
+        // 中文名 → { en, on }. The DISPLAY layer: names listed here render as
+        // English in AI replies (DOM only, storage untouched). Independent of
+        // triggering — a blue entry's name can render even though its keys
+        // never highlight. Single-hanzi names are refused outright: 红 is also
+        // the word "red", and with no CJK word boundary a rename would corrupt
+        // ordinary prose (她换上红色的外袍 → 她换上Hong色的外袍).
+        renderMap: {},
     };
 }
 
@@ -87,6 +98,16 @@ export function normalizeRegistry(raw, bookName = '') {
         }
     }
 
+    if (raw.renderMap && typeof raw.renderMap === 'object') {
+        for (const [zh, value] of Object.entries(raw.renderMap)) {
+            const name = String(zh || '').trim();
+            const en = String((value && typeof value === 'object' ? value.en : value) || '').trim();
+            if (!name || !en) continue;
+            if (!looksChinese(name) || isSingleHanzi(name)) continue;   // hard rule, no override
+            base.renderMap[name] = { en, on: !(value && typeof value === 'object' && value.on === false) };
+        }
+    }
+
     return base;
 }
 
@@ -111,7 +132,8 @@ export function registryRevision(registry, toggles) {
         r.bookName,
         Object.entries(r.entryIndex).map(([uid, m]) => uid + m.gated + m.keys.join(',')),
         r.keyTranslations,
-        t.highlight, t.highlightUserMessages,
+        t.highlight, t.highlightUserMessages, t.renderNames,
+        r.renderMap,
     ]);
     let hash = 5381;
     for (let i = 0; i < stamp.length; i++) hash = (((hash << 5) + hash) + stamp.charCodeAt(i)) | 0;
@@ -129,23 +151,46 @@ export function registryRevision(registry, toggles) {
 export function buildTokens(registry, toggles, opts = {}) {
     const r = normalizeRegistry(registry);
     const t = { ...DEFAULT_TOGGLES, ...(toggles || {}) };
-    if (!t.highlight) return [];
+    // includeEnglish doubles as "this is the USER-message matcher": English
+    // tokens join in, and render tokens stay out (your own text is never renamed).
+    const forUser = !!opts.includeEnglish;
+    const wantHighlight = !!t.highlight;
+    const wantRender = !forUser && !!t.renderNames;
+    if (!wantHighlight && !wantRender) return [];
 
     const tokens = [];
-    const push = (text, kind) => tokens.push({ text, kind });
 
-    for (const [uid, meta] of Object.entries(r.entryIndex)) {
+    // The set of highlightable Chinese trigger keys (gated entries only) — a
+    // rendered name that is ALSO a trigger key gets both behaviours on one span.
+    const triggerKeys = new Set();
+    for (const meta of Object.values(r.entryIndex)) {
         if (!meta.gated) continue;
         for (const key of meta.keys) {
-            if (looksChinese(key)) {
-                if (!isSingleHanzi(key)) push(key, 'zh');
-            } else if (opts.includeEnglish && key.length >= 3) {
-                push(key, 'en');
-            }
+            if (looksChinese(key) && !isSingleHanzi(key)) triggerKeys.add(key);
         }
-        if (opts.includeEnglish) {
-            for (const key of r.keyTranslations[uid] || []) {
-                if (key.length >= 3) push(key, 'en');
+    }
+
+    // Render tokens FIRST — buildMatcher keeps the first token per text, so a
+    // name that is also a trigger key resolves to the render token (which
+    // carries the highlight flag too).
+    if (wantRender) {
+        for (const [zh, pair] of Object.entries(r.renderMap)) {
+            if (!pair.on) continue;
+            tokens.push({ text: zh, kind: 'zh', render: pair.en, highlight: wantHighlight && triggerKeys.has(zh) });
+        }
+    }
+
+    if (wantHighlight) {
+        for (const key of triggerKeys) tokens.push({ text: key, kind: 'zh', highlight: true });
+        if (forUser) {
+            for (const [uid, meta] of Object.entries(r.entryIndex)) {
+                if (!meta.gated) continue;
+                for (const key of meta.keys) {
+                    if (!looksChinese(key) && key.length >= 3) tokens.push({ text: key, kind: 'en', highlight: true });
+                }
+                for (const key of r.keyTranslations[uid] || []) {
+                    if (key.length >= 3) tokens.push({ text: key, kind: 'en', highlight: true });
+                }
             }
         }
     }

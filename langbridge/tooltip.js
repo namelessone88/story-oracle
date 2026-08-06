@@ -43,7 +43,8 @@ export function buildCardHtml(registry, span) {
     if (!registry || !span) return '';
     const word = span.dataset.lbOrig || span.textContent || '';
     const uids = entriesForText(registry, word);
-    if (!uids.length) return '';
+    const renderPair = registry.renderMap?.[word];
+    if (!uids.length && !renderPair) return '';
 
     const entryBlocks = uids.map((uid) => {
         const entry = describeEntry(registry, uid);
@@ -60,14 +61,16 @@ export function buildCardHtml(registry, span) {
           </div>`;
     }).join('');
 
+    // A renamed span shows English on screen; the card leads with the Chinese
+    // original so "what was that actually called?" is answered at a glance.
+    const en = renderPair ? ` <span class="lb-tt-en">${esc(renderPair.en)}</span>` : '';
     return `
       <div class="lb-tt-head">
-        <div class="lb-tt-title">${esc(word)}</div>
-        <div class="lb-tt-cat">触发词</div>
+        <div class="lb-tt-title">${esc(word)}${en}</div>
+        <div class="lb-tt-cat">${uids.length ? '触发词' : '名称'}</div>
       </div>
-      <div class="lb-tt-section">可触发以下条目</div>
-      ${entryBlocks}
-      <div class="lb-tt-foot"><span class="lb-tt-note">可触发 ≠ 已注入</span></div>`;
+      ${uids.length ? `<div class="lb-tt-section">可触发以下条目</div>${entryBlocks}` : ''}
+      <div class="lb-tt-foot"><span class="lb-tt-note">${uids.length ? '可触发 ≠ 已注入' : '仅显示为英文，存储仍是中文'}</span></div>`;
 }
 
 function place(el, anchor) {

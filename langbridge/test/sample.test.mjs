@@ -32,9 +32,13 @@ ok('sample registry parses', Object.keys(REG.entryIndex).length === 12);
     check('trigger words light up', hits, ['沈慕微', '传送阵', '东海海域', '归墟潮眼']);
 }
 {
-    const m = compile(REG, DEFAULT_TOGGLES);
-    check('blue entry key does not light up', scan('这里是苍玄界。', m).map((h) => h.text), []);
-    check('single-hanzi name does not light up', scan('她穿着红色的衣服。', m).map((h) => h.text), []);
+    const noRender = compile(REG, { ...DEFAULT_TOGGLES, renderNames: false });
+    check('blue entry key does not light up', scan('这里是苍玄界。', noRender).map((h) => h.text), []);
+    check('single-hanzi name does not light up', scan('她穿着红色的衣服。', noRender).map((h) => h.text), []);
+    // With rendering on, 苍玄界 matches as a render-only token — display, not trigger.
+    const withRender = compile(REG, DEFAULT_TOGGLES);
+    const hit = scan('这里是苍玄界。', withRender)[0];
+    ok('blue-entry name is render-only', hit && hit.token.render === 'Cangxuan Realm' && !hit.token.highlight);
 }
 
 /* Hover card data */

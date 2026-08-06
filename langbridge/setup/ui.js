@@ -45,8 +45,9 @@ function ensurePanel(deps) {
         </div>
         <div class="lb-modal-body">
           <div class="lb-hint">
-            把<b>绿灯条目</b>现有的中文触发词逐个翻成英文，作为额外触发词追加进世界书——
-            以后打英文也能触发。原有中文词一个不删、一个不改；蓝灯常驻条目本来就每回合注入，自动跳过。
+            把每个条目现有的中文触发词逐个翻成英文，作为额外触发词追加进世界书——
+            以后打英文也能触发。原有中文词一个不删、一个不改（蓝灯 / 禁用条目也会补上英文词：
+            现在无影响，切成绿灯立刻可用）。顺带收集音译式名字进「名称显示」。
             <b>写入前会先让你看清楚要写什么。</b>
           </div>
           <div class="lb-row">
@@ -130,7 +131,8 @@ async function run(deps) {
 
         cache = outcome.cache;
         state = { bookName, bookData, result: outcome };
-        progress.textContent = `完成：${outcome.stats.entries} 个条目，其中绿灯可翻 ${outcome.stats.translatable} 个。`;
+        progress.textContent = `完成：${outcome.stats.entries} 个条目，可翻 ${outcome.stats.translatable} 个`
+            + (outcome.stats.newRenderPairs ? `，新收集 ${outcome.stats.newRenderPairs} 个显示名。` : '。');
         renderResult(outcome, bookData);
         panel.querySelector('#lb-setup-apply').disabled = outcome.stats.keys === 0;
     } catch (e) {
@@ -169,13 +171,6 @@ function renderResult(outcome, bookData) {
           <div class="lb-hint">这些条目用了「次要关键词」(AND 逻辑)，自动加英文词可能改变触发时机，所以<b>跳过不写</b>：</div>
           <div class="lb-plan">${plan.flagged.slice(0, 20).map((f) =>
             `<div class="lb-plan-row"><span class="lb-plan-title">${escapeHtml(f.title)}</span></div>`).join('')}</div>`);
-    }
-
-    if (plan.skipped.length) {
-        parts.push(`<div class="lb-section">自动跳过（${plan.skipped.length}）</div>
-          <div class="lb-plan">${plan.skipped.slice(0, 15).map((sk) =>
-            `<div class="lb-plan-row"><span class="lb-plan-title">${escapeHtml(sk.title)}</span>
-             <span class="lb-hint">${escapeHtml(sk.reason)}</span></div>`).join('')}</div>`);
     }
 
     if (plan.rejected.length) {

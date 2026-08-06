@@ -39,14 +39,14 @@ const BOOK = {
     ok('disabled recorded', entries.find((e) => e.uid === 2).disabled);
     ok('AND-logic recorded', entries.find((e) => e.uid === 80).hasSecondary);
 
-    const { translatable, flagged, skipped, inert } = splitEntries(entries);
-    check('green entries with zh keys are translatable', translatable.map((e) => e.uid), [8, 32]);
+    const { translatable, flagged, inert } = splitEntries(entries);
+    // Blue and disabled entries WITH Chinese keys are translated too (Edwin's
+    // call): appending keys to them changes nothing today — blue ignores keys,
+    // disabled never fires — and simply works if the author flips them green.
+    check('every entry with zh keys is translatable (incl. blue + disabled)',
+        translatable.map((e) => e.uid), [1, 2, 8, 32]);
     check('AND-logic entry is flagged, not translated', flagged.map((f) => f.uid), [80]);
     ok('flag says why', flagged[0].reason.includes('次要关键词'));
-    check('blue + disabled are skipped', skipped.map((s2) => s2.uid).sort(), [1, 2]);
-    ok('skip reasons distinguish the two',
-        skipped.find((s2) => s2.uid === 1).reason.includes('蓝灯')
-        && skipped.find((s2) => s2.uid === 2).reason.includes('禁用'));
     check('no-chinese-keys entries are inert', inert.sort(), [70, 95]);
 }
 {
@@ -78,6 +78,13 @@ const BOOK = {
 {
     const plan = planWrites({ 999: ['ghost'] }, BOOK, '');
     check('unknown uid ignored', plan.writes, {});
+}
+{
+    // Blue and disabled entries receive writes like any other (request:
+    // "add trigger words for skipped entries if they have trigger words").
+    const plan = planWrites({ 1: ['Cangxuan Realm'], 2: ['old lore'] }, BOOK, '');
+    check('blue entry gets its keys', plan.writes['1'], ['Cangxuan Realm']);
+    check('disabled entry gets its keys', plan.writes['2'], ['old lore']);
 }
 
 /* ---------------- refreshEntryIndex ---------------- */
@@ -164,6 +171,17 @@ const fakeEntries = Array.from({ length: 24 }, (_, i) => ({
     });
     check('empty answers are not writes', Object.keys(result.translations), ['2']);
     check('and are not failures', result.failedBatches.length, 0);
+}
+{
+    // Render pairs ride along with translations.
+    const result = await translateBook(fakeEntries.slice(0, 2), {
+        batchSize: 2, cache: {},
+        complete: async () => JSON.stringify([
+            { uid: 1, key_en: ['Shen Muwei'], render: { zh: '沈慕微', en: 'Shen Muwei' } },
+            { uid: 2, key_en: ['x-thing'], render: null },
+        ]),
+    });
+    check('render pairs are collected', result.renders, [{ zh: '沈慕微', en: 'Shen Muwei' }]);
 }
 {
     // Abort propagates out rather than being swallowed as a batch failure.

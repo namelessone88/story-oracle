@@ -26,6 +26,14 @@
     border-radius: 2px;
 }
 
+.lb-span.lb-name {
+    /* A renamed name must read as ordinary prose — no marking unless it is
+       also a trigger word (then the .lb-hl underline applies). */
+    cursor: default;
+}
+
+.lb-span.lb-name.lb-hl { cursor: help; }
+
 /* ---------- hover card ---------- */
 
 .lb-tooltip {
@@ -55,6 +63,7 @@
 }
 
 .lb-tt-title { font-weight: 600; font-size: 1.05em; }
+.lb-tt-en { opacity: 0.8; font-weight: 400; margin-inline-start: 6px; }
 .lb-tt-cat { opacity: 0.65; font-size: 0.85em; white-space: nowrap; }
 
 .lb-tt-row { margin: 3px 0; display: flex; flex-wrap: wrap; gap: 4px; align-items: baseline; }
@@ -183,3 +192,29 @@
 .lb-plan-row:last-child { border-bottom: none; }
 .lb-plan-title { font-weight: 500; margin-inline-end: 4px; }
 
+/* ---------- 名称显示 list ---------- */
+
+.lb-names {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 220px;
+    overflow-y: auto;
+}
+
+.lb-name-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.lb-name-row:hover { background: color-mix(in srgb, var(--SmartThemeBodyColor, #fff) 6%, transparent); }
+.lb-name-zh { font-weight: 500; }
+.lb-name-arrow { opacity: 0.5; }
+.lb-name-en { opacity: 0.85; }
+.lb-name-del { cursor: pointer; opacity: 0.5; padding: 0 4px; }
+.lb-name-del:hover { opacity: 1; }
+.lb-name-input { flex: 1; min-width: 90px; }

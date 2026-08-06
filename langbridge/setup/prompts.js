@@ -42,11 +42,18 @@ export const SYSTEM_PROMPT = `你是一个世界书触发词翻译器。用户�
 - 触发词已经是英文的，跳过；实在没法翻好的，跳过——宁缺毋滥
 - 正文摘录只是帮你理解词义的背景，不要从里面提取新触发词
 
+【render】额外一问：这个条目写的是不是一个【有名字的人物 / 地点 / 势力】？
+- 是，且名字是【音译式专有名词】（沈慕微、归墟、阿德森帝国这类——拼音比汉字好认）：给 {"zh": "该名字", "en": "英文显示形式"}。en 用你在 key_en 里给的同一个拼写
+- 名字本身是【有含义的中文词】（天剑宗、圣所——中文本身就好懂，翻了反而丢味道），或条目不是名字类：给 null
+- 单个汉字的名字（红、陶）：一律给 null
+- 拿不准给 null——宁可保持中文，也不要错翻
+
 输出：只输出一个 JSON 数组，别的什么都不要。每个给你的条目都必须出现一次，uid 原样照抄；没有可翻的就给空数组：
 [
-  {"uid": 8, "key_en": ["Shen Muwei", "Muwei", "Merciless Path First Seat"]},
-  {"uid": 32, "key_en": ["teleport array", "teleportation", "teleport fee", "spirit stone price"]},
-  {"uid": 70, "key_en": []}
+  {"uid": 8, "key_en": ["Shen Muwei", "Muwei", "Merciless Path First Seat"], "render": {"zh": "沈慕微", "en": "Shen Muwei"}},
+  {"uid": 32, "key_en": ["teleport array", "teleportation", "teleport fee", "spirit stone price"], "render": null},
+  {"uid": 12, "key_en": ["Heavenly Sword Sect"], "render": null},
+  {"uid": 70, "key_en": [], "render": null}
 ]`;
 
 /** User message for one batch of entries. */

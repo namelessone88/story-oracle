@@ -167,9 +167,18 @@ export function normalizeTranslation(item) {
     if (!Number.isFinite(uid)) return null;
     const list = Array.isArray(item.key_en) ? item.key_en
         : (Array.isArray(item.keys_en) ? item.keys_en : []);
+    // Optional display pair: the entry is ABOUT a named person/place/faction
+    // whose phonetic name reads better romanized (沈慕微 → "Shen Muwei").
+    let render = null;
+    if (item.render && typeof item.render === 'object') {
+        const zh = String(item.render.zh || '').trim();
+        const en = String(item.render.en || '').trim();
+        if (zh && en) render = { zh, en };
+    }
     return {
         uid,
         key_en: list.map((k) => String(k || '').trim()).filter(Boolean),
+        render,
     };
 }
 

@@ -1,29 +1,157 @@
 {
-  "_comment": "Hand-seeded 苍玄界 slice. Import via LangBridge → 导入 to see highlighting + hover cards working before touching your own book. keyTranslations simulate a completed 翻译触发词 run; entry 1 is a blue (constant) entry to show gating.",
+  "_comment": "Hand-seeded 苍玄界 slice. Import via LangBridge → 导入 to see highlighting, hover cards and name rendering working before touching your own book. keyTranslations simulate a completed 翻译触发词 run; entry 1 is a blue (constant) entry: its name renders in English but its key never highlights.",
   "version": 2,
   "bookName": "我的苍玄界（才不会这么跌宕起伏）",
   "bookFingerprint": "",
   "entryIndex": {
-    "1":   { "title": "苍玄界·总览", "keys": ["苍玄界"], "gated": false },
-    "8":   { "title": "【人设】沈慕微", "keys": ["沈慕微", "无情道首座"], "gated": true },
-    "9":   { "title": "【人设】慕海棠", "keys": ["慕海棠"], "gated": true },
-    "12":  { "title": "天剑宗", "keys": ["天剑宗", "剑宗"], "gated": true },
-    "32":  { "title": "传送阵开销与购买力", "keys": ["传送阵", "传送费用", "购买力", "灵石价格", "跨域传送", "路费"], "gated": true },
-    "40":  { "title": "东海", "keys": ["东海"], "gated": true },
-    "41":  { "title": "东海海域", "keys": ["东海海域"], "gated": true },
-    "42":  { "title": "归墟", "keys": ["归墟"], "gated": true },
-    "43":  { "title": "归墟潮眼", "keys": ["归墟潮眼"], "gated": true },
-    "50":  { "title": "境界·筑基", "keys": ["筑基"], "gated": true },
-    "90":  { "title": "【人设】红", "keys": ["红"], "gated": true },
-    "136": { "title": "[mvu_plot]沈慕微CG触发", "keys": ["沈慕微", "温泉"], "gated": true }
+    "1": {
+      "title": "苍玄界·总览",
+      "keys": [
+        "苍玄界"
+      ],
+      "gated": false
+    },
+    "8": {
+      "title": "【人设】沈慕微",
+      "keys": [
+        "沈慕微",
+        "无情道首座"
+      ],
+      "gated": true
+    },
+    "9": {
+      "title": "【人设】慕海棠",
+      "keys": [
+        "慕海棠"
+      ],
+      "gated": true
+    },
+    "12": {
+      "title": "天剑宗",
+      "keys": [
+        "天剑宗",
+        "剑宗"
+      ],
+      "gated": true
+    },
+    "32": {
+      "title": "传送阵开销与购买力",
+      "keys": [
+        "传送阵",
+        "传送费用",
+        "购买力",
+        "灵石价格",
+        "跨域传送",
+        "路费"
+      ],
+      "gated": true
+    },
+    "40": {
+      "title": "东海",
+      "keys": [
+        "东海"
+      ],
+      "gated": true
+    },
+    "41": {
+      "title": "东海海域",
+      "keys": [
+        "东海海域"
+      ],
+      "gated": true
+    },
+    "42": {
+      "title": "归墟",
+      "keys": [
+        "归墟"
+      ],
+      "gated": true
+    },
+    "43": {
+      "title": "归墟潮眼",
+      "keys": [
+        "归墟潮眼"
+      ],
+      "gated": true
+    },
+    "50": {
+      "title": "境界·筑基",
+      "keys": [
+        "筑基"
+      ],
+      "gated": true
+    },
+    "90": {
+      "title": "【人设】红",
+      "keys": [
+        "红"
+      ],
+      "gated": true
+    },
+    "136": {
+      "title": "[mvu_plot]沈慕微CG触发",
+      "keys": [
+        "沈慕微",
+        "温泉"
+      ],
+      "gated": true
+    }
   },
   "keyTranslations": {
-    "8":   ["Shen Muwei", "Muwei", "Merciless Path First Seat"],
-    "9":   ["Mu Haitang", "Haitang"],
-    "32":  ["teleport array", "teleportation", "teleport fee", "purchasing power", "spirit stone price", "cross-region teleport", "travel cost"],
-    "42":  ["Guixu"],
-    "50":  ["foundation establishment"],
-    "136": ["Shen Muwei", "hot spring"]
+    "8": [
+      "Shen Muwei",
+      "Muwei",
+      "Merciless Path First Seat"
+    ],
+    "9": [
+      "Mu Haitang",
+      "Haitang"
+    ],
+    "32": [
+      "teleport array",
+      "teleportation",
+      "teleport fee",
+      "purchasing power",
+      "spirit stone price",
+      "cross-region teleport",
+      "travel cost"
+    ],
+    "42": [
+      "Guixu"
+    ],
+    "50": [
+      "foundation establishment"
+    ],
+    "136": [
+      "Shen Muwei",
+      "hot spring"
+    ]
   },
-  "addedKeys": {}
+  "addedKeys": {},
+  "renderMap": {
+    "沈慕微": {
+      "en": "Shen Muwei",
+      "on": true
+    },
+    "慕海棠": {
+      "en": "Mu Haitang",
+      "on": true
+    },
+    "归墟": {
+      "en": "Guixu",
+      "on": true
+    },
+    "东海": {
+      "en": "East Sea",
+      "on": true
+    },
+    "东海海域": {
+      "en": "East Sea Waters",
+      "on": true
+    },
+    "苍玄界": {
+      "en": "Cangxuan Realm",
+      "on": true
+    }
+  }
 }

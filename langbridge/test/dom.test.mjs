@@ -68,8 +68,10 @@ function message(html, { isUser = false, id = 0 } = {}) {
     return mes;
 }
 
-/* ---------------- highlighting ---------------- */
+/* ---------------- highlighting (rendering off — pure underline pass) ---------------- */
 {
+    toggles = { ...DEFAULT_TOGGLES, renderNames: false };
+    runtime.refresh();
     const source = '<p>沈慕微用传送阵抵达东海海域。</p>';
     const mes = message(source);
     runtime.passMessage(mes);
@@ -81,12 +83,16 @@ function message(html, { isUser = false, id = 0 } = {}) {
         [...host.querySelectorAll('.lb-span')].every((s) => s.classList.contains('lb-hl')));
     ok('originals preserved for strip',
         [...host.querySelectorAll('.lb-span')].every((s) => s.dataset.lbOrig === s.textContent));
+    toggles = { ...DEFAULT_TOGGLES };
+    runtime.refresh();
 }
 {
-    const mes = message('<p>这里是苍玄界，她穿着红色的衣服。</p>');
+    // 红 (single hanzi) untouched; 苍玄界 renders (renderMap) but is not
+    // underlined — the underline test lives in the rendering section.
+    const mes = message('<p>她穿着红色的衣服。</p>');
     runtime.passMessage(mes);
-    check('blue-entry key and single-hanzi name untouched',
-        mes.querySelector('.mes_text').innerHTML, '<p>这里是苍玄界，她穿着红色的衣服。</p>');
+    check('single-hanzi name untouched',
+        mes.querySelector('.mes_text').innerHTML, '<p>她穿着红色的衣服。</p>');
 }
 
 /* ---------------- idempotency + reversibility ---------------- */
@@ -107,15 +113,15 @@ function message(html, { isUser = false, id = 0 } = {}) {
     check('strip restores the DOM exactly', mes.querySelector('.mes_text').innerHTML, source);
 }
 {
-    // Toggle off → refresh strips everything and stays clean.
+    // Both toggles off → refresh strips everything and stays clean.
     const source = '<p>传送阵在东海。</p>';
     const mes = message(source);
     runtime.passMessage(mes);
     ok('decorated while on', mes.querySelectorAll('.lb-span').length > 0);
 
-    toggles = { ...DEFAULT_TOGGLES, highlight: false };
+    toggles = { ...DEFAULT_TOGGLES, highlight: false, renderNames: false };
     runtime.refresh();
-    check('toggle off restores the source', document.querySelector('.mes_text').innerHTML, source);
+    check('toggles off restore the source', document.querySelector('.mes_text').innerHTML, source);
 
     toggles = { ...DEFAULT_TOGGLES };
     runtime.refresh();
@@ -164,6 +170,61 @@ function message(html, { isUser = false, id = 0 } = {}) {
     check('unknown phrasing produces no spans (drift signal)', mes.querySelectorAll('.lb-span').length, 0);
 }
 
+/* ---------------- name rendering ---------------- */
+{
+    toggles = { ...DEFAULT_TOGGLES };
+    runtime.refresh();
+    const mes = message('<p>沈慕微用传送阵抵达东海海域。</p>');
+    runtime.passMessage(mes);
+    const host = mes.querySelector('.mes_text');
+    check('names render as English, triggers stay Chinese',
+        host.textContent, 'Shen Muwei用传送阵抵达East Sea Waters。');
+    const muwei = [...host.querySelectorAll('.lb-span')].find((s) => s.dataset.lbOrig === '沈慕微');
+    ok('renamed span keeps its trigger underline', muwei.classList.contains('lb-hl') && muwei.classList.contains('lb-name'));
+    check('original preserved for strip/hover', muwei.dataset.lbOrig, '沈慕微');
+
+    stripIn(host);
+    check('strip restores the Chinese exactly', host.innerHTML, '<p>沈慕微用传送阵抵达东海海域。</p>');
+}
+{
+    // Longest-first protects longer names from partial renames: 归墟潮眼 has no
+    // render pair, so it must NOT become "Guixu潮眼".
+    const mes = message('<p>归墟潮眼在归墟之南。</p>');
+    runtime.passMessage(mes);
+    check('no partial rename inside a longer name',
+        mes.querySelector('.mes_text').textContent, '归墟潮眼在Guixu之南。');
+}
+{
+    // A blue entry's name renders even though it never highlights.
+    const mes = message('<p>这里是苍玄界。</p>');
+    runtime.passMessage(mes);
+    const host = mes.querySelector('.mes_text');
+    check('blue-entry name renders', host.textContent, '这里是Cangxuan Realm。');
+    const span = host.querySelector('.lb-span');
+    ok('…without a trigger underline', span.classList.contains('lb-name') && !span.classList.contains('lb-hl'));
+}
+{
+    // renderNames off → Chinese everywhere, triggers still underlined.
+    toggles = { ...DEFAULT_TOGGLES, renderNames: false };
+    runtime.refresh();
+    const mes = message('<p>沈慕微在东海。</p>');
+    runtime.passMessage(mes);
+    check('toggle off keeps Chinese', mes.querySelector('.mes_text').textContent, '沈慕微在东海。');
+    ok('triggers still underlined', mes.querySelectorAll('.lb-hl').length > 0);
+    toggles = { ...DEFAULT_TOGGLES };
+    runtime.refresh();
+}
+{
+    // User messages are never renamed even with rendering on.
+    toggles = { ...DEFAULT_TOGGLES, highlightUserMessages: true };
+    runtime.refresh();
+    const mes = message('<p>沈慕微在哪？</p>', { isUser: true });
+    runtime.passMessage(mes);
+    check('user text never renamed', mes.querySelector('.mes_text').textContent, '沈慕微在哪？');
+    toggles = { ...DEFAULT_TOGGLES };
+    runtime.refresh();
+}
+
 /* ---------------- hover card content ---------------- */
 {
     toggles = { ...DEFAULT_TOGGLES };
@@ -173,6 +234,15 @@ function message(html, { isUser = false, id = 0 } = {}) {
     const span = mes.querySelector('.lb-span');
     const html = buildCardHtml(REG, span);
     ok('card names the entry', html.includes('传送阵开销与购买力'));
+    {
+        // Card for a RENAMED span leads with the Chinese original.
+        const mes2 = message('<p>沈慕微。</p>');
+        runtime.passMessage(mes2);
+        const renamed = mes2.querySelector('.lb-span');
+        const cardHtml = buildCardHtml(REG, renamed);
+        ok('renamed card shows the Chinese original', cardHtml.includes('沈慕微'));
+        ok('…and the English form', cardHtml.includes('Shen Muwei'));
+    }
     ok('card lists sibling keys', html.includes('跨域传送') && html.includes('路费'));
     ok('card shows english ways to type it', html.includes('teleport array') && html.includes('travel cost'));
     ok('card states the honest semantics', html.includes('可触发 ≠ 已注入'));

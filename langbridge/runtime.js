@@ -1,5 +1,5 @@
 /**
- * LangBridge — display runtime: trigger-word highlighting.
+ * LangBridge — display runtime: trigger-word highlighting + name rendering.
  *
  * Post-render DOM decoration. ZERO LLM calls. NEVER touches message.mes or the
  * chat file — every change is to rendered DOM only and fully reversible.
@@ -82,7 +82,11 @@ export class DisplayRuntime {
         if (mes.dataset.lbPass === revision) return;               // idempotent
 
         const isUser = mes.getAttribute('is_user') === 'true';
-        const active = toggles.highlight && (!isUser || toggles.highlightUserMessages);
+        // AI replies: highlight and/or rename. User messages: highlight only,
+        // and only when opted in — the user's own text is never renamed.
+        const active = isUser
+            ? (toggles.highlight && toggles.highlightUserMessages)
+            : (toggles.highlight || toggles.renderNames);
         const matcher = isUser ? user : ai;
 
         this._withoutObserver(() => {
@@ -172,10 +176,15 @@ export class DisplayRuntime {
             let cursor = 0;
             for (const hit of hits) {
                 if (hit.start > cursor) frag.appendChild(document.createTextNode(text.slice(cursor, hit.start)));
+                // Token flags were decided at build time from the toggles:
+                // render = English display form (AI matcher only), highlight =
+                // this text is a live trigger key. Every token has at least one.
+                const renderEn = hit.token.render || '';
+                const highlight = !!hit.token.highlight;
                 const span = document.createElement('span');
-                span.className = 'lb-span lb-hl';
+                span.className = 'lb-span' + (renderEn ? ' lb-name' : '') + (highlight ? ' lb-hl' : '');
                 span.dataset.lbOrig = hit.text;                    // exact restore on strip
-                span.textContent = hit.text;                       // visible text is unchanged
+                span.textContent = renderEn || hit.text;
                 frag.appendChild(span);
                 cursor = hit.end;
             }
