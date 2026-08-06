@@ -241,6 +241,14 @@ function renderResult(deps, outcome, bookData) {
              <span class="lb-hint">建议词：${f.proposed.map(escapeHtml).join('、')}</span></div>`).join('')}</div>`);
     }
 
+    if (plan.skipped?.length) {
+        parts.push(`<div class="lb-section">跳过的条目（${plan.skipped.length}）</div>
+          <div class="lb-hint">这些条目加英文触发词没有意义，所以不写：</div>
+          <div class="lb-plan">${plan.skipped.slice(0, 15).map((sk) =>
+            `<div class="lb-plan-row"><span class="lb-plan-title">${escapeHtml(sk.title)}</span>
+             <span class="lb-hint">${escapeHtml(sk.reason)}</span></div>`).join('')}</div>`);
+    }
+
     if (plan.rejected.length) {
         const shown = plan.rejected.slice(0, 15);
         parts.push(`<div class="lb-section">已挡掉的词（${plan.rejected.length}）</div>

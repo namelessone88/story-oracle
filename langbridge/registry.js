@@ -40,6 +40,11 @@ export function emptyRegistry(bookName = '') {
         entities: [],
         conceptKeys: [],
         addedKeys: {},
+        // uid → English equivalents of THAT entry's existing Chinese trigger
+        // words. Grounded in what the author actually wrote rather than invented
+        // from the entry as a whole, so every Chinese key the user might reach
+        // for has an English sibling.
+        keyTranslations: {},
         // uid → { title, keys[] }, captured at setup time.
         //
         // ADDITION TO THE HANDOFF SPEC §3: the spec's schema stored only
@@ -133,6 +138,13 @@ export function normalizeRegistry(raw, bookName = '') {
         for (const [uid, keys] of Object.entries(raw.addedKeys)) {
             const list = uniqueStrings(keys);
             if (list.length) base.addedKeys[String(uid)] = list;
+        }
+    }
+
+    if (raw.keyTranslations && typeof raw.keyTranslations === 'object') {
+        for (const [uid, keys] of Object.entries(raw.keyTranslations)) {
+            const list = uniqueStrings(keys);
+            if (list.length) base.keyTranslations[String(uid)] = list;
         }
     }
 

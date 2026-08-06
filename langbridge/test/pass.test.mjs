@@ -67,9 +67,9 @@ const SKELETON = normalizeRegistry({
 }, 'B');
 
 const CLASSIFICATIONS = [
-    { uid: 8,  category: 'character', display_en: 'Shen Muwei', aliases_en: ['Muwei'], concept_en: [], displayPolicy: 'en' },
-    { uid: 12, category: 'faction',   display_en: 'Heavenly Sword Sect', aliases_en: [], concept_en: [], displayPolicy: 'zh' },
-    { uid: 32, category: 'concept',   display_en: '', aliases_en: [], concept_en: ['teleport array', 'spirit stone price'], displayPolicy: 'en' },
+    { uid: 8,  category: 'character', display_en: 'Shen Muwei', aliases_en: ['Muwei'], key_en: [], displayPolicy: 'en' },
+    { uid: 12, category: 'faction',   display_en: 'Heavenly Sword Sect', aliases_en: [], key_en: [], displayPolicy: 'zh' },
+    { uid: 32, category: 'concept',   display_en: '', aliases_en: [], key_en: ['teleport array', 'spirit stone price'], displayPolicy: 'en' },
 ];
 
 {
@@ -206,7 +206,7 @@ ok('a 176-row reply would blow a 4096 cap (why batching exists at all)',
 
 const rows = (entries) => JSON.stringify(entries.map((e) => ({
     uid: e.uid, category: 'concept', display_en: '', displayPolicy: 'en',
-    aliases_en: [], concept_en: [],
+    aliases_en: [], key_en: [],
 })));
 
 const fakeEntries = Array.from({ length: 24 }, (_, i) => ({
@@ -311,7 +311,7 @@ const fakeEntries = Array.from({ length: 24 }, (_, i) => ({
     // it is unsure.
     const reRun = mergeClassifications(decided, { entries: { 42: { comment: '归墟' } } },
         [{ uid: 42, category: 'location', display_en: 'The Return to Void', displayPolicy: 'en',
-           aliases_en: [], concept_en: [], policyUncertain: true }]);
+           aliases_en: [], key_en: [], policyUncertain: true }]);
     const after = reRun.entities.find((e) => e.canonical === '归墟');
     check('a decided policy survives a re-run', after.displayPolicy, 'zh');
     ok('and is not re-asked', !after.policyUncertain);
@@ -329,6 +329,78 @@ const fakeEntries = Array.from({ length: 24 }, (_, i) => ({
     ok('pending rows are marked', rows.includes('lb-decide-pending'));
     ok('the active side is highlighted', rows.includes('lb-on'));
     check('empty list renders a message', decisionRowsHtml([]).includes('没有需要决定的名字'), true);
+}
+
+/* ================================================================== *
+ * Gating: entries that cannot benefit from an English trigger word
+ * ================================================================== */
+{
+    const book = { entries: {
+        1: { uid: 1, comment: '世界观总纲', key: ['苍玄界'], constant: true },
+        2: { uid: 2, comment: '废弃条目', key: ['旧设定'], disable: true },
+        3: { uid: 3, comment: '普通条目', key: ['密林'] },
+    } };
+    const reg = normalizeRegistry({ keyTranslations: {
+        1: ['cangxuan realm'], 2: ['old setting'], 3: ['dense forest'],
+    } }, 'B');
+    const plan = planKeyEmission(reg, book, '');
+
+    check('blue-light (constant) entry gets no keys', plan.writes['1'], undefined);
+    check('disabled entry gets no keys', plan.writes['2'], undefined);
+    check('keyword-gated entry does get them', plan.writes['3'], ['dense forest']);
+    check('both skips are reported', plan.skipped.map((s2) => s2.uid).sort(), [1, 2]);
+    ok('and each says why',
+        plan.skipped.find((s2) => s2.uid === 1).reason.includes('蓝灯')
+        && plan.skipped.find((s2) => s2.uid === 2).reason.includes('禁用'));
+}
+{
+    const entries = collectEntries({ entries: {
+        1: { uid: 1, comment: 'A', key: [], constant: true },
+        2: { uid: 2, comment: 'B', key: [], disable: true },
+        3: { uid: 3, comment: 'C', key: [] },
+    } });
+    ok('constant status is recorded', entries.find((e) => e.uid === 1).constant);
+    ok('disabled status is recorded', entries.find((e) => e.uid === 2).disabled);
+    ok('an ordinary entry is neither', !entries.find((e) => e.uid === 3).constant
+        && !entries.find((e) => e.uid === 3).disabled);
+}
+
+/* ================================================================== *
+ * Author's own trigger words get English siblings
+ * ================================================================== */
+{
+    const merged = mergeClassifications(emptyRegistry('B'), BOOK, [{
+        uid: 32, category: 'concept', display_en: '', displayPolicy: 'en',
+        aliases_en: [],
+        key_en: ['teleport array', 'teleport fee', 'purchasing power',
+                 'spirit stone price', 'cross-region teleport', 'travel cost'],
+    }]);
+    check('translations are stored against the entry',
+        merged.keyTranslations['32'].length, 6);
+
+    const plan = planKeyEmission(merged, BOOK, '');
+    const written = plan.writes['32'] || [];
+    ok('every author key gains an english sibling', written.length >= 6);
+    ok('including the ones a phrase-inventing pass would have missed',
+        written.includes('travel cost') && written.includes('cross-region teleport'));
+}
+{
+    // A character's title keys are translated too, alongside the name variants.
+    const reg = normalizeRegistry({
+        entities: [{ id: 'a', canonical: '沈慕微', category: 'character',
+            display_en: 'Shen Muwei', displayPolicy: 'en', sourceEntryUids: [8] }],
+        keyTranslations: { 8: ['Merciless Path First Seat'] },
+    }, 'B');
+    const plan = planKeyEmission(reg, BOOK, '');
+    ok('name variants are present', plan.writes['8'].includes('Muwei'));
+    ok('and the title translation too', plan.writes['8'].includes('Merciless Path First Seat'));
+}
+{
+    // Translations still go through the collision screen.
+    const book = { entries: { 5: { uid: 5, comment: '状态', key: ['等级'] } } };
+    const reg = normalizeRegistry({ keyTranslations: { 5: ['level', 'cultivation level'] } }, 'B');
+    const plan = planKeyEmission(reg, book, '<div>Level: 12</div>');
+    check('a colliding translation is dropped', plan.writes['5'], ['cultivation level']);
 }
 
 console.log(lines.join('\n'));

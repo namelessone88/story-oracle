@@ -112,7 +112,7 @@ ok('repairJson is a no-op on clean input', repairJson('[{"a":1}]') === '[{"a":1}
     const batch = parseClassificationBatch(`\`\`\`json
     [
       {"uid": 8, "category": "character", "display_en": "Shen Muwei", "aliases_en": ["Muwei"], "displayPolicy": "en"},
-      {"uid": 32, "category": "concept", "concept_en": ["teleport array", "teleportation"]},
+      {"uid": 32, "category": "concept", "key_en": ["teleport array", "teleportation"]},
       {"uid": 99, "category": "nonsense"},
       {"uid": "bad"},
       null
@@ -123,7 +123,7 @@ ok('repairJson is a no-op on clean input', repairJson('[{"a":1}]') === '[{"a":1}
     check('character row keeps its romanization',
         batch.find((b) => b.uid === 8).display_en, 'Shen Muwei');
     check('concept row keeps its english keys',
-        batch.find((b) => b.uid === 32).concept_en, ['teleport array', 'teleportation']);
+        batch.find((b) => b.uid === 32).key_en, ['teleport array', 'teleportation']);
 }
 check('unparseable batch yields empty array (fails alone)', parseClassificationBatch('nope'), []);
 check('normalizeClassification rejects rows without uid', normalizeClassification({ category: 'character' }), null);
@@ -230,6 +230,8 @@ check('extractCgNames reads [mvu_plot] titles',
     ok('a clear phonetic name is not flagged', !batch.find((b) => b.uid === 8).policyUncertain);
     ok('a missing flag defaults to certain', !batch.find((b) => b.uid === 12).policyUncertain);
 }
+check('the older concept_en field name still parses',
+    normalizeClassification({ uid: 1, concept_en: ['legacy phrase'] }).key_en, ['legacy phrase']);
 ok('camelCase spelling of the flag is also accepted',
     normalizeClassification({ uid: 1, policyUncertain: true }).policyUncertain);
 

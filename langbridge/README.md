@@ -81,7 +81,10 @@ hash so re-runs and resumed runs don't re-spend tokens):
 2. Romanizes names (surname-first pinyin) and decides whether the Chinese or
    English form should be *displayed* — phonetic names (归墟 → "Guixu") lean
    English, meaningful ones (天剑宗 → "Heavenly Sword Sect") stay Chinese.
-3. Proposes English trigger phrases, then **screens every one** against a
+3. **Translates the entry's own Chinese trigger words** into English — entry 32's
+   传送阵 / 传送费用 / 购买力 / 灵石价格 / 跨域传送 / 路费 each gain an English
+   sibling, rather than the entry getting a few invented phrases that may not
+   match how you actually ask. Then it **screens every one** against a
    code/UI vocabulary blocklist and against the card's own status-bar templates,
    variable lists and a real sample AI reply. `level` is rejected;
    `cultivation level` survives. This matters because the World Info scanner
@@ -93,6 +96,10 @@ Safety properties, all tested:
 
 * **Only appends.** Original keys, `keysecondary`, `matchWholeWords`,
   `caseSensitive`, content and comments are never touched.
+* **Blue-light (constant) and disabled entries get no keys.** A constant entry
+  is injected every turn regardless of what the message says, so a trigger word
+  cannot make it fire any harder; a disabled entry never fires at all. Both are
+  skipped and reported rather than having noise appended to the author's key list.
 * **Entries with `keysecondary` (AND logic) are skipped** and flagged for manual
   review — an English primary matching your message while the Chinese
   secondaries only appear in AI text would shift activation timing.

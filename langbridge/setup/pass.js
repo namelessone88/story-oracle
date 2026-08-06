@@ -35,6 +35,11 @@ export function collectEntries(bookData) {
             content: String(entry.content || ''),
             keys: (Array.isArray(entry.key) ? entry.key : []).map((k) => String(k).trim()).filter(Boolean),
             hasSecondary: Array.isArray(entry.keysecondary) && entry.keysecondary.length > 0,
+            // Blue-light entries fire every turn regardless of keywords, so an
+            // English trigger word buys them nothing. Disabled entries never
+            // fire at all. Both are excluded from key emission (spec §4 Step 1).
+            constant: entry.constant === true,
+            disabled: entry.disable === true,
             hash: entryHash(entry),
         });
     }
@@ -95,6 +100,16 @@ export function mergeClassifications(registry, bookData, classifications) {
         };
     }
 
+    // Per-entry key translations apply to every category: a character entry's
+    // 无情道首座 deserves an English sibling just as much as a concept's 灵石价格.
+    next.keyTranslations = { ...base.keyTranslations };
+    for (const verdict of (classifications || [])) {
+        if (verdict.key_en?.length) {
+            next.keyTranslations[String(verdict.uid)] =
+                mergeUnique(next.keyTranslations[String(verdict.uid)], verdict.key_en);
+        }
+    }
+
     const conceptByZh = new Map(base.conceptKeys.map((c) => [c.zh, { ...c }]));
 
     for (const entity of base.entities) {
@@ -108,7 +123,7 @@ export function mergeClassifications(registry, bookData, classifications) {
             // becomes a highlight-only concept key.
             if (entity.provisional) {
                 const existing = conceptByZh.get(entity.canonical);
-                const en = mergeUnique(existing?.en, verdict.concept_en);
+                const en = mergeUnique(existing?.en, verdict.key_en);
                 conceptByZh.set(entity.canonical, {
                     zh: entity.canonical,
                     en,
@@ -150,11 +165,11 @@ export function mergeClassifications(registry, bookData, classifications) {
 
     // Concepts the classifier found on entries that had no entity at all.
     for (const verdict of byUid.values()) {
-        if (verdict.category !== 'concept' || !verdict.concept_en.length) continue;
+        if (verdict.category !== 'concept' || !verdict.key_en.length) continue;
         const entry = bookData?.entries?.[verdict.uid] ?? bookData?.entries?.[String(verdict.uid)];
         const zh = String(entry?.comment || '').replace(/^[【\[（(]{1}[^】\]）)]*[】\]）)]\s*/, '').trim();
         if (!zh || conceptByZh.has(zh)) continue;
-        conceptByZh.set(zh, { zh, en: verdict.concept_en.slice(), entryUids: [verdict.uid] });
+        conceptByZh.set(zh, { zh, en: verdict.key_en.slice(), entryUids: [verdict.uid] });
     }
 
     // Pinned jargon renderings win over anything the model improvised.
@@ -209,10 +224,25 @@ export function planKeyEmission(registry, bookData, machineryText = '') {
     const flagged = [];
     const rejected = [];
 
+    const skipped = [];
+
     const addWrites = (uids, keys, owner) => {
         for (const uid of uids) {
             const entry = entries[uid] ?? entries[String(uid)];
             if (!entry) continue;
+
+            // A blue-light (constant) entry is injected every turn no matter
+            // what the message says — a trigger word cannot make it fire any
+            // harder. A disabled entry never fires at all. Writing English keys
+            // to either is pure noise in the author's key list.
+            if (entry.constant === true || entry.disable === true) {
+                skipped.push({
+                    uid: Number(uid),
+                    title: String(entry.comment || `条目 #${uid}`),
+                    reason: entry.disable === true ? '条目被禁用' : '蓝灯常驻条目，本来就每回合注入，不需要触发词',
+                });
+                continue;
+            }
 
             // AND-logic entries are never auto-augmented: an English primary
             // matching the user's message while the Chinese secondaries only
@@ -250,16 +280,30 @@ export function planKeyEmission(registry, bookData, machineryText = '') {
         if (accepted.length) addWrites(concept.entryUids, accepted, concept.zh);
     }
 
+    // English equivalents of each entry's OWN Chinese trigger words. This is the
+    // bulk of the recall: entry 32's 传送费用 / 购买力 / 灵石价格 / 跨域传送 / 路费
+    // each gain an English sibling, instead of the entry getting a few invented
+    // phrases that may not match how the user actually asks.
+    for (const [uid, keys] of Object.entries(reg.keyTranslations || {})) {
+        if (!keys.length) continue;
+        const { accepted, rejected: bad } = screenKeys(keys, { machineryText });
+        for (const item of bad) rejected.push({ ...item, owner: `条目 #${uid}` });
+        if (accepted.length) addWrites([uid], accepted, `条目 #${uid}`);
+    }
+
     const keyCount = Object.values(writes).reduce((n, list) => n + list.length, 0);
+    const uniqueSkipped = [...new Map(skipped.map((s2) => [s2.uid, s2])).values()];
     return {
         writes,
         flagged,
         rejected,
+        skipped: uniqueSkipped,
         stats: {
             entries: Object.keys(writes).length,
             keys: keyCount,
             flagged: flagged.length,
             rejected: rejected.length,
+            skipped: uniqueSkipped.length,
         },
     };
 }

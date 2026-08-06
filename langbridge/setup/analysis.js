@@ -241,7 +241,10 @@ export function normalizeClassification(item) {
         display_en: String(item.display_en || '').trim(),
         aliases_en: (Array.isArray(item.aliases_en) ? item.aliases_en : [])
             .map((a) => String(a || '').trim()).filter(Boolean),
-        concept_en: (Array.isArray(item.concept_en) ? item.concept_en : [])
+        // English equivalents of the entry's EXISTING Chinese trigger words.
+        // concept_en is the older field name and is still accepted.
+        key_en: (Array.isArray(item.key_en) ? item.key_en
+            : (Array.isArray(item.concept_en) ? item.concept_en : []))
             .map((a) => String(a || '').trim()).filter(Boolean),
         // 'zh' when the Chinese form is semantically meaningful (圣所 "Sanctuary"),
         // 'en' when it is phonetic (阿德森帝国). Wrong guesses are expected; the

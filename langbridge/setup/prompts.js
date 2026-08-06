@@ -59,18 +59,19 @@ export const SYSTEM_PROMPT = `你是一个中文角色扮演世界书的整理�
 
 【aliases_en】该名字用户还可能怎么打（不含姓的名、常见简称）。不确定就给空数组。
 
-【concept_en】只给 concept 类，是用户可能用来提起这个条目的英文说法：
-- 【优先给多词短语】："teleport array"、"spirit stone price"、"foundation establishment"
-- 单个词只在它足够具体、不会撞上普通英文时才给："tribulation"、"cultivator"
+【key_en】所有类别都要给。这是【把该条目"现有触发词"里的中文词，逐个翻成用户会打的英文】——不是另起炉灶想新词：
+- 逐条对应：条目的现有触发词是「传送阵、传送费用、购买力、灵石价格、跨域传送、路费」，就给
+  ["teleport array", "teleport fee", "purchasing power", "spirit stone price", "cross-region teleport", "travel cost"]
+- 【优先多词短语】，单个词只在它足够具体、不会撞上普通英文时才给（"tribulation"、"cultivator" 可以）
 - 【绝对不要】给这类通用词：level、status、value、name、time、type、data、text、color、hp、exp、info、panel、system、user、item、state——它们会出现在状态栏和变量块里，一给就会每回合乱触发
-- 通用规则类条目（价格、战斗、距离这种）宁可少给，只给具体短语
-- 一个条目最多给 4 条，宁缺毋滥
+- 已经是英文的触发词、或翻出来会撞上通用词的，直接跳过不给
+- 人名条目的称号类触发词（无情道首座、谷主）也要翻
 
 【输出】只输出一个 JSON 数组，不要任何解释、不要代码块以外的文字：
 [
-  {"uid": 8, "category": "character", "display_en": "Shen Muwei", "displayPolicy": "en", "policy_uncertain": false, "aliases_en": ["Muwei"], "concept_en": []},
-  {"uid": 41, "category": "location", "display_en": "Guixu", "displayPolicy": "en", "policy_uncertain": true, "aliases_en": [], "concept_en": []},
-  {"uid": 32, "category": "concept", "display_en": "", "displayPolicy": "en", "policy_uncertain": false, "aliases_en": [], "concept_en": ["teleport array", "teleportation"]}
+  {"uid": 8, "category": "character", "display_en": "Shen Muwei", "displayPolicy": "en", "policy_uncertain": false, "aliases_en": ["Muwei"], "key_en": ["Merciless Path First Seat"]},
+  {"uid": 41, "category": "location", "display_en": "Guixu", "displayPolicy": "en", "policy_uncertain": true, "aliases_en": [], "key_en": []},
+  {"uid": 32, "category": "concept", "display_en": "", "displayPolicy": "en", "policy_uncertain": false, "aliases_en": [], "key_en": ["teleport array", "teleport fee", "spirit stone price"]}
 ]
 
 每个给你的条目都必须在数组里出现一次，uid 必须原样照抄。`;
@@ -92,7 +93,7 @@ export function buildBatchPrompt(entries) {
         .map(([zh, en]) => `${zh} → ${en.join(' / ')}`)
         .join('；');
 
-    return `【固定译法·必须照用】遇到这些词时，concept_en 必须使用下面给定的英文，不要另行发挥：\n${jargon}\n\n` +
+    return `【固定译法·必须照用】遇到这些词时，key_en 必须使用下面给定的英文，不要另行发挥：\n${jargon}\n\n` +
         `【本批条目 ${blocks.length} 条】\n\n${blocks.join('\n\n---\n\n')}`;
 }
 
