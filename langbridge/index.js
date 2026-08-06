@@ -22,6 +22,7 @@ import {
 } from './registry.js';
 import { DisplayRuntime } from './runtime.js';
 import { bindHover, hideCard } from './tooltip.js';
+import { openSetupPanel } from './setup/ui.js';
 
 const PANEL_ID = 'lb-panel';
 let runtime = null;
@@ -123,6 +124,7 @@ async function scanBookSkeleton(bookName) {
             aliases_en: keys.filter(isAscii),
             displayPolicy: 'zh',                // nothing renders until display_en exists
             singleChar: isSingleHanzi(canonical),
+            provisional: true,                  // placeholder — the Setup Pass may replace it
             sourceEntryUids: [Number(uid)],
         });
     }
@@ -153,6 +155,9 @@ function panelHtml() {
     <button type="button" id="lb-rescan" class="menu_button" title="读取世界书，建立/更新条目索引与名称骨架（不调用 AI，不写入世界书）">扫描</button>
   </div>
   <div id="lb-status" class="lb-status"></div>
+  <div class="lb-row">
+    <button type="button" id="lb-setup-open" class="menu_button" title="用 AI 通读世界书：分类、生成拼音、补上英文触发词（写入前先让你过目）">⚙️ 自动设置</button>
+  </div>
 
   <div class="lb-section">显示</div>
   <label class="lb-check"><input type="checkbox" id="lb-t-char"><span>角色名显示为英文</span></label>
@@ -232,6 +237,12 @@ function wirePanel(root) {
             button.disabled = false;
         }
     });
+
+    $('#lb-setup-open').addEventListener('click', () => openSetupPanel({
+        getBookName: activeBookName,
+        getRegistry: currentRegistry,
+        saveRegistry: (registry) => { saveRegistry(registry); renderPanel(); },
+    }));
 
     const bindToggle = (sel, key) => $(sel).addEventListener('change', (e) => setToggle(key, e.target.checked));
     bindToggle('#lb-t-char', 'renderCharacters');

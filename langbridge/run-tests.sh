@@ -12,7 +12,7 @@ set -e
 DIR=$(dirname "$0")
 status=0
 
-for suite in core sample dom; do
+for suite in core sample setup pass dom; do
     printf '\n=== %s ===\n' "$suite"
     node "$DIR/test/$suite.test.mjs" || status=1
 done

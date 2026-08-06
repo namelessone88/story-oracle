@@ -51,7 +51,7 @@ Prerequisites (both outside this extension):
 
 ## Status — what is built
 
-**Built and tested (this increment):**
+**Built and tested:**
 
 * Host Adapter — all SillyTavern coupling isolated in `host.js`
 * Name Registry — schema, normalization, per-book persistence, import/export
@@ -60,17 +60,55 @@ Prerequisites (both outside this extension):
   key triggers and their sibling keys, copy-中文
 * Non-LLM **扫描** — reads a worldbook and builds the entry index + a name
   skeleton (seeds `aliases_zh` from existing keys). Read-only: writes nothing.
-* 86 passing tests (39 core + 18 sample + 29 DOM)
+* **⚙️ 自动设置 (Setup Pass)** — classification, romanization, English key
+  emission, collision screen, review-before-write, worldbook write-back with
+  the `addedKeys` ledger
+* **Consistency report** — near-miss name detection between the worldbook and a
+  drawing library, CG/cast cross-checks, dead A1111 weight syntax
+* 193 passing tests (39 core + 18 sample + 65 setup + 42 pass + 29 DOM)
 
-**Not built yet (next increment):** the **LLM Setup Pass** — entry
-classification, romanization, English key emission, the collision screen, the
-worldbook write-back, the consistency report, and LittleWhiteBox alias sync.
-`host.js` already contains the write-back (`appendKeysToBook`, with re-read +
-delta-append + fingerprint guard) and the LLM transport (`setupCompletion`), so
-that increment is prompt + orchestration work, not plumbing.
+**Not built:** LittleWhiteBox *write* sync (§4 Step 5). The report **reads** a
+draw library defensively and flags mismatches, but never writes to it — that
+extension's storage shape is unverified, and with Chinese names restored in
+output the sync is a hardening step, not load-bearing.
 
-Until then, English trigger keys can be added by hand in ST's World Info editor,
-and `display_en` values can be filled in via **编辑登记表**.
+### What the Setup Pass does
+
+One LLM call per batch of ~20 entries (bounded concurrency 2, abortable, cached
+by entry-content hash so re-runs and resumed runs don't re-spend tokens):
+
+1. Classifies each entry as character / location / faction / concept.
+2. Romanizes names (surname-first pinyin) and decides whether the Chinese or
+   English form should be *displayed* — phonetic names (归墟 → "Guixu") lean
+   English, meaningful ones (天剑宗 → "Heavenly Sword Sect") stay Chinese.
+3. Proposes English trigger phrases, then **screens every one** against a
+   code/UI vocabulary blocklist and against the card's own status-bar templates,
+   variable lists and a real sample AI reply. `level` is rejected;
+   `cultivation level` survives. This matters because the World Info scanner
+   reads the raw message including MVU blocks and status-bar HTML — a key that
+   appears in that machinery would fire every single turn.
+4. Shows you exactly what would be written, then writes only on approval.
+
+Safety properties, all tested:
+
+* **Only appends.** Original keys, `keysecondary`, `matchWholeWords`,
+  `caseSensitive`, content and comments are never touched.
+* **Entries with `keysecondary` (AND logic) are skipped** and flagged for manual
+  review — an English primary matching your message while the Chinese
+  secondaries only appear in AI text would shift activation timing.
+* **Your decisions survive re-runs.** Entities are marked `provisional` while
+  they still hold 扫描 placeholders; once classified or hand-edited, a re-run
+  only *adds* aliases and never overwrites your `display_en`, `displayPolicy`
+  or category.
+* **Idempotent.** The `addedKeys` ledger plus a pre-write re-read means running
+  it twice produces no second diff.
+* **Fingerprint-guarded.** If the book changed between analysis and write, the
+  write is refused rather than applied to a book that moved.
+
+Fixed renderings for cultivation jargon (炼气/筑基/金丹/元婴/化神/合体/渡劫) are
+pinned in `setup/prompts.js` so a model can't invent "Foundation Building" on
+one run and "Foundation Establishment" on the next — these become your permanent
+typing vocabulary, so edit them there once if you want different wording.
 
 ---
 

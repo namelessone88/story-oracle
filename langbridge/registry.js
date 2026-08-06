@@ -101,6 +101,11 @@ export function normalizeRegistry(raw, bookName = '') {
             singleChar,
             // opt-in: allow a single-hanzi entity to be highlighted anyway
             allowSingleCharHighlight: item.allowSingleCharHighlight === true,
+            // true = created by the non-LLM 扫描 with placeholder category/policy,
+            // so the Setup Pass may replace those wholesale. Cleared once
+            // classified. Anything false is a decision someone made on purpose
+            // and is only ever added to, never overwritten (risk R8).
+            provisional: item.provisional === true,
             sourceEntryUids: uniqueNumbers(item.sourceEntryUids),
         });
     }
