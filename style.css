@@ -1085,6 +1085,18 @@
 .so-lb-result.so-lb-skip { color: var(--crimson70a, #e07c7c); opacity: 0.9; }
 .so-lb-parse-errors { font-size: 0.8em; line-height: 1.4; margin-top: 6px; }
 
+/* B5 应用前预检行（dry-run）：通过=强调色、未通过=灰显 + 内联原因、常驻/暗条目=琥珀警示。附注 note/warn 缩进小字。 */
+.so-lb-preview { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+.so-lb-preview:empty { display: none; }
+.so-lb-preview-head { font-size: 0.76em; opacity: 0.65; }
+.so-lb-prow { font-size: 0.8em; line-height: 1.4; }
+.so-lb-prow.so-lb-ok .so-lb-prow-main { color: var(--so-lb-accent); opacity: 0.95; }
+.so-lb-prow.so-lb-warn .so-lb-prow-main { color: var(--so-lb-accent); opacity: 0.95; }
+.so-lb-prow.so-lb-skip { opacity: 0.6; }
+.so-lb-prow.so-lb-skip .so-lb-prow-main { color: var(--crimson70a, #e07c7c); }
+.so-lb-note { font-size: 0.74em; opacity: 0.7; padding-left: 1.2em; }
+.so-lb-warn-note { font-size: 0.74em; color: #b8791f; padding-left: 1.2em; }
+
 .so-apply-bar {
     display: flex;
     align-items: center;
@@ -2342,3 +2354,186 @@ body.so-skin-light #so-fixwarn-btns button {
 body.so-skin-light .so-cur-disabled {
     color: #952323;
 }
+
+/* ==================== 世界书「智能选条」助手（ENABLE_LB_SMART_SELECT，2026-08-08）==================== */
+/* 🪄 入口按钮：同 .so-lb-mini 家族，用世界书强调色点亮。 */
+.so-lb-mini-magic { color: var(--so-lb-accent); font-weight: 600; }
+.so-lb-mini-magic:hover { background: color-mix(in srgb, var(--so-lb-accent) 22%, transparent); }
+
+/* overlay 骨架：同 #so-fixsel（inset:0 覆盖 #so-window、居中、遮罩 + 模糊）——恒可达逃生（✕ + 点遮罩关闭）。 */
+#so-smartsel {
+    display: none; position: absolute; inset: 0; z-index: 60;
+    align-items: center; justify-content: center; padding: 16px; box-sizing: border-box;
+    background: var(--so-scrim); backdrop-filter: blur(4px);
+}
+#so-smartsel.open { display: flex; }
+/* 卡片跟随主题（工作卡语义，非警告卡）：底色/边框/字色都走主题变量——绝不钉死浅色低对比（1.45.0 教训）。 */
+#so-smartsel-card {
+    display: flex; flex-direction: column; width: 100%; max-width: 560px; max-height: 100%; min-height: 0;
+    box-sizing: border-box; border-radius: 12px; border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+    background-color: var(--SmartThemeBlurTintColor, #1b1d23);
+    backdrop-filter: blur(calc(var(--SmartThemeBlurStrength, 10px) + 4px));
+    box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.7); padding: 16px 18px;
+    color: var(--SmartThemeBodyColor, #e6e6e6);
+}
+#so-smartsel-head {
+    font-weight: 700; font-size: 1.0em; display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; margin-bottom: 10px; flex: 0 0 auto;   /* 标题行含逃生 ✕，不被压缩、始终在屏内 */
+}
+#so-smartsel-body { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; min-height: 0; overscroll-behavior: contain; }
+#so-smartsel-input {
+    width: 100%; box-sizing: border-box; border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 0.9em;
+    background: var(--so-field); color: var(--SmartThemeBodyColor, #e6e6e6); resize: vertical;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+}
+#so-smartsel-input:disabled { opacity: 0.6; }
+
+/* 进度日志：等宽小字，逐行累加。min-height 是【地板】：它自己是滚动容器（min-height:auto 解析成 0），
+   窗口矮时会被下方 flex-shrink:0 的直播框压没——留一行半的可读余量，别压成零高。 */
+#so-smartsel-log { display: flex; flex-direction: column; gap: 4px; font-size: 0.86em; min-height: 2.4em; max-height: 40vh; overflow-y: auto; }
+.so-smartsel-logline { line-height: 1.5; opacity: 0.9; }
+
+/* 透明行 / 摘要 / 注记。 */
+.so-smartsel-searched { font-size: 0.8em; opacity: 0.75; padding: 2px 0; }
+.so-smartsel-summary { font-weight: 600; font-size: 0.92em; padding: 2px 0 6px; }
+.so-smartsel-warn { font-size: 0.8em; color: color-mix(in srgb, var(--crimson70a, #e07c7c) 82%, var(--SmartThemeBodyColor)); padding: 2px 0; }
+.so-smartsel-stop { font-size: 0.9em; line-height: 1.55; }
+.so-smartsel-detail { white-space: pre-wrap; }
+.so-smartsel-ok { font-size: 0.92em; line-height: 1.55; }
+
+/* 预检行（B5 同族）：✔ 勾选 = 强调色、✖ 取消 = 冷色；理由缩进。 */
+.so-ss-row { padding: 4px 0; border-top: 1px solid rgba(var(--so-ink), 0.06); }
+.so-ss-row-main { font-size: 0.88em; line-height: 1.5; }
+.so-ss-select .so-ss-row-main { color: var(--so-lb-accent); }
+.so-ss-deselect .so-ss-row-main { color: color-mix(in srgb, var(--crimson70a, #e07c7c) 78%, var(--SmartThemeBodyColor)); }
+.so-ss-row-reason { font-size: 0.76em; opacity: 0.7; padding-left: 1.4em; }
+
+/* footer 按钮：同 #so-fixsel-btns。 */
+#so-smartsel-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; flex: 0 0 auto; }
+.so-smartsel-btn {
+    padding: 7px 14px; border-radius: 8px; border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.2));
+    background: rgba(var(--so-ink), 0.06); color: var(--SmartThemeBodyColor, #ddd); cursor: pointer; font-size: 0.86em;
+}
+.so-smartsel-btn:hover { background: rgba(var(--so-ink), 0.12); }
+.so-smartsel-go:not(:disabled) { background: var(--so-lb-accent); border-color: transparent; color: #1a1a1a; font-weight: 600; }
+.so-smartsel-go:disabled { opacity: 0.45; cursor: not-allowed; }
+
+/* 🪄 原文直播框（AI 边写边看）——空时的 display:none 由 JS 控（非流式一个 delta 都不来 → 框根本不建）。
+   底色/边框只用主题变量（--so-field / --so-ink），亮暗皮都可读。
+   ★挤压优先级是【有意】的★：flex:0 0 auto ⇒ 窗口矮时先挤上方的 #so-smartsel-log（那是滚动容器、
+   min-height:auto 解析成 0），直播正文优先占满到 34vh；日志那边配了 min-height:2.4em 当地板，
+   保证它再被挤也留得下一行半可读。整块放不下时由 #so-smartsel-body 自己滚。 */
+.so-smartsel-live {
+    flex: 0 0 auto; background: var(--so-field); border: 1px solid rgba(var(--so-ink), 0.15);
+    border-radius: 6px; padding: 6px 8px; margin-top: 2px; max-height: 34vh; overflow-y: auto;
+    font-size: 0.82em; line-height: 1.5; font-family: var(--monoFontFamily, monospace);
+    white-space: pre-wrap; word-break: break-word; opacity: 0.85; overscroll-behavior: contain;
+}
+
+/* ==================== 🎛 变量编辑器（ENABLE_MVU_EDITOR，2026-08-08）==================== */
+/* 诊断房间里的入口按钮：同 .so-lb-mini 家族（#so-diag-bar 已把 --so-lb-accent 换成诊断红，自动同色）。
+   父级 .so-mode-collapse-body 是 column flex + gap:6px —— 行距交给它，这里只留 2px 微调，别再加外边距。 */
+.so-mvued-row { margin: 2px 0 0; }
+.so-mvued-row .so-lb-mini { width: 100%; }
+
+/* overlay 骨架：同 #so-fixsel / #so-smartsel（inset:0 覆盖 #so-window、居中、遮罩）——恒可达逃生
+   （✕ + 点遮罩关闭；Esc 有意【不】接管，全屏那套的消费者名单不动）。这张卡是【建了就显示、关了就删】，
+   所以不走 .open 类，display 恒 flex。 */
+.so-mvued-overlay {
+    position: absolute; inset: 0; z-index: 60;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px; box-sizing: border-box;
+    background: var(--so-scrim);
+}
+/* 卡片跟随主题（工作卡语义，非警告卡）：底色 / 边框 / 字色全走主题变量，绝不钉死浅色低对比（1.45.0 教训）。
+   ⚠ 不用 var(--so-field)：那是【输入框】底色、半透明，压在遮罩上会把主聊天渗进来（浅色档尤其糊）。 */
+.so-mvued-inner {
+    display: flex; flex-direction: column; gap: 6px;
+    width: 100%; max-width: 560px; max-height: 100%; min-height: 0; box-sizing: border-box;
+    border-radius: 12px; border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+    background-color: var(--SmartThemeBlurTintColor, #1b1d23);
+    box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.7); padding: 14px 16px;
+    color: var(--SmartThemeBodyColor, #e6e6e6);
+}
+.so-mvued-head { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }   /* 含逃生 ✕，永不被压缩 */
+.so-mvued-title { font-weight: 700; flex: 1; }
+
+/* 搜索框 + 各类输入控件：同 #so-smartsel-input 的做法（--so-field 底 + 主题字色）。 */
+#so-mvued-search,
+.so-mvued-inner input[type="text"],
+.so-mvued-inner input[type="number"],
+.so-mvued-inner select {
+    box-sizing: border-box; border-radius: 8px; padding: 5px 8px; font: inherit; font-size: 0.86em;
+    background: var(--so-field); color: var(--SmartThemeBodyColor, #e6e6e6);
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+}
+#so-mvued-search { width: 100%; flex: 0 0 auto; }
+
+/* 页签条：窄屏横向滚动，绝不换行把正文挤没（手机上变量分组可能十几个）。 */
+#so-mvued-tabs { display: flex; gap: 4px; overflow-x: auto; flex: 0 0 auto; -webkit-overflow-scrolling: touch; }
+.so-mvued-tab {
+    white-space: nowrap; cursor: pointer; opacity: 0.7; font: inherit; font-size: 0.84em;
+    padding: 4px 8px; border: none; border-bottom: 2px solid transparent; border-radius: 6px 6px 0 0;
+    background: transparent; color: var(--SmartThemeBodyColor, #e6e6e6);
+}
+.so-mvued-tab:hover { opacity: 1; background: rgba(var(--so-ink), 0.08); }
+.so-mvued-tab-on { opacity: 1; font-weight: 700; border-bottom-color: rgba(var(--so-ink), 0.8); }
+
+#so-mvued-body { overflow-y: auto; flex: 1 1 auto; min-height: 0; overscroll-behavior: contain; }
+.so-mvued-group { margin-left: 8px; border-left: 1px solid rgba(var(--so-ink), 0.15); padding-left: 8px; }
+.so-mvued-group > summary { cursor: pointer; font-weight: 600; font-size: 0.88em; padding: 3px 0; }
+.so-mvued-list { margin-left: 8px; padding: 2px 0 4px; }
+
+/* 一行一个字段。flex-wrap 是手机的命：标签 + 控件 + 说明放不下时换行，绝不横向溢出。 */
+.so-mvued-leaf, .so-mvued-listrow { display: flex; align-items: center; gap: 6px; padding: 2px 0; flex-wrap: wrap; }
+.so-mvued-label { min-width: 6em; font-size: 0.86em; }
+.so-mvued-desc { opacity: 0.6; font-size: 0.78em; }
+.so-mvued-ro { opacity: 0.6; font-style: italic; font-size: 0.82em; word-break: break-all; }
+/* 脏行标记：淡底在浅色主题下会白上白隐形（follow-theme 时 --so-ink 恒 255,255,255 —— 1.45.0 机制
+ * 既有半径，非本释新伤）→ 叠一道左缘色条兜底：QuoteColor 是主题自带强调色、明暗两界都可见；
+ * inset box-shadow 不占布局、不挤 flex 行。发版眼检实录：docs/so-1.55.0-mvued-light.png（修前）。 */
+.so-mvued-dirty { background: rgba(var(--so-ink), 0.07); border-radius: 4px; box-shadow: inset 3px 0 0 var(--SmartThemeQuoteColor); }
+.so-mvued-leaf input[type="number"], .so-mvued-leaf input[type="text"], .so-mvued-listrow input[type="text"] { width: 8em; }
+.so-mvued-leaf input[type="range"] { flex: 1 1 80px; min-width: 80px; touch-action: none; }
+
+.so-mvued-foot { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; flex-wrap: wrap; padding-top: 4px; }
+#so-mvued-count { flex: 1; font-size: 0.8em; opacity: 0.75; }
+
+/* 扫描说明行（1.57.0）：只在「还没扫过」时出，显隐的唯一写入口是 updateMvuedScanBtn（别在 CSS 里
+   靠别的类去藏它）。.so-hint 已给了字号/透明度，这里只补 flex 项的不压缩。 */
+#so-mvued-scan-hint { flex: 0 0 auto; }
+
+/* ⤢ 放大编辑弹层（1.57.0）：卡内再叠一层（inset:0 盖住整张 #so-mvued-card，含遮罩），骨架与卡片同款
+   —— flex 列 + 可滚正文 + 恒可达逃生（✕ + 点遮罩 + 取消；Esc 同样【不】接管）。定位靠 #so-mvued-card
+   自己的 position:absolute + z-index:60 造出的层叠上下文，故 z-index 只需压过同层的 .so-mvued-inner。 */
+.so-mvued-bigedit {
+    position: absolute; inset: 0; z-index: 2;
+    display: flex; align-items: center; justify-content: center;
+    padding: 16px; box-sizing: border-box;
+    background: var(--so-scrim);
+}
+/* 工作卡语义（同 .so-mvued-inner）：底色/边框/字色全跟主题走，绝不钉死浅色低对比（1.45.0 教训）。 */
+.so-mvued-bigedit-inner {
+    display: flex; flex-direction: column; gap: 6px;
+    width: 100%; max-width: 560px; height: 100%; min-height: 0; box-sizing: border-box;
+    border-radius: 12px; border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+    background-color: var(--SmartThemeBlurTintColor, #1b1d23);
+    box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.7); padding: 14px 16px;
+    color: var(--SmartThemeBodyColor, #e6e6e6);
+}
+.so-mvued-bigedit-head { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }   /* 含逃生 ✕ */
+.so-mvued-bigedit-label { font-weight: 700; font-size: 0.9em; }
+/* 说明位恒在（可能为空串）：它同时是把 ✕ 顶到右边的弹性位，少了它标题一短 ✕ 就贴过来。 */
+.so-mvued-bigedit-head .so-mvued-desc { flex: 1; min-width: 0; word-break: break-word; }
+/* 大文本框：字号比行内输入框舒服（0.95em），高度吃满剩余空间；resize 关掉——卡内叠层被拉大只会溢出。 */
+#so-mvued-bigedit-text {
+    flex: 1 1 auto; width: 100%; min-height: 8em; resize: none;
+    box-sizing: border-box; border-radius: 8px; padding: 8px 10px; font: inherit; font-size: 0.95em; line-height: 1.55;
+    background: var(--so-field); color: var(--SmartThemeBodyColor, #e6e6e6);
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+}
+.so-mvued-bigedit-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex: 0 0 auto; flex-wrap: wrap; }
+
+/* 搜索未命中 —— 必须排在最后：它靠【后来居上】压过上面同特异度的 display:flex（.so-mvued-leaf 等），
+   在这条前面插新规则会把过滤悄悄搞失效。 */
+.so-mvued-miss { display: none; }

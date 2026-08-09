@@ -70,7 +70,7 @@ const DIAGNOSE_SYSTEM_PROMPT =
 const LOREBOOK_SYSTEM_PROMPT =
 `你是「故事神谕」的世界书管家——一个专门帮用户阅读、梳理、并按要求修改 SillyTavern 世界书（世界信息 / lorebook）的助手。
 
-下方按「世界书 → 条目」的层级，提供了当前要处理的世界书的条目（有时只发给你其中一部分——标题栏会注明「已选 X / 共 N 条」；此时请只针对你看得到的条目作答或改动，不要引用没列出的 uid）。每个条目都带有：
+当前要处理的世界书条目，放在本条对话【最末尾】的〔世界书快照〕区块里（标题形如「世界书快照 · 第 N 版」），按「世界书 → 条目」的层级列出（有时只发给你其中一部分——标题栏会注明「已选 X / 共 N 条」；此时请只针对你看得到的条目作答或改动，不要引用没列出的 uid）。每个条目都带有：
 - uid：该条目在所属世界书中的唯一编号（修改时用它来精确定位，务必照抄，绝不要自己编）。
 - 标题(comment)：条目的备注名。
 - 关键词(key) / 次要关键词(keysecondary)：触发该条目的关键词。
@@ -107,7 +107,8 @@ content>>>
 anchor 用来定位要替换的原文；新文本放进 <<<replace … replace>>>。anchor 有两种写法，【优先用单锚点】：
 · 单锚点（首选）：要替换的是一段【连续】原文时，把这段原文【一字不差】地照抄进 anchor 就行——改名、替换词句、改写短句几乎都用它。例：把「红色斗篷」改成「蓝色斗篷」，anchor 写 红色斗篷，replace 写 蓝色斗篷。
 · 区间锚点（start || end）：仅当要替换的范围【很长】、整段照抄不便时才用——范围【开头】3-4 个字 +「 || 」+ 范围【结尾】3-4 个字，圈出从开头到结尾（含首尾）的整段。开头与结尾这两小段【必须互不相同、互不重叠】：绝不能写成同一段文字，也不能让结尾那几个字落在开头那几个字之内，否则锚点会对不上。
-· 每个 patch 只替换【第一处】匹配；同一条目里多处要改就写多个 patch，它们按先后依次生效（所以同一个词重复出现、要全部替换时，写几个相同的单锚点 patch 即可逐处替换掉）。
+· 锚点纪律：anchor 必须【从末尾〔世界书快照〕逐字复制】，绝不凭记忆、也绝不用你历史消息里引用过的旧原文拼写。要替换的是【跨段 / 跨多行】的原文时，一律改用 「开头 || 结尾」 区间锚点（两端各取一小段独特文字），【绝不】把整段多行原文直接粘进单锚点——多行整段照抄极易因某处细节漂移而整条未命中，或只命中首段造成「部分替换」（旧内容残留）。
+· 每个 patch 只替换【第一处】匹配；同一条目里多处要改就写多个 patch，它们按先后依次生效（所以同一个词重复出现、要全部替换时，写几个相同的单锚点 patch 即可逐处替换掉）。若同一段锚点在条目里【命中多处】而你只想改其中一处，请把锚点写得更长、或改用 「开头 || 结尾」 圈得更独特，否则系统会因「命中多处、无法确定改哪一处」而跳过该补丁。
 <LorebookEdit>
 action: patch
 book: 世界书名
@@ -149,10 +150,12 @@ uid: 7
 </LorebookEdit>
 
 可用的元信息键：comment（标题）、key / keysecondary（关键词，用逗号分隔）、constant（常驻，true/false）、disable（禁用，true/false）、selective（关键词触发，true/false）、excludeRecursion（非递归，true/false）、preventRecursion（不触发后续递归，true/false）、order（顺序，数字）、position（位置，数字）、depth（深度，数字）。其它键会被忽略。
-改这些元信息（含关键词 key / keysecondary）时：已有条目用 action: edit、新建用 create，【不要用 patch】——patch 只改正文，碰不到这些字段（把关键词写进 patch 的 anchor，会因正文里找不到而整批跳过）。另外：写 key / keysecondary 是把该字段【整体替换】掉、不是追加；想在现有关键词基础上【新增】（例如给中文关键词补上英文别名），必须把现有关键词连同新词一并照抄列出（旧词＋新词全部写上），漏掉的旧词会被删除。
+改这些元信息（含关键词 key / keysecondary）时：已有条目用 action: edit、新建用 create，【不要用 patch】——patch 只改正文，碰不到这些字段（把关键词写进 patch 的 anchor，会因正文里找不到而整批跳过）。另外：写 key / keysecondary 是把该字段【整体替换】掉、不是追加；想在现有关键词基础上【新增】（例如给中文关键词补上英文别名），必须把现有关键词连同新词一并照抄列出（旧词＋新词全部写上），漏掉的旧词会被删除。省略 key / keysecondary 行＝保持原键不变，不想改键就不要写这两行。
 
 规则：
-- book 与 uid 必须照抄上面列出的条目，绝不要自己编造，也绝不要去动没有列出的条目。书名里若带《》「」【】<> 等符号，请连同符号一字不差地照抄（这些最容易被漏写）。
+- 权威来源：世界书原文【只】存在于本条对话末尾的〔世界书快照〕区块内，快照每次发送都会自动重读、并以【最高版本号】那一份为准；你自己历史消息里【引用过的条目文本一律视为过期草稿】，禁止拿它去「核对改动是否落地」，也禁止把它当作 anchor 锚点的来源——校验与锚点都只能从最新快照逐字复制。
+- 同轮纪律：你在【本条消息】里发出的 <LorebookEdit> 补丁【尚未应用】（要等用户点击「应用」后才真正生效），所以【不要】在同一条消息里声称已经核对过结果、或说「已改好 / 已生效」；应用之后的状态要到【下一轮】的快照（版本号 +1、并附〔上次应用结果〕）才反映出来。
+- book 与 uid 必须照抄快照里列出的条目，绝不要自己编造，也绝不要去动没有列出的条目。书名里若带《》「」【】<> 等符号，请连同符号一字不差地照抄（这些最容易被漏写）。
 - 新建条目默认就是「非递归 + 不触发后续递归」；若没给 key 且没显式写 constant，则默认设为常驻。需要让新条目参与递归时，自己写 excludeRecursion: false / preventRecursion: false。
 - 写新建或编辑的正文时，请沿用这本世界书现有条目的格式与风格（缩进、<scene_xxx> 包裹、「键: 值」式的层级），让新内容与周围保持一致。
 - 正文会原样保存、不做任何宏替换：{{user}} 之类、人物本名、缩进结构都会原封不动地写进条目。
@@ -1602,6 +1605,23 @@ const ENABLE_LWB_BRIDGE = true;
 // false → 渲染器 renderWiEjs 恒 pass-through（字节级零变化）、设置行不渲染、布线不接——与本功能前逐字节相同。
 // 读点：renderWiEjs 门 + 设置行模板 + bind + 回填 + 三处允许调用点（普通 / 参谋 / 手动校正各经第三参传 opt-in）。
 const ENABLE_WI_EJS_RENDER = true;
+// 世界书「智能选书/选条」助手（ENABLE_LB_SMART_SELECT，2026-08-08）：📖 选择器工具栏里一个 🪄 入口 + 指令
+// 输入框——用户用自然语言（「把讲战争线的绿灯条目全勾上」「取消所有涉及感情戏的」）让模型产出一份勾选计划，
+// 经 B5 式预检行确认后落到现有选择器状态。只动勾选、永不动书内容——最坏勾错、一键还原。模型拿一份【派生目录】
+// （每条 uid / 勾选态 / 灯色 / 组 / 标题 / 关键词 / 正文首 ~120 字 RAW），可选地用两个引擎侧【免费原语】
+// （<LorebookSearch> 机械扫正文 / <LorebookFetch> 取整条 RAW）补足判断，最终吐 <LorebookSelect>。至多 2 个额外
+// 来回、全程分隔块协议、恒 RAW（目录切片 / 搜索摘录 / 取文全文一律原始条目文本，绝不 substituteParams、绝不经
+// wiRenderEjs）。设计：docs/superpowers/specs/2026-08-08-lorebook-smart-select-spike.md。
+// false → 🪄 入口不创建、openSmartSelect / runSmartSelect 早退 no-op，字节级零变化（家规统一语义）。
+// 读点：buildWindow 里 🪄 按钮的创建 + 打开守卫 openSmartSelect + 运行守卫 runSmartSelect。
+const ENABLE_LB_SMART_SELECT = true;
+// 🎛 变量编辑器（ENABLE_MVU_EDITOR，2026-08-08）：诊断房间里的「游戏修改器」面板——把当前 MVU stat_data
+// 摆成分页可折叠树直接改值，一次「应用」经 Mvu.replaceMvuData 批量写入（不发 LLM、不碰主聊天消息），
+// 并在诊断侧聊留一条带「撤销」的记录。可选「分析取值规则」扫描（一次 LLM 调用、按聊天缓存）把受限字段
+// 变成下拉框。false = 按钮不渲染、打开/扫描路径 no-op，与旧版字节等价。
+// 读点：诊断设置行模板（🎛 按钮）+ bindControls 里的布线守卫 + openMvuEditor 打开守卫 + mvuedApply 写入守卫
+// + runMvuedScan 扫描守卫。
+const ENABLE_MVU_EDITOR = true;
 // 自定义说话人格（1.39.0，spec docs/superpowers/specs/2026-07-24-custom-personas-design.md）：
 // 用户自建语气皮肤（名称 + 腔调描述 + 可选示例），存全局设置 customPersonas；编辑器内含
 // 「✨ AI 帮我完善」一键扩写（走 soCallModel、本地 AbortController——绝不共用主发送 abortCtl）。
@@ -1612,7 +1632,7 @@ const ENABLE_CUSTOM_PERSONAS = true;
 // —— 更新提醒（1.38.0）——
 // SO_VERSION 是代码内唯一版本号，必须与 manifest.json 的 version 完全一致——update-check.test.mjs
 // 有失配即红的漂移钉（发版清单：两处一起 bump）。
-const SO_VERSION = '1.52.1';
+const SO_VERSION = '1.60.0';
 // 更新提醒总开关。false → 设置面板不渲染「更新」组、开窗不检查、红点绘制器与一键更新 no-op、
 // 绑定/回填跳过——字节级零行为变化。运行期另有 opt-out 设置 updAutoCheck（默认开）。
 const ENABLE_UPDATE_CHECK = true;
@@ -1743,7 +1763,11 @@ const defaults = {
     profileId: '',
     // shared generation params
     temperature: 0.7,
-    maxTokens: 2000,
+    // 输出预算默认 12k（1.60.0，原 2000）：神谕的回复越来越长（参谋方案卡 / 世界书区块 / 长篇分析），
+    // 2000 会把它们拦腰截断，而新用户不知道要去调这个旋钮。只动【默认值】——getSettings 只补【缺失】的键
+    // （下方 `if (!(k in s)) s[k] = v`），老用户存过的数值原样不动。各功能自己的地板（校正 4096 /
+    // 锻造 16384 / 扫描 16384…）都是 Math.max(s.maxTokens, N)，不受这次改动影响。
+    maxTokens: 12288,
     systemPrompt: DEFAULT_SYSTEM_PROMPT,
     // 诊断 / 世界书 / 剧情参谋 模式的系统提示词【覆盖】。空串 = 用内置默认（见 SYSPROMPT_MODES）。
     // 参谋自 1.17.7 起也可编辑（毕业进 SYSPROMPT_MODES；仅单拍参谋指令，不含弧线编译器）。
@@ -2289,13 +2313,18 @@ async function toggleRegisteredMode(id) {
     const spec = registeredModes.get(id);
     if (!spec) return;
     if (!(await confirmModeSwitch('chat'))) return;   // 1.36.0 中断确认：注册模式住 main 房——按 'chat' 判是否换房
-    if (activeRegisteredModeId === id) { setOracleMode('chat'); return; }
+    // 退出：setOracleMode('chat') 内部会清 activeRegisteredModeId 并在【清完之后】刷新导出入口，
+    // 这里再补一次是幂等的保险（万一将来清理段又被挪动）。
+    if (activeRegisteredModeId === id) { setOracleMode('chat'); updateExportEntryVisual(); return; }
     setOracleMode('chat');
     activeRegisteredModeId = id;
     win.classList.add(`so-${id}-on`);
     win.querySelector(`#so-${id}-btn`)?.classList.add(`so-${id}-active`);
     if (spec.placeholder && inputEl) inputEl.placeholder = spec.placeholder;
     try { spec.onEnter && spec.onEnter(window.StoryOracleAPI); } catch (e) { /* ignore */ }
+    // 📥 导出对话：进入插件模式的记账发生在 setOracleMode 【之后】（上面这行 activeRegisteredModeId = id），
+    // 所以那一次刷新看到的还是 'chat' —— 必须在这里补刷，否则插件模式里会留着一个「点了没反应」的菜单项。
+    updateExportEntryVisual();
 }
 // registerMode 的界面搭建：在 #so-header-btns 里建按钮（order:'before:advisor' 定位）、在内置栏之后建一条
 // 与内置模式同款 so-mode-collapse 的 #so-<id>-bar（buildBar 填内容），并注入该模式的显隐 + 强调色 CSS。幂等。
@@ -2490,6 +2519,52 @@ function init() {
                 et.MESSAGE_DELETED || 'message_deleted',
             ].forEach((ev) => ctx.eventSource.on(ev, refreshFixChatEntry));
             ctx.eventSource.on(et.CHAT_CHANGED || 'chat_id_changed', () => { clearFixChatSel(); refreshFixChatEntry(); });
+            if (ENABLE_MVU_EDITOR) {
+                // 🎛 打开中的编辑器「跟随现实」（1.59.0）：这六个事件是「本聊天的 stat_data 可能刚被别人
+                // 改过」的信号源。清单来自 staleness-audit §9 的写者盘点（每一条都对着真实写者列的）：
+                //   · MESSAGE_RECEIVED —— MVU 解析新回复（最常见的一条）
+                //   · MESSAGE_UPDATED  —— ★ 承重：**本扩展自己的 MVU 写者只发这一个**。Mvu.replaceMvuData
+                //     本身【不发任何事件】，🩺 手动应用 / 撤销、🩺 与 🎛 的记录撤销，全靠 refreshLatestMvuBar
+                //     手动补发的这一发。而这三样与 🎛 按钮同住【诊断房】，是真实使用里最容易撞上的一格。
+                //     自触发不是问题：我们自己应用后补发的那一次，比对下来无差异 → 空转；刷新路径不写任何
+                //     东西，构不成回环。它同时也把 MESSAGE_EDITED 那条腿加固了（编辑落定时两个都发）。
+                //   · MESSAGE_SWIPED / MESSAGE_EDITED / MESSAGE_DELETED —— 换 swipe（每个 swipe 各带一份
+                //     变量）、改楼、删楼
+                //   · MESSAGE_SENT —— 用户发言也会新开一层并把状态带过去（便宜的补全）
+                // ⚠ 事件名逐个对着【ST 真源码】public/scripts/events.js 核过（MESSAGE_SWIPED:7、
+                // MESSAGE_SENT:8、MESSAGE_RECEIVED:9、MESSAGE_EDITED:10、MESSAGE_DELETED:11、
+                // MESSAGE_UPDATED:12）——1.51.1 那次就是照自家设计稿拼了个不存在的名字，整层抓拍死掉而
+                // 测试全绿。回退串与真值必须一字一样。
+                // 全部走防抖：一条回复落地会连发好几个，逐个刷等于逐次重建整棵树。守卫都在函数里。
+                [
+                    et.MESSAGE_RECEIVED || 'message_received',
+                    et.MESSAGE_UPDATED || 'message_updated',
+                    et.MESSAGE_SWIPED || 'message_swiped',
+                    et.MESSAGE_EDITED || 'message_edited',
+                    et.MESSAGE_DELETED || 'message_deleted',
+                    et.MESSAGE_SENT || 'message_sent',
+                ].forEach((ev) => ctx.eventSource.on(ev, () => mvuedScheduleRefresh(ev)));
+                // 再接两只【MVU 自己的】事件（外部件，可能压根不发到 ST 的总线上 → try 包住、发不发都不
+                // 影响上面六条主路）。两个字面串都逐字抄自 MVU 的类型声明
+                // JS-Slash-Runner/@types/iframe/exported.mvu.d.ts（ERA 那份副本同值）：
+                //   · VARIABLE_UPDATE_ENDED = 'mag_variable_update_ended'（:115）—— 额外模型解析写完
+                //   · VARIABLE_INITIALIZED  = 'mag_variable_initiailized'（:57）—— MVU 自己的
+                //     「重新读取初始变量」按钮。⚠ **上游把 initialized 拼错了**（initiailized），这就是
+                //     真名；拼「对」了反而永远收不到。改这两个串前先回去看那份 .d.ts，别照自己的直觉改。
+                try {
+                    const mvuEvts = [
+                        'mag_variable_update_ended',
+                        'mag_variable_initiailized',   // ← 现在真发的是这个（上游拼错的那个）
+                        'mag_variable_initialized',    // ← 上游哪天把拼写修好，这条自动接上；多接一个信号
+                        //    的代价 = 一次比对后返回（多余的事件天然被 JSON 比对短路吃掉）
+                    ];
+                    // 运行时若已能读到 MVU 的常量表，就以它为准再补一条（init 时 MVU 多半还没加载，
+                    // 读不到是常态 —— 故它是「锦上添花」，上面两条字面串才是主力）。
+                    const rt = window.Mvu && window.Mvu.events && window.Mvu.events.VARIABLE_INITIALIZED;
+                    if (rt && !mvuEvts.includes(rt)) mvuEvts.push(rt);
+                    mvuEvts.forEach((ev) => ctx.eventSource.on(ev, () => mvuedScheduleRefresh(ev)));
+                } catch (e) { console.debug('[Story Oracle] MVU 自有事件未接上（不影响编辑器刷新主路）：', e); }
+            }
         }
     } catch (e) {
         console.warn('[Story Oracle] event wiring failed (plan injection will only refresh on reload):', e);
@@ -3605,16 +3680,21 @@ function parseOneLorebookBlock(inner) {
 
     const headers = {};
     // 多行 anchor：弱模型常把跨行的一段原文【整段照抄】进 anchor（而不用 start || end）。
-    // 把 anchor: 之后紧跟的续行（直到空行或下一个 header）并入 anchor，好让 lbFuzzyReplace
-    // 拿到完整片段、整段命中，而不是只取首行（首行只换一半 = 静默的部分替换）。
-    // 【仅限 anchor】：真正的「键: 值」header 行会终止吸收（绝不吞掉任何字段），其它字段后面
-    // 的自由文本仍按原样丢弃。
+    // 把 anchor: 之后紧跟的续行【一路吸收到下一个真正的「键: 值」header 行或文本结束】并入
+    // anchor，好让 lbFuzzyReplace 拿到完整片段、整段命中，而不是只取首行（首行只换一半 =
+    // 静默的部分替换）。
+    // 【空行不终止 anchor 吸收】：真实事故——模型把「一段散文 + 空行 + 自主推进节点列表」整段
+    // 塞进单个 anchor:；旧「空行即终止」规则只吸到首段散文 → 引擎命中首段、用整块新文替换、
+    // 旧列表原样残留 = 重复内容却报 ✓（absorb 的初衷正是防这个，空行规则却重开了这个洞）。
+    // 空行本身不并入 anchor（lbFuzzyRegex 的 SEP 吸收正文侧的换行 / 空行串，锚点跨空行照样命中）。
+    // 【仅限 anchor】：真正的「键: 值」header 行仍终止吸收（绝不吞掉任何字段）；非 anchor 字段
+    // 后面的自由文本仍按原样丢弃（空行照旧把 absorb 归零）。
     let absorb = null;
     for (const rawLine of text.split('\n')) {
         const line = rawLine.trim();
         const mm = line.match(/^([A-Za-z_]+)\s*[:：]\s*(.*)$/);
         if (mm) { headers[mm[1]] = mm[2]; absorb = (mm[1] === 'anchor') ? 'anchor' : null; continue; }
-        if (!line) { absorb = null; continue; }
+        if (!line) { if (absorb !== 'anchor') absorb = null; continue; }
         if (absorb) headers[absorb] += '\n' + line;
     }
 
@@ -3629,7 +3709,13 @@ function parseOneLorebookBlock(inner) {
         fields: {},
     };
     for (const k of LB_SCALAR_KEYS) {
-        if (headers[k] != null && String(headers[k]).trim() !== '') op.fields[k] = headers[k];
+        if (headers[k] == null) continue;
+        const hv = String(headers[k]).trim();
+        if (hv === '') continue;   // 空值＝该字段留空不改（既有行为：空 key 行被丢弃，绝不清空原键）
+        // B3 保持原键哨兵：模型显式写 `key: 保持不变`（keysecondary 同）＝【有意不动】该字段（区别于"想清空"）→
+        // 应用前整行丢弃，绝不把关键词整体替换成字面「保持不变」。省略这两行本就保持原键，此哨兵只兜底"写了却想留白"。
+        if ((k === 'key' || k === 'keysecondary') && hv === '保持不变') continue;
+        op.fields[k] = headers[k];
     }
     if (cFence.body != null) op.fields.content = lbBackstopNewlines(cFence.body);
 
@@ -3670,6 +3756,396 @@ function parseLorebookBlocks(text) {
         else errors.push({ error: res.error || '无法解析' });
     }
     return { ops, errors };
+}
+
+/* ==================== 世界书「智能选书/选条」助手：引擎纯核（ENABLE_LB_SMART_SELECT，2026-08-08）====================
+ * 全部纯函数、可单测（lb-smart-select.test.mjs）：派生目录 + 三块解析（Search/Fetch/Select）+ 引擎侧机械搜索 /
+ * 取整条全文 + 回合状态机 + 勾选计划（含幻觉 uid 剔除）。恒 RAW——目录切片、搜索摘录、取文全文一律【原始条目
+ * 文本】，绝不 substituteParams、绝不经 wiRenderEjs（与 buildLorebookContext 同款铁律 + 同款钉测试）。
+ * 只读输入条目字段、只算勾选，绝不改书内容——本功能「零风险」定位的根。 */
+
+// 可调上限（no silent caps——凡截断都要在回包里注明）。
+const LB_SMART_MAX_ROUNDS = 2;            // 额外来回上界（强模型 0 轮收敛；弱模型至多 Search + Fetch 各一轮）
+const LB_SMART_SEARCH_ENTRY_CAP = 80;     // 搜索回包最多列多少条命中条目
+const LB_SMART_SEARCH_EXCERPT_CAP = 3;    // 每条目最多几段摘录
+const LB_SMART_CATALOG_SLICE = 120;       // 目录里「正文起始」切片字数
+const LB_SMART_EXCERPT_PAD = 20;          // 搜索摘录：命中词两侧各取多少字
+
+// 喂给模型的指令提示词。中文、家规口吻；【绝不含反引号】（本身是模板字符串，内嵌反引号 = SyntaxError），
+// 内联字面一律用「」。三块文法与引擎解析器（parseLbSearch/Fetch/SelectBlocks）逐字对齐。
+const LB_SMART_SELECT_PROMPT = [
+    '你是《故事神谕》世界书选择器里的「智能选条」助手。用户会用自然语言下一条勾选指令（例如「把讲战争线的绿灯条目全勾上」',
+    '「取消所有涉及感情戏的」「勾上包含某某设定的那几本书」）。你的唯一职责：产出一份【勾选计划】，指明每本书要勾选 / 取消勾选',
+    '哪些条目。',
+    '',
+    '【硬边界】你只能【改动勾选状态】，绝不编辑、新增、删除任何条目内容。「删掉讲 X 的条目」这类指令不在你职责内——请在计划外',
+    '用一句话告诉用户「这是内容编辑，请到世界书聊天模式正常提改动」，不要试图用勾选去实现它。',
+    '',
+    '【你拿到的目录】下方〔条目目录〕按书分组，每条一行，含：uid、当前勾选态（✔已勾 / ✖未勾）、灯色（🔵蓝灯·常驻 /',
+    '🟢绿灯 / ⚫已禁用）、组、标题、关键词、正文首约 120 字。表头「已勾 X / 共 N 条」告诉你这本书当前的精选状态。',
+    '「取消勾选所有…」类指令要靠这里的✔/✖来判断动谁。',
+    '',
+    '【两个免费原语——不确定时先用，别硬猜】目录只给正文开头，若判断某条「到底讲不讲某事」需要看更多，你可以先发下面的块',
+    '（一次回复可发多个；发了就【本轮先不出勾选计划】，引擎会把结果回给你，你下一轮再定）：',
+    '',
+    '· 机械扫描正文（免费、瞬时）：',
+    '<LorebookSearch>',
+    'keywords: 战争, 联赛, 兽潮',
+    'scope: 雨宫家, 学园',
+    '</LorebookSearch>',
+    'keywords 是逗号分隔的【字面子串】（大小写 / 全半角不敏感；【不接受正则】——普通词就够）。scope 可选、限定在哪些书里搜，',
+    '缺省 = 全部范围内的书。引擎回你「哪些条目命中了、每条几段带上下文的摘录」。',
+    '',
+    '· 取整条原文（当摘录仍拿不准时，点名要几条全文）：',
+    '<LorebookFetch>',
+    'uid: 12, 13',
+    'book: 雨宫家',
+    '</LorebookFetch>',
+    'uid 逗号分隔（必填）；book 可选（缺省时引擎按持有该 uid 的书自己找）。引擎回你这几条的【逐字原文】。',
+    '',
+    '【最终动作——勾选计划】想清楚后，用下面的块给出计划（一本书一块，可多块）：',
+    '<LorebookSelect>',
+    'book: 雨宫家',
+    'select: 12, 17, 24',
+    'deselect: 5, 8',
+    'reason-12: 正文直述战争线主将',
+    'reason-5: 纯感情戏支线',
+    '</LorebookSelect>',
+    'select / deselect 至少给一个，值是 uid 列表；要整本勾满 / 整本取消用「select: 全部」/「deselect: 全部」。',
+    'reason-<uid> 可选，一行简短理由（会显示在给用户的预检卡上，帮用户判断你选得对不对）。只用目录里真实存在的 uid。',
+    '',
+    '【收敛纪律】能一轮出计划就别绕：目录通常已经够判断。至多 2 个额外来回（Search / Fetch）——一旦你发出 <LorebookSelect>',
+    '就是终局，引擎不再问你。若同一条回复里既有 <LorebookSelect> 又有 Search/Fetch，后者会被忽略。',
+    '直接输出上述块，不要包在代码围栏里，块外可以用一两句中文说明你的判断。',
+].join('\n');
+
+// 灯色判定（禁用优先于常驻；无键即绿灯）。纯 → 单测。
+function lbEntryLamp(e) {
+    if (e && e.disable) return { key: 'off', label: '⚫已禁用' };
+    if (e && e.constant) return { key: 'blue', label: '🔵蓝灯·常驻' };
+    return { key: 'green', label: '🟢绿灯' };
+}
+
+// 选择态判定（duck-type，避开 cross-realm instanceof Set 陷阱）：sel 为 Set/数组 = 精选、null/缺省 = 全勾。
+function lbSelFiltered(sel) { return !!(sel && (typeof sel.has === 'function' || Array.isArray(sel))); }
+function lbSelHas(sel, uid) { return Array.isArray(sel) ? sel.includes(uid) : sel.has(uid); }
+
+// 派生目录（随首次调用直接喂给模型）。books = [{ name, entries: [raw 条目] }]；selMap = { 书名: Set|数组|null }
+//（缺键 = 全勾，同 lbEntryFilter 语义）。每条一行：uid / ✔已勾|✖未勾 / 灯色 / 组 / 标题(comment) / 关键词(key) /
+// 正文首 ~slice 字 RAW（entryPreviewText 折叠空白、保留 {{宏}} 字面）。当场从字段派生、无存储、无从漂移。纯 → 单测。
+function buildLbCatalog(books, selMap, opts) {
+    const slice = (opts && opts.slice) || LB_SMART_CATALOG_SLICE;
+    const map = selMap || {};
+    const out = ['〔条目目录〕'];
+    for (const b of (books || [])) {
+        const entries = Array.isArray(b.entries) ? b.entries : [];
+        const sel = map[b.name];
+        const filtered = lbSelFiltered(sel);
+        let checked = 0;
+        const lines = [];
+        for (const e of entries) {
+            const on = !filtered || lbSelHas(sel, e.uid);
+            if (on) checked++;
+            const lamp = lbEntryLamp(e).label;
+            const group = (e.group != null && String(e.group).trim()) ? String(e.group).trim() : '—';
+            const title = (e.comment && String(e.comment).trim()) ? String(e.comment).trim() : '（无标题）';
+            const keys = Array.isArray(e.key) ? e.key.filter(Boolean).join(',') : '';
+            const body = entryPreviewText(e.content, slice) || '（空）';
+            lines.push('    · uid=' + e.uid + ' ' + (on ? '✔已勾' : '✖未勾') + ' ' + lamp +
+                ' 组:' + group + ' 标题「' + title + '」 关键词:' + (keys || '—') + ' 正文起始: ' + body);
+        }
+        out.push('  书《' + b.name + '》（已勾 ' + checked + ' / 共 ' + entries.length + ' 条）');
+        for (const l of lines) out.push(l);
+    }
+    return out.join('\n');
+}
+
+// —— 三块解析：与 parseOneLorebookBlock 同族（键值头 + 全半角冒号宽容 + 逗号列表），绝不 JSON ——
+// 逐块回调 <Tag>…</Tag>（大小写不敏感、要求闭合）。
+function lbSmartEachBlock(text, tag, cb) {
+    const re = new RegExp('<' + tag + '>([\\s\\S]*?)<\\/' + tag + '>', 'gi');
+    let m;
+    while ((m = re.exec(String(text || ''))) !== null) cb(m[1]);
+}
+// 键值头解析：^(key)\s*[:：]\s*(value)$，全半角冒号宽容；key 允许 reason-<uid> 形态；键归一小写、保序取末值。
+function lbSmartHeaders(inner) {
+    const h = {};
+    for (const raw of String(inner || '').split('\n')) {
+        const line = raw.trim();
+        const mm = line.match(/^([A-Za-z_][A-Za-z0-9_-]*)\s*[:：]\s*(.*)$/);
+        if (mm) h[mm[1].toLowerCase()] = mm[2];
+    }
+    return h;
+}
+// select/deselect 值 → { all:true } | { uids:[...] } | null。「全部」/「all」哨兵落到「整本勾满 = 发整本」语义。
+function lbSmartUidSpec(v) {
+    const raw = String(v == null ? '' : v).trim();
+    if (!raw) return null;
+    if (/^(全部|all)$/i.test(raw)) return { all: true };
+    const uids = lbToStrArray(raw).map((x) => parseInt(x, 10)).filter((n) => Number.isInteger(n));
+    return uids.length ? { uids } : null;
+}
+
+// <LorebookSearch>：keywords（逗号分隔【字面】子串，必填）+ 可选 scope 书名列表。缺 keywords = 错误。纯 → 单测。
+function parseLbSearchBlocks(text) {
+    const searches = [];
+    const errors = [];
+    lbSmartEachBlock(text, 'LorebookSearch', (inner) => {
+        const h = lbSmartHeaders(inner);
+        const keywords = lbToStrArray(h.keywords);
+        if (!keywords.length) { errors.push({ error: 'LorebookSearch 缺少 keywords' }); return; }
+        const scope = ('scope' in h) ? lbToStrArray(h.scope) : [];
+        searches.push({ keywords, scope: scope.length ? scope : null });
+    });
+    return { searches, errors };
+}
+
+// <LorebookFetch>：uid 逗号列表（必填）+ 可选 book（缺省时按持有 uid 的书推断）。文法与 B2 §4.2 逐字兼容。纯 → 单测。
+function parseLbFetchBlocks(text) {
+    const fetches = [];
+    const errors = [];
+    lbSmartEachBlock(text, 'LorebookFetch', (inner) => {
+        const h = lbSmartHeaders(inner);
+        const uids = lbToStrArray(h.uid != null ? h.uid : h.uids).map((x) => parseInt(x, 10)).filter((n) => Number.isInteger(n));
+        if (!uids.length) { errors.push({ error: 'LorebookFetch 缺少有效 uid' }); return; }
+        fetches.push({ uids, book: (h.book || '').trim() });
+    });
+    return { fetches, errors };
+}
+
+// <LorebookSelect>：一本书一块；select/deselect uid 列表（至少其一）；「全部」哨兵；可选 reason-<uid> 一行理由。纯 → 单测。
+function parseLbSelectBlocks(text) {
+    const selects = [];
+    const errors = [];
+    lbSmartEachBlock(text, 'LorebookSelect', (inner) => {
+        const h = lbSmartHeaders(inner);
+        const select = ('select' in h) ? lbSmartUidSpec(h.select) : null;
+        const deselect = ('deselect' in h) ? lbSmartUidSpec(h.deselect) : null;
+        if (!select && !deselect) { errors.push({ error: 'LorebookSelect 至少需要 select 或 deselect' }); return; }
+        const reasons = {};
+        for (const [k, val] of Object.entries(h)) {
+            const rm = k.match(/^reason-(\d+)$/);
+            if (rm) reasons[rm[1]] = String(val).trim();
+        }
+        selects.push({ book: (h.book || '').trim(), select, deselect, reasons });
+    });
+    return { selects, errors };
+}
+
+// —— 引擎侧原语（浏览器里免费算，不发模型）——
+// 全半角折叠 + ASCII 大写→小写（逐字符 1:1、长度不变 → 折叠串索引与 RAW 原文对齐，摘录才切得准）。
+function lbSmartFold(s) {
+    let out = '';
+    for (const ch of String(s == null ? '' : s)) {
+        let c = ch.codePointAt(0);
+        if (c >= 0xFF01 && c <= 0xFF5E) c -= 0xFEE0;   // 全角 ASCII → 半角
+        else if (c === 0x3000) c = 0x20;               // 全角空格 → 半角
+        if (c >= 0x41 && c <= 0x5A) c += 0x20;         // A-Z → a-z（仅 ASCII，保 1:1）
+        out += String.fromCodePoint(c);
+    }
+    return out;
+}
+// scope（书名列表）→ 过滤到范围内的书（经 resolveBookName 容错）；空 scope = 全部书。
+function lbSmartScopeBooks(books, scope) {
+    if (!Array.isArray(scope) || !scope.length) return books;
+    const names = books.map((b) => b.name);
+    const allow = new Set();
+    for (const sc of scope) { const r = resolveBookName(sc, names); if (r) allow.add(r); }
+    return books.filter((b) => allow.has(b.name));
+}
+
+// 引擎搜索（纯）：books + keywords（字面子串）→ 按条目聚合命中，每命中给 ±pad 字 RAW 摘录（保留宏字面）。
+// 总量截断：≤entryCap 条目 × ≤excerptCap 摘录，超出 truncated 记剩余数（no silent caps）。大小写 / 全半角宽容。
+function lbEngineSearch(books, keywords, opts) {
+    const o = opts || {};
+    const entryCap = o.entryCap || LB_SMART_SEARCH_ENTRY_CAP;
+    const excerptCap = o.excerptCap || LB_SMART_SEARCH_EXCERPT_CAP;
+    const pad = (o.pad != null) ? o.pad : LB_SMART_EXCERPT_PAD;
+    const kws = (Array.isArray(keywords) ? keywords : lbToStrArray(keywords)).map((k) => String(k).trim()).filter(Boolean);
+    const folded = kws.map((k) => ({ raw: k, fold: lbSmartFold(k) })).filter((k) => k.fold);
+    const scoped = lbSmartScopeBooks(books || [], o.scope);
+    const matchedEntries = [];
+    for (const b of scoped) {
+        for (const e of (Array.isArray(b.entries) ? b.entries : [])) {
+            const content = String(e.content == null ? '' : e.content);
+            if (!content) continue;
+            const hay = lbSmartFold(content);
+            const matched = [];
+            const excerpts = [];
+            for (const k of folded) {
+                let from = 0, idx, found = false;
+                while ((idx = hay.indexOf(k.fold, from)) !== -1) {
+                    found = true;
+                    if (excerpts.length < excerptCap) {
+                        const start = Math.max(0, idx - pad);
+                        const end = Math.min(content.length, idx + k.fold.length + pad);
+                        let text = content.slice(start, end).replace(/\s+/g, ' ').trim();
+                        if (start > 0) text = '…' + text;
+                        if (end < content.length) text = text + '…';
+                        excerpts.push({ keyword: k.raw, text });
+                    }
+                    from = idx + Math.max(1, k.fold.length);
+                    if (excerpts.length >= excerptCap) break;
+                }
+                if (found) matched.push(k.raw);
+            }
+            if (matched.length) {
+                matchedEntries.push({
+                    book: b.name, uid: e.uid,
+                    title: (e.comment && String(e.comment).trim()) ? String(e.comment).trim() : '（无标题）',
+                    matched, excerpts,
+                });
+            }
+        }
+    }
+    const shown = matchedEntries.slice(0, entryCap);
+    return { keywords: kws, entries: shown, matchedCount: matchedEntries.length, truncated: Math.max(0, matchedEntries.length - shown.length) };
+}
+// 搜索回包 → 喂回模型的文本（含截断注记 / 空命中提示）。纯 → 单测。
+function formatLbSearchResult(res) {
+    if (!res) return '';
+    const lines = ['〔搜索结果·关键词：' + ((res.keywords || []).join(' / ') || '（无）') + '〕'];
+    if (!res.entries.length) { lines.push('（没有任何条目命中这些关键词。）'); return lines.join('\n'); }
+    for (const e of res.entries) {
+        lines.push('  书《' + e.book + '》 uid=' + e.uid + '「' + e.title + '」 命中：' + e.matched.join(' / '));
+        for (const ex of e.excerpts) lines.push('    · ' + ex.keyword + '：' + ex.text);
+    }
+    if (res.truncated > 0) lines.push('（另有 ' + res.truncated + ' 条命中未列出——请缩小关键词或用 scope 限定书。）');
+    return lines.join('\n');
+}
+
+// 引擎取文（纯）：fetches = [{ uids, book }] → 逐条取整条【RAW 原文】。book 缺省时按持有该 uid 的唯一书推断；
+// 定位不到列 missing。(book|uid) 去重。纯 → 单测。
+function lbEngineFetch(books, fetches) {
+    const list = books || [];
+    const names = list.map((b) => b.name);
+    const byName = {};
+    for (const b of list) byName[b.name] = b;
+    const holders = (uid) => list.filter((b) => (b.entries || []).some((e) => Number(e.uid) === uid));
+    const items = [];
+    const missing = [];
+    const seen = new Set();
+    for (const f of (fetches || [])) {
+        const book = (f.book || '').trim();
+        for (const uid of (f.uids || [])) {
+            let target = null;
+            if (book) {
+                const nm = resolveBookName(book, names);
+                if (nm && byName[nm] && (byName[nm].entries || []).some((e) => Number(e.uid) === uid)) target = byName[nm];
+            }
+            if (!target) { const h = holders(uid); if (h.length === 1) target = h[0]; }
+            if (!target) { missing.push({ book: book || '', uid }); continue; }
+            const key = target.name + '|' + uid;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            const e = (target.entries || []).find((x) => Number(x.uid) === uid);
+            items.push({
+                book: target.name, uid,
+                title: (e && e.comment && String(e.comment).trim()) ? String(e.comment).trim() : '（无标题）',
+                content: String(e && e.content != null ? e.content : ''),
+            });
+        }
+    }
+    return { items, missing };
+}
+// 取文回包 → 喂回模型的文本（RAW 原文逐字 + 缺失注记）。纯 → 单测。
+function formatLbFetchResult(res) {
+    if (!res) return '';
+    const lines = ['〔取回全文（RAW 原文，逐字）〕'];
+    for (const it of (res.items || [])) {
+        lines.push('  书《' + it.book + '》 uid=' + it.uid + '「' + it.title + '」：');
+        lines.push(it.content);
+    }
+    for (const m of (res.missing || [])) lines.push('  （uid=' + m.uid + (m.book ? ' @《' + m.book + '》' : '') + ' 未找到）');
+    return lines.join('\n');
+}
+
+// 回合状态机（无持久态；每轮 = 指令 + 目录 + 此前回包 的重放）。round 从 1 起（调用①）；cap = 额外来回上界。
+// Select 即终局 → apply（同回复带 Search/Fetch → ignoredRequests 标记，忽略并在预检卡注明）；
+// 只请求 → round≤cap 续发 search，round=cap+1 仍只请求 → stop noconverge；既无 Select 又无请求 → stop norequest。纯 → 单测。
+function lbSmartNextStep(parsed, round, maxRounds) {
+    const cap = (maxRounds != null) ? maxRounds : LB_SMART_MAX_ROUNDS;
+    const selects = (parsed && parsed.selects) || [];
+    const searches = (parsed && parsed.searches) || [];
+    const fetches = (parsed && parsed.fetches) || [];
+    const hasReq = (searches.length + fetches.length) > 0;
+    if (selects.length) return { action: 'apply', ignoredRequests: hasReq };
+    if (hasReq) return (round <= cap) ? { action: 'search' } : { action: 'stop', reason: 'noconverge' };
+    return { action: 'stop', reason: 'norequest' };
+}
+
+// 勾选计划（纯）：把 <LorebookSelect> 块解析成【每本书的最终选择态】+ 预检行 + 幻觉 uid 剔除。
+// selects = parseLbSelectBlocks().selects；books = 目录同款；currentSel = { 书名: Set|数组|null }（当前选择态）。
+// 返回：perBook[{ book, finalUids, fullBook, addedUids, removedUids }]、rows[{ action, book, uid, all?, title, reason }]、
+// dropped[{ book, uid }]（超出目录的幻觉 uid）、unresolvedBooks[书名]、willSelect / willDeselect（净增净减计数）。纯 → 单测。
+function lbResolveSelectPlan(selects, books, currentSel) {
+    const list = books || [];
+    const names = list.map((b) => b.name);
+    const byName = {};
+    for (const b of list) {
+        const uids = (b.entries || []).map((e) => Number(e.uid));
+        const titles = {};
+        for (const e of (b.entries || [])) titles[Number(e.uid)] = (e.comment && String(e.comment).trim()) ? String(e.comment).trim() : '（无标题）';
+        byName[b.name] = { uids, titles };
+    }
+    const cur = currentSel || {};
+    const curSelected = (book) => {
+        const all = byName[book].uids;
+        const sel = cur[book];
+        if (!lbSelFiltered(sel)) return new Set(all);   // null/缺省 = 全勾
+        const s = new Set();
+        for (const u of all) if (lbSelHas(sel, u)) s.add(u);
+        return s;
+    };
+    const perBook = [];
+    const rows = [];
+    const dropped = [];
+    const unresolvedBooks = [];
+    let willSelect = 0, willDeselect = 0;
+    for (const blk of (selects || [])) {
+        const nm = resolveBookName(blk.book, names);
+        if (!nm || !byName[nm]) { unresolvedBooks.push(blk.book || ''); continue; }
+        const allUids = byName[nm].uids;
+        const validSet = new Set(allUids);
+        const before = curSelected(nm);
+        const final = new Set(before);
+        const applySpec = (spec, action) => {
+            if (!spec) return;
+            if (spec.all) {
+                if (action === 'select') { for (const u of allUids) final.add(u); }
+                else { final.clear(); }
+                rows.push({ action, book: nm, uid: null, all: true, title: '（整本条目）', reason: '' });
+                return;
+            }
+            for (const u of spec.uids) {
+                if (!validSet.has(u)) { dropped.push({ book: nm, uid: u }); continue; }
+                if (action === 'select') final.add(u); else final.delete(u);
+                rows.push({ action, book: nm, uid: u, title: byName[nm].titles[u] || '', reason: (blk.reasons && blk.reasons[u] != null) ? blk.reasons[u] : '' });
+            }
+        };
+        applySpec(blk.select, 'select');
+        applySpec(blk.deselect, 'deselect');
+        for (const u of final) if (!before.has(u)) willSelect++;
+        for (const u of before) if (!final.has(u)) willDeselect++;
+        const finalUids = [...final].sort((a, b) => a - b);
+        perBook.push({
+            book: nm, finalUids,
+            fullBook: finalUids.length === allUids.length && allUids.length > 0,
+            addedUids: [...final].filter((u) => !before.has(u)).sort((a, b) => a - b),
+            removedUids: [...before].filter((u) => !final.has(u)).sort((a, b) => a - b),
+        });
+    }
+    return { perBook, rows, dropped, unresolvedBooks, willSelect, willDeselect };
+}
+
+// 喂给模型的指令提示词（家规：中文用户面、English identifiers；下方为一次性组装）。首次调用 = 指令 + 目录；
+// 续发 = 再拼上此前引擎回包。personas 不参与、不走预设——由调用方经 soCallModel 直发（同 persona 扩写一次性调用）。
+function buildSmartSelectMessages(userCommand, catalog, priorResults) {
+    const sys = LB_SMART_SELECT_PROMPT + '\n\n' + String(catalog || '') + (priorResults ? '\n\n' + String(priorResults) : '');
+    return [
+        { role: 'system', content: sys },
+        { role: 'user', content: String(userCommand || '') },
+    ];
 }
 
 // ===== 角色工坊：区块解析（CharBrief / CharDraft / DraftPatch）=====
@@ -4153,6 +4629,10 @@ function lbFuzzyRegex(str) {
 // Replace the span identified by a "start || end" anchor (or a single anchor) with
 // `replace`. Quote-normalize a same-length copy for matching so indices map back to
 // the original. Returns { result, matched }.
+// 加性返回（F2）：命中时【额外】带上 spanStart / spanEnd（被替换片段在【原文】content 里的字符区间，
+// 供 apply 层算「替换 X 字 → Y 字」）与 multi（同一锚点在命中之后还能再命中一次＝定位不唯一，供多命中
+// 守卫）。这些字段【只在 matched:true 时出现】——未命中仍回 { result, matched:false } 原样两字段，
+// 既有调用方（applyDraftPatchOps / 工坊 / lb-fuzzy-replace 守卫测试的 deepEqual）字节不变。
 function lbFuzzyReplace(content, anchor, replace) {
     const src = String(content == null ? '' : content);
     const norm = lbNormQuotes(src);              // 1:1 char map -> indices align with src
@@ -4188,15 +4668,47 @@ function lbFuzzyReplace(content, anchor, replace) {
                     if (!eM) return { result: src, matched: false };
                     end = Math.max(afterIdx, sM.index + eM.index + eM[0].length);
                 }
-                return { result: src.slice(0, sM.index) + repl + src.slice(end), matched: true };
+                // 区间锚点的多命中＝【起始】锚点在被替换片段之后还能再命中（终点段照旧只锚一次）。
+                const multi = lbFuzzyRegex(startA).test(norm.slice(end));
+                return { result: src.slice(0, sM.index) + repl + src.slice(end), matched: true, spanStart: sM.index, spanEnd: end, multi };
             }
         }
         const m = norm.match(lbFuzzyRegex(a));
-        if (m) return { result: src.slice(0, m.index) + repl + src.slice(m.index + m[0].length), matched: true };
+        if (m) {
+            const spanStart = m.index;
+            const spanEnd = m.index + m[0].length;
+            // 单锚点的多命中＝同一锚点在首个命中【之后】仍能再命中一次（非全局正则、每次新建，无 lastIndex 副作用）。
+            const multi = lbFuzzyRegex(a).test(norm.slice(spanEnd));
+            return { result: src.slice(0, spanStart) + repl + src.slice(spanEnd), matched: true, spanStart, spanEnd, multi };
+        }
     } catch (e) {
         console.warn('[Story Oracle] patch anchor match failed:', e);
     }
     return { result: src, matched: false };
+}
+
+// F3b「已完成」探测（纯函数、可单测）：patch 报「锚点未找到」时，判断它的 replace 文本是不是【已经】
+// 躺在条目正文里（多半是先前一版补丁已经改好了这处，模型只是拿着过期原文在瞎猜锚点、反复重试）。
+// 归一：两侧都过 lbNormQuotes（引号风格无关）+ 把所有空白串压成单空格 + trim，再做子串包含判定。
+// 地板：归一后的 replace 长度 < 20 字不判（太短的片段到处都是，避免误报把该改的当成已改）。
+function lbReplaceAlreadyPresent(content, replace) {
+    const norm = (t) => lbNormQuotes(String(t == null ? '' : t)).replace(/\s+/g, ' ').trim();
+    const r = norm(replace);
+    if (r.length < 20) return false;
+    return norm(content).indexOf(r) !== -1;
+}
+
+// F3c 应用结果单行格式化（纯函数、可单测）：UI 逐条结果 + 快照〔上次应用结果〕共用这一份，绝不各写一份。
+// 形状 = applyLorebookOps 产出的 result（或其压缩快照 op）：{ ok, label, reason?, chars? }。
+// ✓ 带 chars → 附「· 替换 X 字 → Y 字」（原片段长 → 替换文本长）；⤫ → 「跳过：<原因>」。
+function lbFormatApplyLine(r) {
+    if (!r) return '';
+    if (r.ok) {
+        const c = r.chars;
+        const size = (c && Number.isFinite(c.from) && Number.isFinite(c.to)) ? `· 替换 ${c.from} 字 → ${c.to} 字` : '';
+        return `✓ ${r.label || ''}${size}`;
+    }
+    return `⤫ ${r.label || ''} 跳过：${r.reason || ''}`;
 }
 
 function lbOpLabel(op) {
@@ -4255,85 +4767,200 @@ function resolveBookName(opBook, scope) {
     return null;
 }
 
-async function applyLorebookOps(ops) {
+// 纯函数：把 op 目标解析到【本次范围内已加载的某本书】。先按书名（resolveBookName）；uid 不在该书时，
+// 跨范围找持有该 uid 的书——恰好一本持有 → 改锚到它（B5 auto-retarget，附提示）。dry-run 预检与真应用共用，
+// 保证「预检落点」＝「实际落点」。booksMap: { [realName]: data(含 .entries) }；scope: 范围内书名数组。
+// 命中 → { book, note }；未定位 → { book:null, reason }。create 不走这里（无 uid）。可单测。
+function lbResolveOpTarget(op, booksMap, scope) {
+    const scopeArr = Array.isArray(scope) ? scope : Object.keys(booksMap || {});
+    const named = resolveBookName(op.book, scopeArr);
+    const uid = op.uid;
+    const hasUid = (n) => { const d = booksMap[n]; return !!(d && d.entries && uid != null && (uid in d.entries)); };
+    if (named && hasUid(named)) return { book: named, note: '' };
+    const holders = scopeArr.filter(hasUid);
+    if (holders.length === 1) {
+        const book = holders[0];
+        return { book, note: (book !== named) ? `已改锚到《${book}》` : '' };
+    }
+    if (named) {
+        if (!booksMap[named]) return { book: null, reason: `无法读取世界书「${named}」` };
+        return { book: null, reason: `uid=${uid} 不存在` };
+    }
+    return { book: null, reason: op.book ? `世界书「${op.book}」不在本次范围内` : '未指定世界书，且无法自动判定' };
+}
+
+// 纯函数（可单测）：判定单个 op 会怎样落地——【dry-run 预检】与【真应用】共用的【唯一】判定源，绝不各写一份。
+// 覆盖：解析目标书 + uid（含跨书改锚）、存在性校验、patch 现场【只读】试跑锚点（多命中守卫 / 幽灵锚点探测 /
+// 尺寸回声）、create 同名转编辑（B4）、无键自动常驻 + 显式暗条目警告（B6）、改动常驻条目警告（T2-lite）。
+// booksMap: { [realName]: data(含 .entries) }，本次范围内已加载的书（真应用传【进行中被就地改的】工作副本，
+//   故顺序补丁能看到前序结果；dry-run 传只读副本、并把已判定通过的正文改动落到内存里同样喂给后续 op）。
+// 返回（lbFormatApplyLine 兼容 + 落地所需字段）：
+//   { ok, action, label, reason?, chars?, note?, warn?, book?, uid?, kind?, patchResult?, setConstant? }
+// kind = 落地时真正要执行的操作（create 折叠成 edit 时 kind='edit'、action 仍是原始 'create'）。
+// opts.noCollapse=true 关掉 B4 create→edit 折叠（工坊写入走此，保持其写入行为字节不变；世界书📖模式默认开）。
+function lbOpVerdict(op, booksMap, scope, opts) {
+    if (!op || !op.action) return { ok: false, action: op && op.action, label: lbOpLabel(op), reason: '操作不完整' };
+    const action = op.action;
+    const collapseCreate = !(opts && opts.noCollapse);
+    const fail = (reason, extra) => Object.assign({ ok: false, action, label: lbOpLabel(op), reason }, extra || {});
+    const constWarnText = '目标为常驻条目（通常是用户核心设定），请确认后再应用';
+
+    if (action === 'create') {
+        const scopeArr = Array.isArray(scope) ? scope : Object.keys(booksMap || {});
+        const named = resolveBookName(op.book, scopeArr);
+        if (!named) return fail(op.book ? `世界书「${op.book}」不在本次范围内` : '未指定世界书，且无法自动判定');
+        const data = booksMap[named];
+        if (!data || !data.entries) return fail(`无法读取世界书「${named}」`);
+        const comment = String((op.fields && op.fields.comment) || '').trim();
+        // B4 同名转编辑（精确同标题、trim 归一、不模糊）：目标书已有同名条目 → 转成对该 uid 的 edit，避免建重复条目。
+        if (collapseCreate && comment) {
+            for (const [uidKey, e] of Object.entries(data.entries)) {
+                if (e && String(e.comment || '').trim() === comment) {
+                    const uid = e.uid != null ? e.uid : Number(uidKey);
+                    const cm = String(e.comment || '').trim();
+                    return { ok: true, action, kind: 'edit', book: named, uid,
+                        label: `改 uid=${uid}${cm ? `「${cm}」` : ''}`,
+                        note: `同名条目已存在，已转为编辑 uid=${uid}`,
+                        warn: e.constant ? constWarnText : '' };
+                }
+            }
+        }
+        // B6 无键条目：没给 key 且没显式写 constant → 自动常驻（否则永不注入）；显式 constant:false + 无键 → 暗条目警告（尊重但示警）。
+        const hasKey = !!(op.fields && op.fields.key != null && lbToStrArray(op.fields.key).length > 0);
+        const constantExplicit = !!(op.fields && ('constant' in op.fields));
+        const constantVal = constantExplicit ? lbToBool(op.fields.constant) : undefined;
+        let note = '';
+        let warn = '';
+        let setConstant = false;
+        if (!hasKey) {
+            if (!constantExplicit) { setConstant = true; note = '无触发键，已自动设为常驻（否则该条目永不注入）'; }
+            else if (constantVal === false) { warn = '该条目无触发键且被设为非常驻，将永不注入（暗条目）'; }
+        }
+        return { ok: true, action, kind: 'create', book: named,
+            label: `新增「${comment || '(无标题)'}」`, note, warn, setConstant };
+    }
+
+    // uid 类操作：edit / patch / delete / prepend / append —— 统一先解析目标书（含跨书改锚）
+    const tgt = lbResolveOpTarget(op, booksMap, scope);
+    if (!tgt.book) return fail(tgt.reason);
+    const data = booksMap[tgt.book];
+    const uid = op.uid;
+    const entry = data.entries[uid];
+    const cm = String((entry && entry.comment) || '').trim();
+    const retargetNote = tgt.note || '';
+    const constWarn = (entry && entry.constant) ? constWarnText : '';   // T2-lite：改动常驻条目示警（不禁用、只提醒）
+
+    if (action === 'delete') {
+        return { ok: true, action, kind: 'delete', book: tgt.book, uid,
+            label: `删除 uid=${uid}${cm ? `「${cm}」` : ''}`, note: retargetNote, warn: constWarn };
+    }
+    if (action === 'prepend' || action === 'append') {
+        const insert = (op.fields && op.fields.content != null) ? String(op.fields.content) : '';
+        if (!insert) return fail(`${action} 没有要插入的正文`, { note: retargetNote });
+        const a = action === 'prepend' ? '前插' : '追加';
+        return { ok: true, action, kind: action, book: tgt.book, uid,
+            label: `${a} uid=${uid}${cm ? `「${cm}」` : ''}`, note: retargetNote, warn: constWarn };
+    }
+    if (action === 'patch') {
+        const { result, matched, spanStart, spanEnd, multi } = lbFuzzyReplace(entry.content || '', op.anchor, op.replace);
+        // F3a 多命中守卫：锚点在正文里不止一处命中 → 不知道该改哪一处，宁可不动、请模型换更独特的锚点。
+        if (matched && multi) return fail('锚点在条目中命中多处，请改用更长或 start || end 更独特的锚点', { note: retargetNote });
+        if (!matched) {
+            // F3b 幽灵锚点：锚点未找到，但 replace 文本已在条目里（多半先前补丁已改好）→ 明说无需重试。
+            if (lbReplaceAlreadyPresent(entry.content || '', op.replace))
+                return fail('锚点未找到——但替换文本已在条目中（可能已由先前补丁完成，无需重试）', { note: retargetNote });
+            return fail(`锚点未找到：「${String(op.anchor || '').slice(0, 40)}」`, { note: retargetNote });
+        }
+        // F3c 尺寸回声：原片段长（spanEnd-spanStart）→ 替换文本长。patchResult 供落地方直接写回（预检＝应用同一结果）。
+        const chars = { from: (spanEnd - spanStart), to: String(op.replace == null ? '' : op.replace).length };
+        return { ok: true, action, kind: 'patch', book: tgt.book, uid,
+            label: `补丁 uid=${uid}${cm ? `「${cm}」` : ''}`, chars, patchResult: result,
+            note: retargetNote, warn: constWarn };
+    }
+    // edit（整条 / 元信息）
+    return { ok: true, action, kind: 'edit', book: tgt.book, uid,
+        label: `改 uid=${uid}${cm ? `「${cm}」` : ''}`, note: retargetNote, warn: constWarn };
+}
+
+// 纯函数（可单测）：把 lbOpVerdict 判定压成一条预检行模型，供 DOM 薄接线渲染。line 复用 lbFormatApplyLine
+// （✓/⤫ 与应用结果同款）；note = 信息附注（改锚 / 同名转编辑 / 自动常驻）；warn = 警示附注（暗条目 / 常驻目标）。
+// cls：通过=so-lb-ok（带 warn 时 so-lb-warn）、未通过=so-lb-skip（灰）。
+function lbVerdictRow(v) {
+    if (!v) return { ok: false, cls: 'so-lb-skip', line: '', note: '', warn: '' };
+    return {
+        ok: !!v.ok,
+        cls: v.ok ? (v.warn ? 'so-lb-warn' : 'so-lb-ok') : 'so-lb-skip',
+        line: lbFormatApplyLine({ ok: v.ok, label: v.label, reason: v.reason, chars: v.chars }),
+        note: v.note || '',
+        warn: v.warn || '',
+    };
+}
+
+// 应用改动：一次性加载范围内所有书（跨书改锚需要跨书可见性），逐 op 用 lbOpVerdict 判定后就地落地，
+// 只保存真被改过的书，pristine 深克隆留作撤销快照。判定逻辑不在此复述——只此一份、由 lbOpVerdict 提供。
+// 返回 { snapshots, results, summary, applied }（形状与旧版一致；ok 结果附 note/warn，供 UI 二级行，
+// 快照压缩器 compactLbApplyResults / 单行格式化器 lbFormatApplyLine 都会忽略它们，字节兼容）。
+async function applyLorebookOps(ops, opts) {
     const mod = await getWiEditApi();
     if (!mod) throw new Error('世界书模块不可用');
 
-    const results = [];
-    const skip = (op, reason) => results.push({ ok: false, action: op && op.action, label: lbOpLabel(op), reason });
+    const scope = Array.isArray(lbBookNames) ? lbBookNames.slice() : [];
+    const booksMap = {};        // 工作副本（会被就地修改）
+    const pristine = {};        // 撤销快照（改动前深克隆）
+    for (const name of scope) {
+        let data = null;
+        try { data = await mod.loadWorldInfo(name); } catch (e) { data = null; }
+        if (data && data.entries) { booksMap[name] = data; pristine[name] = structuredClone(data); }
+    }
 
-    const byBook = new Map();
+    const results = [];
+    const touched = new Set();
     for (const op of ops) {
-        if (!op || !op.action) { skip(op, '操作不完整'); continue; }
-        const book = resolveBookName(op.book, lbBookNames);
-        if (!book) { skip(op, op.book ? `世界书「${op.book}」不在本次范围内` : '未指定世界书，且无法自动判定'); continue; }
-        op.book = book;   // normalize to the real name ST knows
-        if (!byBook.has(book)) byBook.set(book, []);
-        byBook.get(book).push(op);
+        const v = lbOpVerdict(op, booksMap, scope, opts);
+        if (!v.ok) { results.push({ ok: false, action: v.action, label: v.label, reason: v.reason }); continue; }
+        const data = booksMap[v.book];
+        if (v.kind === 'create') {
+            let entry;
+            if (typeof mod.createWorldInfoEntry === 'function') entry = mod.createWorldInfoEntry(v.book, data);
+            if (!entry) { results.push({ ok: false, action: 'create', label: lbOpLabel(op), reason: '无法新建条目' }); continue; }
+            entry.excludeRecursion = true;          // house defaults (overridable by fields)
+            entry.preventRecursion = true;
+            applyFieldsToEntry(entry, op.fields);
+            if (v.setConstant) entry.constant = true;   // B6 无键自动常驻（判定在 lbOpVerdict）
+            results.push({ ok: true, action: 'create', label: `新增「${entry.comment || '(无标题)'}」(uid=${entry.uid})`, note: v.note, warn: v.warn });
+            touched.add(v.book);
+        } else if (v.kind === 'delete') {
+            if (typeof mod.deleteWorldInfoEntry === 'function') await mod.deleteWorldInfoEntry(data, v.uid, { silent: true });
+            else delete data.entries[v.uid];
+            results.push({ ok: true, action: 'delete', label: v.label, note: v.note, warn: v.warn });
+            touched.add(v.book);
+        } else if (v.kind === 'patch') {
+            const entry = data.entries[v.uid];
+            entry.content = v.patchResult;          // lbOpVerdict 已算好（预检＝应用同一 lbFuzzyReplace 结果）
+            applyFieldsToEntry(entry, op.fields);   // optional scalar tweaks alongside
+            results.push({ ok: true, action: 'patch', label: v.label, chars: v.chars, note: v.note, warn: v.warn });
+            touched.add(v.book);
+        } else if (v.kind === 'prepend' || v.kind === 'append') {
+            const entry = data.entries[v.uid];
+            const insert = op.fields.content != null ? String(op.fields.content) : '';
+            const cur = entry.content || '';
+            entry.content = v.kind === 'prepend' ? insert + cur : cur + insert;   // verbatim concat, no auto separator
+            const rest = { ...op.fields }; delete rest.content;   // don't let content overwrite via applyFieldsToEntry
+            applyFieldsToEntry(entry, rest);                      // optional scalar tweaks alongside
+            results.push({ ok: true, action: v.kind, label: v.label, note: v.note, warn: v.warn });
+            touched.add(v.book);
+        } else { // edit（含 B4 create→edit 折叠）
+            applyFieldsToEntry(data.entries[v.uid], op.fields);
+            results.push({ ok: true, action: 'edit', label: v.label, note: v.note, warn: v.warn });
+            touched.add(v.book);
+        }
     }
 
     const snapshots = [];
-    for (const [name, bookOps] of byBook.entries()) {
-        let data;
-        try { data = await mod.loadWorldInfo(name); } catch (e) { data = null; }
-        if (!data || !data.entries) { for (const op of bookOps) skip(op, `无法读取世界书「${name}」`); continue; }
-        const snap = { name, data: structuredClone(data) };
-        let touched = false;
-
-        for (const op of bookOps) {
-            if (op.action === 'create') {
-                let entry;
-                if (typeof mod.createWorldInfoEntry === 'function') entry = mod.createWorldInfoEntry(name, data);
-                if (!entry) { skip(op, '无法新建条目'); continue; }
-                entry.excludeRecursion = true;          // house defaults (overridable by fields)
-                entry.preventRecursion = true;
-                applyFieldsToEntry(entry, op.fields);
-                const noKey = !Array.isArray(entry.key) || entry.key.length === 0;
-                if (noKey && !('constant' in op.fields)) entry.constant = true;   // auto-blue
-                results.push({ ok: true, action: 'create', label: `新增「${entry.comment || '(无标题)'}」(uid=${entry.uid})` });
-                touched = true;
-            } else if (op.action === 'delete') {
-                if (op.uid == null || !(op.uid in data.entries)) { skip(op, `uid=${op.uid} 不存在`); continue; }
-                const title = String(data.entries[op.uid].comment || '').trim();
-                if (typeof mod.deleteWorldInfoEntry === 'function') await mod.deleteWorldInfoEntry(data, op.uid, { silent: true });
-                else delete data.entries[op.uid];
-                results.push({ ok: true, action: 'delete', label: `删除 uid=${op.uid}${title ? `「${title}」` : ''}` });
-                touched = true;
-            } else if (op.action === 'patch') {
-                if (op.uid == null || !(op.uid in data.entries)) { skip(op, `uid=${op.uid} 不存在`); continue; }
-                const entry = data.entries[op.uid];
-                const { result, matched } = lbFuzzyReplace(entry.content || '', op.anchor, op.replace);
-                if (!matched) { skip(op, `锚点未找到：「${String(op.anchor || '').slice(0, 40)}」`); continue; }
-                entry.content = result;
-                applyFieldsToEntry(entry, op.fields);   // optional scalar tweaks alongside
-                results.push({ ok: true, action: 'patch', label: `补丁 uid=${op.uid}${entry.comment ? `「${entry.comment}」` : ''}` });
-                touched = true;
-            } else if (op.action === 'prepend' || op.action === 'append') {
-                if (op.uid == null || !(op.uid in data.entries)) { skip(op, `uid=${op.uid} 不存在`); continue; }
-                const entry = data.entries[op.uid];
-                const insert = op.fields.content != null ? String(op.fields.content) : '';
-                if (!insert) { skip(op, `${op.action} 没有要插入的正文`); continue; }
-                const cur = entry.content || '';
-                entry.content = op.action === 'prepend' ? insert + cur : cur + insert;   // verbatim concat, no auto separator
-                const rest = { ...op.fields }; delete rest.content;   // don't let content overwrite via applyFieldsToEntry
-                applyFieldsToEntry(entry, rest);                      // optional scalar tweaks alongside
-                const a = op.action === 'prepend' ? '前插' : '追加';
-                results.push({ ok: true, action: op.action, label: `${a} uid=${op.uid}${entry.comment ? `「${entry.comment}」` : ''}` });
-                touched = true;
-            } else { // edit
-                if (op.uid == null || !(op.uid in data.entries)) { skip(op, `uid=${op.uid} 不存在`); continue; }
-                applyFieldsToEntry(data.entries[op.uid], op.fields);
-                const cm = data.entries[op.uid].comment;
-                results.push({ ok: true, action: 'edit', label: `改 uid=${op.uid}${cm ? `「${cm}」` : ''}` });
-                touched = true;
-            }
-        }
-
-        if (touched) {
-            snapshots.push(snap);
-            await mod.saveWorldInfo(name, data, /*immediately*/ true);
-            try { if (typeof mod.reloadEditor === 'function') mod.reloadEditor(name); } catch (e) { /* editor not open */ }
-        }
+    for (const name of touched) {
+        snapshots.push({ name, data: pristine[name] });
+        await mod.saveWorldInfo(name, booksMap[name], /*immediately*/ true);
+        try { if (typeof mod.reloadEditor === 'function') mod.reloadEditor(name); } catch (e) { /* editor not open */ }
     }
 
     const okResults = results.filter((r) => r.ok);
@@ -4347,6 +4974,42 @@ async function undoLorebookOps(snapshots) {
         await mod.saveWorldInfo(snap.name, snap.data, /*immediately*/ true);
         try { if (typeof mod.reloadEditor === 'function') mod.reloadEditor(snap.name); } catch (e) { /* ignore */ }
     }
+}
+
+// B5 应用前预检（dry-run）：严格【只读】地跑一遍判定，供 UI 在【点应用前】逐条显示每个 op 会怎样落地。
+// 加载书、绝不 save、绝不动真条目；把已判定通过的【正文类】改动落到内存副本，让后续补丁看到前序结果
+// （与真应用同序、同一个 lbOpVerdict，但不落盘）。返回 verdict 数组（与 ops 同序）；模块不可用 → null。
+// 应用时仍以【当时的真书】重新判定为准（书可能在渲染到点击之间被改），本预检只是提前、可修正的提示。
+async function lbDryRunOps(ops) {
+    const mod = await getWiEditApi();
+    if (!mod) return null;
+    const scope = Array.isArray(lbBookNames) ? lbBookNames.slice() : [];
+    const booksMap = {};
+    for (const name of scope) {
+        try { const d = await mod.loadWorldInfo(name); if (d && d.entries) booksMap[name] = d; } catch (e) { /* 读不到的书跳过 */ }
+    }
+    const verdicts = [];
+    for (const op of (ops || [])) {
+        const v = lbOpVerdict(op, booksMap, scope);
+        verdicts.push(v);
+        // 顺序可见性：把通过的正文类改动落到内存副本（绝不 save），让同条目的后续补丁按真实前序命中。
+        if (v.ok && v.book && booksMap[v.book] && booksMap[v.book].entries) {
+            const data = booksMap[v.book];
+            if (v.kind === 'patch' && (v.uid in data.entries)) {
+                data.entries[v.uid].content = v.patchResult;
+            } else if ((v.kind === 'prepend' || v.kind === 'append') && (v.uid in data.entries)) {
+                const insert = (op.fields && op.fields.content != null) ? String(op.fields.content) : '';
+                const cur = data.entries[v.uid].content || '';
+                data.entries[v.uid].content = v.kind === 'prepend' ? insert + cur : cur + insert;
+            } else if (v.kind === 'edit' && (v.uid in data.entries)) {
+                applyFieldsToEntry(data.entries[v.uid], op.fields);
+            } else if (v.kind === 'delete' && (v.uid in data.entries)) {
+                delete data.entries[v.uid];
+            }
+            // kind==='create'：预检不真建条目（避免任何 mod 副作用；后续 op 不可能引用未知新 uid）
+        }
+    }
+    return verdicts;
 }
 
 /* ------------------------------------------------------------------ *
@@ -4381,6 +5044,25 @@ const FIX_CFG_META_KEY = MODULE + '_fixcfg';
 // 角色工坊：按【当前聊天】持久化的工坊状态（与 plan/arc/convo 同风格——随聊天保存、随切换刷新）。
 //   形状：{ brief|null, draft|null, forgedAt|null }（brief/draft 是 parseCharBrief/parseCharDraft 的输出，含 raw）
 const BLD_META_KEY = MODULE + '_builder';
+// 世界书模式「最近一次应用结果」快照（F4，按【当前聊天】持久化，与 plan/builder 同风格）。
+//   形状：{ serial:number, ops:[{ ok, label, reason?, chars? }] }。serial = 书状态版本号（无应用时视为 1，
+//   任意一次含 ≥1 成功 op 的应用 +1）；ops = 最近一次应用的逐条结果（只留最近一次、每次覆盖，绝不累积）。
+//   世界书快照块（buildLorebookSnapshotBlock）读它显示版本号 + 〔上次应用结果〕。
+const LB_APPLY_META_KEY = MODULE + '_lbapply';
+// 🎛 变量编辑器「分析取值规则」的扫描结果缓存（ENABLE_MVU_EDITOR，按【当前聊天】持久化）。
+//   形状：{ v:1, fields:{ [pathStr]:{ options?:string[], min?:number, max?:number } }, groups:[{ label, paths:[pathStr] }] }
+//   pathStr = mvuedPathStr(path)（JSON.stringify 的数组路径）。v 是格式版本闸：不等于 1 一律当没有缓存
+//   （宁可让用户重扫一次，也不拿旧形状去喂 buildMvuedModel）。读侧 mvuedReadSchemaCache、写侧 runMvuedScan。
+const MVUED_META_KEY = MODULE + '_mvuedSchema';
+// 🎛 变量编辑器「当作列表」的逐字段显示覆盖（ENABLE_MVU_EDITOR，按【当前聊天】持久化）。
+//   形状：[pathStr, …]（mvuedPathStr 的 JSON 路径串数组；没有覆盖时【删键】，元数据保持干净）。
+//   为什么需要它：全仓的 VWD 判定是纯结构判定（mvuIsVwdPair：恰好两格、第二格是字符串），
+//   所以用户真有两项的列表（背包 = ['长剑','皮甲']）会被显示成「数值 + 描述」。判定本身不能改
+//   （写入侧 diffMvuStat/applyFix 与之同口径，分歧才会把值写坏）→ 改为让用户逐字段翻正显示。
+//   这是【纯显示偏好】：不进模型提示词（mvuedFieldPathList 对两种形状发的是同一条 dot 路径）、
+//   不改写入口径（翻正后的编辑走既有列表机制，折成整列表替换）。
+//   读侧 mvuedReadListOverrides、写侧 mvuedSetListOverride（编辑器内部才写得到）。
+const MVUED_LIST_META_KEY = MODULE + '_mvuedAsList';
 
 function getChatMetadataSafe() {
     try {
@@ -4424,6 +5106,44 @@ function setBuilderState(st) {
     if (st) md[BLD_META_KEY] = st; else delete md[BLD_META_KEY];
     saveChatMetadata();
     return true;
+}
+
+// —— F4 世界书「最近一次应用结果」快照（当前聊天，或 null）——
+function getLbApplySnapshot() {
+    const md = getChatMetadataSafe();
+    const v = md ? md[LB_APPLY_META_KEY] : null;
+    return (v && typeof v === 'object') ? v : null;
+}
+function setLbApplySnapshot(snap) {
+    const md = getChatMetadataSafe();
+    if (!md) return false;
+    if (snap) md[LB_APPLY_META_KEY] = snap; else delete md[LB_APPLY_META_KEY];
+    saveChatMetadata();
+    return true;
+}
+// 纯函数：下一个版本号。无应用时基线视为 1；本次应用只要有 ≥1 个成功 op 就 +1（书状态真的变了），
+// 全部跳过则版本号不动（书没变、版本不该跳）。可单测。
+function nextLbApplySerial(prevSerial, results) {
+    const base = (Number.isFinite(prevSerial) && prevSerial >= 1) ? prevSerial : 1;
+    const anyOk = Array.isArray(results) && results.some((r) => r && r.ok);
+    return anyOk ? base + 1 : base;
+}
+// 纯函数：把 applyLorebookOps 的逐条结果压成可持久化的紧凑 op（只留展示要用的字段）。可单测。
+function compactLbApplyResults(results) {
+    return (Array.isArray(results) ? results : []).map((r) => {
+        const o = { ok: !!(r && r.ok), label: (r && r.label) || '' };
+        if (r && !r.ok && r.reason) o.reason = r.reason;
+        if (r && r.ok && r.chars && Number.isFinite(r.chars.from) && Number.isFinite(r.chars.to)) o.chars = { from: r.chars.from, to: r.chars.to };
+        return o;
+    });
+}
+// 每次应用后落一份最近结果快照（覆盖式）。返回新版本号。撤销不经此（书回滚由 undoLorebookOps 负责，
+// 快照留旧值——下一次真发送会现读回滚后的书正文，〔上次应用结果〕仅作参考）。
+function recordLbApplySnapshot(results) {
+    const prev = getLbApplySnapshot();
+    const serial = nextLbApplySerial(prev ? prev.serial : 1, results);
+    setLbApplySnapshot({ serial, ops: compactLbApplyResults(results) });
+    return serial;
 }
 
 // 纯函数：草稿常驻卡 / 提示用的标签，按打造目标命名。可单测。
@@ -4728,6 +5448,68 @@ function serializeConvo(list) {
 // 默认取当前全局 convo；传显式数组即可单测。所有「把 convo 拼进 messages」的地方都改走这里。
 function convoForPrompt(list = convo) {
     return (Array.isArray(list) ? list : []).filter((m) => m && (m.role === 'user' || m.role === 'assistant'));
+}
+
+/* ── 📥 导出对话（用户功能请求：和神谕聊嗨了，想把这页存下来）─────────────────────────
+   纯核在此，UI / 下载在 exportConvo 一带。只导出【真问答轮】——note 记录（自动诊断 / 自动校正 /
+   系统提示）是机制流水不是对话，一律丢弃（与 convoForPrompt 同一口径）。正文【原样照抄】：
+   不转义、不跑宏、不渲染 Markdown，参谋的 <StoryPlan> 块也原样留着（导出的是原文，不是屏幕）。 */
+
+// 纯判定：哪些模式给「导出对话」入口。普通聊天 + 剧情参谋两房是【可读对话】；诊断 / 世界书 / 校正 /
+// 工坊的侧聊是机制记录（补丁 / 预检 / 校正稿 / 访谈稿），导出没意义 → 入口不出现。注册插件模式
+// （Hook API 自定 id）走同一条判定，天然落在隐藏侧。
+function convoExportAllowed(mode) {
+    return mode === 'chat' || mode === 'advisor';
+}
+
+// 纯函数：房间的 convo 数组 + meta{modeLabel, chatName, when} → 整份 .md 文本。
+// when 由调用端预先格式化好（纯函数不碰时钟，单测才钉得住）。过滤后一条对话都不剩 → 返回 ''，
+// 由调用端决定提示什么（这里不造空壳文件）。
+function buildConvoExportMd(list, meta) {
+    const turns = convoForPrompt(Array.isArray(list) ? list : []).filter((m) => typeof m.content === 'string');
+    if (!turns.length) return '';
+    const m = meta || {};
+    const head = [
+        '# 故事神谕对话导出',
+        '',
+        `- 模式：${String(m.modeLabel == null ? '' : m.modeLabel)}`,
+        `- 聊天：${String(m.chatName == null ? '' : m.chatName)}`,
+        `- 导出时间：${String(m.when == null ? '' : m.when)}`,
+        `- 共 ${turns.length} 条对话`,
+    ].join('\n');
+    const body = turns.map((t) => `**${t.role === 'user' ? '【我】' : '【神谕】'}**\n\n${t.content}`);
+    return [head, ...body].join('\n\n---\n\n') + '\n';
+}
+
+// 纯函数：把聊天名收拾成能当文件名的样子——Windows/macOS 都禁的那批字符 + 控制字符去掉、空白折叠、
+// 长度夹到 60（避免撞路径上限）、末尾的点与空格剃掉（Windows 不接受）。收拾完为空 → 「未命名」。
+function soSanitizeFileName(name) {
+    const cleaned = String(name == null ? '' : name)
+        .replace(/[\\/:*?"<>|]/g, '')
+        .replace(/[\u0000-\u001F\u007F]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 60)
+        .replace(/[.\s]+$/, '');
+    return cleaned || '未命名';
+}
+
+// 纯函数：导出文件名 故事神谕-{模式}-{聊天名}-{YYYYMMDD-HHMM}.md。三段都过一遍清洗
+// （模式名是内置常量，聊天名才是用户数据；一视同仁省得日后加来源时漏掉）。
+function buildConvoExportFileName(modeLabel, chatName, stamp) {
+    return `故事神谕-${soSanitizeFileName(modeLabel)}-${soSanitizeFileName(chatName)}-${soSanitizeFileName(stamp)}.md`;
+}
+
+// 纯函数（Date 由调用端传进来，单测才不碰时钟）：导出用的两种时间写法——正文里的可读时间 +
+// 文件名里的紧凑戳。⚠ 不用 `instanceof Date` 判：jsdom 单测里的 Date 来自另一个 realm，
+// instanceof 会假阴（仓级跨领域陷阱）——按鸭子类型认。
+function soExportTimeParts(d) {
+    const ok = d && typeof d.getFullYear === 'function' && typeof d.getTime === 'function' && !isNaN(d.getTime());
+    const dt = ok ? d : new Date(0);
+    const p = (n) => String(n).padStart(2, '0');
+    const Y = String(dt.getFullYear()), M = p(dt.getMonth() + 1), D = p(dt.getDate());
+    const h = p(dt.getHours()), mi = p(dt.getMinutes());
+    return { when: `${Y}-${M}-${D} ${h}:${mi}`, stamp: `${Y}${M}${D}-${h}${mi}` };
 }
 
 // ==== 侧聊流（1.25.0 用户角色分家；1.28.0 推广为每模式独立房间）====
@@ -5291,6 +6073,8 @@ function onChatChanged() {
     liveForge = null;
     liveCondense = null;
     clearNoteOpts();      // 换聊天即作废本会话的记录按钮材料：撤销 / 换 swipe 针对的是旧聊天的 MVU / 楼层，跨聊天重挂会写错对象
+    closeMvuEditor();     // 🎛 变量编辑器：卡里摆的是【旧聊天】的 stat_data 快照与脏表，跨聊天按「应用」就是往新聊天写旧路径 —— 直接关掉（没开时是空操作）
+    cancelMvuedScan();    // 🎛 并掐掉在途的「分析取值规则」（它的结果已注定被丢弃：白烧钱，还会让新聊天的扫描键僵在「分析中…」最长 120 秒）。刻意不放进 closeMvuEditor —— ✕ / 点背景关卡不该中断本聊天的扫描
     applyPlanInjection();
     if (win) renderPlanBar();
     checkPlanReminder();
@@ -8150,6 +8934,10 @@ async function maybePostReply(messageId) {
         try { updateFixVerdict(); } catch (e) { /* 窗口没开等——判定预览行刷新失败无碍（✨ 1.18.0） */ }
         postReplyCancelled = false;
         postReplyBusy = false;
+        // 🎛 打开中的变量编辑器「跟随现实」：自动诊断刚刚可能写过 stat_data，而【这里】才是它写完的确定时刻。
+        // 直接刷、不走防抖：message_received 那颗定时器早在 300ms 后就烧完了（诊断一趟是完整的模型往返），
+        // 靠它等于赌运气。本函数空操作安全（卡没开 / 值没变 / 切了聊天都自己返回），无脑调即可。
+        try { mvuedMaybeRefresh('post-reply'); } catch (e) { /* 刷新失败绝不影响编排收尾 */ }
     }
 }
 
@@ -8357,6 +9145,1329 @@ async function writeUpdateBlockToMessage(idx, block) {
 // 法力这类最常见的数值恰恰多是这种形状 —— 这是本功能唯一与变量【类型】相关的地方。可单测。
 function mvuIsVwdPair(v) {
     return Array.isArray(v) && v.length === 2 && typeof v[1] === 'string' && !Array.isArray(v[0]);
+}
+
+/* ── 🎛 变量编辑器（ENABLE_MVU_EDITOR）纯函数核 ──────────────────────
+ * path 一律是相对 stat_data 根的数组（键名 / 数组下标）；pathStr = JSON.stringify(path)
+ * 作为 schema / 脏表的规范键。返回值全部用普通对象（jsdom 跨 realm：不要 Map/Set）。 */
+function mvuedPathStr(path) { return JSON.stringify(path); }
+
+function mvuedLeafKind(v) {
+    if (typeof v === 'number') return 'number';
+    if (typeof v === 'string') return 'string';
+    if (typeof v === 'boolean') return 'boolean';
+    return 'readonly';
+}
+
+// 从 VWD 描述 / 字段名里【保守地】认出数值范围（spec §5）。认错比认不出危险得多，三道闸：
+// ① 显式区间写法（A-B / A~B / A到B / A至B / [A,B]）；② min < max（顺带排掉 2024-06 这类日期）；
+// ③ 当前值必须落在区间内（描述里随手出现的一对数字大多过不了这道）。全过才给滑杆。
+function mvuedRangeFromDesc(desc, name, current) {
+    const tryOne = (src) => {
+        const s = String(src == null ? '' : src);
+        const m = /[\[［]\s*(-?\d+(?:\.\d+)?)\s*[,，]\s*(-?\d+(?:\.\d+)?)\s*[\]］]/.exec(s)
+            || /(-?\d+(?:\.\d+)?)\s*(?:[-~～—]|到|至)\s*(-?\d+(?:\.\d+)?)/.exec(s);
+        if (!m) return null;
+        const min = parseFloat(m[1]);
+        const max = parseFloat(m[2]);
+        if (!Number.isFinite(min) || !Number.isFinite(max) || !(min < max)) return null;
+        if (typeof current === 'number' && (current < min || current > max)) return null;
+        return { min, max };
+    };
+    return tryOne(desc) || tryOne(name);
+}
+
+// 扫描 schema / 描述启发式 → 给叶子补 options / range。schema 赢过描述启发式（spec §5）。
+function mvuedDecorateLeaf(leaf, fields) {
+    const sc = fields ? fields[mvuedPathStr(leaf.path)] : null;
+    if (sc) {
+        if (Array.isArray(sc.options) && sc.options.length) leaf.options = sc.options.slice();
+        if (typeof sc.min === 'number' && typeof sc.max === 'number' && sc.min < sc.max) {
+            leaf.range = { min: sc.min, max: sc.max };
+        }
+    }
+    if (!leaf.range && leaf.kind === 'number') {
+        leaf.range = mvuedRangeFromDesc(leaf.desc, leaf.label, leaf.value);
+    }
+    return leaf;
+}
+
+// stat_data → { tabs: [{ key, label, nodes }] }。分页规则见 spec §4.1/§6：
+// 根级对象/数组（非 VWD 对）各成一页、页内直接摆它的子节点（不重复一层组标题）；
+// 根级散标量 / VWD 对聚到首页「基础」；schema.groups 只对那些散字段再分页，没匹配上的留在基础。
+// ⚠ VWD 判定一律走 mvuIsVwdPair（全仓同一口径，写入侧 diffMvuStat/applyFix 与之对齐）：
+//    「恰好两格、第二格是字符串」的数组【就是】 VWD 对——真列表恰好长这样时也按 VWD 显示，
+//    这是 MVU 数据本身的歧义，编辑器有意不另立分歧判定（分歧才会写坏值）。
+// listOverrides（第三参，MVUED_LIST_META_KEY 的内容，缺省 []）= 用户逐字段翻正过的 pathStr 清单：
+//    命中的 VWD 对改建成【普通列表】节点（forcedList:true），其余一切照旧。这是纯显示层的补救——
+//    翻正后的编辑走既有列表机制（整列表替换），写入侧一个字都不用改。
+function buildMvuedModel(statData, schema, listOverrides) {
+    const fields = (schema && schema.fields) || null;
+    // 普通对象而非 Set：jsdom 跨 realm 下 `instanceof Set` 会假失败（harness 约定）。脏 metadata
+    // （不是数组 / 混进非字符串）一律当没有覆盖，绝不让它炸掉整棵树。
+    const forced = Object.create(null);
+    for (const p of (Array.isArray(listOverrides) ? listOverrides : [])) {
+        if (typeof p === 'string') forced[p] = true;
+    }
+    const node = (key, v, path) => {
+        if (mvuIsVwdPair(v)) {
+            // 翻正命中：整对改建成两项列表（下标 path 与任何真列表逐字同款）。必须【先于】叶子分支返回——
+            // 顺带也就绕过了 mvuedDecorateLeaf：扫描 schema 认「两格数组」是叶子、完全可能给它配了
+            // options/min/max，而一个下拉去改两行列表就是写坏形状。
+            if (forced[mvuedPathStr(path)]) {
+                return { type: 'list', label: String(key), path, forcedList: true, items: v.map((it, i) => node(i, it, path.concat(i))) };
+            }
+            const leaf = mvuedDecorateLeaf({ type: 'leaf', label: String(key), path, kind: mvuedLeafKind(v[0]), value: v[0], desc: String(v[1]), vwd: true, range: null, options: null }, fields);
+            // canList = 渲染器据此出「≡ 当作列表」开关。口径：**只给 [字符串, 字符串] 对**。
+            // 真正会撞上这个歧义的是【两项字符串列表】（背包 = ['长剑','皮甲']）；而 [数值,'文本']
+            // （好感度 = [40,'好感 0-100']）近乎必然是真的「数值+描述」——那恰恰是本编辑器最常见的
+            // 一类字段，给它们统统挂上 ≡ 等于邀请用户去把好端端的 VWD 掰坏。代价是「真的两项数值列表」
+            // 拿不到开关：那是边缘的边缘（真列表同质，不会是「数字 + 一句中文」），且描述那一格照常显示、
+            // 现象本身仍看得见。[对象,"描述"] 同理排除（翻过去第一行还是个只读对象项）。
+            // ⚠ 这只挡【入口】：metadata 里已有的覆盖仍照常生效（见上面的 forced 分支——用户意图优先，
+            //    且数值对翻正后两行分别是数字项与字符串项，列表机制原样支持）。
+            if (typeof v[0] === 'string') leaf.canList = true;
+            return leaf;
+        }
+        if (Array.isArray(v)) {
+            return { type: 'list', label: String(key), path, items: v.map((it, i) => node(i, it, path.concat(i))) };
+        }
+        if (v && typeof v === 'object') {
+            return { type: 'group', label: String(key), path, children: Object.keys(v).filter(k => k !== '$internal').map(k => node(k, v[k], path.concat(k))) };
+        }
+        return mvuedDecorateLeaf({ type: 'leaf', label: String(key), path, kind: mvuedLeafKind(v), value: v, desc: '', vwd: false, range: null, options: null }, fields);
+    };
+
+    const tabs = [];
+    const loose = [];
+    if (statData && typeof statData === 'object' && !Array.isArray(statData)) {
+        for (const k of Object.keys(statData)) {
+            if (k === '$internal') continue;
+            const v = statData[k];
+            // 分页只看【数据形状】，不看 listOverrides：被翻正的根级两格数组仍留在「基础」页，
+            // 不跟着变成独立页签——否则点一下 ≡ 整页就换掉，加/删一项（真变成三项数组之后）还会再跳一次。
+            if (v && typeof v === 'object' && !mvuIsVwdPair(v)) {
+                const n = node(k, v, [k]);
+                tabs.push({ key: k, label: k, nodes: n.type === 'group' ? n.children : [n] });
+            } else {
+                loose.push(node(k, v, [k]));
+            }
+        }
+    }
+    // schema.groups 只对根级散字段（loose）分组（spec §6）；没匹配上的留在 基础。
+    const groupTabs = [];
+    let remaining = loose;
+    for (const g of ((schema && Array.isArray(schema.groups)) ? schema.groups : [])) {
+        const want = new Set((g.paths || []));
+        const mine = remaining.filter(n => want.has(mvuedPathStr(n.path)));
+        if (!mine.length) continue;
+        remaining = remaining.filter(n => !want.has(mvuedPathStr(n.path)));
+        groupTabs.push({ key: '-g:' + g.label, label: String(g.label), nodes: mine });
+    }
+    if (remaining.length) tabs.unshift({ key: '-base', label: '基础', nodes: remaining });
+    tabs.splice(remaining.length ? 1 : 0, 0, ...groupTabs);
+    return { tabs };
+}
+
+// 批量应用编辑到 stat_data 的【副本】上（spec §7）。按 path 落点：应用时重读的 fresh 数据里路径
+// 已消失（编辑器开着时自动诊断动过状态等）→ 跳过并上报，绝不为缺失路径造新键。vwd:true 表示目标
+// 必须仍是 [值,"描述"] 对——写 [0] 保 [1]；形状变了同样跳过（写对进标量位是 MVU 头号地雷）。
+function applyMvuedEdits(statData, edits) {
+    const stat = JSON.parse(JSON.stringify(statData == null ? {} : statData));
+    // 写进去的值再克隆一遍：编辑项里的数组/对象是 UI 手上的活对象，直接挂上去就与入参共享引用，
+    // UI 之后再动它会悄悄改到已应用的结果。undefined 不是合法 JSON —— 统一落成 null。
+    const clone = (v) => JSON.parse(JSON.stringify(v === undefined ? null : v));
+    // 落点必须是【自有】属性：用 `in` 的话 toString / constructor 这类继承键会假装存在，
+    //「绝不为缺失路径造新键」就被绕过了。（数组的 length 是自有属性、不在此闸内，但 path
+    // 由 buildMvuedModel 生成，只会是真键名 / 数字下标。）
+    const own = (o, k) => o != null && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, k);
+    let applied = 0;
+    const skipped = [];
+    for (const e of (Array.isArray(edits) ? edits : [])) {
+        const path = (e && Array.isArray(e.path)) ? e.path : [];
+        const label = path.join('.');
+        if (!path.length) { skipped.push(label); continue; }
+        let parent = stat;
+        let ok = true;
+        for (let i = 0; i < path.length - 1; i++) {
+            if (!own(parent, path[i])) { ok = false; break; }
+            parent = parent[path[i]];
+        }
+        const last = path[path.length - 1];
+        if (!ok || !own(parent, last)) { skipped.push(label); continue; }
+        if (e.vwd) {
+            const cur = parent[last];
+            if (!mvuIsVwdPair(cur)) { skipped.push(label); continue; }
+            cur[0] = clone(e.value);
+        } else {
+            parent[last] = clone(e.value);
+        }
+        applied++;
+    }
+    return { stat, applied, skipped };
+}
+
+// 解析「分析取值规则」扫描回复（spec §6）。宽进严出：定界块 + 去围栏；每个条目逐段沿 statData 走真
+// 路径核实，走不到 / 落在容器上 / 范围不合法 / 选项非标量 → 丢弃该条，绝不让模型幻觉进 UI。
+// 核实闸认的「真路径」= buildMvuedModel 会发节点的那些，四条一致口径：自有属性（`in` 会让
+// toString/constructor 假装存在）、数组只认数字下标、不钻进 [值,"描述"] 对（它整对才是一个叶子）、
+// $internal 不是路径。核不严的后果不是报错而是长死键 —— 那种 bug 只会表现为「扫描过了但没生效」。
+function parseMvuedSchema(text, statData) {
+    const m = /<MvuSchema>([\s\S]*?)<\/MvuSchema>/i.exec(String(text == null ? '' : text));
+    if (!m) return null;
+    const raw = m[1].trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+    let obj;
+    try { obj = JSON.parse(raw); } catch (e) { return null; }
+    if (!obj || typeof obj !== 'object') return null;
+
+    // dot path → 数组 path；沿 statData 核实。回 {path, leaf} 或 null。
+    const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+    const resolve = (dotPath) => {
+        const segs = String(dotPath == null ? '' : dotPath).split('.').filter(Boolean);
+        if (!segs.length) return null;
+        let cur = statData;
+        const path = [];
+        for (const seg of segs) {
+            if (cur == null || typeof cur !== 'object' || mvuIsVwdPair(cur)) return null;
+            if (seg === '$internal') return null;
+            const isArr = Array.isArray(cur);
+            if (isArr && !/^\d+$/.test(seg)) return null;
+            const key = isArr ? Number(seg) : seg;
+            if (!own(cur, key)) return null;
+            cur = cur[key];
+            path.push(key);
+        }
+        return { path, leaf: cur };
+    };
+    const isLeaf = (v) => mvuIsVwdPair(v) || v == null || typeof v !== 'object';
+
+    const fields = {};
+    for (const f of (Array.isArray(obj.fields) ? obj.fields : [])) {
+        const hit = f && resolve(f.path);
+        if (!hit || !isLeaf(hit.leaf)) continue;
+        const out = {};
+        if (Array.isArray(f.options)) {
+            const opts = f.options.filter(o => typeof o === 'string' || typeof o === 'number');
+            if (opts.length && opts.length === f.options.length) out.options = opts.map(String);
+        }
+        if (typeof f.min === 'number' && typeof f.max === 'number' && f.min < f.max) {
+            out.min = f.min; out.max = f.max;
+        }
+        if (Object.keys(out).length) fields[mvuedPathStr(hit.path)] = out;
+    }
+
+    const groups = [];
+    for (const g of (Array.isArray(obj.groups) ? obj.groups : [])) {
+        if (!g || typeof g.label !== 'string') continue;
+        const paths = (Array.isArray(g.paths) ? g.paths : [])
+            .map(resolve)
+            .filter(h => h && h.path.length === 1 && isLeaf(h.leaf))
+            .map(h => mvuedPathStr(h.path));
+        if (paths.length) groups.push({ label: g.label, paths });
+    }
+    return { fields, groups };
+}
+
+// 纯函数：这段扫描回复看起来是【被截断】的吗 —— 开了 `<MvuSchema` 却没有收尾的 `</MvuSchema>`。
+// 只在 parseMvuedSchema 已经返回 null 之后才问它，用来把「模型答非所问」和「答对了但没说完」分成两句人话
+// （前者叫用户重试是对的，后者得告诉他预算被思考吃光了）。
+// 为什么判据是【开了没闭合】而不是「有开标签 + 解析失败」：开闭都在、只是 JSON 写坏 = 格式错，不是截断，
+// 那种情况报「可能被截断」会把用户支使去调 max_tokens（白费力气）。真截断必然缺收尾标签 —— 故本判据是
+// 「有开标签且解析失败」的严格子集，宁可漏报也不错报。
+// 电池实录：GM 的原生思考吃光 4096 预算后正是停在 `"min": -100,`（块开着没收尾），见
+// tests/unit/_mvued-tuning/FINDINGS.md —— 那次也正是把地板抬到 8192 的由来。可单测。
+function mvuedScanLooksTruncated(text) {
+    const s = String(text == null ? '' : text);
+    return /<MvuSchema\b/i.test(s) && !/<\/MvuSchema\s*>/i.test(s);
+}
+
+// 可编辑叶子的 dot 路径清单（喂给扫描提示词）。口径必须与 parseMvuedSchema 的核实闸【逐条同款】，
+// 否则模型照着清单写出来的路径会被解析器丢掉、该字段静默失去 schema（扫了等于没扫）：
+//   · [值,"描述"] 对整对算【一个】字段 —— 发 好感度 而不是 好感度.0（后者落在对内部，resolve 直接 return null）；
+//   · 列表整体算一个字段（编辑器按整列表替换编辑，不逐项发路径）；
+//   · $internal 永不外露（既不是可编辑字段，也不是合法路径）。
+function mvuedFieldPathList(statData) {
+    const out = [];
+    const walk = (v, path) => {
+        if (mvuIsVwdPair(v)) { out.push(path.join('.')); return; }
+        if (Array.isArray(v)) { out.push(path.join('.')); return; }
+        if (v && typeof v === 'object') {
+            for (const k of Object.keys(v)) { if (k !== '$internal') walk(v[k], path.concat(k)); }
+            return;
+        }
+        if (path.length) out.push(path.join('.'));
+    };
+    walk(statData, []);
+    return out;
+}
+
+// 扫描提示词（spec §6）：数据抽取式指令，无人格 / 无破限 / 无预设。输出契约与 parseMvuedSchema 严格对齐。
+// 末尾两条「输出纪律」封的是 Task 4 复盘钉下的两个真实翻车模式，两条都是【解析器层面无法补救】的：
+//   ① 模型爱先写一版再补一版 —— parseMvuedSchema 只取【第一个】 <MvuSchema> 块，后面那版（往往才是好的）
+//      整块被丢；② 模型爱把 [值,"描述"] 对当数组、按 好感度.0 寻址 —— 那条路径核实不过、整条被丢弃，
+//      用户看到的是「扫描完成」却没有下拉框。两条都只能在提示词侧关死。
+function buildMvuedScanPrompt(rulesBlock, fieldPaths) {
+    return [
+        '你是一个数据抽取器。下面是某角色卡的 MVU 变量更新规则（写给别的模型看的自由文本），以及当前全部变量字段的路径清单。',
+        '任务：从规则文本里找出【对具体字段取值的硬性限制】——枚举值（某字段只能取哪几个值）与数值范围（min/max）。',
+        '只报告规则里【明确写出】的限制；没写的字段不要出现在结果里，绝不要猜。',
+        '另外：若字段清单里存在大量【不带任何分组前缀】的零散字段，可给出把它们按语义分组的建议（groups）；有结构前缀（如「角色状态.」）的字段不要分组。',
+        '',
+        '=== MVU 规则 ===',
+        String(rulesBlock || '（未找到规则）'),
+        '',
+        '=== 字段路径清单（dot 路径，枚举/范围只能挂在这些路径上）===',
+        (fieldPaths || []).join('\n'),
+        '',
+        '输出【只输出】一个 <MvuSchema> 块，内容是 JSON：',
+        '<MvuSchema>',
+        '{"fields":[{"path":"字段.路径","options":["值1","值2"]},{"path":"另一字段","min":0,"max":100}],"groups":[{"label":"分组名","paths":["零散字段1","零散字段2"]}]}',
+        '</MvuSchema>',
+        '没有任何可报告的限制时输出 <MvuSchema>{"fields":[],"groups":[]}</MvuSchema>。',
+        '',
+        '⚠ 输出纪律（不守则本次扫描作废）：',
+        '· 整个回复里【有且只有一个】 <MvuSchema> 块——系统只读第一个，后面再写的一律被丢弃。不要先给一版再给修订版，不要分块输出；想改就把最终结果直接写进那唯一的块里。',
+        '· 形如 [值,"描述"] 的字段，在上面的清单里已按【整对】给出一条路径；限制只能挂在那条【自身】路径上——写「好感度」，绝不要写「好感度.0」或「好感度[0]」。带下标的路径会被系统丢弃，该字段等于白扫。',
+        '· path 必须逐字节抄自上面的字段路径清单，不要自造、不要改写、不要只写末段。',
+    ].join('\n');
+}
+
+// 纯函数：拼一条「🎛 手动编辑」侧聊记录的正文（spec §7.6；仿 autoDiagNoteContent 的写法，不读时钟）。
+// ops 来自 diffMvuStat（JSON-pointer 风格 path），是【应用前后的真实差异】而非脏表条数 —— 用户把值改回
+// 原样再点应用时，脏表里那条是空操作，记录绝不能吹成「改了 1 项」。VWD 写值可能带 /0 尾段，展示时隐去
+// （用户视角改的是「好感度」，不是「好感度/0」）。skipped = 应用时路径已消失的字段，必须写进记录：
+// 静默吞掉会让用户以为改到了。可单测。
+function mvuedNoteContent({ ops, skipped, stamp } = {}) {
+    const list = (Array.isArray(ops) ? ops : []).map((o) => {
+        const p = String((o && o.path) || '').replace(/^\//, '').replace(/\/0$/, '').replace(/\//g, '.');
+        if (o && o.op === 'remove') return `· ${p}（已删除）`;
+        const v = o ? o.value : undefined;
+        return `· ${p} → ${(v !== null && typeof v === 'object') ? JSON.stringify(v) : v}`;
+    });
+    let s = `🎛 手动编辑（${stamp || ''}）：改了 ${list.length} 项`;
+    if (list.length) s += '\n' + list.join('\n');
+    if (Array.isArray(skipped) && skipped.length) s += `\n⚠ 跳过 ${skipped.length} 项（字段已不存在）：${skipped.join('、')}`;
+    return s;
+}
+
+/* ── 🎛 变量编辑器 UI ─────────────────────────────────────────────────
+ * 会话内瞬态：脏表 / 打开快照 / 当前页签都【不落盘】（同全屏阅读的做法——UI 状态不进设置）。
+ * 打开时抓一份 MvuData 拷贝只用于【显示】；真正写入时（mvuedApply）重读 fresh 数据再落 applyMvuedEdits。 */
+let mvuedDirty = new Map();
+let mvuedOpenData = null;      // 打开时的 MvuData 拷贝（仅供展示；应用时重读 fresh）
+let mvuedSchemaCache = null;   // 本聊天的扫描 schema（打开时从 metadata 读）
+let mvuedActiveTab = 0;        // 当前页签下标（开窗归零）
+// 「应用」在途标志（防连点写两次）。updateMvuedFoot 是「应用」键 disabled 的唯一写入口，故它也读这里——
+// 否则用户在写入过程中随手改个值，updateMvuedFoot 会把刚禁用的按钮又点亮。
+let mvuedApplying = false;
+// 「🔍 分析取值规则」在途标志。刻意【不】复用 mvuedApplying：两件事互不相干（扫描只读规则、应用只写变量），
+// 共用一个标志会让任一方在途时把对方的按钮也锁死，而扫描一趟最长 120 秒 —— 用户会以为「应用」坏了。
+// updateMvuedScanBtn 是扫描键 disabled + 文案的唯一写入口（在途时该键翻成「⏹ 中断扫描」，见那里）。
+let mvuedScanning = false;
+// 在途扫描的中断器把手（空闲时恒 null）。必须是【模块级】而非 runMvuedScan 里的局部 const：两个圈外的
+// 中断来源都得够得着它——① 用户按扫描键上的「⏹ 中断扫描」（spec §6 的可中断承诺）；② 切聊天时
+// onChatChanged——那一趟的结果已经注定要在危险点三被丢弃，让它继续跑就是白烧钱，且扫描键会
+// 在【新聊天】里僵成在途态最长 120 秒。
+let mvuedScanCtl = null;
+// 开卡那一刻的聊天身份键（同 mvuedApply / runMvuedScan 用的 fixChatKey）。只服务于「跟随现实」的刷新：
+// onChatChanged 已经会 closeMvuEditor，正常情况下切聊天时这张卡早没了；但刷新走的是一颗 300ms 的防抖
+// 定时器，它完全可能在「切聊天」与「新聊天里又开了一张卡」之间落地。带上身份钉 = 那颗迟到的定时器
+// 绝无可能把【新聊天】的数据当成刷新结果摆进任何一张卡。开卡时写、关卡时清。
+let mvuedOpenChatKey = null;
+// 「跟随现实」的防抖把手（空闲恒 null）。必须是模块级：关卡时要掐掉（closeMvuEditor），
+// 而事件监听器是在 init 里一次性挂的、够不着任何局部变量。
+let mvuedRefreshTimer = null;
+
+function collectMvuedEdits() { return Array.from(mvuedDirty.values()); }
+
+function mvuedReadSchemaCache() {
+    try {
+        const md = getChatMetadataSafe();
+        const c = md && md[MVUED_META_KEY];
+        return (c && c.v === 1) ? { fields: c.fields || {}, groups: c.groups || [] } : null;
+    } catch (e) { return null; }
+}
+
+// 「当作列表」覆盖清单的读侧（形状见 MVUED_LIST_META_KEY）。恒返回数组：读不到 / 形状不对 → []，
+// 让 buildMvuedModel 的第三参永远拿到干净输入。每次重画现读（本聊天的元数据，不缓存进模块变量：
+// 它不像 schema 那样要跨在途扫描活着，现读一次的代价是一次对象取值）。
+function mvuedReadListOverrides() {
+    try {
+        const md = getChatMetadataSafe();
+        const a = md && md[MVUED_LIST_META_KEY];
+        return Array.isArray(a) ? a.filter(p => typeof p === 'string') : [];
+    } catch (e) { return []; }
+}
+
+// 「当作列表」开关的唯一写入口（≡ 与 ⇄ 两颗按钮都走这里）。三件事，缺一不可：
+//   ① 读-改-写 metadata + 落盘（空清单删键，保持元数据干净，同 setDiagWiMeta 风格）；
+//   ② **丢掉该路径上的脏项**（本函数唯一的承重不变量，两个方向都要丢）—— 形状一变，旧载荷即非法：
+//      VWD 编辑的载荷是【标量】（写进 [0]），列表编辑的载荷是【整个数组】。两种事故都不是「跳过并上报」，
+//      都很难看，故照实写在这里，别「顺手简化」掉：
+//        · ≡ 方向（旧脏项是 VWD 的标量）：改建成 list 后 mvuedListValue 命中同一个 pathStr、直接返回那个
+//          **标量**，renderMvuedList 的 `val.forEach` 当场 TypeError。而 renderMvuedBody 是先
+//          `bodyEl.innerHTML = ''` 再逐节点 append 的 → 抛在中途 = 用户看到**整个编辑器正文一片空白**。
+//        · ⇄ 方向（旧脏项是整数组 + vwd:false）：applyMvuedEdits 【不会】跳过它（vwd 闸只管 vwd:true 的），
+//          于是 `parent[last] = [...]` 把整个数组**盖到那个 [值,"描述"] 对上** —— 静默写坏形状，
+//          MVU 那边再也读不出这个字段。
+//      （附带作用：脏项没了，「已改 N 项」计数也就诚实了 —— 那条改动确实已经作废。）
+//   ③ 重画。切换显示形状【本身绝不标脏】——它是显示偏好，不是一次改动（不写 stat_data）。
+function mvuedSetListOverride(path, on) {
+    const key = mvuedPathStr(path);
+    const md = getChatMetadataSafe();
+    if (md) {
+        const next = mvuedReadListOverrides().filter(p => p !== key);
+        if (on) next.push(key);
+        if (next.length) md[MVUED_LIST_META_KEY] = next;
+        else delete md[MVUED_LIST_META_KEY];
+        saveChatMetadata();
+    }
+    mvuedDirty.delete(key);
+    renderMvuedBody();
+}
+
+// 数字槽的唯一转换口。空串 / 半截输入（"-"、"1e"）/ 非数字 → NaN，调用方据此【什么都不标】。
+// 用严格 Number 而非 parseFloat：parseFloat('12abc') 会悄悄收下 12。空串单独挡掉，否则 Number('') === 0
+// —— 清空输入框会被写成 0，那是最容易被用户当成 bug 的一种「静默改值」。
+function mvuedToNumber(raw) {
+    const s = String(raw == null ? '' : raw).trim();
+    if (!s) return NaN;
+    const v = Number(s);
+    return Number.isFinite(v) ? v : NaN;
+}
+
+// 把【字符串态】的用户输入按叶子类型写进脏表。数字槽恒经 mvuedToNumber：扫描 schema 的 options
+// 永远是字符串数组（数值字段也不例外），✎ 自由输入同理 —— 数字槽绝不能收到字符串，NaN 更不能进脏表。
+// 返回：是否真的标了脏（调用方据此才点亮「已改」底色）。
+function mvuedMarkTyped(leaf, raw) {
+    if (leaf.kind === 'number') {
+        const v = mvuedToNumber(raw);
+        if (!Number.isFinite(v)) return false;
+        mvuedMarkDirty(leaf, v);
+        return true;
+    }
+    mvuedMarkDirty(leaf, raw);
+    return true;
+}
+
+async function openMvuEditor() {
+    if (!ENABLE_MVU_EDITOR || !win) return;
+    const Mvu = await getMvu();
+    if (!Mvu || typeof Mvu.getMvuData !== 'function') {
+        try { window.toastr && window.toastr.info && window.toastr.info('未检测到 MVU —— 本聊天没有可编辑的变量。', '故事神谕 · 变量编辑器'); } catch (e) { /* ignore */ }
+        return;
+    }
+    let data = null;
+    try { data = Mvu.getMvuData({ type: 'message', message_id: 'latest' }); } catch (e) { /* 下面按空处理 */ }
+    try { mvuedOpenData = data ? JSON.parse(JSON.stringify(data)) : null; } catch (e) { mvuedOpenData = null; }
+    mvuedDirty = new Map();
+    mvuedActiveTab = 0;
+    mvuedOpenChatKey = fixChatKey();   // 「跟随现实」刷新的身份钉（见 mvuedMaybeRefresh 的守卫②）
+    mvuedSchemaCache = mvuedReadSchemaCache();
+
+    // getMvu 是 async（可能等 TavernHelper 初始化）→ 连点两下按钮会走进两次 append。
+    // 建卡前先把旧卡摘掉：永远只有一张 #so-mvued-card。
+    const stale = document.getElementById('so-mvued-card');
+    if (stale) stale.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'so-mvued-card';
+    overlay.className = 'so-mvued-overlay';
+    overlay.innerHTML = `
+        <div class="so-mvued-inner">
+            <div class="so-mvued-head">
+                <span class="so-mvued-title">🎛 变量编辑器</span>
+                <button type="button" class="so-lb-mini" id="so-mvued-scan">🔍 分析取值规则</button>
+                <div class="so-iconbtn so-warn-x" id="so-mvued-close" title="关闭"><i class="fa-solid fa-xmark"></i></div>
+            </div>
+            <div id="so-mvued-scan-hint" class="so-hint">🔍 AI 读一遍卡的规则后：该选的变下拉菜单、有范围的数字加滑杆——只问一次，本聊天记住。</div>
+            <input type="text" id="so-mvued-search" placeholder="搜索字段名…">
+            <div id="so-mvued-tabs"></div>
+            <div id="so-mvued-body"></div>
+            <div class="so-mvued-foot">
+                <span id="so-mvued-count"></span>
+                <span id="so-mvued-status" class="so-apply-status"></span>
+                <button type="button" class="so-apply-btn" id="so-mvued-revert">还原</button>
+                <button type="button" class="so-apply-btn" id="so-mvued-apply" disabled>应用</button>
+            </div>
+        </div>`;
+    win.appendChild(overlay);
+    // 逃生两件套（叠层地雷）：✕、点背景关。Esc 【不】接管 —— 全屏那套的 Esc 消费者名单是有意收窄的，不动它。
+    overlay.addEventListener('click', (ev) => { if (ev.target === overlay) closeMvuEditor(); });
+    overlay.querySelector('#so-mvued-close').addEventListener('click', closeMvuEditor);
+    // ✕ 是动态建出来的 .so-iconbtn → 补语义（role/tabindex/aria-label），否则键盘用户聚焦不到它 =
+    // 关不掉这张卡（win 上的委托 keydown 只对可聚焦节点有意义）。整体的 enhanceIconButtonA11y 不能在这里调。
+    enhanceIconBtnNode(overlay.querySelector('#so-mvued-close'));
+    overlay.querySelector('#so-mvued-revert').addEventListener('click', () => { mvuedDirty.clear(); renderMvuedBody(); });
+    overlay.querySelector('#so-mvued-apply').addEventListener('click', () => { mvuedApply(); });
+    // 一键两态（spec §6 的「可中断」）：空闲 = 发起扫描，在途 = 中断这一趟。文案由 updateMvuedScanBtn 同步，
+    // 这里只按当下的 mvuedScanning 分道。连点无害：cancelMvuedScan 只发中断（把手已 null 时直接返回、绝不
+    // 自己复位状态机），runMvuedScan 自己也有 mvuedScanning 闸门挡住重入。
+    overlay.querySelector('#so-mvued-scan').addEventListener('click', () => {
+        if (mvuedScanning) cancelMvuedScan();
+        else runMvuedScan();
+    });
+    renderMvuedBody();
+    updateMvuedScanBtn();   // 本聊天已扫过 → 开卡就显示「重新扫描」（mvuedSchemaCache 上面刚从 metadata 读过）
+    overlay.querySelector('#so-mvued-search').addEventListener('input', renderMvuedBody);
+}
+
+// 关卡即弃全部会话内状态（脏表 / 快照 / schema 缓存都是【某一次打开】的东西，schema 更是 per-chat）。
+// 没开卡时纯空操作 —— onChatChanged 无条件调它就靠这一点。
+function closeMvuEditor() {
+    const el = document.getElementById('so-mvued-card');
+    if (el) el.remove();
+    mvuedDirty = new Map();
+    mvuedOpenData = null;
+    mvuedSchemaCache = null;
+    mvuedOpenChatKey = null;
+    // 在途的「跟随现实」防抖也一起掐：卡都没了，那次刷新已无事可做（mvuedMaybeRefresh 自己也会空转，
+    // 掐掉只是不留悬着的定时器）。与 cancelMvuedScan 的取舍不同——扫描的结果仍属于本聊天、值得跑完。
+    if (mvuedRefreshTimer) { clearTimeout(mvuedRefreshTimer); mvuedRefreshTimer = null; }
+}
+
+/* ── 打开中的编辑器「跟随现实」（1.59.0）────────────────────────────────
+ * 卡里摆的是【打开那一刻】的 stat_data 拷贝，而剧情还在往下跑：新回复被 MVU 解析、自动诊断写回、
+ * MVU 额外模型解析——任何一次都会把库里的值改掉。以前这张卡纹丝不动：状态栏已经显示体力 30，编辑器
+ * 里还是 80，用户对着 80 改。（应用前重读 fresh 那道闸只保证「不覆盖别人的改动」，保证不了眼前这份
+ * 显示是真的。）此处让它跟上。
+ *
+ * 三道守卫 + 一次比对，缺一不可：
+ *   ① 旗关 / 卡不在文档里 → 不做事（本函数因此是无条件可调的空操作安全件）；
+ *   ② 聊天已切走 → 整趟作废。onChatChanged 已经 closeMvuEditor 了，正常路径根本走不到这里；但刷新
+ *      走 300ms 防抖，一颗旧定时器完全可能落在「切聊天 + 新聊天里又开了一张卡」之后——那时若照刷，
+ *      就是把【新聊天】的数据摆进一张按【旧聊天】开的卡（同 mvuedApply 危险点一的伤，只是只读侧）。
+ *   ③ 与卡上这份【逐字节一样】→ 什么都不做。renderMvuedBody 是整棵树重建：折叠起来的分组会全部
+ *      弹开（det.open 恒 true）、滚动位置归零、✎ 逃生门退回下拉。这些代价用户真的看得见，所以
+ *      「没有真变化就绝不重画」是本函数的承重不变量——别为了省一次 JSON.stringify 把它简化掉。
+ * 脏项安然无恙：renderMvuedLeaf / mvuedListValue 都是【先读脏表、读不到才用模型值】，用户改到一半的
+ * 输入重画后原样还在；脏项指向的路径若在新状态里已消失，它只是画不出来、仍留在脏表里（应用时
+ * applyMvuedEdits 跳过并上报，不静默）。「还原」也因此自动变准了：它清空脏表后显示的正是刷新后的现值。
+ *
+ * 刻意【不 await】：卡开着就意味着 openMvuEditor 早已 await 过 getMvu，句柄就在 mvuApi 里。写成 async
+ * 只会凭空多出一个「await 期间切了聊天」的窗口，而这个函数一步都不该给出去。
+ */
+function mvuedMaybeRefresh(reason) {
+    if (!ENABLE_MVU_EDITOR) return;
+    const card = document.getElementById('so-mvued-card');
+    if (!card) return;
+    if (mvuedOpenChatKey !== null && fixChatKey() !== mvuedOpenChatKey) return;
+    // ── 用户正在动手 → 这一拍不重画，改成【推迟】（重排一次防抖，等他停手）──────────────
+    // renderMvuedBody 是整棵树重建（`#so-mvued-body` 先 innerHTML='' 再逐节点 append），所以在两种时刻
+    // 重画就是直接毁掉用户手上的活：
+    //   ① ⤢ 放大编辑弹层开着 —— 它捕获的目标 input 就住在正文里。重画后那个节点变孤儿，用户还在一个
+    //      看起来好好的大文本框里接着敲，直到按「确定」才被 isConnected 守卫拦下（提示重开）——
+    //      一整段话就这么没了。守卫拦得住写坏，拦不住白打一场。
+    //   ② 正文里的输入框正被聚焦 —— 光标位置、选区、**中文 IME 正在合成中的字**全没；更狠的是
+    //      「半截输入」（`-`、`1.`）**根本不在脏表里**（mvuedMarkTyped 对非有限数一律不标脏），
+    //      重画后连痕迹都不剩。
+    // 同款做法在本文件已有先例：refreshSummaryUI 的 `document.activeElement !== ta` →「别在用户正打字时
+    // 覆盖」；聚焦判据则照抄 onFullscreenEscKeydown 的 editorFocused（INPUT/TEXTAREA/isContentEditable，
+    // 并且【明确排除】某个不算数的框）。这里排除的是 #so-mvued-search：它住在卡里但**不在重画范围内**
+    // （renderMvuedBody 只重建 #so-mvued-tabs 与 #so-mvued-body），重画伤不到它；而「打完筛选词把焦点
+    // 留在搜索框里看结果」是最常见的停留姿势，把它算进推迟等于让编辑器**再也不刷新**。
+    // 不会永远推下去：每次推迟只是按同一个防抖间隔重排一次，用户一失焦 / 一关弹层就落地；而关卡
+    // （closeMvuEditor）会把定时器掐掉，切聊天走的也是关卡那条路 —— 没有能让它空转到天荒地老的路径。
+    const ae = document.activeElement;
+    const busyInput = !!(ae && card.contains(ae) && ae.id !== 'so-mvued-search'
+        && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable));
+    if (document.getElementById('so-mvued-bigedit') || busyInput) {
+        mvuedScheduleRefresh(reason);
+        return;
+    }
+    const Mvu = mvuApi || window.Mvu;
+    if (!Mvu || typeof Mvu.getMvuData !== 'function') return;
+    let fresh = null;
+    try { fresh = Mvu.getMvuData({ type: 'message', message_id: 'latest' }); } catch (e) { return; }
+    let copy = null;
+    try { copy = fresh ? JSON.parse(JSON.stringify(fresh)) : null; } catch (e) { return; }
+    // 比对口径 = 【真正被渲染的那一份投影】，逐字照抄 renderMvuedBody 取值的那个表达式
+    // （`d.stat_data || d`）—— 不是整份 MvuData。理由与 F2 漂移比对同源：display_data / delta_data 是
+    // MVU **每一轮都会重算**的派生数据（delta_data 更是「本轮变了什么」，值一样也会换内容）。拿整份比，
+    // 真实对局里「上一轮改过值、这一轮没改」就会比出 false → 整棵树重建（折叠的分组全弹开、✎ 逃生门
+    // 退回下拉），有脏项时还会弹一条【假的】「⚠ 剧情刚更新了变量」。stub smoke 的 delta_data 是冻的，
+    // 结构上照不出这个 bug —— 所以这行注释就是它的钉。
+    // 比对用投影、赋值仍用【整份 copy】：撤销 / 应用要的是完整 MvuData，投影只负责回答「画面要不要重画」。
+    // 代价（有意接受）：只有 display_data 变了时 mvuedOpenData 会留着旧的那一份 —— 它是纯显示用快照，
+    // 写入路径（mvuedApply）永远自己重读 fresh，落不到任何写上。
+    const rendered = (d) => (d ? (d.stat_data || d) : null);
+    let same = false;
+    try { same = JSON.stringify(rendered(copy)) === JSON.stringify(rendered(mvuedOpenData)); } catch (e) { same = false; }
+    if (same) return;
+    mvuedOpenData = copy;
+    renderMvuedBody();
+    // 有脏项时才出声：用户手上有没提交的改动，值在脚下换了，这件事必须让他知道（否则「我明明改的是
+    // 80」会变成一桩灵异事件）。没脏项时静默——那种情况下刷新就是「显示终于对了」，说一句反而是噪音。
+    if (mvuedDirty.size > 0) {
+        const status = card.querySelector('#so-mvued-status');
+        if (status) {
+            status.classList.remove('so-hint-error');
+            status.textContent = '⚠ 剧情刚更新了变量：你没动过的值已同步为最新，你改过的保持不变。';
+        }
+    }
+    console.debug('[Story Oracle] 🎛 变量编辑器：已随外部改动刷新（' + (reason || '') + '）');
+}
+
+// 「跟随现实」的防抖入口（约 300ms）。一条回复落地时事件常常连着来（MESSAGE_RECEIVED 之后
+// 校正还会补发 MESSAGE_SWIPED / MESSAGE_UPDATED），逐个刷就是逐次重建整棵树。卡没开时连定时器
+// 都不起：这是全聊天每条消息都会经过的路径，能不做的活一点都别做。
+function mvuedScheduleRefresh(reason) {
+    if (!ENABLE_MVU_EDITOR) return;
+    if (!document.getElementById('so-mvued-card')) return;
+    if (mvuedRefreshTimer) clearTimeout(mvuedRefreshTimer);
+    mvuedRefreshTimer = setTimeout(() => {
+        mvuedRefreshTimer = null;
+        try { mvuedMaybeRefresh(reason); } catch (e) { console.warn('[Story Oracle] 🎛 变量编辑器刷新失败：', e); }
+    }, 300);
+}
+
+// 掐掉在途的「🔍 分析取值规则」扫描。两个调用者：扫描键在途时的「⏹ 中断扫描」（用户主动，spec §6）与
+// onChatChanged（结果已注定作废）。刻意【不】写进 closeMvuEditor：
+// ✕ / 点背景关卡的意思是「我不看了」，那趟扫描的结果仍然属于【本聊天】、写进缓存完全正确（现有行为如此，
+// 不动它）；而切聊天的意思是「结果已注定作废」（危险点三必然丢弃），继续跑下去只剩两样坏处：真金白银
+// 白烧，以及扫描键在【新聊天】里僵成「分析中…」最长 120 秒、还没有取消的地方。
+// ⚠ 这里【只】发中断，绝不自己动 mvuedScanning / 按钮：状态机的复位口只有 runMvuedScan 的 finally 一个。
+// 抢着在这里置 false，会让用户在旧那趟的 reject 落地【之前】发起新一趟扫描，随后旧 finally 把新一趟的
+// 标志清掉、按钮中途点亮 → 同一时刻两个在途请求。中断的 reject 是同一轮微任务就排上的，等它复位足够快。
+function cancelMvuedScan() {
+    if (!mvuedScanCtl) return;
+    try { mvuedScanCtl.abort(); } catch (e) { /* ignore */ }
+}
+
+// 「应用」：一次批量写入（spec §7）。链路刻意是这个顺序，每一环都扛一件事：
+//  ① 重读 fresh MvuData —— 卡里摆的是【打开那一刻】的拷贝，期间自动诊断 / MVU 额外解析可能已写过状态；
+//     拿旧拷贝当底稿写回去 = 悄悄回滚别人的改动。编辑按 path 落到 fresh 的克隆上，并发改动因此存活。
+//  ② 路径在 fresh 里已消失 → applyMvuedEdits 跳过并上报（绝不造新键），跳过项进记录、不静默。
+//  ③ 快照 = 写入前的整份 MvuData 深拷贝，交给记录上的撤销按钮（整份互换，不涉及补丁重放）。
+//  ④ $internal 一路原样穿过（fresh 深拷贝 → r.stat → newData.stat_data），既不读也不改。
+//  ⑤ replaceMvuData 不发 VARIABLE_UPDATE_ENDED → 必须自己 refreshLatestMvuBar，否则状态栏停在旧值。
+//  ⑥ replaceMvuData 一旦返回，写入就【撤不回来】了 —— 此后的每一步（状态栏刷新 / 侧聊记录 / 编辑器
+//     重同步）都只是收尾，各自 try、各自兜底，绝不许把这趟已经成功的写入改口说成「应用失败」。
+//     外层那个 try 因此只管【写入之前】的失败。
+// 记录里的「改了 N 项」用 diffMvuStat 的【真实差异】而非 r.applied：脏表不会因为用户把值改回原样而消项，
+// 那种空操作应用得掉但不算改动，两个数字有意各说各话（状态行说写入、记录说改动）。
+async function mvuedApply() {
+    if (!ENABLE_MVU_EDITOR || mvuedApplying) return;
+    const card = document.getElementById('so-mvued-card');
+    const status = card && card.querySelector('#so-mvued-status');
+    const fail = (msg) => { if (status) { status.textContent = msg; status.classList.add('so-hint-error'); } };
+    if (status) status.classList.remove('so-hint-error');
+    const edits = collectMvuedEdits();
+    if (!edits.length) return;
+    // 身份钉（P-CORRUPT 同族，与校正的 fixCaptured.chatId 走同一个 fixChatKey）：onChatChanged 会
+    // clearNoteOpts() + closeMvuEditor()，两句都在说同一件事 ——「撤销 / 应用针对的是【旧聊天】的 MVU」。
+    // 在途的这一趟是唯一能绕过它们的路径（它已经跑起来了，关卡关不掉它），故自己带身份钉。
+    // 整条链路只有【两个 await】，切聊天只可能落在这两处，下面各钉一次。
+    const chatKey = fixChatKey();
+    // 上锁必须在【第一个 await 之前】：getMvu 是 async（可能在等 TavernHelper 初始化），连点两下会双双
+    // 穿过这里、各写一遍 —— 同 openMvuEditor 那处双击坑，只是这一处的代价是写两次状态、留两条记录。
+    mvuedApplying = true;
+    updateMvuedFoot();
+    try {
+        const Mvu = await getMvu();
+        if (!Mvu || typeof Mvu.replaceMvuData !== 'function' || typeof Mvu.getMvuData !== 'function') {
+            fail('未检测到 MVU —— 无法应用。');
+            return;
+        }
+        // 危险点一（读之前，代价最大的一处）：getMvu 首次未缓存时会等 TavernHelper 初始化，最长 5 秒——
+        // 期间切了聊天，下面 getMvuData('latest') 读到的就是【新聊天】的状态，而编辑是按 path 落的：
+        // 同一张卡的两个聊天 schema 完全一致 → 每条路径都解析得到 → 一声不响把旧聊天想改的值写进新聊天。
+        // 这里还什么都没读、没写，故整趟【直接作废】，代价为零。
+        if (fixChatKey() !== chatKey) {
+            fail('聊天已切换，本次应用已取消（没有写入任何变量）。');
+            return;
+        }
+        const opts = { type: 'message', message_id: 'latest' };
+        const fresh = Mvu.getMvuData(opts);
+        const snapshot = JSON.parse(JSON.stringify(fresh == null ? {} : fresh));
+        const r = applyMvuedEdits(fresh && fresh.stat_data ? fresh.stat_data : {}, edits);
+        if (!r.applied) {
+            fail('没有任何改动被应用（这些字段在当前状态里已不存在）。');
+            return;
+        }
+        // 读 → 算 → 造 newData 这一段【没有 await】，中间插不进 onChatChanged，故不必再钉一次：
+        // 过了危险点一，这份 fresh 就确定是本聊天的。
+        const newData = JSON.parse(JSON.stringify(fresh == null ? {} : fresh));
+        newData.stat_data = r.stat;
+        // F1（staleness-audit §3）：MvuData 里还有一份 display_data —— MVU 把它初始化成 stat_data 的
+        // 【副本】，本轮变过的项再改写成「旧->新（原因）」串，专供状态栏读。以前这里只换 stat_data、
+        // display_data 原样带过去：读 display_data 的那一类状态栏于是【静默】显示编辑前的旧数字，
+        // 一直挺到下一轮 MVU 重算 —— 用户看到的就是「编辑器说改了、状态栏说没改」。同一批编辑照跑一遍即可。
+        // · applyMvuedEdits 的 own-property 纪律在这里【恰恰是对的】：只在 stat_data 里有、display_data
+        //   里没有的路径会被跳过（它绝不造新键）—— display 里没有这一格，就不该凭空长出来。skipped 有意
+        //   丢弃：display 的跳过不是「编辑没生效」，那件事由 stat_data 那次的 r.skipped 唯一负责上报。
+        // · 卡本身没有 display_data（真有这种卡）→ 不碰，更不凭空造这个键。
+        // · delta_data 有意【不动】：它的语义是「本轮 MVU 更新的变化」，手动编辑不是一轮 MVU 更新。
+        if (fresh && fresh.display_data && typeof fresh.display_data === 'object') {
+            newData.display_data = applyMvuedEdits(fresh.display_data, edits).stat;
+        }
+        await Mvu.replaceMvuData(newData, opts);
+        // 危险点二（写之后）：底稿已确认是本聊天的（危险点一把关），所以写下去的值本身是对的；能出事的是
+        // 后面三件【都认「当前聊天」】的收尾动作，切走后它们全会作用到新聊天身上：
+        //   · refreshLatestMvuBar → getLatestAiMessage 取的是【现聊天】最后一条 AI 消息，重渲染 + 补发
+        //     MESSAGE_UPDATED 会打到一条毫不相干的楼层上；
+        //   · appendNoteToRoom → 把旧聊天的编辑记录【持久化】进新聊天的 metadata，并且把 onChatChanged 刚
+        //     clearNoteOpts() 清空的注册表又填回去 —— 新聊天里于是出现一个活的「撤销」，按下去就把【旧聊天
+        //     的整份 MvuData】replaceMvuData 进新聊天的 latest。这是本条链路最重的一处伤，且是落盘的；
+        //   · 编辑器重同步 → closeMvuEditor 已清空会话状态，复活它等于把旧聊天的数据摆进新聊天的卡。
+        // 三件一起跳过。与危险点一的区别：那处能防住全部伤害，这处写入已经发生、撤不回来，只能不让伤害扩散。
+        // 代价是这次写入在旧聊天里没留下可撤销的记录（记录只能写进「当前」聊天，写不回旧的）——与校正
+        // 的 stale 守卫同款半径：宁可少留一条记录，也绝不写到别的对话上。留一行 warn 以便事后追。
+        if (fixChatKey() !== chatKey) {
+            console.warn('[Story Oracle] 🎛 变量编辑器：写入期间聊天已切换 —— 已跳过侧聊记录 / 状态栏刷新 / 编辑器重同步（本次编辑因此没有可撤销的记录）。');
+            fail('聊天已切换 —— 变量已写入，但这次没能留下可撤销的记录。');
+            return;
+        }
+        // ── 分水岭：写入已经发生、撤不回来（承重事实⑥）───────────────────────────────
+        // 下面全是【收尾】，而且每一件都真的会抛：refreshLatestMvuBar 要摸 ST 的楼层与事件总线、
+        // appendNoteToRoom 要写 chat metadata（落盘路径）、renderMvuedBody 要重画整棵树。它们以前
+        // 与写入共用同一个 try —— 任何一处抛出都会把这趟【已成功的写入】说成「应用失败」，并且连
+        // 重同步一起跳过：卡里还亮着一排「已改」，底下的变量却早就是新值了，用户看到「失败」的下一步
+        // 多半是再点一次应用（在新值之上再写一遍旧编辑）。故先把「成功」落定，再逐件兜底。
+        const stamp = (() => { try { return new Date().toLocaleTimeString(); } catch (e) { return ''; } })();
+        const ops = diffMvuStat(snapshot.stat_data, r.stat, '');
+        const tail = r.skipped.length ? `，跳过 ${r.skipped.length} 项（字段已不存在）` : '';
+        // head = 写入这件事本身的如实陈述，恒真；「可撤销」那半句只有记录真落下了才敢说
+        //（无改动那条原本就不提撤销 —— 两条成功文案逐字保持原样，只是拆成了两段拼）。
+        const head = ops.length
+            ? `已应用 ${ops.length} 项改动${tail}。`
+            : `已写入，但值与当前状态一致、没有实际改动${tail}。`;
+        const undoClause = ops.length ? '可在诊断侧聊记录里撤销。' : '';
+        // F3（staleness-audit §7）：MVU 的 'latest' 是最后一条【非系统】楼层——用户自己的消息也算。
+        // 而状态栏住在最后一条【AI】楼层的 iframe 里，那个 iframe 结构上只看得到它自己那一层及更早的
+        // 变量（TavernHelper 的合并是 chat.slice(0, id+1)）。所以「最后一楼是用户消息」时，值确实写对了、
+        // 下一条回复也会以它为底，但状态栏就是要等到下一条回复才显示得出来。与其让用户以为编辑没生效，
+        // 不如把这件事说在明处。只读 ctx.chat 判一次楼层类型，代价为零。
+        const barLagClause = (() => {
+            try {
+                const chat = (getCtx() || {}).chat || [];
+                for (let i = chat.length - 1; i >= 0; i--) {
+                    if (chat[i] && chat[i].is_system) continue;   // 与 MVU 的 'latest' 同口径：跳过系统楼
+                    return chat[i] && chat[i].is_user ? '（当前最后一楼是你的消息 —— 状态栏要等下一条回复才会显示新值。）' : '';
+                }
+            } catch (e) { /* 判不出来就不说这句，绝不因此把成功说成失败 */ }
+            return '';
+        })();
+        const say = (t) => { if (status) status.textContent = t; };
+        say(head + barLagClause);
+
+        try { refreshLatestMvuBar(); } catch (e) {
+            console.warn('[Story Oracle] 🎛 变量编辑器：变量已写入，但状态栏刷新失败（楼层可能仍显示旧值）。', e);
+        }
+        // 编辑器留在原地（用户常要连改几轮），输入重同步到刚写进去的现值；页签 / 搜索词保持不变。
+        // 卡在这期间被关掉（✕ / 点背景；换聊天在危险点二就返回了，到不了这里）→ 只落记录，不复活会话状态。
+        try {
+            if (document.getElementById('so-mvued-card')) {
+                mvuedDirty = new Map();
+                mvuedOpenData = JSON.parse(JSON.stringify(newData));
+                renderMvuedBody();
+            }
+        } catch (e) {
+            console.error('[Story Oracle] 🎛 变量编辑器：变量已写入，但编辑器重同步失败（脏表可能还亮着旧的「已改」）。', e);
+        }
+
+        // 侧聊记录 + 会话内可撤销（重载后为只读记录 —— 与自动诊断记录同款半径）。快照 / 已应用两份都是
+        // 深拷贝，与刚交给 MVU 的那份【不共享引用】：MVU 之后再改 latest，撤销材料也不会跟着漂。
+        // 记录没落下【不是】写入失败 —— 只是这次没有撤销入口，状态行如实追述，绝不覆盖 head。
+        // 有意不加 so-hint-error：整行标红会把「已应用 N 项改动」也一起说成错，那是假的。
+        try {
+            const entry = { id: ++cidSeq, role: 'note', content: mvuedNoteContent({ ops, skipped: r.skipped, stamp }) };
+            appendNoteToRoom('diagnose', entry, { mvued: { snapshot, applied: JSON.parse(JSON.stringify(newData)) } });
+            say(head + undoClause + barLagClause);
+        } catch (e) {
+            console.error('[Story Oracle] 🎛 变量编辑器：变量已写入，但侧聊记录没能留下。', e);
+            // barLagClause 这一路也要带上：记录没落下与「状态栏会晚一拍」是两件互不相干的事，
+            // 少说一句会让这条路径上的用户以为「没记录 + 状态栏没动 = 整个失败了」。
+            say(head + `⚠ 侧聊记录没能留下（${e && e.message ? e.message : e}）—— 本次编辑因此没有可撤销的记录。` + barLagClause);
+        }
+    } catch (e) {
+        // 只可能是【写入之前】的失败（分水岭之后每件事都自带 try）—— 这时一个字节都没写进 MVU。
+        fail('应用失败：' + (e && e.message ? e.message : e));
+    } finally {
+        mvuedApplying = false;
+        updateMvuedFoot();
+    }
+}
+
+// 一次性的「🔍 分析取值规则」扫描（spec §6）。无头非流式；结果经 parseMvuedSchema 严校后写入
+// chat metadata（MVUED_META_KEY 的写入侧就在这里），并热更新打开中的编辑器。
+//
+// 身份钉（同 mvuedApply 的做法，半径更大）：这趟链路里最长的一个 await 是【模型调用本身，最长 120 秒】——
+// 比应用那两处暴露得多，用户完全可能在等待期间换个聊天。schema 是【按聊天】缓存的，切走后再写下去就是把
+// A 卡的取值规则钉进 B 聊天的 metadata（落盘、且下次开编辑器会照它渲染下拉框 → 用户看到一堆对不上的选项，
+// 还完全不知道从哪来的）。故每个 await 之后各钉一次，不匹配就整趟作废：不写 metadata、不动 mvuedSchemaCache、
+// 不重画编辑器。状态行只在【我们自己那张卡】还在文档里时才写（切聊天会 closeMvuEditor 把它摘掉；用户若已在
+// 新聊天里重开了一张新卡，那张卡的 status 节点是另一个对象，isConnected 判定天然不会误伤）。
+//
+// 连接分支与自动诊断同款（direct: 端点+模型；profile: 配置文件），但【无人格 / 无破限 / 无预设】——
+// 这是一次数据抽取调用，套人格只会让模型开始演戏。中断器是【本扩展自己的、扫描专用】的一只：绝不碰
+// postReplyAbortCtl，那是「校正 / 自动诊断」共用的模块级中断器，借用它会让用户点一下「中断自动诊断」
+// 把扫描也掐了（反之亦然）；但它也不能是纯局部的 —— 切聊天必须够得着（见 mvuedScanCtl / cancelMvuedScan）。
+async function runMvuedScan() {
+    if (!ENABLE_MVU_EDITOR || mvuedScanning) return;
+    const card = document.getElementById('so-mvued-card');
+    const status = card && card.querySelector('#so-mvued-status');
+    // 只往【发起这趟扫描的那张卡】写状态：卡被关掉 / 换聊天摘掉后 isConnected 为 false，直接哑掉。
+    const say = (t, err) => {
+        if (!status || !status.isConnected) return;
+        status.textContent = t;
+        status.classList.toggle('so-hint-error', !!err);
+    };
+    const sayAborted = () => say('扫描已中断。', true);   // 三处出口共用一句话（用户按了中断 / 切聊天）
+    const s = getSettings();
+    if (s.mode === 'direct' && (!s.endpoint || !s.model)) { say('先在设置里配置直连端点与模型。', true); return; }
+    if (s.mode === 'profile' && !s.profileId) { say('先在设置里选择连接配置文件。', true); return; }
+    // 上锁在第一个 await 之前（getMvuStatData → getMvu 是 async，连点两下会双双穿过去、各发一次付费调用）。
+    const chatKey = fixChatKey();
+    mvuedScanning = true;
+    // 中断器在【第一个 await 之前】就挂上模块级把手。从这一刻起扫描键就是「⏹ 中断扫描」，用户随时可能按下去，
+    // 而前置那几步也会耗时（getMvu 首次最长等 5 秒 TavernHelper、取世界书要跑扫描/读书文件）——把手若只覆盖
+    // 请求段，那几秒里按「中断」会毫无反应。中断落在前置段是安全的：已 aborted 的 signal 交给 fetch 会当场
+    // reject（请求根本发不出去 = 不烧钱），下面两个危险点还各补一次判定，让它更早、更确定地落地。
+    const ctl = new AbortController();
+    mvuedScanCtl = ctl;
+    updateMvuedScanBtn();
+    let timedOut = false;
+    let selfAborted = false;   // 「这一趟是我们自己掐的」——超时 / 用户按中断 / 切聊天。与 HTTP 失败彻底分家，见下面的 catch。
+    try {
+        // 危险点一：getMvu 首次未缓存时最长等 5 秒 TavernHelper 初始化。
+        const stat = await getMvuStatData();
+        if (ctl.signal.aborted) { sayAborted(); return; }
+        if (fixChatKey() !== chatKey) { say('聊天已切换，本次扫描已取消。', true); return; }
+        if (!stat) { say('未检测到 MVU 状态。', true); return; }
+        say('正在分析取值规则…');
+
+        // 取规则的口径与自动诊断【完全一致】（精选生效就只喂精选条目，否则世界书 + 补齐 [mvu_update] 规则）。
+        // 这里【不】自己做 substituteParams：'all'/'char' 是原文、'st' 是酒馆装配好的（宏已展），
+        // collectMvuRuleContents 内部本就替换过 —— 本函数只读不锚（不像世界书补丁要按字面锚定），照单全收即可。
+        let wiBlock;
+        if (diagPickerActive()) {
+            wiBlock = (await buildDiagSelectedWi()).block;
+        } else {
+            wiBlock = await buildWorldInfo(wiContextMode(s));
+            const mvuRules = await collectMvuUpdateRules(wiBlock);
+            if (mvuRules.length) wiBlock = [wiBlock, ...mvuRules].filter(Boolean).join('\n\n');
+        }
+        // 危险点二：取世界书那几步都是 async（跑扫描 / 读书文件）。此处还什么都没写，整趟作废代价为零。
+        if (ctl.signal.aborted) { sayAborted(); return; }
+        if (fixChatKey() !== chatKey) { say('聊天已切换，本次扫描已取消。', true); return; }
+
+        const sys = buildMvuedScanPrompt(wiBlock, mvuedFieldPathList(stat));
+        const messages = [
+            { role: 'system', content: sys },
+            { role: 'user', content: '请按上方要求输出 <MvuSchema> 块。' },
+        ];
+        // 调试提示词查看器快照（同自动诊断：无头调用也必须能在「调试提示词」面板里看到发了什么）。
+        lastPrompt = messages.map((m) => ({ role: m.role, content: m.content }));
+        lastPromptMeta = {
+            mode: '变量编辑器扫描',
+            target: s.mode === 'direct' ? (s.model || '直连') : '配置文件',
+            chars: lastPrompt.reduce((n, m) => n + (m.content ? m.content.length : 0), 0),
+            time: new Date().toLocaleTimeString(),
+        };
+        const timer = setTimeout(() => { timedOut = true; try { ctl.abort(); } catch (e) { /* ignore */ } }, 120000);
+        let text = '';
+        try {
+            // 地板 16384（**只此一处**，别的功能的地板不动：校正/诊断 4096、arc 8192、锻造 16384）。
+            // 真模型电池实测（11 次真调用，DS+GM 两张真卡，记录见 tests/unit/_mvued-tuning/FINDINGS.md）：
+            // 带**原生思考**的模型把 4096 吃得干干净净 —— 一次 GM 调用 completion_tokens=2720 里
+            // reasoning_tokens=2485（91%），可见输出只剩 ~235 tok，<MvuSchema> 块开了没闭合。同一份喂料
+            // 抬到 8192 立刻全绿。DS（推理关）8 次从没碰到 —— 也就是说 4096 对思考型模型是**紧贴上限**，
+            // 推理长度一波动就截断。1.57.0 再抬到 16384（对齐全仓最高地板 = 角色工坊锻造）：8192 只是
+            // 「实测这批喂料够用」，字段一多 / 推理一长仍会贴顶，而这是无头一次性调用、抬高不额外烧钱
+            // （只在真的写那么多时才计费），截断反而白花一整趟。
+            const effMaxTokens = Math.max(s.maxTokens, 16384);
+            if (s.mode === 'direct') {
+                const body = { model: s.model, messages, max_tokens: effMaxTokens };
+                text = await callDirect(resolveEndpointUrl(s), s.apiKey, body, ctl.signal);
+            } else {
+                text = await callProfile(s.profileId, messages, effMaxTokens, {}, ctl.signal);
+            }
+        } finally {
+            clearTimeout(timer);
+            // 内层 finally 在外层 catch 【之前】执行 → 这里把「是不是我们自己掐的」定死，catch 便无须靠
+            // 错误文本猜。ctl.signal.aborted 是权威判据（我们自己的中断器），HTTP 错误正文里恰好带 "abort"
+            // 字样也绝不会被误判成中断（那正是原来那条 /abort/i 正则的风险）。
+            selfAborted = ctl.signal.aborted;
+            mvuedScanCtl = null;
+        }
+        // 危险点三（最重的一处，暴露最长 120 秒）：切走了就【什么都不落】—— schema 是按聊天缓存的，
+        // 写进新聊天的 metadata 是落盘伤害，且下次开编辑器就按它渲染，用户无从知道选项是哪来的。
+        if (fixChatKey() !== chatKey) { say('聊天已切换，本次扫描结果已丢弃（没有写入任何缓存）。', true); return; }
+
+        const schema = parseMvuedSchema(text, stat);
+        // 两种「没拿到 schema」分开说：截断（块开了没收尾）得告诉用户预算被思考吃光了、换个模型才有用，
+        // 说成笼统的「解析失败」他只会一遍遍重试同一个思考模型。判据见 mvuedScanLooksTruncated。
+        if (!schema) {
+            say(mvuedScanLooksTruncated(text)
+                ? '扫描回复不完整（<MvuSchema> 块没收尾，多半是被截断）——思考型模型容易吃光输出预算，可重试或换个非思考模型。'
+                : '扫描回复解析失败（没有合法的 <MvuSchema> 块）——可重试。', true);
+            return;
+        }
+        const md = getChatMetadataSafe();
+        if (md) {
+            md[MVUED_META_KEY] = {
+                v: 1,
+                time: Date.now(),
+                model: s.mode === 'direct' ? (s.model || '直连') : 'profile',
+                fields: schema.fields,
+                groups: schema.groups,
+            };
+            saveChatMetadata();
+        }
+        mvuedSchemaCache = schema;
+        // 卡可能在这期间被 ✕ 关掉（换聊天已在危险点三挡住）：缓存照写不误，重画则只在卡还在时做。
+        if (document.getElementById('so-mvued-card')) renderMvuedBody();
+        const n = Object.keys(schema.fields).length;
+        say(n ? `扫描完成：识别出 ${n} 个受限字段。` : '扫描完成：规则里没有发现硬性取值限制。');
+    } catch (e) {
+        // 三种结局各说各话，且判据互不重叠：超时有自己的闩；「我们掐的」看 ctl.signal.aborted / AbortError
+        // 的 name（不看错误文本，免得正文含 "abort" 的 HTTP 错误被当成中断报成「已中断」）；其余才是真失败。
+        if (timedOut) say('扫描超时（120 秒）——可重试。', true);
+        else if (selfAborted || (e && e.name === 'AbortError')) {
+            // 「非超时的自己掐」两个来源，同一句话、结局却各自恰当：① 用户按了「⏹ 中断扫描」——卡还开着，
+            // 状态行如实写「已中断」；② 切聊天——那条路上卡已被 closeMvuEditor 摘掉 → say 天然哑掉，不会在
+            // 新聊天那张卡上留下误导性残留（say 认的是【发起这趟扫描的那个】status 节点）。
+            sayAborted();
+        }
+        else say('扫描失败：' + (e && e.message ? e.message : e), true);
+    } finally {
+        // 状态机的唯一复位口（cancelMvuedScan 有意不碰这两样）：无论成功 / 失败 / 中断 / 提前 return，
+        // 在途标志与按钮都回到空闲（按钮由此从「⏹ 中断扫描」翻回「分析 / 重新扫描」），把手一并清空——
+        // 它现在从函数一开头就挂着，这一句是它归零的唯一保证，否则空闲期按中断会去 abort 上一趟的死把手。
+        mvuedScanning = false;
+        mvuedScanCtl = null;
+        updateMvuedScanBtn();
+    }
+}
+
+// 扫描键 disabled + 文案 + 悬浮提示 + 那行说明（#so-mvued-scan-hint）的唯一写入口（同 updateMvuedFoot
+// 之于「应用」键）。三态：
+//   在途   → 「⏹ 中断扫描」且【可点】—— 它此刻就是中断键（spec §6 承诺可中断；模板里刻意不写死 title
+//            与文案，免得两处各写一套、改了一处忘另一处）；
+//   已扫过 →「重新扫描」；否则「分析取值规则」。
+// 文案读 mvuedSchemaCache 而非重新读 metadata —— 它正是编辑器当下渲染所用的那份，两者恒一致；扫描成功但
+// metadata 不可写（无聊天元数据）时也照样如实显示「已扫过」。
+// 说明行只在【还没扫过且不在途】时出：那一刻用户面对的是一颗看不出好处的按钮，得先说清「点了能得到什么」；
+// 一旦扫过 / 在途，按钮文案（重新扫描 / ⏹）与状态行已经把状态说全了，再留一行等于白占手机的竖向空间。
+function updateMvuedScanBtn() {
+    const b = document.getElementById('so-mvued-scan');
+    if (!b) return;
+    const hint = document.getElementById('so-mvued-scan-hint');
+    if (hint) hint.style.display = (!mvuedScanning && !mvuedSchemaCache) ? '' : 'none';
+    b.disabled = false;
+    if (mvuedScanning) {
+        b.textContent = '⏹ 中断扫描';
+        b.title = '中断这一次分析（不会写入任何缓存，随后可重新扫描）';
+        return;
+    }
+    b.textContent = mvuedSchemaCache ? '🔍 重新扫描取值规则' : '🔍 分析取值规则';
+    b.title = 'AI 读一遍卡的规则后：该选的变下拉菜单、有范围的数字加滑杆——只问一次，本聊天记住';
+}
+
+// 搜索命中口径（单一实现，页签计数与节点显隐共用，两者绝不各写一套）：
+// 叶子 / 列表按【自身标签】匹配；分组标签自身命中 → 整棵子树放行（搜一个角色名就该看到他名下全部字段）。
+function mvuedCountLeaves(nd) {
+    if (nd.type !== 'group') return 1;
+    let n = 0;
+    for (const c of (nd.children || [])) n += mvuedCountLeaves(c);
+    return n;
+}
+function mvuedSelfHit(nd, q) {
+    return !!q && String(nd.label == null ? '' : nd.label).toLowerCase().includes(q);
+}
+function mvuedCountHits(nd, q) {
+    if (!q) return 1;
+    if (nd.type === 'group') {
+        if (mvuedSelfHit(nd, q)) return Math.max(1, mvuedCountLeaves(nd));
+        let n = 0;
+        for (const c of (nd.children || [])) n += mvuedCountHits(c, q);
+        return n;
+    }
+    return mvuedSelfHit(nd, q) ? 1 : 0;
+}
+function mvuedTabHits(nodes, q) {
+    let n = 0;
+    for (const nd of (nodes || [])) n += mvuedCountHits(nd, q);
+    return n;
+}
+
+function renderMvuedBody() {
+    const card = document.getElementById('so-mvued-card');
+    if (!card) return;
+    const stat = mvuedOpenData && (mvuedOpenData.stat_data || mvuedOpenData);
+    const model = buildMvuedModel(stat, mvuedSchemaCache, mvuedReadListOverrides());
+    const q = (card.querySelector('#so-mvued-search').value || '').trim().toLowerCase();
+    const tabsEl = card.querySelector('#so-mvued-tabs');
+    const bodyEl = card.querySelector('#so-mvued-body');
+    tabsEl.innerHTML = ''; bodyEl.innerHTML = '';
+
+    if (!model.tabs.length) {
+        bodyEl.innerHTML = '<div class="so-hint">当前没有可编辑的变量（stat_data 为空）。</div>';
+        updateMvuedFoot(); return;
+    }
+    // 搜索时自动跳到第一个有命中的页（否则用户在 A 页搜 B 页的字段会看到一片空白，以为搜不到）。
+    if (mvuedActiveTab >= model.tabs.length) mvuedActiveTab = 0;
+    if (q && !mvuedTabHits(model.tabs[mvuedActiveTab].nodes, q)) {
+        const hit = model.tabs.findIndex(t => mvuedTabHits(t.nodes, q) > 0);
+        if (hit >= 0) mvuedActiveTab = hit;
+    }
+    model.tabs.forEach((t, i) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'so-mvued-tab' + (i === mvuedActiveTab ? ' so-mvued-tab-on' : '');
+        b.textContent = t.label + (q ? `（${mvuedTabHits(t.nodes, q)}）` : '');
+        b.addEventListener('click', () => { mvuedActiveTab = i; renderMvuedBody(); });
+        tabsEl.appendChild(b);
+    });
+    for (const nd of model.tabs[mvuedActiveTab].nodes) bodyEl.appendChild(renderMvuedNode(nd, q));
+    updateMvuedFoot();
+}
+
+function updateMvuedFoot() {
+    const card = document.getElementById('so-mvued-card');
+    if (!card) return;
+    const n = mvuedDirty.size;
+    card.querySelector('#so-mvued-count').textContent = n ? `已改 ${n} 项` : '';
+    const apply = card.querySelector('#so-mvued-apply');
+    apply.disabled = !n || mvuedApplying;   // 在途写入期间恒禁用（改值触发的重画不得把它点亮）
+    apply.textContent = n ? `应用 (${n})` : '应用';
+}
+
+function mvuedMarkDirty(leaf, value) {
+    const key = mvuedPathStr(leaf.path);
+    mvuedDirty.set(key, { path: leaf.path, value, vwd: !!leaf.vwd });
+    updateMvuedFoot();
+}
+
+function renderMvuedNode(nd, q) {
+    if (nd.type === 'group') {
+        const selfHit = mvuedSelfHit(nd, q);
+        const inner = selfHit ? '' : q;   // 组名自身命中 → 子树整体放行（不再逐叶过滤）
+        const det = document.createElement('details');
+        det.className = 'so-mvued-group';
+        det.open = true;
+        if (q && !selfHit && !mvuedCountHits(nd, q)) det.classList.add('so-mvued-miss');
+        const sum = document.createElement('summary');
+        sum.textContent = nd.label;
+        det.appendChild(sum);
+        for (const c of nd.children) det.appendChild(renderMvuedNode(c, inner));
+        return det;
+    }
+    if (nd.type === 'list') return renderMvuedList(nd, q);
+    return renderMvuedLeaf(nd, q);
+}
+
+function renderMvuedLeaf(nd, q) {
+    const row = document.createElement('div');
+    row.className = 'so-mvued-leaf';
+    if (q && !mvuedSelfHit(nd, q)) row.classList.add('so-mvued-miss');
+    const dirty = mvuedDirty.get(mvuedPathStr(nd.path));
+    const cur = dirty ? dirty.value : nd.value;
+    if (dirty) row.classList.add('so-mvued-dirty');
+    const lab = document.createElement('span');
+    lab.className = 'so-mvued-label';
+    lab.textContent = nd.label;
+    row.appendChild(lab);
+
+    const redirty = () => { row.classList.add('so-mvued-dirty'); };
+    if (nd.options && nd.kind !== 'boolean' && nd.kind !== 'readonly') {
+        // 扫描出的受限字段：下拉 + ✎ 自由输入逃生门（spec §6）。options 恒为字符串数组 → 数字槽经 mvuedMarkTyped 转。
+        // readonly（null / 对象等非标量叶子）挡在门外：spec §4.2 说它 v1 只读，扫描若给这种路径配了 options，
+        // 渲染成可改下拉就等于绕过只读约定 —— 一改就会把 null 写成字符串。
+        const sel = document.createElement('select');
+        for (const o of nd.options) {
+            const op = document.createElement('option');
+            op.value = o; op.textContent = o;
+            sel.appendChild(op);
+        }
+        if (!nd.options.includes(String(cur))) {
+            const op = document.createElement('option');
+            op.value = String(cur); op.textContent = String(cur) + '（当前值）';
+            sel.appendChild(op);
+        }
+        sel.value = String(cur);
+        sel.addEventListener('change', () => { if (mvuedMarkTyped(nd, sel.value)) redirty(); });
+        row.appendChild(sel);
+        const pen = document.createElement('button');
+        pen.type = 'button'; pen.className = 'so-lb-mini'; pen.textContent = '✎';
+        pen.title = '自由输入（扫描结果可能不全）';
+        pen.addEventListener('click', () => {
+            const d = mvuedDirty.get(mvuedPathStr(nd.path));   // 已在下拉里改过 → 带着改后的值切文本框，别退回渲染时的旧值
+            sel.replaceWith(mvuedTextInput(nd, d ? d.value : cur, redirty));
+            pen.remove();
+        });
+        row.appendChild(pen);
+    } else if (nd.kind === 'number') {
+        const num = document.createElement('input');
+        num.type = 'number';
+        num.value = String(cur);
+        let slider = null;
+        if (nd.range) {
+            slider = document.createElement('input');
+            slider.type = 'range';
+            slider.min = String(nd.range.min); slider.max = String(nd.range.max);
+            slider.step = Number.isInteger(nd.range.min) && Number.isInteger(nd.range.max) ? '1' : 'any';
+            // 滑杆只是【装饰】：区间是启发式认出来的、已知有误报（「每回合恢复 1~3 点」那类）。数字框才是
+            // 唯一真值来源 —— 当前值超出区间时浏览器会把 slider.value 夹到端点，但这里【不】回写 num.value、
+            // 【不】标脏（只有真正的 input 事件才标）。于是超范围的值原样显示、也能被改成别的超范围值。
+            slider.value = String(cur);
+            slider.addEventListener('input', () => {
+                const v = mvuedToNumber(slider.value);
+                if (!Number.isFinite(v)) return;
+                num.value = slider.value;
+                mvuedMarkDirty(nd, v);
+                redirty();
+            });
+            row.appendChild(slider);
+        }
+        num.addEventListener('input', () => {
+            const v = mvuedToNumber(num.value);
+            if (!Number.isFinite(v)) return;   // 清空 / 半截输入不标脏，也不动滑杆
+            if (slider) slider.value = num.value;
+            mvuedMarkDirty(nd, v);
+            redirty();
+        });
+        row.appendChild(num);
+    } else if (nd.kind === 'boolean') {
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = !!cur;
+        cb.addEventListener('change', () => { mvuedMarkDirty(nd, cb.checked); redirty(); });
+        row.appendChild(cb);
+    } else if (nd.kind === 'string') {
+        row.appendChild(mvuedTextInput(nd, cur, redirty));
+    } else {
+        const ro = document.createElement('span');
+        ro.className = 'so-mvued-ro';
+        ro.textContent = String(nd.value);
+        row.appendChild(ro);
+    }
+    if (nd.desc) {
+        const d = document.createElement('span');
+        d.className = 'so-mvued-desc';
+        d.textContent = nd.desc;
+        row.appendChild(d);
+    }
+    // 「≡ 当作列表」：本行其实是两项列表、被 VWD 判据认成了「数值+描述」时的翻正出口（canList 见
+    // buildMvuedModel）。用户看到的现象（「我的背包怎么只剩一件、另一件跑到灰字里去了」）一眼看不懂，
+    // 所以 title 得把话说完。开关是纯显示偏好 —— 只写 metadata 与重画，不标脏。
+    if (nd.canList) {
+        const asList = document.createElement('button');
+        asList.type = 'button';
+        asList.className = 'so-lb-mini';
+        asList.textContent = '≡';
+        asList.title = '当作列表显示——这其实是两项列表、不是数值+描述';
+        asList.addEventListener('click', () => { mvuedSetListOverride(nd.path, true); });
+        row.appendChild(asList);
+    }
+    return row;
+}
+
+function mvuedTextInput(nd, cur, redirty) {
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.value = String(cur == null ? '' : cur);
+    inp.addEventListener('input', () => { if (mvuedMarkTyped(nd, inp.value)) redirty(); });
+    // 输入框 + ⤢ 一起以【片段】返回：两个调用点（字符串叶子 append / ✎ 逃生门 replaceWith）都吃
+    // DocumentFragment，于是「每个可编辑文本框都带放大入口」这件事只需在这一处成立、不会漏掉某条路。
+    const frag = document.createDocumentFragment();
+    frag.appendChild(inp);
+    frag.appendChild(mvuedBigEditBtn(inp, nd.label, nd.desc));
+    return frag;
+}
+
+// 「⤢ 放大编辑」入口钮。挂在【某一个具体的 input 节点】上（不是路径）—— 弹层的写回口径就是往这个节点
+// 塞值再派发 input 事件，标脏 / 数字强转 / 列表整体替换全复用它自己的 handler。
+function mvuedBigEditBtn(input, label, desc) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'so-lb-mini';
+    b.textContent = '⤢';
+    b.title = '放大编辑';
+    b.addEventListener('click', () => { openMvuedBigEdit(input, label, desc); });
+    return b;
+}
+
+// 「⤢ 放大编辑」弹层（1.57.0）：编辑器里的文本框只有 8em 宽，长字段（尤其手机）根本没法看全 —— 点 ⤢
+// 在卡内叠一张铺满的大文本框。刻意【自建】而不骑 ST 的 .editor_maximize：那是 document 级委托、对第三方
+// 动态节点没有任何文档承诺，酒馆一改就会静默失灵。
+// 承重设计（本函数唯一的巧劲）：确定时把值塞回【原来那个 input】再派发 input 事件 —— 标脏、✎ 数字槽的
+// Number.isFinite 强转、列表行的整列表重建，全都走各自既有的 handler，这里一行业务逻辑都不复制。
+// 逃生同卡片那套（✕ + 点遮罩 + 取消），Esc 【不】接管（全屏那套的消费者名单有意收窄，不动它）。
+// ⚠ 单行 <input> 的「值净化算法」会吃掉换行（HTML 规范，各浏览器一致）→ 多行文本写回后会粘成一行。
+//   本函数不自作主张改文本，但要如实说一句：静默把用户的分行粘掉是最坏的一种「成功」。
+// ⚠ 目标节点可能在弹层开着时被重画掉（扫描完成 / ≡⇄ 切换 / 应用后重同步都会重画正文）：那时 input 已
+//   detached，写进去谁也看不见、脏表也拿不到 —— 改为不写 + 状态行请用户重开，绝不假装写成功。
+function openMvuedBigEdit(input, label, desc) {
+    const card = document.getElementById('so-mvued-card');
+    if (!card || !input) return;
+    // 一次只开一张：弹层本身盖住全部 ⤢，正常操作下点不出第二张，这句是防「代码/自动化连发两次」的双保险。
+    if (document.getElementById('so-mvued-bigedit')) return;
+
+    const pop = document.createElement('div');
+    pop.id = 'so-mvued-bigedit';
+    pop.className = 'so-mvued-bigedit';
+    pop.innerHTML = `
+        <div class="so-mvued-bigedit-inner">
+            <div class="so-mvued-bigedit-head">
+                <span class="so-mvued-bigedit-label"></span>
+                <span class="so-mvued-desc"></span>
+                <div class="so-iconbtn so-warn-x" id="so-mvued-bigedit-close" title="关闭"><i class="fa-solid fa-xmark"></i></div>
+            </div>
+            <textarea id="so-mvued-bigedit-text" spellcheck="false"></textarea>
+            <div class="so-mvued-bigedit-foot">
+                <button type="button" class="so-apply-btn" id="so-mvued-bigedit-cancel">取消</button>
+                <button type="button" class="so-apply-btn" id="so-mvued-bigedit-ok">确定</button>
+            </div>
+        </div>`;
+    // 标题与说明一律 textContent：字段名/描述来自角色卡的 stat_data，当 HTML 塞进去等于给卡片开注入口。
+    pop.querySelector('.so-mvued-bigedit-label').textContent = String(label == null ? '' : label);
+    pop.querySelector('.so-mvued-bigedit-head .so-mvued-desc').textContent = String(desc == null ? '' : desc);
+    const ta = pop.querySelector('#so-mvued-bigedit-text');
+    ta.value = input.value;   // 预填【输入框当下的值】而非模型里的原值：用户可能已经改过一半才想放大
+    card.appendChild(pop);
+    enhanceIconBtnNode(pop.querySelector('#so-mvued-bigedit-close'));
+
+    const close = () => { pop.remove(); };
+    pop.addEventListener('click', (ev) => { if (ev.target === pop) close(); });
+    pop.querySelector('#so-mvued-bigedit-close').addEventListener('click', close);
+    pop.querySelector('#so-mvued-bigedit-cancel').addEventListener('click', close);
+    pop.querySelector('#so-mvued-bigedit-ok').addEventListener('click', () => {
+        const status = card.querySelector('#so-mvued-status');
+        const say = (t, err) => { if (!status) return; status.textContent = t; status.classList.toggle('so-hint-error', !!err); };
+        // 空操作闸：一个字都没改就当场关掉，【什么都不派发】。两件事全靠它：
+        //  ① mvuedMarkTyped 没有等值判据 —— 派发 input 会凭空造一条脏项（「已改 1 项」而那个字段其实没变）；
+        //  ② 更阴的一种：库里那个字符串本来【就带换行】，渲染进单行 input 时已被净化算法剃掉；此时
+        //     ta.value === input.value（两边都是剃过的），上面那句「换行已去掉」的如实提示根本不会触发 ——
+        //     于是「只是打开看了一眼」就把多行原值悄悄压成一行写进脏表、随后被应用。闸在这里，两个坑一起没。
+        if (ta.value === input.value) { close(); return; }
+        if (!input.isConnected) { say('字段已刷新，请重新打开放大编辑。', true); close(); return; }
+        const raw = ta.value;
+        input.value = raw;
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        // 净化算法改动过文本 → 如实说明（唯一会发生的是换行被吃掉）；没改动就把状态行清干净。
+        say(input.value === raw ? '' : '已写回（单行输入框不保留换行，换行符已去掉）。');
+        close();
+    });
+    // 放大编辑的全部意义就是「马上打字」，故这里【要】自动聚焦（与 toggleWindow 在手机上刻意不抢焦点不同：
+    // 那是开窗的副作用，这是用户刚刚点下的明确手势）。光标落在末尾，接着写最顺手。
+    try { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } catch (e) { /* 老浏览器/非文本控件，无所谓 */ }
+}
+
+// 列表：任何 ➖ / ＋ / 项内编辑都折成一条【整列表替换】edit（Task 3 契约）。
+// 当前列表值 = 脏表里的整列表（若有），否则模型里的现值（VWD 项还原成 pair 保描述）。
+function mvuedListValue(nd) {
+    const dirty = mvuedDirty.get(mvuedPathStr(nd.path));
+    if (dirty) return JSON.parse(JSON.stringify(dirty.value));
+    return nd.items.map(it => it.vwd ? [it.value, it.desc] : (it.type === 'leaf' ? it.value : mvuedNodeValue(it)));
+}
+function mvuedNodeValue(nd) {   // group/list 子树还原为普通值（对象项列表用）
+    if (nd.type === 'leaf') return nd.vwd ? [nd.value, nd.desc] : nd.value;
+    if (nd.type === 'list') return nd.items.map(mvuedNodeValue);
+    const o = {};
+    for (const c of nd.children) o[c.label] = mvuedNodeValue(c);
+    return o;
+}
+// 新增项的空白值：按【末项的形状】造，绝不给数字列表塞空串（数字槽收字符串是 MVU 头号地雷）。
+function mvuedBlankLike(last) {
+    const scalarBlank = (v) => (typeof v === 'number' ? 0 : (typeof v === 'boolean' ? false : ''));
+    if (mvuIsVwdPair(last)) return [scalarBlank(last[0]), last[1]];   // 保描述、只清值——VWD 列表新项仍是合法 pair
+    if (last != null && typeof last === 'object') {                   // 对象项：克隆末项、逐层清值（保住键名结构）
+        const blank = JSON.parse(JSON.stringify(last));
+        const wipe = (o) => {
+            for (const k of Object.keys(o)) {
+                const v = o[k];
+                if (mvuIsVwdPair(v)) v[0] = scalarBlank(v[0]);
+                else if (v && typeof v === 'object') wipe(v);
+                else o[k] = scalarBlank(v);
+            }
+        };
+        wipe(blank);
+        return blank;
+    }
+    return scalarBlank(last);
+}
+function renderMvuedList(nd, q) {
+    const box = document.createElement('div');
+    box.className = 'so-mvued-list';
+    if (q && !mvuedSelfHit(nd, q)) box.classList.add('so-mvued-miss');
+    const listKey = mvuedPathStr(nd.path);
+    if (mvuedDirty.has(listKey)) box.classList.add('so-mvued-dirty');
+    const head = document.createElement('div');
+    head.className = 'so-mvued-label';
+    head.textContent = nd.label;
+    // 「⇄ 当作数值+描述」：≡ 的反向出口，只对【被翻正过来的】节点出（forcedList；真列表没有可回退的
+    // VWD 形态）。挂在标题里而不是 box 上：box 的直接子 <button> 是「＋ 添加一项」的定位口径。
+    if (nd.forcedList) {
+        const back = document.createElement('button');
+        back.type = 'button';
+        back.className = 'so-lb-mini';
+        back.textContent = '⇄';
+        back.title = '当作数值+描述显示';
+        back.addEventListener('click', () => { mvuedSetListOverride(nd.path, false); });
+        head.appendChild(back);
+    }
+    box.appendChild(head);
+    const val = mvuedListValue(nd);
+    val.forEach((item, i) => {
+        const row = document.createElement('div');
+        row.className = 'so-mvued-listrow';
+        const isVwd = mvuIsVwdPair(item);
+        const scalar = isVwd ? item[0] : item;
+        if (scalar != null && typeof scalar === 'object') {
+            const ro = document.createElement('span');
+            ro.className = 'so-mvued-ro';
+            ro.textContent = JSON.stringify(scalar);
+            row.appendChild(ro);   // 对象项 v1 只支持删除 / 追加克隆，不逐字段编辑
+        } else {
+            const inp = document.createElement('input');
+            inp.type = 'text';
+            inp.value = String(scalar);
+            inp.addEventListener('input', () => {
+                let nv = inp.value;
+                if (typeof scalar === 'number') {   // 数字项恒转；转不出有限数就【什么都不写】（不悄悄退化成字符串）
+                    const n = mvuedToNumber(inp.value);
+                    if (!Number.isFinite(n)) return;
+                    nv = n;
+                }
+                const next = mvuedListValue(nd);   // 每次现读脏表：同一次渲染内改多项也不会互相覆盖
+                next[i] = isVwd ? [nv, item[1]] : nv;
+                mvuedMarkDirty({ path: nd.path, vwd: false }, next);
+                box.classList.add('so-mvued-dirty');
+            });
+            row.appendChild(inp);
+            // 列表项也吃 ⤢（标题带上第几项，弹层里才知道自己在改哪一格）。VWD 项的描述当说明摆出来。
+            row.appendChild(mvuedBigEditBtn(inp, `${nd.label} · 第 ${i + 1} 项`, isVwd ? item[1] : ''));
+        }
+        if (isVwd) {
+            const d = document.createElement('span');
+            d.className = 'so-mvued-desc';
+            d.textContent = item[1];
+            row.appendChild(d);
+        }
+        const del = document.createElement('button');
+        del.type = 'button'; del.className = 'so-lb-mini'; del.textContent = '➖';
+        del.title = '删除这一项';
+        del.addEventListener('click', () => {
+            const next = mvuedListValue(nd);
+            next.splice(i, 1);
+            mvuedMarkDirty({ path: nd.path, vwd: false }, next);
+            renderMvuedBody();   // 下标全变了 → 整体重画（旧行上闭包里的 i 就此作废）
+        });
+        row.appendChild(del);
+        box.appendChild(row);
+    });
+    const add = document.createElement('button');
+    add.type = 'button'; add.className = 'so-lb-mini'; add.textContent = '＋ 添加一项';
+    add.addEventListener('click', () => {
+        const next = mvuedListValue(nd);
+        next.push(mvuedBlankLike(next[next.length - 1]));
+        mvuedMarkDirty({ path: nd.path, vwd: false }, next);
+        renderMvuedBody();
+    });
+    box.appendChild(add);
+    return box;
 }
 
 // 纯函数：把「诊断前 → 诊断后」的 stat_data 差异折成一串【绝对值】JSONPatch 操作。
@@ -8877,6 +10988,76 @@ function addAutoFixControls(wrap, info) {
     });
 }
 
+// 🎛 手动编辑记录的「撤销 / 重新应用」二态按钮（仿 addNoteUndoControls，但走 replaceMvuData 整份快照
+// 互换，不涉及补丁重放 —— 手动编辑写的是绝对值，两份快照哪份都能原样盖回去）。
+// info = { snapshot, applied, undone? }：两份都是写入时的深拷贝，点一次再深拷贝一份交给 MVU，
+// 谁也不与 MVU 手里的活对象共享引用。undone 记在 info 上（注册表存的就是这个对象的引用）——换房重画时
+// 按钮按真实状态重生，不会把「已撤销」的记录又画成崭新「撤销」态（1.33.2 fixApply.applied 同款做法）。
+// 重载后注册表为空 → 记录只读，与自动诊断记录同款半径。
+function addMvuedUndoControls(wrap, info) {
+    const bar = document.createElement('div');
+    bar.className = 'so-apply-bar so-note-undo';
+    const btn = document.createElement('button');
+    btn.className = 'so-apply-btn';
+    const status = document.createElement('span');
+    status.className = 'so-apply-status';
+    bar.appendChild(btn);
+    bar.appendChild(status);
+    wrap.appendChild(bar);
+
+    let undone = !!(info && info.undone);
+    const paint = () => {
+        btn.innerHTML = undone
+            ? '<i class="fa-solid fa-wand-magic-sparkles"></i> 重新应用'
+            : '<i class="fa-solid fa-rotate-left"></i> 撤销';
+    };
+    paint();
+    btn.addEventListener('click', async () => {
+        status.classList.remove('so-hint-error');
+        btn.disabled = true;
+        status.textContent = undone ? '正在重新应用…' : '正在还原…';
+        try {
+            const Mvu = await getMvu();
+            if (!Mvu || typeof Mvu.replaceMvuData !== 'function') throw new Error('未检测到 MVU');
+            const target = undone ? info.applied : info.snapshot;
+            // F2（staleness-audit §4）：这颗按钮做的是【整份 MvuData 互换】，不是外科手术式的补丁回退。
+            // 「这条记录之后又发生过改动」时（又应用了一次 / 又来了几条回复 / 别的记录也撤销过），撤销会把
+            // 那些改动一并抹掉，而按钮上写的还是那句轻飘飘的「撤销」。点下去之前问一句——不拦，只说实话。
+            // 比对口径 = 【除 display_data / delta_data 之外的全部】。那两样是 MVU 每一轮都会重算的派生
+            // 数据，把它们算进去会在「状态其实没变」时也弹窗，而假阳性一多，用户就学会闭眼点确定、守卫
+            // 等于没有。其余的键（stat_data、schema、initialized_lorebooks…）都要比：撤销是【整份互换】，
+            // 它们同样会被这一下盖掉，光比 stat_data 会漏掉「schema / 已初始化世界书被回退」这类。
+            // expect = 这条记录声称「现在应该是」的那一份：未撤销态下是它写进去的 applied，已撤销态下是
+            // 它回退到的 snapshot。取不到现值（读失败）→ 不问，照旧行为走。
+            const cmpKey = (d) => {
+                const o = Object.assign({}, d || {});
+                delete o.display_data; delete o.delta_data;
+                return JSON.stringify(o);
+            };
+            const expect = undone ? info.snapshot : info.applied;
+            let live = null;
+            try { live = Mvu.getMvuData({ type: 'message', message_id: 'latest' }); } catch (e) { live = null; }
+            const drifted = !!(live && expect && cmpKey(live) !== cmpKey(expect));
+            if (drifted) {
+                const okGo = await uiConfirm(undone
+                    ? '这条记录之后状态又变过（别的应用 / 新回复）。重新应用会把整份变量换成本次编辑【之后】的那一版，后来的变化会一并丢失。确定吗？'
+                    : '这条记录之后状态又变过（别的应用 / 新回复）。撤销会连同后来的变化一起回退，确定吗？');
+                if (!okGo) { status.textContent = '已取消。'; btn.disabled = false; return; }
+            }
+            await Mvu.replaceMvuData(JSON.parse(JSON.stringify(target)), { type: 'message', message_id: 'latest' });
+            refreshLatestMvuBar();   // replaceMvuData 不发刷新事件，状态栏得自己踢一下
+            undone = !undone;
+            if (info) info.undone = undone;
+            paint();
+            status.textContent = undone ? '已还原到编辑前的状态。' : '已重新应用。';
+        } catch (e) {
+            status.textContent = '操作失败：' + (e && e.message ? e.message : e);
+            status.classList.add('so-hint-error');
+        }
+        btn.disabled = false;
+    });
+}
+
 function injectWandButton() {
     const menu = document.getElementById('extensionsMenu');
     if (!menu || document.getElementById('so-wand-button')) return;
@@ -9117,6 +11298,7 @@ function buildWindow() {
                     <div id="so-tools-menu" aria-label="更多工具">
                         <div class="so-iconbtn so-tools-item" id="so-normalchat-btn" title="回到普通聊天（自动诊断如已开启会继续在后台运行）"><i class="fa-solid fa-comment"></i><span>普通聊天</span></div>
                         <div class="so-iconbtn so-tools-item" id="so-summary-btn" title="剧情概要 —— 粘贴你的运行总结 / 前情提要，神谕会在最近对话前读到它"><i class="fa-solid fa-scroll"></i><span>剧情概要</span></div>
+                        <div class="so-iconbtn so-tools-item" id="so-export-btn" title="导出对话 —— 把这一页的问答存成 Markdown 文件（仅普通聊天 / 剧情参谋）"><i class="fa-solid fa-file-arrow-down"></i><span>导出对话</span></div>
                         <div class="so-iconbtn so-tools-item" id="so-debug-btn" title="查看上一次发送的提示词"><i class="fa-solid fa-bug"></i><span>调试提示词</span></div>
                         ${ENABLE_CHAR_BUILDER ? '<div class="so-iconbtn so-tools-item" id="so-builder-btn" title="角色工坊 —— 和我一起打造 / 完善一个角色，写进 Persona 或世界书"><i class="fa-solid fa-masks-theater"></i><span>角色工坊</span></div>' : ''}
                         <div class="so-iconbtn so-tools-item" id="so-settings-btn" title="设置"><i class="fa-solid fa-gear"></i><span>设置</span></div>
@@ -9330,6 +11512,7 @@ function buildWindow() {
                 <div class="so-mode-collapse-body">
             <label class="so-check so-lb-check"><input id="so-diag-preset" type="checkbox"><span>套用我的补全预设（诊断指令叠加其上）</span></label>
             <div class="so-hint so-diag-preset-warn">⚠ 仅在诊断确实被模型拒绝时才勾选：预设的额外内容会分散模型注意力、影响诊断精度。</div>
+            ${ENABLE_MVU_EDITOR ? '<div class="so-mvued-row"><button type="button" class="so-lb-mini" id="so-mvued-btn">🎛 变量编辑器 —— 直接查看 / 修改当前变量</button></div>' : ''}
             <div id="so-diag-wisel">
             <label class="so-check so-lb-check"><input id="so-diag-usesel" type="checkbox"><span>诊断使用精选世界书条目（关闭则用默认扫描）</span></label>
             <div class="so-hint">开启后可【按本聊天】挑选要喂给诊断的世界书条目，无视其在 ST 里的启用 / 禁用状态——解决「禁用了变量规则条目后诊断就看不到」与「全量太吵」的两难。首次开启会按当前激活情况预选一份，之后随你增删、按聊天记忆。</div>
@@ -9692,11 +11875,7 @@ function buildWindow() {
 // role=button + 可聚焦（tabindex）+ Enter/空格触发，并把每个按钮已有的 title 复用为屏幕阅读器
 // 的可读名（aria-label）。这样整套图标工具栏对键盘 / 读屏用户也完全可用，且无需改动任何模板标记。
 function enhanceIconButtonA11y() {
-    win.querySelectorAll('.so-iconbtn').forEach((b) => {
-        b.setAttribute('role', 'button');
-        if (!b.hasAttribute('tabindex')) b.setAttribute('tabindex', '0');
-        if (!b.getAttribute('aria-label') && b.title) b.setAttribute('aria-label', b.title);
-    });
+    win.querySelectorAll('.so-iconbtn').forEach(enhanceIconBtnNode);
     // 委托键盘事件：聚焦某个图标按钮时按 Enter / 空格即等同点击（原生 <button> 的默认行为）。
     // 输入框 / 文本域里的按键不会命中（closest 找不到 .so-iconbtn），故不影响打字与「Enter 发送」。
     win.addEventListener('keydown', (e) => {
@@ -9706,6 +11885,17 @@ function enhanceIconButtonA11y() {
         e.preventDefault();
         btn.click();
     });
+}
+
+// 单个图标按钮的语义补齐（幂等）。抽成独立函数是因为【动态建卡】的图标按钮（如变量编辑器的
+// #so-mvued-close）赶不上 buildWindow 那一趟批量增强，而 enhanceIconButtonA11y 整体【不可】重复调用——
+// 它每次还会往 win 上再挂一只委托 keydown，重复挂 = 按一下 Enter 触发两次 click。
+// 委托本身挂在 win 上、动态卡片又都追加在 win 内部 → 单独补上 tabindex 就能被聚焦，Enter/空格照常生效。
+function enhanceIconBtnNode(b) {
+    if (!b) return;
+    b.setAttribute('role', 'button');
+    if (!b.hasAttribute('tabindex')) b.setAttribute('tabindex', '0');
+    if (!b.getAttribute('aria-label') && b.title) b.setAttribute('aria-label', b.title);
 }
 
 function bindControls() {
@@ -9858,6 +12048,27 @@ function bindControls() {
     win.querySelector('#so-lb-preview-toggle').addEventListener('click', () => toggleLbPreview());
     win.querySelector('#so-lb-entries-filter').addEventListener('input', (e) => filterLbEntries(e.target.value));
     win.querySelector('#so-lb-book-filter').addEventListener('input', (e) => filterLbBooks(e.target.value));
+    // 世界书「智能选条」🪄 入口（ENABLE_LB_SMART_SELECT）：创建门——关时按钮从不创建、字节级零变化。
+    // 弹出输入框走懒建 overlay（openSmartSelect），不占选择器常驻空间（1.49.0 搜索框教训：picker 已很挤）。
+    if (ENABLE_LB_SMART_SELECT) {
+        const tools = win.querySelector('#so-lb-entries .so-lb-entries-tools');   // 📖 那条工具栏（class 有三处：诊断/工坊/世界书）
+        if (tools && !tools.querySelector('#so-lb-smart')) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.id = 'so-lb-smart';
+            b.className = 'so-lb-mini so-lb-mini-magic';
+            b.title = '智能选条：用一句话让 AI 帮你勾选 / 取消条目（只动勾选、可一键还原）';
+            b.textContent = '🪄 智能选条';
+            b.addEventListener('click', () => openSmartSelect());
+            tools.insertBefore(b, tools.firstChild);
+        }
+    }
+    // 🎛 变量编辑器入口（ENABLE_MVU_EDITOR）。关时模板里就没有这个按钮 → querySelector 为 null，
+    // 布线守卫与模板守卫同源，两处一起 no-op = 字节级零变化（同 ENABLE_DIAG_BODY_INJECT 的 bind 写法）。
+    if (ENABLE_MVU_EDITOR) {
+        const mvuedBtn = win.querySelector('#so-mvued-btn');
+        if (mvuedBtn) mvuedBtn.addEventListener('click', () => { openMvuEditor(); });
+    }
     // 诊断经自定义补全预设（1.43.0，opt-in）——全局开关，同 advisorUsePreset 写法（写 getSettings + save）。
     win.querySelector('#so-diag-preset').addEventListener('change', (e) => {
         const s2 = getSettings();
@@ -9959,6 +12170,8 @@ function bindControls() {
     });
     // 用户功能请求：剧情概要编辑器（本聊天，自动保存到元数据）。
     win.querySelector('#so-summary-btn').addEventListener('click', openSummary);
+    // 📥 导出对话（1.60.0 用户功能请求）：只在普通聊天 / 剧情参谋两房露面，可见性随模式刷新。
+    win.querySelector('#so-export-btn')?.addEventListener('click', exportConvo);
     win.querySelector('#so-summary-close').addEventListener('click', () => win.querySelector('#so-summary').classList.remove('open'));
     win.querySelector('#so-summary-text').addEventListener('input', (e) => {
         setSummary(e.target.value);
@@ -10391,6 +12604,7 @@ function bindControls() {
     // 用户功能请求：反映持久化的自动诊断状态（重载后若 AUTO 仍开着，按钮显示红色 + AUTO）。
     updateDiagButtonVisual();
     updateFixButtonVisual();
+    updateExportEntryVisual();   // 📥 导出对话：首次建窗时按当前模式定可见性（此后由 setOracleMode 维持）
 }
 
 function loadSettingsIntoForm() {
@@ -11621,6 +13835,12 @@ function setOracleMode(target) {
         try { prev && prev.onExit && prev.onExit(window.StoryOracleAPI); } catch (e) { /* 插件回调出错不中断切模式 */ }
         activeRegisteredModeId = null;
     }
+    // 📥 导出对话：⚠ 这一句的【位置】承重——必须在上面那段注册模式清理【之后】。它是本函数里唯一一个
+    // 靠 currentOracleMode() 判定的刷新器（诊断 / 校正那两个读的是设置），而 currentOracleMode() 第一句
+    // 就返回 activeRegisteredModeId。放在清理之前 → 从插件模式退回普通聊天时，刷新看到的还是插件 id，
+    // 入口会一直隐藏到下次切模式。进入插件模式那一侧同理够不着（记账在 setOracleMode 之后），
+    // 由 toggleRegisteredMode 末尾补刷。
+    updateExportEntryVisual();
     // 每模式独立房间：切模式即把可见侧聊换到该模式的房间（先落盘现流、再重载）。换房时 loadConvoForChat 已重画
     // （含空态）；没换房（同房间 / 开关关）才手动刷新空态——每模式自带引导语 + 示例 chip。
     const swapped = syncConvoStream();
@@ -12398,7 +14618,8 @@ async function applyBuilderDraft(btn) {
             if (book && !scope.includes(book)) scope.push(book);
             lbBookNames = scope;
             let res;
-            try { res = await applyLorebookOps([op]); } finally { lbBookNames = savedScope; }
+            // noCollapse：工坊写入不套用 B4 create→edit 折叠，保持其原有写入行为字节不变（世界书📖模式才折叠）。
+            try { res = await applyLorebookOps([op], { noCollapse: true }); } finally { lbBookNames = savedScope; }
             const r = res.results[0];
             if (!r || r.ok === false) { modeEntryNote('写入世界书失败：' + (r?.reason || '未知原因')); return; }
             btn._undo = async () => { await undoLorebookOps(res.snapshots); };
@@ -13699,6 +15920,383 @@ async function populateLorebookEntries() {
     if (f && f.value) filterLbEntries(f.value);
     refreshLbEntriesSummary();
     updateLbFilteredBtn();
+}
+
+/* ==================== 世界书「智能选条」助手：UI + 编排（ENABLE_LB_SMART_SELECT，2026-08-08）====================
+ * 引擎纯核在上方（buildLbCatalog / parseLb* / lbEngineSearch/Fetch / lbSmartNextStep / lbResolveSelectPlan）。
+ * 这里是够不着单测的 DOM / 异步层：懒建 overlay（#so-smartsel，同 #so-fixsel 骨架 + ✕/点遮罩逃生）、回合编排
+ * （soCallModel 非流式，至多 2 个额外来回，窗口里显式提示每一轮）、预检卡、应用（快照 → 经现有 toggle 机制落选
+ * 择态）、一键还原。全程独立于侧聊：不进 convo、不碰〔世界书快照〕。 */
+
+let smartSelState = null;   // { books, selMap, abort, restore, searched:[], searchHits:number }
+
+// 载入本次范围内的书（与选择器同款：resolveLbTargetNames(s.lorebookTargets, all, active)）→ [{name, entries:[raw]}]。
+async function loadSmartSelectBooks() {
+    const s = getSettings();
+    const mod = await getWiEditApi();
+    if (!mod) return [];
+    let names = [];
+    try {
+        const [allNames, activeNames] = await Promise.all([getAllBookNames(), getActiveBookNames()]);
+        names = resolveLbTargetNames(s.lorebookTargets, allNames, activeNames);
+    } catch (e) { return []; }
+    const books = [];
+    for (const name of names) {
+        let data;
+        try { data = await mod.loadWorldInfo(name); } catch (e) { continue; }
+        if (!data || !data.entries) continue;
+        const entries = Object.values(data.entries)
+            .sort((a, b) => (Number(a.displayIndex ?? a.uid) - Number(b.displayIndex ?? b.uid)));
+        books.push({ name, entries });
+    }
+    return books;
+}
+
+// 当前选择态映射（{书名: Set|null}）——直接读内存镜像 lbEntryFilter（缺键 = 全勾）。
+function currentLbSelMap(books) {
+    const map = {};
+    for (const b of books) map[b.name] = (lbEntryFilter[b.name] !== undefined) ? lbEntryFilter[b.name] : null;
+    return map;
+}
+
+// 懒建 overlay + 一次性 wiring（复用 #so-fixsel 的 inset:0 骨架 + .so-warn-x 逃生 + 点遮罩关闭）。
+function buildSmartSelCard() {
+    let el = win.querySelector('#so-smartsel');
+    if (el) return el;
+    el = document.createElement('div');
+    el.id = 'so-smartsel';
+    el.innerHTML =
+        '<div id="so-smartsel-card">' +
+        '<div id="so-smartsel-head"><span class="so-warn-title"><i class="fa-solid fa-wand-magic-sparkles"></i> 🪄 智能选条</span>' +
+        '<div class="so-iconbtn so-warn-x" title="关闭"><i class="fa-solid fa-xmark"></i></div></div>' +
+        '<div id="so-smartsel-body"></div>' +
+        '<div id="so-smartsel-btns"></div>' +
+        '</div>';
+    win.appendChild(el);
+    const close = () => closeSmartSelect();
+    el.addEventListener('click', (e) => { if (e.target === el) close(); });   // 点遮罩关闭
+    el.querySelector('.so-warn-x').addEventListener('click', close);
+    return el;
+}
+
+function closeSmartSelect() {
+    const el = win.querySelector('#so-smartsel');
+    if (!el) return;
+    if (smartSelState && smartSelState.abort) { try { smartSelState.abort.abort(); } catch (e) { /* ignore */ } }
+    el.classList.remove('open');
+}
+
+// 打开：守卫旗 + 必须有范围内的书；预填输入态。
+async function openSmartSelect() {
+    if (!ENABLE_LB_SMART_SELECT) return;
+    const el = buildSmartSelCard();
+    smartSelState = { books: [], selMap: {}, abort: null, restore: null, searched: [], searchHits: 0 };
+    el.classList.add('open');
+    renderSmartSelInput('读取世界书条目中…', true);
+    const books = await loadSmartSelectBooks();
+    smartSelState.books = books;
+    smartSelState.selMap = currentLbSelMap(books);
+    if (!books.length) {
+        renderSmartSelInput('（当前范围内没有可读取的世界书条目——请先在上方勾选某本书。）', true);
+        return;
+    }
+    const total = books.reduce((n, b) => n + b.entries.length, 0);
+    renderSmartSelInput('范围内 ' + books.length + ' 本书、共 ' + total + ' 条。用一句话说你想勾选 / 取消哪些条目，例如「把讲战争线的绿灯条目全勾上」「取消所有涉及感情戏的」。', false);
+}
+
+// —— 各状态渲染（重画 body + footer）——
+function smartSelBody() { return win.querySelector('#so-smartsel-body'); }
+function smartSelBtns() { return win.querySelector('#so-smartsel-btns'); }
+
+function renderSmartSelInput(hintText, disabled) {
+    const body = smartSelBody(); const btns = smartSelBtns();
+    if (!body || !btns) return;
+    body.innerHTML =
+        '<textarea id="so-smartsel-input" rows="3" placeholder="用一句话描述要怎么勾选…"></textarea>' +
+        '<div class="so-hint" id="so-smartsel-hint"></div>';
+    body.querySelector('#so-smartsel-hint').textContent = hintText || '';
+    const ta = body.querySelector('#so-smartsel-input');
+    ta.disabled = !!disabled;
+    btns.innerHTML =
+        '<button type="button" class="so-smartsel-btn" id="so-smartsel-cancel">取消</button>' +
+        '<button type="button" class="so-smartsel-btn so-smartsel-go" id="so-smartsel-go"' + (disabled ? ' disabled' : '') + '>开始</button>';
+    btns.querySelector('#so-smartsel-cancel').addEventListener('click', () => closeSmartSelect());
+    const go = btns.querySelector('#so-smartsel-go');
+    const fire = () => { const v = (ta.value || '').trim(); if (v) runSmartSelect(v); };
+    go.addEventListener('click', fire);
+    ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); fire(); } });
+    if (!disabled) setTimeout(() => { try { ta.focus(); } catch (e) { /* ignore */ } }, 0);
+}
+
+// 进度态：一行行累加「🪄 第 N 轮…」——多出的计费永不静默。
+function renderSmartSelProgress(reset) {
+    const body = smartSelBody(); const btns = smartSelBtns();
+    if (!body || !btns) return;
+    if (reset || !body.querySelector('#so-smartsel-log')) {
+        body.innerHTML = '<div id="so-smartsel-log"></div>';
+        btns.innerHTML = '<button type="button" class="so-smartsel-btn" id="so-smartsel-stop">中断</button>';
+        btns.querySelector('#so-smartsel-stop').addEventListener('click', () => closeSmartSelect());
+    }
+}
+function smartSelLog(text) {
+    renderSmartSelProgress(false);
+    const log = win.querySelector('#so-smartsel-log');
+    if (!log) return;
+    const line = document.createElement('div');
+    line.className = 'so-smartsel-logline';
+    line.textContent = text;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+}
+
+// —— 🪄 原文直播框（spec 2026-08-09）：AI 边写边看，Claude-Code 式。 ——
+// 【恒 textContent，绝不 innerHTML】：模型原文里骑着世界书正文（未信任文本），且直播的就是「原样」。
+// 【只在进度态里活】：body 里有 #so-smartsel-log 才建/找它 —— 输入态 / 预检卡 / 停止卡都是整体重画 body
+// （innerHTML 覆盖），直播框随之消失，晚到的 delta 也只 no-op，不会把已渲染的界面搅乱。
+// 【位置】：直播框 append 到 body，而进度日志全部落在 body 里【先建】的 #so-smartsel-log 容器内 →
+// 日志恒在直播框【上方】，无须 insertBefore。
+function smartSelLiveBox() {
+    const body = smartSelBody();
+    if (!body || !body.querySelector('#so-smartsel-log')) return null;
+    let box = body.querySelector('.so-smartsel-live');
+    if (!box) {
+        box = document.createElement('div');
+        box.className = 'so-smartsel-live';
+        box.style.display = 'none';   // 空壳不占位；第一个 delta 到了才显（非流式一个 delta 都不来 → 永不出现）
+        body.appendChild(box);
+    }
+    return box;
+}
+function smartSelLiveWrite(fullText) {
+    const box = smartSelLiveBox();
+    if (!box) return;
+    box.style.display = '';
+    // 贴底才自动滚——用户往上翻回去重读时绝不把他拽回底部。判据（40px 容差）与弧线实时输出查看器
+    // 同款（renderArcLive 的 atBottom，见 #so-live-body 那段），行为在两处保持一致。
+    // 必须在写 textContent【之前】量：写完 scrollHeight 就变了，量出来的「是否贴底」是错的。
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+    box.textContent = fullText;
+    if (atBottom) box.scrollTop = box.scrollHeight;
+}
+// 清空 = 只清【已存在】的框，绝不为了清空先造一个空壳（否则非流式连接会白出一个空框）。
+function smartSelLiveClear() {
+    const body = smartSelBody();
+    const box = body && body.querySelector('.so-smartsel-live');
+    if (!box) return;
+    box.textContent = '';
+    box.style.display = 'none';
+}
+
+// 回合编排：调用①（指令 + 目录）→ 有 Select 出预检；只请求则引擎应答后续发；上界 2；round=cap+1 仍不收敛则停。
+async function runSmartSelect(userCommand) {
+    if (!ENABLE_LB_SMART_SELECT || !smartSelState || !smartSelState.books.length) return;
+    const s = getSettings();
+    const ctl = new AbortController();
+    smartSelState.abort = ctl;
+    const timer = setTimeout(() => ctl.abort(), 120000);
+    const books = smartSelState.books;
+    const catalog = buildLbCatalog(books, smartSelState.selMap);
+    const scopeNames = books.map((b) => b.name);
+    let priorResults = '';
+    renderSmartSelProgress(true);
+    try {
+        for (let round = 1; round <= LB_SMART_MAX_ROUNDS + 1; round++) {
+            smartSelLog(round === 1
+                ? '🪄 正在请 AI 阅读目录、拟定勾选…'
+                : '🪄 第 ' + round + ' 轮：AI 在核对正文（这是第 ' + (round - 1) + ' 次额外调用）…');
+            smartSelLiveClear();   // 每轮从头直播（上一轮的原文已由引擎应答行接管，不再需要）
+            // 有意【不】钉 stream —— 跟随用户的「流式输出」设置（soCallModel 的 opts.stream===undefined 分支）：
+            // 开 → onDelta 逐块喂直播框；关 → onDelta 结构上一次都不会触发（emit 只在两条 stream 分支里被引用）。
+            const reply = await soCallModel(buildSmartSelectMessages(userCommand, catalog, priorResults), {
+                maxTokens: Math.max(Number(s.maxTokens) || 0, 4096),
+                signal: ctl.signal,
+                onDelta: (full) => smartSelLiveWrite(full),
+            });
+            const parsed = {
+                selects: parseLbSelectBlocks(reply).selects,
+                searches: parseLbSearchBlocks(reply).searches,
+                fetches: parseLbFetchBlocks(reply).fetches,
+            };
+            const step = lbSmartNextStep(parsed, round, LB_SMART_MAX_ROUNDS);
+            if (step.action === 'apply') { renderSmartSelPreview(parsed.selects, step.ignoredRequests); return; }
+            if (step.action === 'stop') { renderSmartSelStop(step.reason, reply); return; }
+            // action === 'search'：引擎侧应答，合并 Search 结果 + Fetch 全文，喂进下一轮
+            const chunks = [];
+            if (parsed.searches.length) {
+                const kws = [];
+                for (const sr of parsed.searches) for (const k of sr.keywords) if (!kws.includes(k)) kws.push(k);
+                const scope = parsed.searches.map((x) => x.scope).find((x) => x && x.length) || null;
+                const res = lbEngineSearch(books, kws, { scope });
+                smartSelState.searched = [...new Set([...smartSelState.searched, ...res.keywords])];
+                smartSelState.searchHits += res.matchedCount;
+                smartSelLog('　→ 搜索「' + res.keywords.join(' / ') + '」：命中 ' + res.matchedCount + ' 条');
+                chunks.push(formatLbSearchResult(res));
+            }
+            if (parsed.fetches.length) {
+                const res = lbEngineFetch(books, parsed.fetches);
+                smartSelLog('　→ 取回 ' + res.items.length + ' 条全文' + (res.missing.length ? '（' + res.missing.length + ' 条未找到）' : ''));
+                chunks.push(formatLbFetchResult(res));
+            }
+            priorResults = (priorResults ? priorResults + '\n\n' : '') + chunks.join('\n\n');
+        }
+    } catch (err) {
+        if (ctl.signal.aborted) { renderSmartSelInput('已中断。可重新描述指令再试。', false); return; }
+        renderSmartSelStop('error', (err && err.message) || String(err));
+    } finally {
+        clearTimeout(timer);
+        smartSelState.abort = null;
+    }
+}
+
+// 停：把已有材料摆给用户（模型没能收敛 / 只闲聊 / 出错），不落任何选择。
+function renderSmartSelStop(reason, detail) {
+    const body = smartSelBody(); const btns = smartSelBtns();
+    if (!body || !btns) return;
+    const msg = reason === 'noconverge'
+        ? 'AI 用完了 ' + LB_SMART_MAX_ROUNDS + ' 次额外查询仍没能给出勾选计划。请把指令说得更具体（点名某条线 / 灯色 / 组），或直接手动勾选。'
+        : reason === 'error'
+            ? '调用出错：' + (detail || '') + '。请检查连接设置后重试。'
+            : 'AI 没有给出可执行的勾选计划。请把指令说得更具体一些，或直接手动勾选。';
+    body.innerHTML = '<div class="so-smartsel-stop"></div><div class="so-smartsel-detail so-hint"></div>';
+    body.querySelector('.so-smartsel-stop').textContent = msg;
+    body.querySelector('.so-smartsel-detail').textContent = (reason !== 'error' && detail) ? ('AI 原话：' + String(detail).slice(0, 400)) : '';
+    btns.innerHTML =
+        '<button type="button" class="so-smartsel-btn" id="so-smartsel-close">关闭</button>' +
+        '<button type="button" class="so-smartsel-btn so-smartsel-go" id="so-smartsel-retry">重新描述</button>';
+    btns.querySelector('#so-smartsel-close').addEventListener('click', () => closeSmartSelect());
+    btns.querySelector('#so-smartsel-retry').addEventListener('click', () => renderSmartSelInput('用一句话重新描述指令。', false));
+}
+
+// 预检卡：B5 同族行 UI（将勾选 N / 取消 M + 逐行 ✔/✖ uid 标题 — 理由）+ 搜索透明行 + 幻觉 uid 剔除注记 + [应用][取消]。
+function renderSmartSelPreview(selects, ignoredRequests) {
+    const body = smartSelBody(); const btns = smartSelBtns();
+    if (!body || !btns) return;
+    const plan = lbResolveSelectPlan(selects, smartSelState.books, currentLbSelMap(smartSelState.books));
+    smartSelState.plan = plan;
+    body.innerHTML = '';
+    // 透明行：AI 搜了什么
+    if (smartSelState.searched.length) {
+        const t = document.createElement('div');
+        t.className = 'so-smartsel-searched';
+        t.textContent = '模型搜了：' + smartSelState.searched.join(' / ') + '，命中 ' + smartSelState.searchHits + ' 条';
+        body.appendChild(t);
+    }
+    // 摘要
+    const sum = document.createElement('div');
+    sum.className = 'so-smartsel-summary';
+    sum.textContent = '将勾选 ' + plan.willSelect + ' 条 / 取消 ' + plan.willDeselect + ' 条';
+    body.appendChild(sum);
+    // 逐行
+    if (!plan.rows.length) {
+        const none = document.createElement('div');
+        none.className = 'so-hint';
+        none.textContent = '（AI 给的计划里没有落到有效条目的动作。）';
+        body.appendChild(none);
+    }
+    for (const r of plan.rows) {
+        const row = document.createElement('div');
+        row.className = 'so-ss-row ' + (r.action === 'select' ? 'so-ss-select' : 'so-ss-deselect');
+        const main = document.createElement('div');
+        main.className = 'so-ss-row-main';
+        const mark = r.action === 'select' ? '✔ 勾选' : '✖ 取消';
+        const who = r.all ? ('《' + r.book + '》整本条目') : ('《' + r.book + '》 uid=' + r.uid + '「' + r.title + '」');
+        main.textContent = mark + ' ' + who;
+        row.appendChild(main);
+        if (r.reason) { const rn = document.createElement('div'); rn.className = 'so-ss-row-reason'; rn.textContent = '↳ ' + r.reason; row.appendChild(rn); }
+        body.appendChild(row);
+    }
+    // 幻觉 uid / 找不到书 / 忽略请求 注记
+    if (plan.dropped.length) {
+        const d = document.createElement('div');
+        d.className = 'so-smartsel-warn';
+        d.textContent = '⚠ 已忽略目录里不存在的 uid：' + plan.dropped.map((x) => x.uid).join(', ') + '（AI 可能记错了编号）';
+        body.appendChild(d);
+    }
+    if (plan.unresolvedBooks.length) {
+        const u = document.createElement('div');
+        u.className = 'so-smartsel-warn';
+        u.textContent = '⚠ 找不到世界书：' + plan.unresolvedBooks.join('、');
+        body.appendChild(u);
+    }
+    if (ignoredRequests) {
+        const ir = document.createElement('div');
+        ir.className = 'so-hint';
+        ir.textContent = '（AI 在给计划的同时还想再搜索/取文，已按「出计划即终局」忽略。）';
+        body.appendChild(ir);
+    }
+    const canApply = plan.perBook.length > 0 && (plan.willSelect + plan.willDeselect) > 0;
+    btns.innerHTML =
+        '<button type="button" class="so-smartsel-btn" id="so-smartsel-cancel2">取消</button>' +
+        '<button type="button" class="so-smartsel-btn so-smartsel-go" id="so-smartsel-apply"' + (canApply ? '' : ' disabled') + '>应用</button>';
+    btns.querySelector('#so-smartsel-cancel2').addEventListener('click', () => closeSmartSelect());
+    if (canApply) btns.querySelector('#so-smartsel-apply').addEventListener('click', () => applySmartSelectPlan());
+}
+
+// 克隆当前选择态（Set 深拷、null 原样）——快照 / 还原用。
+function cloneLbEntryFilter() {
+    const out = {};
+    for (const [k, v] of Object.entries(lbEntryFilter)) out[k] = (v && typeof v.forEach === 'function') ? new Set(v) : v;
+    return out;
+}
+
+// 应用：先整份快照当前选择态（书集合 + 全部 lbEntrySel）→ 经现有 toggle 机制写入选择器（复用「整本勾满 = 发整本」
+// 与持久化规则）→ 出 [还原]（本次会话内一次性撤销）。
+async function applySmartSelectPlan() {
+    const plan = smartSelState && smartSelState.plan;
+    if (!plan) return;
+    const s = getSettings();
+    // 快照：书集合 + 内存选择态 + 已落盘的 lbEntrySel
+    const snap = {
+        lorebookTargets: Array.isArray(s.lorebookTargets) ? [...s.lorebookTargets] : s.lorebookTargets,
+        filter: cloneLbEntryFilter(),
+        lbEntrySel: JSON.parse(JSON.stringify(s.lbEntrySel || {})),
+    };
+    // 确保条目 DOM 已渲染（toggle 机制靠已渲染的行；lbShownBookTotals / allLbEntryUidsForBook 读 DOM）。
+    await populateLorebookEntries();
+    // 逐书把选择驱到目标态：设 DOM 复选框 + 内存 Set（仅动计划里的书；其余原样）。
+    const desired = new Map();
+    for (const pb of plan.perBook) desired.set(pb.book, new Set(pb.finalUids));
+    for (const row of win.querySelectorAll('#so-lb-entries-list .so-lb-ent')) {
+        const book = row.dataset.book || '';
+        if (!desired.has(book)) continue;
+        const box = row.querySelector('input[type="checkbox"]');
+        if (!box) continue;
+        box.checked = desired.get(book).has(Number(box.dataset.uid));
+    }
+    for (const [book, set] of desired) lbEntryFilter[book] = set;   // 满 Set 会被 refresh 塌回 null = 发整本
+    refreshLbEntriesSummary();   // 唯一咽喉：归一（满→null）+ 落盘（persistLbEntrySel → save）
+    smartSelState.restore = snap;
+    renderSmartSelDone(plan);
+}
+
+// 应用后：确认态 + [还原]（会话内一次性，语义同其它一次性撤销）。
+function renderSmartSelDone(plan) {
+    const body = smartSelBody(); const btns = smartSelBtns();
+    if (!body || !btns) return;
+    body.innerHTML = '<div class="so-smartsel-ok"></div>';
+    body.querySelector('.so-smartsel-ok').textContent = '已应用：勾选 ' + plan.willSelect + ' 条 / 取消 ' + plan.willDeselect + ' 条。选择器已更新并保存。';
+    btns.innerHTML =
+        '<button type="button" class="so-smartsel-btn" id="so-smartsel-done">完成</button>' +
+        '<button type="button" class="so-smartsel-btn" id="so-smartsel-restore"><i class="fa-solid fa-rotate-left"></i> 还原</button>';
+    btns.querySelector('#so-smartsel-done').addEventListener('click', () => closeSmartSelect());
+    btns.querySelector('#so-smartsel-restore').addEventListener('click', () => restoreSmartSelectSnapshot());
+}
+
+// 还原：把选择态整份复位（书集合 + lbEntryFilter + lbEntrySel），重渲选择器。
+async function restoreSmartSelectSnapshot() {
+    const snap = smartSelState && smartSelState.restore;
+    if (!snap) return;
+    const s = getSettings();
+    s.lorebookTargets = snap.lorebookTargets;
+    for (const k of Object.keys(lbEntryFilter)) delete lbEntryFilter[k];
+    for (const [k, v] of Object.entries(snap.filter)) lbEntryFilter[k] = (v && typeof v.forEach === 'function') ? new Set(v) : v;
+    s.lbEntrySel = JSON.parse(JSON.stringify(snap.lbEntrySel || {}));
+    save();
+    await populateLorebookEntries();   // 从复位后的内存态重画复选框 + summary
+    smartSelState.restore = null;
+    const body = smartSelBody(); const btns = smartSelBtns();
+    if (body) { body.innerHTML = '<div class="so-smartsel-ok"></div>'; body.querySelector('.so-smartsel-ok').textContent = '已还原到应用前的选择态。'; }
+    if (btns) { btns.innerHTML = '<button type="button" class="so-smartsel-btn" id="so-smartsel-done2">关闭</button>'; btns.querySelector('#so-smartsel-done2').addEventListener('click', () => closeSmartSelect()); }
 }
 
 /* ---- 诊断模式「精选世界书条目」选条目器（用户功能请求；ENABLE_DIAG_WI_PICKER）----
@@ -15110,8 +17708,9 @@ function buildLorebookPrompt(ctx, s) {
     const personaBlock = buildPersonaBlock(s.personaId, 'lorebook', s);
     if (personaBlock) parts.push(personaBlock);
 
-    parts.push('=== 当前世界书内容 ===\n' +
-        (lbContextText || '（未读取到世界书 —— 请检查上方的选择。）'));
+    // F5：世界书正文【不再】随这段指令走——它被移到全部对话历史之后的尾部〔世界书快照〕块
+    //（buildLorebookSnapshotBlock，由 buildMessages / buildLorebookPresetMessages 追加）。这里只留
+    // 管家指令 + 人格 + 可选故事上下文，书正文只在快照块里出现一次（避免重复投喂、并让书正文最新、贴近末尾）。
 
     if (s.lorebookIncludeStory) {
         // 柏宝书记忆桥 + 运行概要：骑「同时带上最近剧情对话」——管家的故事上下文本就在这个 opt-in 后面；
@@ -15127,10 +17726,38 @@ function buildLorebookPrompt(ctx, s) {
         if (transcript) parts.push('=== 最近的故事对话记录（仅供参考，最新的在最后）===\n' + transcript);
     }
 
-    // Note: lbContextText is already substituteParams'd; the system prompt itself
-    // has no macros, so no further substitution is needed (and would risk
-    // mangling literal braces inside entry content).
+    // 不跑 substituteParams：管家指令本身无宏，而书正文（现由尾部快照块承载）里的字面 {{user}}/{{char}}
+    // 与大括号必须原样保留（替换会打乱锚点、还会把真名写死进条目）——这也是书正文不再随本函数走的原因之一。
     return parts.filter(Boolean).join('\n\n');
+}
+
+// F5 世界书快照块（纯函数、可单测）：把书正文包进带版本号 + 上次应用结果的尾部权威块。
+//   bookText  = 书正文（buildLorebookContext 产出的 lbContextText，宏说明图例已在其头部、随之一并带上）。
+//   applySnap = getLbApplySnapshot() 的返回（{serial, ops} 或 null）：决定版本号 + 有没有〔上次应用结果〕。
+// 版本号：无快照 = 第 1 版（该聊天从未应用过）；有快照用其 serial。无 ops 时整段〔上次应用结果〕省略。
+function formatLbSnapshotBlock(bookText, applySnap) {
+    const book = (bookText == null || String(bookText).trim() === '')
+        ? '（未读取到世界书 —— 请检查上方的选择。）'
+        : String(bookText);
+    const serial = (applySnap && Number.isFinite(applySnap.serial) && applySnap.serial >= 1) ? applySnap.serial : 1;
+    const lines = [`════ 世界书快照 · 第 ${serial} 版（每次发送自动重读，唯一权威）════`];
+    const ops = (applySnap && Array.isArray(applySnap.ops)) ? applySnap.ops : [];
+    if (ops.length) {
+        lines.push('〔上次应用结果〕（仅最近一次）');
+        for (const r of ops) lines.push(lbFormatApplyLine(r));
+        lines.push('────');
+    }
+    lines.push(book);
+    lines.push('════ 快照结束 · 校验与锚点只能从本快照逐字复制 ════');
+    return lines.join('\n');
+}
+// 非纯封装：从模块级 lbContextText + 当前聊天的应用快照现拼快照块。
+function buildLorebookSnapshotBlock() {
+    return formatLbSnapshotBlock(lbContextText, getLbApplySnapshot());
+}
+// 尾部快照消息（钉在全部对话历史之后；裸路径与预设路径共用，保证书正文只出现这一次、且恒在末尾）。
+function lbSnapshotMsg() {
+    return { role: 'system', content: buildLorebookSnapshotBlock() };
 }
 
 // 把【当前正在引导的弧线】渲染成参谋上下文（供”检查进度”等对话）。since = 自本拍采用以来的主聊天
@@ -15498,12 +18125,15 @@ function buildMessages() {
     if (!diagnoseMode && !lorebookMode && !advisorMode && !fixMode && !builderMode && presetCurationActive(s)) {
         return buildPresetMessages(s);
     }
-    // 内置破限（1.40.0）：包裹神谕自己建好的这一组。普通聊天默认开、其余模式 opt-in、诊断永不接
+    // 内置破限（1.40.0）：包裹神谕自己建好的这一组。普通聊天默认开、其余模式一律 opt-in（诊断自 1.43.0 起也接得上，门是 diagnoseUsePreset）
     // ——判定全在 modeWantsJb 里。上面那些 presetCurationActive 分支走的是【真预设替换】通道，
     // 与内置破限互斥（哨兵在 presetCurationActive 里已被排除），所以只需要在这一条裸路径上接。
-    return maybeWrapJb(
+    const wrapped = maybeWrapJb(
         [{ role: 'system', content: buildSystemPrompt() }, ...convoForPrompt()],
         currentJbModeKey(), s);
+    // F5：世界书模式把书正文钉成【全部对话历史之后】的尾部快照块（唯一权威；只此一处，末尾恒在）。
+    if (lorebookMode) wrapped.push(lbSnapshotMsg());
+    return wrapped;
 }
 
 /* ------------------------------------------------------------------ *
@@ -15642,7 +18272,7 @@ function buildLorebookPresetMessages(s) {
     const items = (snap && snap.items) || [];
     const out = [];
 
-    const loreBlock = buildLorebookPrompt(ctx, s);  // directive + book (+ optional transcript)
+    const loreBlock = buildLorebookPrompt(ctx, s);  // directive (+ optional transcript)；书正文已移出、见下方尾部快照
     let placed = false;
     const placeLore = () => {
         if (placed) return;
@@ -15661,7 +18291,9 @@ function buildLorebookPresetMessages(s) {
     }
     placeLore(); // no chatHistory marker in the curation -> append at the end
 
-    return out.length ? out : [{ role: 'system', content: loreBlock }, ...convoForPrompt()];
+    // F5：书正文快照钉在【全部内容之后】的末尾（与裸路径同规则，唯一权威、只出现这一次）。
+    out.push(lbSnapshotMsg());
+    return out;
 }
 
 /* ------------------------------------------------------------------ *
@@ -18834,6 +21466,11 @@ function addLorebookApplyControls(assistantEl, parsed, entry) {
     bar.appendChild(status);
     bubble.appendChild(bar);
 
+    // B5 应用前预检行（fire-and-fill 填入，见函数末尾）。放在结果区之前、按钮之下。
+    const previewEl = document.createElement('div');
+    previewEl.className = 'so-lb-preview';
+    bubble.appendChild(previewEl);
+
     // Per-op outcomes, rendered after Apply.
     const resultsEl = document.createElement('div');
     resultsEl.className = 'so-lb-results';
@@ -18865,8 +21502,11 @@ function addLorebookApplyControls(assistantEl, parsed, entry) {
         for (const r of results) {
             const line = document.createElement('div');
             line.className = 'so-lb-result ' + (r.ok ? 'so-lb-ok' : 'so-lb-skip');
-            line.textContent = (r.ok ? '✓ ' : '⤫ ') + r.label + (r.ok ? '' : `（跳过：${r.reason}）`);
+            line.textContent = lbFormatApplyLine(r);   // F3c 共用格式化（✓ 带尺寸回声 / ⤫ 跳过原因）
             resultsEl.appendChild(line);
+            // B4/B6/改锚/T2 附注：同名转编辑 / 无键自动常驻 / 已改锚 / 常驻目标等，落地结果也一并说明。
+            if (r.note) { const n = document.createElement('div'); n.className = 'so-lb-note'; n.textContent = '↳ ' + r.note; resultsEl.appendChild(n); }
+            if (r.warn) { const w = document.createElement('div'); w.className = 'so-lb-warn-note'; w.textContent = '⚠ ' + r.warn; resultsEl.appendChild(w); }
         }
     };
 
@@ -18900,9 +21540,11 @@ function addLorebookApplyControls(assistantEl, parsed, entry) {
         }
         btn.disabled = true;
         status.textContent = '正在应用…';
+        previewEl.innerHTML = '';   // 预检让位给真结果（点应用即以实际书为准）
         try {
             const res = await applyLorebookOps(ops);
             renderResults(res.results);
+            recordLbApplySnapshot(res.results);   // F4：落最近一次应用结果快照（下次发送在〔世界书快照〕里回显版本号 + 结果）
             if (res.applied > 0) {
                 snapshots = res.snapshots;
                 if (entry) {
@@ -18924,6 +21566,35 @@ function addLorebookApplyControls(assistantEl, parsed, entry) {
         btn.disabled = false;
         scrollToBottom();
     });
+
+    // B5 应用前预检（fire-and-fill）：只读跑一遍 dry-run，逐条把每个 op 会怎样落地摆到按钮下方——
+    // 通过行常态、未通过行灰显 + 内联原因、改锚 / 同名转编辑 / 无键常驻 / 常驻目标各带附注。
+    // 异步、绝不阻塞消息渲染；已应用态（sess）不预检；预检回来前已点应用则不覆盖真结果。
+    if (!sess && ops.length) {
+        (async () => {
+            let verdicts = null;
+            try { verdicts = await lbDryRunOps(ops); } catch (e) { verdicts = null; }
+            if (!verdicts || snapshots) return;   // 模块不可用 / 预检返回前已应用 → 不渲染
+            previewEl.innerHTML = '';
+            const head = document.createElement('div');
+            head.className = 'so-lb-preview-head';
+            head.textContent = '应用前预检（点「应用」时以当前世界书为准）：';
+            previewEl.appendChild(head);
+            for (const v of verdicts) {
+                const row = lbVerdictRow(v);
+                const el = document.createElement('div');
+                el.className = 'so-lb-prow ' + row.cls;
+                const main = document.createElement('div');
+                main.className = 'so-lb-prow-main';
+                main.textContent = row.line;
+                el.appendChild(main);
+                if (row.note) { const n = document.createElement('div'); n.className = 'so-lb-note'; n.textContent = '↳ ' + row.note; el.appendChild(n); }
+                if (row.warn) { const w = document.createElement('div'); w.className = 'so-lb-warn-note'; w.textContent = '⚠ ' + row.warn; el.appendChild(w); }
+                previewEl.appendChild(el);
+            }
+            scrollToBottom();
+        })();
+    }
 }
 
 // 纯函数：解析两段式校正输出。<problems>（违规片段定位，可在前、可缺闭合）+ <FixedReply>（修正稿，容忍缺闭合）。
@@ -19167,7 +21838,8 @@ function modeEntryNote(text) {
 
 // 持久化的「系统记录」气泡（自动诊断 / 自动校正的记录）。带 entry（写进 convo → 持久化 → 重载可
 // 重建），左对齐、补丁可滚动。opts.{snapshot,patch} 挂「撤销 / 重新应用」按钮、opts.{fix} 挂「用原文 /
-// 看改动」——仅改动型记录、仅本会话：opts 走内存注册表（registerNoteOpts），本会话内重画由
+// 看改动」、opts.{mvued} 挂 🎛 手动编辑的整份快照撤销——仅改动型记录、仅本会话：opts 走内存注册表
+// （registerNoteOpts），本会话内重画由
 // loadConvoForChat 凭 peekNoteOpts 重挂；重载后注册表为空 → 记录变只读（重放旧补丁不安全，与手动
 // 诊断回复重载后失去按钮一致）。
 function addNoteMessage(entry, opts) {
@@ -19182,6 +21854,7 @@ function addNoteMessage(entry, opts) {
     wrap.appendChild(txt);
     if (opts && opts.snapshot && opts.patch) addNoteUndoControls(wrap, opts.snapshot, opts.patch, opts.writeBack);
     else if (opts && opts.fix) addAutoFixControls(wrap, opts.fix);
+    else if (opts && opts.mvued) addMvuedUndoControls(wrap, opts.mvued);   // 🎛 手动编辑记录：整份快照互换的撤销
     messagesEl.appendChild(wrap);
     scrollToBottom();
     return wrap;
@@ -19473,6 +22146,74 @@ function appendNoteToRoom(roomKey, entry, opts) {
     arr.push({ id: entry.id, role: 'note', content: entry.content });
     md[mk] = arr;
     saveChatMetadata();
+}
+
+// 📥 导出对话（⋯ 工具菜单，1.60.0 用户功能请求）—— 非纯的那一半，纯核见 buildConvoExportMd 一带。
+
+// 触发浏览器下载一份文本文件（Blob + 临时 <a download>）。零依赖、不落任何服务器。
+// 立刻 revoke 对象 URL 在部分浏览器会赶在下载真正开始之前 → 延后一拍再释放。
+// 失败不静默：给一条错误提示，别让用户以为已经存好了。
+function downloadTextFile(filename, text) {
+    try {
+        const blob = new Blob([String(text == null ? '' : text)], { type: 'text/markdown;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => { try { URL.revokeObjectURL(url); } catch (e) { /* 已释放 */ } }, 4000);
+        return true;
+    } catch (e) {
+        console.error('[Story Oracle] 导出对话失败', e);
+        window.toastr && window.toastr.error && window.toastr.error('导出失败——浏览器拒绝了这次下载。', '故事神谕');
+        return false;
+    }
+}
+
+// 当前聊天的显示名（只给导出的文件名 / 抬头用）：群聊取群名，单聊取角色名，都没有就退到聊天文件名。
+function soExportChatName() {
+    try {
+        const ctx = getCtx();
+        if (!ctx) return '';
+        if (ctx.groupId) {
+            const g = (Array.isArray(ctx.groups) ? ctx.groups : []).find((x) => x && String(x.id) === String(ctx.groupId));
+            if (g && g.name) return String(g.name);
+        }
+        return String(ctx.name2 || ctx.chatId || '');
+    } catch (e) { return ''; }
+}
+
+// 菜单项点击：把【当前房间】的侧聊导成 Markdown 文件。点击那一刻现读全局 convo —— 房间由
+// setOracleMode / syncConvoStream 换好，所以这里拿到的永远是眼前这一页（参谋房导参谋房、普通房导普通房）。
+function exportConvo() {
+    const mode = currentOracleMode();
+    // 菜单项在这些模式下本就隐藏；这里再挡一道（键盘 / 插件也可能触发）。⚠ 不静默 return——
+    // 「点了什么都没发生」是最难报障的一类 bug，跟空房分支一样给一句话。
+    if (!convoExportAllowed(mode)) {
+        window.toastr && window.toastr.info && window.toastr.info('导出对话只在普通聊天和剧情参谋里可用。', '故事神谕');
+        return;
+    }
+    const modeLabel = mode === 'advisor' ? '剧情参谋' : '普通聊天';
+    const chatName = soExportChatName();
+    const t = soExportTimeParts(new Date());
+    const md = buildConvoExportMd(convo, { modeLabel, chatName, when: t.when });
+    if (!md) {
+        window.toastr && window.toastr.info && window.toastr.info('本页还没有对话，先聊两句再导出～', '故事神谕');
+        return;
+    }
+    downloadTextFile(buildConvoExportFileName(modeLabel, chatName, t.stamp), md);
+}
+
+// 「导出对话」菜单项的可见性：只在普通聊天 / 剧情参谋两房露面。buildWindow 挂完调一次，
+// 之后每次 setOracleMode 再调（注册插件模式也经由 currentOracleMode 落到隐藏侧）。
+function updateExportEntryVisual() {
+    if (!win) return;
+    const btn = win.querySelector('#so-export-btn');
+    if (!btn) return;
+    btn.style.display = convoExportAllowed(currentOracleMode()) ? '' : 'none';
 }
 
 // 打开运行概要编辑器（叠层，仿 openDebug）。
