@@ -495,7 +495,9 @@
 .so-actions { display: flex; align-items: center; gap: 1px; flex: 0 0 auto; }
 /* A2：消息操作按钮（复制 / 重生 / 编辑 / 删除）默认渲染在气泡【底部】而非挤在角色行——
    底部一行右对齐，桌面仍靠 .so-msg-btn 的 hover 显影。原生化自二创 actions-bottom（用户已在用）。 */
-.so-bubble > .so-actions { justify-content: flex-end; margin-top: 5px; }
+/* 1.61.0 起 AI 气泡这行最多有 复制/重生/删除/导出/导入 五枚 + 插件注册的动作钮 —— 窄屏放不下时
+   换行而不是溢出（.so-msg-btn 本就 flex:0 0 auto，不换行会顶出气泡）。 */
+.so-bubble > .so-actions { justify-content: flex-end; margin-top: 5px; flex-wrap: wrap; }
 /* A6：连接预设 UI —— 下拉 + 加载 / 删除 / 保存图标钮成一行；下拉 / 名称输入撑满。 */
 .so-conn-preset-row { display: flex; gap: 6px; align-items: center; margin-top: 4px; }
 .so-conn-preset-row > select, .so-conn-preset-row > input { flex: 1 1 auto; min-width: 0; }
@@ -602,6 +604,17 @@
 .so-empty-chip:hover { background: color-mix(in srgb, var(--so-accent) 20%, transparent); }
 .so-empty-chip:active { transform: scale(0.97); }
 .so-empty-chip:focus-visible { outline: 2px solid var(--so-accent); outline-offset: 2px; }
+/* 📤 空态导入入口（1.61.0）：气泡行上那对导出/导入按钮在【空页】够不着 —— 空态补一枚。
+   同属 chip 家族，只是更低调（虚线 + 居中 + 与示例 chip 拉开距离），别喧宾夺主。 */
+.so-empty-io { margin-top: 14px; margin-inline: auto; }
+.so-empty-import-btn {
+    text-align: center;
+    border-style: dashed;
+    background: transparent;
+    opacity: 0.72;
+}
+.so-empty-import-btn:hover { opacity: 1; }
+.so-empty-import-btn > i { margin-right: 5px; }
 
 /* ---------- footer ---------- */
 #so-footer {

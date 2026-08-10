@@ -1632,7 +1632,7 @@ const ENABLE_CUSTOM_PERSONAS = true;
 // —— 更新提醒（1.38.0）——
 // SO_VERSION 是代码内唯一版本号，必须与 manifest.json 的 version 完全一致——update-check.test.mjs
 // 有失配即红的漂移钉（发版清单：两处一起 bump）。
-const SO_VERSION = '1.60.0';
+const SO_VERSION = '1.61.0';
 // 更新提醒总开关。false → 设置面板不渲染「更新」组、开窗不检查、红点绘制器与一键更新 no-op、
 // 绑定/回填跳过——字节级零行为变化。运行期另有 opt-out 设置 updAutoCheck（默认开）。
 const ENABLE_UPDATE_CHECK = true;
@@ -2313,18 +2313,20 @@ async function toggleRegisteredMode(id) {
     const spec = registeredModes.get(id);
     if (!spec) return;
     if (!(await confirmModeSwitch('chat'))) return;   // 1.36.0 中断确认：注册模式住 main 房——按 'chat' 判是否换房
-    // 退出：setOracleMode('chat') 内部会清 activeRegisteredModeId 并在【清完之后】刷新导出入口，
+    // 退出：setOracleMode('chat') 内部会清 activeRegisteredModeId 并在【清完之后】刷新导出导入按钮，
     // 这里再补一次是幂等的保险（万一将来清理段又被挪动）。
-    if (activeRegisteredModeId === id) { setOracleMode('chat'); updateExportEntryVisual(); return; }
+    if (activeRegisteredModeId === id) { setOracleMode('chat'); soApplyConvoIoVisual(null); return; }
     setOracleMode('chat');
     activeRegisteredModeId = id;
     win.classList.add(`so-${id}-on`);
     win.querySelector(`#so-${id}-btn`)?.classList.add(`so-${id}-active`);
     if (spec.placeholder && inputEl) inputEl.placeholder = spec.placeholder;
     try { spec.onEnter && spec.onEnter(window.StoryOracleAPI); } catch (e) { /* ignore */ }
-    // 📥 导出对话：进入插件模式的记账发生在 setOracleMode 【之后】（上面这行 activeRegisteredModeId = id），
-    // 所以那一次刷新看到的还是 'chat' —— 必须在这里补刷，否则插件模式里会留着一个「点了没反应」的菜单项。
-    updateExportEntryVisual();
+    // 📥📤 进入插件模式的记账发生在 setOracleMode 【之后】（上面这行 activeRegisteredModeId = id），
+    // 所以那一次刷新看到的还是 'chat' —— 必须在这里补刷。⚠ 尤其承重：插件模式与普通聊天同住 'main' 房，
+    // 换房重画根本不会发生（syncConvoStream 同键即 return），气泡上那对按钮只能靠这一句对齐，
+    // 否则插件模式里会留着两枚「点了只弹一句不可用」的死按钮。
+    soApplyConvoIoVisual(null);
 }
 // registerMode 的界面搭建：在 #so-header-btns 里建按钮（order:'before:advisor' 定位）、在内置栏之后建一条
 // 与内置模式同款 so-mode-collapse 的 #so-<id>-bar（buildBar 填内容），并注入该模式的显隐 + 强调色 CSS。幂等。
@@ -5510,6 +5512,64 @@ function soExportTimeParts(d) {
     const Y = String(dt.getFullYear()), M = p(dt.getMonth() + 1), D = p(dt.getDate());
     const h = p(dt.getHours()), mi = p(dt.getMinutes());
     return { when: `${Y}-${M}-${D} ${h}:${mi}`, stamp: `${Y}${M}${D}-${h}${mi}` };
+}
+
+/* ── 📤 导入对话（1.61.0）—— buildConvoExportMd 的【逆运算】。纯核在此，UI 在 importConvo 一带。
+   设计取舍全部写在这里，别处不重述：
+   ① 段界只认导出器真正写出的那一串 —— 空行 + `---` + 空行，【且】后面紧跟说话人标记（正向 lookahead）。
+      于是正文里孤零零的一行 `---`（普通 Markdown 分隔线）不会被误当段界 —— 这是刻意保的真。
+   ② 反过来说：正文里若原样出现「空行 `---` 空行 `**【我】**`」，它【会】被切成新的一轮。边界可伪造，
+      这一点与导出侧评审的结论一致（accepted-by-design）：导出是纯文本档案，不是带校验的容器格式。
+   ③ 容错：BOM / CRLF / 标记行尾空格 / 抬头被改被删 / 抬头与首轮之间那条 `---` 被人手删掉（粘连找回）。
+   ④ 一条有效对话都没读到 → null（调用端据此报「这不是故事神谕导出的对话文件」）。
+   ⑤ 正文【逐字】还原：不 trim、不去转义、不渲染 —— 与导出侧的逐字照抄对称。
+   ⑥ 切出来了却认不出的段 → 计进 `skipped`（调用端在成功提示里如实说 N/M，绝不静默吞）。
+   文件末尾那个换行是导出器加的（`+ '\n'`），这里精确脱掉一个，round-trip 才是字节级的逆。 */
+function parseConvoExportMd(text) {
+    if (typeof text !== 'string') return null;
+    const t = text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').replace(/\n$/, '');
+    if (!t) return null;
+    // split 对正则恒按全局切，无需 /g；lookahead 保证只在真段界处下刀。
+    const segs = t.split(/\n[ \t]*\n[ \t]*-{3,}[ \t]*\n[ \t]*\n(?=\*\*【(?:我|神谕)】\*\*)/);
+    const meta = {};
+    if (segs.length && !/^\*\*【(?:我|神谕)】\*\*/.test(segs[0])) {
+        let head = segs.shift();
+        // 抬头与首轮之间的 `---` 被删时首轮会粘在抬头里 —— 从抬头里第一个【行首】说话人标记处切开找回；
+        // 不做这一步则首轮被静默吞掉。这条找回路要过【两道】闸（review 2026-08-09 m1 抓到的假阳：
+        // 任意一份外来 Markdown 只要有一行说话人标记，标记之前的全文就会被当抬头【静默丢弃】）：
+        //   ① 标记后面必须跟换行或到头 —— 与下面认轮的正则同款边界，两处对齐，免得挑中一个认不出的标记；
+        //   ② 被切掉的那截前缀必须【确实长得像我们的抬头】（标题行 / `- 模式：`… / `- 共 N 条对话`），
+        //      或者本就是空白。别人的笔记里出现一行 `**【神谕】**` → 两闸不过 → 整份判 null，
+        //      而不是悄悄吞掉前半篇。
+        const glue = /(?:^|\n)\*\*【(?:我|神谕)】\*\*[ \t]*(?:\n\n|\n|$)/.exec(head);
+        const at = glue ? (glue.index === 0 ? 0 : glue.index + 1) : -1;
+        const prefix = at >= 0 ? head.slice(0, at) : '';
+        if (at >= 0 && (!prefix.trim()
+            || /^#[ \t]*故事神谕对话导出[ \t]*$|^-[ \t]*(?:模式|聊天|导出时间)：|^-[ \t]*共[ \t]*\d+[ \t]*条对话[ \t]*$/m.test(prefix))) {
+            segs.unshift(head.slice(at));
+            head = prefix;
+        }
+        const grab = (re) => { const m = re.exec(head); return m ? m[1].trim() : null; };
+        const modeLabel = grab(/^-[ \t]*模式：(.*)$/m);
+        const chatName = grab(/^-[ \t]*聊天：(.*)$/m);
+        const when = grab(/^-[ \t]*导出时间：(.*)$/m);
+        const count = grab(/^-[ \t]*共[ \t]*(\d+)[ \t]*条对话[ \t]*$/m);
+        if (modeLabel != null) meta.modeLabel = modeLabel;
+        if (chatName != null) meta.chatName = chatName;
+        if (when != null) meta.when = when;
+        if (count != null) meta.count = Number(count);
+    }
+    const turns = [];
+    let skipped = 0;
+    for (const seg of segs) {
+        // 标记行后面通常是空行 + 正文；只有一个换行（手改过）或直接到头（空内容）也认。
+        const m = /^\*\*【(我|神谕)】\*\*[ \t]*(\n\n|\n|$)/.exec(seg);
+        // 不是一轮（半截文本 / 改坏了，例如 `**【我】**问题` 标记后没换行）→ 跳过、不猜，但【记账】：
+        // 调用端要在成功提示里如实说「N 段无法识别、已跳过」，绝不静默吞（house N/M 诚实制）。
+        if (!m) { skipped++; continue; }
+        turns.push({ role: m[1] === '我' ? 'user' : 'assistant', content: seg.slice(m[0].length) });
+    }
+    return turns.length ? { turns, meta, skipped } : null;
 }
 
 // ==== 侧聊流（1.25.0 用户角色分家；1.28.0 推广为每模式独立房间）====
@@ -11298,7 +11358,6 @@ function buildWindow() {
                     <div id="so-tools-menu" aria-label="更多工具">
                         <div class="so-iconbtn so-tools-item" id="so-normalchat-btn" title="回到普通聊天（自动诊断如已开启会继续在后台运行）"><i class="fa-solid fa-comment"></i><span>普通聊天</span></div>
                         <div class="so-iconbtn so-tools-item" id="so-summary-btn" title="剧情概要 —— 粘贴你的运行总结 / 前情提要，神谕会在最近对话前读到它"><i class="fa-solid fa-scroll"></i><span>剧情概要</span></div>
-                        <div class="so-iconbtn so-tools-item" id="so-export-btn" title="导出对话 —— 把这一页的问答存成 Markdown 文件（仅普通聊天 / 剧情参谋）"><i class="fa-solid fa-file-arrow-down"></i><span>导出对话</span></div>
                         <div class="so-iconbtn so-tools-item" id="so-debug-btn" title="查看上一次发送的提示词"><i class="fa-solid fa-bug"></i><span>调试提示词</span></div>
                         ${ENABLE_CHAR_BUILDER ? '<div class="so-iconbtn so-tools-item" id="so-builder-btn" title="角色工坊 —— 和我一起打造 / 完善一个角色，写进 Persona 或世界书"><i class="fa-solid fa-masks-theater"></i><span>角色工坊</span></div>' : ''}
                         <div class="so-iconbtn so-tools-item" id="so-settings-btn" title="设置"><i class="fa-solid fa-gear"></i><span>设置</span></div>
@@ -12170,8 +12229,8 @@ function bindControls() {
     });
     // 用户功能请求：剧情概要编辑器（本聊天，自动保存到元数据）。
     win.querySelector('#so-summary-btn').addEventListener('click', openSummary);
-    // 📥 导出对话（1.60.0 用户功能请求）：只在普通聊天 / 剧情参谋两房露面，可见性随模式刷新。
-    win.querySelector('#so-export-btn')?.addEventListener('click', exportConvo);
+    // 📥📤 导出 / 导入对话（1.60.0 / 1.61.0）：⋯ 工具菜单【不】设入口（Prince 2026-08-09 定案）。
+    // 唯二的入口是 AI 气泡行上那对小按钮（见 addMessage）＋ 空页时的空态入口（见 renderEmptyState）。
     win.querySelector('#so-summary-close').addEventListener('click', () => win.querySelector('#so-summary').classList.remove('open'));
     win.querySelector('#so-summary-text').addEventListener('input', (e) => {
         setSummary(e.target.value);
@@ -12604,7 +12663,7 @@ function bindControls() {
     // 用户功能请求：反映持久化的自动诊断状态（重载后若 AUTO 仍开着，按钮显示红色 + AUTO）。
     updateDiagButtonVisual();
     updateFixButtonVisual();
-    updateExportEntryVisual();   // 📥 导出对话：首次建窗时按当前模式定可见性（此后由 setOracleMode 维持）
+    soApplyConvoIoVisual(null);   // 📥📤 气泡行 / 空态入口：首次建窗时按当前模式定可见性（此后由 setOracleMode 维持）
 }
 
 function loadSettingsIntoForm() {
@@ -13835,12 +13894,12 @@ function setOracleMode(target) {
         try { prev && prev.onExit && prev.onExit(window.StoryOracleAPI); } catch (e) { /* 插件回调出错不中断切模式 */ }
         activeRegisteredModeId = null;
     }
-    // 📥 导出对话：⚠ 这一句的【位置】承重——必须在上面那段注册模式清理【之后】。它是本函数里唯一一个
-    // 靠 currentOracleMode() 判定的刷新器（诊断 / 校正那两个读的是设置），而 currentOracleMode() 第一句
-    // 就返回 activeRegisteredModeId。放在清理之前 → 从插件模式退回普通聊天时，刷新看到的还是插件 id，
-    // 入口会一直隐藏到下次切模式。进入插件模式那一侧同理够不着（记账在 setOracleMode 之后），
-    // 由 toggleRegisteredMode 末尾补刷。
-    updateExportEntryVisual();
+    // 📥📤 气泡行 / 空态的导出导入入口：⚠ 这一句的【位置】承重——必须在上面那段注册模式清理【之后】。
+    // 它是本函数里唯一一个靠 currentOracleMode() 判定的刷新器（诊断 / 校正那两个读的是设置），而
+    // currentOracleMode() 第一句就返回 activeRegisteredModeId。放在清理之前 → 从插件模式退回普通聊天时，
+    // 刷新看到的还是插件 id，按钮会一直隐着到下次切模式。进入插件模式那一侧同理够不着（记账在
+    // setOracleMode 之后），由 toggleRegisteredMode 末尾补刷。
+    soApplyConvoIoVisual(null);
     // 每模式独立房间：切模式即把可见侧聊换到该模式的房间（先落盘现流、再重载）。换房时 loadConvoForChat 已重画
     // （含空态）；没换房（同房间 / 开关关）才手动刷新空态——每模式自带引导语 + 示例 chip。
     const swapped = syncConvoStream();
@@ -21059,6 +21118,12 @@ async function copyTextRobust(text) {
 function addMessage(role, content, entry) {
     const empty = messagesEl.querySelector('.so-empty');
     if (empty) empty.remove();
+    // 📤 新的 AI 气泡到场 = 气泡行上的 📥📤 回来了 → 撤掉那枚兜底的空页导入入口（它只在「本房一条
+    // AI 气泡都没有」时才该在，否则会孤零零卡在消息中间）。空态卡片里的那枚随 .so-empty 一起走，
+    // 这里收的是直接挂在消息区上的独立那枚。
+    if (role === 'assistant') {
+        for (const e of messagesEl.querySelectorAll(':scope > .so-empty-io')) e.remove();
+    }
 
     const wrap = document.createElement('div');
     wrap.className = `so-msg so-${role}`;
@@ -21079,13 +21144,24 @@ function addMessage(role, content, entry) {
         }
         actionBtns += `<button class="so-msg-btn so-del-btn" type="button" title="删除"><i class="fa-solid fa-trash"></i></button>`;
     }
+    // 📥📤 整页导出 / 导入（1.61.0，Prince 点名要在气泡这一行也够得着）。它们是【整页】操作，不针对本条
+    // 消息，所以哪条 AI 气泡上点都一样；只挂在 AI 气泡上（与复制同一惯例，用户气泡那行留给编辑/删除）。
+    // 可见性【不】在这里判定就完事 —— 见 soApplyConvoIoVisual 的说明（换房重画覆盖不到所有模式过渡）。
+    const convIoBtns = role === 'assistant'
+        ? `<button class="so-msg-btn so-convio-btn so-msg-export-btn" type="button" title="导出本页对话" aria-label="导出本页对话"><i class="fa-solid fa-file-export"></i></button>`
+          + `<button class="so-msg-btn so-convio-btn so-msg-import-btn" type="button" title="导入对话文件" aria-label="导入对话文件"><i class="fa-solid fa-file-import"></i></button>`
+        : '';
 
     wrap.innerHTML =
         `<div class="so-avatar"><i class="fa-solid ${icon}"></i></div>` +
         `<div class="so-bubble"><div class="so-role"><span class="so-role-label">${label}</span></div>` +
-        `<div class="so-content"></div><span class="so-actions">${copyBtn}${actionBtns}</span></div>`;
+        `<div class="so-content"></div><span class="so-actions">${copyBtn}${actionBtns}${convIoBtns}</span></div>`;
     const contentEl = wrap.querySelector('.so-content');
     contentEl.textContent = content;
+
+    wrap.querySelector('.so-msg-export-btn')?.addEventListener('click', exportConvo);
+    wrap.querySelector('.so-msg-import-btn')?.addEventListener('click', importConvo);
+    soApplyConvoIoVisual(wrap);   // 建出来就按当前模式定初值（此后由切模式时的整片刷新维持）
 
     const cBtn = wrap.querySelector('.so-copy-btn');
     if (cBtn) {
@@ -21135,6 +21211,10 @@ function addMessage(role, content, entry) {
 // Re-show the empty placeholder if no real messages remain.
 function maybeRenderEmpty() {
     if (!messagesEl.querySelector('.so-msg')) { messagesEl.innerHTML = ''; renderEmptyState(); }
+    // 📤 删到一条 AI 气泡都不剩 → 📥📤 跟着消失（它们只挂在 AI 气泡上）。这里【当场】补上导入入口，
+    // 否则用户要切一次房 / F5 才拿得回来（loadConvoForChat 那次兜底是同一条件、同一个幂等函数）。
+    // 删除是唯一能把房间删成「有消息但没有 AI 回复」的路径，所以补这一处就够。
+    if (!convo.some((m) => m.role === 'assistant')) appendConvoImportEntry(messagesEl);
 }
 
 // Delete one message. Deleting a user turn also drops its immediate assistant
@@ -21886,7 +21966,33 @@ function renderEmptyState() {
         chips.appendChild(chip);
     }
     wrap.appendChild(chips);
+    appendConvoImportEntry(wrap);
     messagesEl.appendChild(wrap);
+}
+
+/* 📤 空页的「导入对话」入口（1.61.0）。导出 / 导入的常规入口是 AI 气泡行上那对按钮 —— 空页一条气泡
+   都没有，入口就够不着了，所以空页补这一枚（导出在空页无意义，只补导入）。
+   ⚠ 为什么单独成函数、而不是写死在 renderEmptyState 里：带房间提示线的房间（诊断 / 世界书 / 参谋 /
+   校正 / 工坊）里 renderEmptyState 会被提示线挡掉 —— 它开头就是「messagesEl 已有子节点则早返」，而
+   loadConvoForChat 是【先挂提示线、再叫空态】。那是 1.28.0 起的既有行为（本次不动它），代价是空的
+   参谋房根本没有空态可挂 —— 而参谋恰恰是允许导入的两房之一。于是两处各调一次：renderEmptyState 里
+   挂进空态卡片，loadConvoForChat 里挂进消息区本体，保证「凡是空的、且模式允许的房间」都有入口。
+   幂等（host 里已有就不再加）；另挂 `.so-convio-btn` 让 soApplyConvoIoVisual 扫得到（注册插件模式
+   不换房、不重画，只有那一扫够得着）。 */
+function appendConvoImportEntry(host) {
+    if (!host || typeof host.querySelector !== 'function') return;
+    if (host.querySelector('.so-empty-import-btn')) return;              // 幂等
+    if (!convoExportAllowed(currentOracleMode())) return;                // 与气泡按钮同一道模式闸
+    const ioRow = document.createElement('div');
+    ioRow.className = 'so-empty-chips so-empty-io';
+    const impBtn = document.createElement('button');
+    impBtn.type = 'button';
+    impBtn.className = 'so-empty-chip so-convio-btn so-empty-import-btn';
+    impBtn.title = '导入对话 —— 把导出的 Markdown 文件读回这一页';
+    impBtn.innerHTML = '<i class="fa-solid fa-file-import"></i> 导入对话';
+    impBtn.addEventListener('click', importConvo);
+    ioRow.appendChild(impBtn);
+    host.appendChild(ioRow);
 }
 
 async function clearConversation() {
@@ -22025,6 +22131,12 @@ function loadConvoForChat() {
         const c = el.querySelector('.so-content');
         if (c) { c.classList.add('so-streaming'); c.textContent = liveRun.text || ''; }
     }
+    // 📤 导入入口的兜底挂载 —— 条件是「这一房【没有 AI 气泡】」而不是「这一房是空的」。
+    // 因为 📥📤 只挂在 AI 气泡上（addMessage），所以【有消息但一条 AI 回复都没有】的房间同样够不着入口：
+    // 把唯一那条 AI 回复删掉就会掉进去（review 2026-08-09 抓到的可达性回归 —— 1.61.0 之前 ⋯ 菜单还兜得住）。
+    // 放在消息循环【之后】：这样它落在最后一条消息下面，而不是插在消息上头。
+    // 幂等 + 自带模式闸（见 appendConvoImportEntry），空房且空态已渲出来时这一次是 no-op。
+    if (!convo.some((m) => m.role === 'assistant')) appendConvoImportEntry(messagesEl);
     scrollToBottom();
 }
 
@@ -22148,7 +22260,8 @@ function appendNoteToRoom(roomKey, entry, opts) {
     saveChatMetadata();
 }
 
-// 📥 导出对话（⋯ 工具菜单，1.60.0 用户功能请求）—— 非纯的那一半，纯核见 buildConvoExportMd 一带。
+// 📥 导出对话（1.60.0 用户功能请求；1.61.0 起入口 = AI 气泡行上的 📥 + 空页入口，⋯ 工具菜单已无此项）
+// —— 非纯的那一半，纯核见 buildConvoExportMd 一带。
 
 // 触发浏览器下载一份文本文件（Blob + 临时 <a download>）。零依赖、不落任何服务器。
 // 立刻 revoke 对象 URL 在部分浏览器会赶在下载真正开始之前 → 延后一拍再释放。
@@ -22186,11 +22299,12 @@ function soExportChatName() {
     } catch (e) { return ''; }
 }
 
-// 菜单项点击：把【当前房间】的侧聊导成 Markdown 文件。点击那一刻现读全局 convo —— 房间由
+// AI 气泡行上的 📥 点击：把【当前房间】的侧聊导成 Markdown 文件。点击那一刻现读全局 convo —— 房间由
 // setOracleMode / syncConvoStream 换好，所以这里拿到的永远是眼前这一页（参谋房导参谋房、普通房导普通房）。
+// 按钮挂在哪条气泡上都一样：这是【整页】操作，不针对被点的那条消息。
 function exportConvo() {
     const mode = currentOracleMode();
-    // 菜单项在这些模式下本就隐藏；这里再挡一道（键盘 / 插件也可能触发）。⚠ 不静默 return——
+    // 气泡按钮在这些模式下本就被扫成隐藏；这里再挡一道（键盘 / 插件也可能触发）。⚠ 不静默 return——
     // 「点了什么都没发生」是最难报障的一类 bug，跟空房分支一样给一句话。
     if (!convoExportAllowed(mode)) {
         window.toastr && window.toastr.info && window.toastr.info('导出对话只在普通聊天和剧情参谋里可用。', '故事神谕');
@@ -22207,13 +22321,150 @@ function exportConvo() {
     downloadTextFile(buildConvoExportFileName(modeLabel, chatName, t.stamp), md);
 }
 
-// 「导出对话」菜单项的可见性：只在普通聊天 / 剧情参谋两房露面。buildWindow 挂完调一次，
-// 之后每次 setOracleMode 再调（注册插件模式也经由 currentOracleMode 落到隐藏侧）。
-function updateExportEntryVisual() {
-    if (!win) return;
-    const btn = win.querySelector('#so-export-btn');
-    if (!btn) return;
-    btn.style.display = convoExportAllowed(currentOracleMode()) ? '' : 'none';
+/* 📥📤 导出 / 导入入口的显隐 —— 全仓【唯一写者】。1.61.0 起 ⋯ 工具菜单不再设这两项（Prince 定案），
+   入口只剩两处：AI 气泡行上那对小按钮（addMessage）＋ 空页时的空态入口（renderEmptyState），
+   两处都带 `.so-convio-btn` 类，本函数凭它一扫而过。
+
+   ⚠ 为什么不能「只在建的时候按模式判一次就算」：那等于把正确性押在「切模式必然重画消息区」上，
+   而这条【不成立】——
+     ① 换房才重画：syncConvoStream 同键即 `return false`。注册插件模式与普通聊天同住 'main' 房
+        → 进 / 出插件模式根本不重画，按钮会留在错误的模式里（点了只弹一句「不可用」的死按钮）；
+     ② ENABLE_MODE_ROOMS 关掉时所有模式共用 'main' 房 → 任何模式切换都不重画，同样漏；
+     ③ 在插件模式里新发的消息，建出来时按钮是隐的，退回普通聊天后（不重画）就永远隐着。
+   所以：按钮建出来就在，显隐交给这一扫。调用点 = buildWindow 末尾 + setOracleMode（注册模式清理之后）
+   + toggleRegisteredMode 两条出路。空态入口另有 render-time 判定（空态本就每次切模式重画），
+   这一扫是它在注册模式那一跳上的补丁。
+   root 传具体气泡 = 只定它的初值（addMessage 用）；传 null = 扫整个消息区（切模式用）。 */
+function soApplyConvoIoVisual(root) {
+    const scope = root || (win && win.querySelector('#so-messages'));
+    if (!scope || typeof scope.querySelectorAll !== 'function') return;
+    const on = convoExportAllowed(currentOracleMode());
+    for (const b of scope.querySelectorAll('.so-convio-btn')) b.style.display = on ? '' : 'none';
+}
+
+/* ── 📤 导入对话（1.61.0）—— 导出的逆运算。纯核 = parseConvoExportMd（在 buildConvoExportMd 一带）。
+   契约：只写【当前房间的侧聊 convo】，绝不碰主聊天 / 世界书 / MVU / 设置。导入进来的就是【真对话轮】
+   （与自己聊出来的没有区别）：进 convo → 进元数据 → 之后照常作为历史发给模型（convoForPrompt 只挑
+   user/assistant，导入轮天然在内）。当前页非空时先问一声，永远是【追加】、绝不覆盖。 */
+
+let soConvoImportInputEl = null;   // 隐藏的 <input type="file">：建一次、反复用（每次用前清 value 才能重选同一个文件）
+
+// 把 File 读成文本。现代浏览器有 file.text()；老环境回退 FileReader（顺带给 jsdom 单测留条路）。
+function soReadTextFile(file) {
+    if (file && typeof file.text === 'function') return file.text();
+    return new Promise((resolve, reject) => {
+        try {
+            const fr = new FileReader();
+            fr.onload = () => resolve(String(fr.result == null ? '' : fr.result));
+            fr.onerror = () => reject(fr.error || new Error('read failed'));
+            fr.readAsText(file, 'utf-8');
+        } catch (e) { reject(e); }
+    });
+}
+
+// 隐藏文件选择器（仓内此前没有任何文件选择器；ST 核心自己也是这个形状的隐藏 input）。
+function soConvoImportInput() {
+    if (soConvoImportInputEl && soConvoImportInputEl.isConnected) return soConvoImportInputEl;
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = '.md,.txt,text/markdown';
+    inp.id = 'so-convo-import-file';
+    inp.style.display = 'none';
+    inp.addEventListener('change', () => {
+        const f = inp.files && inp.files[0];
+        inp.value = '';                 // 立刻清空：否则连着导入同一个文件时 change 不再触发
+        if (f) soImportConvoFile(f);
+    });
+    document.body.appendChild(inp);
+    soConvoImportInputEl = inp;
+    return inp;
+}
+
+// 菜单项 / 气泡按钮点击：开文件选择器。真正的活在 soImportConvoFile 里（选文件是异步的）。
+function importConvo() {
+    // 与导出同一道模式闸；拦下时不静默（「点了没反应」最难报障）。
+    if (!convoExportAllowed(currentOracleMode())) {
+        window.toastr && window.toastr.info && window.toastr.info('导入对话只在普通聊天和剧情参谋里可用。', '故事神谕');
+        return;
+    }
+    if (isGenerating) {
+        window.toastr && window.toastr.info && window.toastr.info('还有回复正在生成，等它跑完再导入～', '故事神谕');
+        return;
+    }
+    if (!getChatMetadataSafe()) {
+        window.toastr && window.toastr.info && window.toastr.info('请先打开一个聊天，导入的对话要存进这个聊天里。', '故事神谕');
+        return;
+    }
+    try { soConvoImportInput().click(); }
+    catch (e) {
+        console.error('[Story Oracle] 打开文件选择器失败', e);
+        window.toastr && window.toastr.error && window.toastr.error('打不开文件选择器。', '故事神谕');
+    }
+}
+
+// 读文件 → 解析 → （非空则确认）→ 追加到当前房的侧聊。
+// ⚠ 两处 await 之间用户完全可能切模式 / 切房 / 切聊天 —— 每次 await 之后都重核一遍（跨聊天守卫，
+// 与仓内 fixChatKey 同一路数），否则会把一整页对话写进别人的房间。
+async function soImportConvoFile(file) {
+    const roomAtStart = convoStreamKey;
+    const chatAtStart = fixChatKey();
+    const stillHere = () => convoExportAllowed(currentOracleMode())
+        && convoStreamKey === roomAtStart && fixChatKey() === chatAtStart;
+
+    let text = '';
+    try { text = await soReadTextFile(file); }
+    catch (e) {
+        console.error('[Story Oracle] 读取导入文件失败', e);
+        window.toastr && window.toastr.error && window.toastr.error('读不了这个文件。', '故事神谕');
+        return;
+    }
+    if (!stillHere()) {
+        window.toastr && window.toastr.info && window.toastr.info('选文件期间换了模式 / 聊天，本次导入已取消。', '故事神谕');
+        return;
+    }
+    const parsed = parseConvoExportMd(text);
+    if (!parsed || !parsed.turns.length) {
+        window.toastr && window.toastr.error && window.toastr.error('这不是故事神谕导出的对话文件——一条对话都没读到。', '故事神谕');
+        return;
+    }
+    const have = convoForPrompt(convo).length;
+    if (have) {
+        const ok = await uiConfirm(`当前页已有 ${have} 条对话：导入的 ${parsed.turns.length} 条会接在后面（不会覆盖）。继续吗？`);
+        if (!ok) return;
+        if (!stillHere()) {
+            window.toastr && window.toastr.info && window.toastr.info('确认期间换了模式 / 聊天，本次导入已取消。', '故事神谕');
+            return;
+        }
+    }
+    const n = appendImportedConvoTurns(parsed.turns);
+    if (!n) return;
+    // 诚实的 N/M（house 惯例，同 fixSegmentReply 的「N/M 段已改」）：解析时切出来却认不出的段
+    // （parsed.skipped）＋ 落地时被挡掉的条（角色 / 类型不合法）都要报出来，绝不静默少几条。
+    const dropped = (Number(parsed.skipped) || 0) + (parsed.turns.length - n);
+    const msg = dropped > 0 ? `已导入 ${n} 条对话（${dropped} 段无法识别、已跳过）。` : `已导入 ${n} 条对话。`;
+    window.toastr && window.toastr.success && window.toastr.success(msg, '故事神谕');
+}
+
+// 把解析出来的轮次落成【真侧聊条目】并重画。渲染刻意不自己搭气泡：写进 convo + 落盘之后直接调
+// loadConvoForChat()，走的就是 F5 / 换房还原走的那条路（addMessage → repaintHtmlForRoom → 动作卡重挂），
+// 所以参谋房导进来的 <StoryPlan> 会照常出采纳卡、渲染与重载后一模一样，零重复实现。
+function appendImportedConvoTurns(turns) {
+    const list = Array.isArray(turns) ? turns : [];
+    if (!list.length) return 0;
+    let n = 0;
+    for (const t of list) {
+        if (!t || (t.role !== 'user' && t.role !== 'assistant') || typeof t.content !== 'string') continue;
+        convo.push({ id: ++cidSeq, role: t.role, content: t.content });
+        n++;
+    }
+    if (!n) return 0;
+    if (!persistConvo()) {           // 元数据写不进去（没打开聊天）→ 撤回，绝不留下只在屏幕上的假历史
+        convo.splice(convo.length - n, n);
+        window.toastr && window.toastr.error && window.toastr.error('无法保存到本聊天，导入已撤销。', '故事神谕');
+        return 0;
+    }
+    loadConvoForChat();              // 与重载 / 换房同源的整页重画（末尾自带 scrollToBottom）
+    return n;
 }
 
 // 打开运行概要编辑器（叠层，仿 openDebug）。
