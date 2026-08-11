@@ -7898,13 +7898,7 @@ function injectWandButton() {
 function recenterWindow() {
     toggleWindow(true);                       // 关着 / 在屏外都先确保开着
     if (!win) return;
-    const vv = window.visualViewport;
-    const c = centeredWindowBox({
-        w: (vv && vv.width) || window.innerWidth,
-        h: (vv && vv.height) || window.innerHeight,
-        offX: (vv && vv.offsetLeft) || 0,
-        offY: (vv && vv.offsetTop) || 0,
-    });                                       // 无 opts → 默认 380×540（reset 语义：撤销被拖坏的尺寸）
+    const c = centeredWindowBox(currentView());   // 无 opts → 默认 380×540（reset 语义：撤销被拖坏的尺寸）
     win.style.left = `${c.left}px`;
     win.style.top = `${c.top}px`;
     win.style.width = `${c.width}px`;
@@ -8626,9 +8620,12 @@ function bindControls() {
     win.querySelector('#so-lb-entries-toggle').addEventListener('click', () => {
         win.querySelector('#so-lb-entries').classList.toggle('open');
     });
-    // 手机上把模式工具栏（诊断 / 世界书的配置栏）默认折叠，先把聊天区露出来；桌面保持展开。用户随后可自行开合。
+    // 手机上把模式工具栏（各模式的配置栏）默认折叠，先把聊天区露出来；桌面保持展开。用户随后可自行开合。
+    // 参谋 / 工坊此前漏在名单外（README 写的是五个模式栏都折）——手机进这两个模式时配置栏整条摊开，
+    // 而 #so-messages 是 flex:1 1 0（先被压扁的那个），聊天区会被挤没。
     if (window.matchMedia && window.matchMedia('(max-width: 600px)').matches) {
-        win.querySelectorAll('#so-lb-collapse, #so-diag-collapse, #so-fix-collapse').forEach((d) => { d.open = false; });
+        win.querySelectorAll('#so-lb-collapse, #so-diag-collapse, #so-fix-collapse, #so-adv-collapse, #so-bld-collapse')
+            .forEach((d) => { d.open = false; });
     }
     win.querySelector('#so-lb-all').addEventListener('click', () => setAllLbEntries(true));
     win.querySelector('#so-lb-none').addEventListener('click', () => setAllLbEntries(false));
@@ -9888,7 +9885,10 @@ function escapeAttr(str) { return escapeHtml(str); }
 function toggleWindow(show) {
     if (!win) return;
     const visible = win.style.display !== 'none';
-    const next = (show === undefined) ? !visible : show;
+    // 无参切换（🌙 聊天栏快捷键）：窗口「开着」但已经被拖出可见区时，按字面切换只会把它关掉——屏幕上
+    // 什么都没变，用户连点两下也唤不回来（用户报告：唤不起界面）。这种情况按【显示并拉回可见区】处理，
+    // 下面 next=true 分支里的 ensureWindowInView 会把它夹回屏内。
+    const next = (show === undefined) ? (!visible || !windowIsReachable()) : show;
     win.style.display = next ? 'flex' : 'none';
     if (next) {
         // Re-trigger the open animation each time the window is shown.
@@ -16847,17 +16847,15 @@ function applyInitialGeometry(s) {
     win.style.width = `${w}px`;
     win.style.height = `${h}px`;
     if (s.winLeft != null && s.winTop != null) {
-        win.style.left = `${Math.max(0, Math.min(window.innerWidth - 60, s.winLeft))}px`;
-        win.style.top = `${Math.max(0, Math.min(window.innerHeight - 40, s.winTop))}px`;
+        const p = clampDragPos({ left: s.winLeft, top: s.winTop, width: w, height: h },
+            { w: window.innerWidth, h: window.innerHeight });
+        win.style.left = `${p.left}px`;
+        win.style.top = `${p.top}px`;
         win.style.right = 'auto';
     } else if (window.innerWidth < 600) {
         // 手机首次开窗（无存档几何）：居中（含纵向），标题栏不再贴顶被状态栏 / 刘海挡住
         //（用户反馈：手机版按钮挤在最顶上、不好戳）。仅无存档几何时；用户拖过就尊重其位置。
-        const vv = window.visualViewport;
-        const c = centeredWindowBox(
-            { w: (vv && vv.width) || window.innerWidth, h: (vv && vv.height) || window.innerHeight, offX: (vv && vv.offsetLeft) || 0, offY: (vv && vv.offsetTop) || 0 },
-            { width: w, height: h },
-        );
+        const c = centeredWindowBox(currentView(), { width: w, height: h });
         win.style.left = `${c.left}px`;
         win.style.top = `${c.top}px`;
         win.style.width = `${c.width}px`;
@@ -16902,13 +16900,7 @@ function ensureWindowInView() {
     if (!win || win.style.display === 'none') return;
     autoGrowInput();                                        // #4 窗口尺寸变化时重算输入框高度上限（上限=窗口高度一半）
     const s = getSettings();
-    const vv = window.visualViewport;
-    const view = {
-        w: (vv && vv.width) || window.innerWidth,
-        h: (vv && vv.height) || window.innerHeight,
-        offX: (vv && vv.offsetLeft) || 0,
-        offY: (vv && vv.offsetTop) || 0,
-    };
+    const view = currentView();
     const r = win.getBoundingClientRect();
     const box = {
         left: (s.winLeft != null) ? s.winLeft : r.left,
@@ -16939,14 +16931,69 @@ function scheduleEnsureInView() {
 //   但折叠态的「指南针小药丸」整张可点面就是那颗罗盘按钮（#so-plan-float-collapse），靠 dragFromButtons=true
 //   放行「在按钮上也能起拖」，再用下面的位移阈值区分轻点（展开）/拖动（移动）。真机 bug 修复点（Discord 白鳥三津枝）。
 // dragExceededThreshold —— 指针自按下点的位移是否已超过「这是拖动而非轻点」的阈值（按 hypot 距离，避免手指微抖被当拖动）。
-const DRAG_THRESHOLD = 6;  // 像素：超过它，一次按压才从「轻点」升级为「拖动」
+//
+// 起手【在按钮上】时阈值要大得多（用户报告的手机 bug：一点「剧情参谋」窗口就不见了）。原因：手机上整条
+// 标题栏（含 8 个图标按钮）都放行了 dragFromButtons，于是任何一次手指多滑 6px 的轻点都被判成拖动 ——
+// 按钮的 click 被 suppressNextClick 吞掉（模式没切），窗口却跟着手指跑掉，看起来就是「一点就没了、也点不回来」。
+// 手指按在 33px 的小图标上，落笔到抬笔漂个十来 px 是常态，6px 根本区分不出轻点与拖动；空白处起拖没有这个
+// 歧义，仍用 6px 保持顺手。
+const DRAG_THRESHOLD = 6;       // 像素：在标题栏【空白处】按下时，超过它才从「轻点」升级为「拖动」
+const DRAG_BTN_THRESHOLD = 14;  // 像素：在【按钮上】按下时的阈值 —— 要明显划一段才算拖，别把轻点吃掉
 function dragShouldBegin({ onButton, secondaryButton, dragFromButtons }) {
     if (secondaryButton) return false;               // 鼠标右键 / 中键不拖
     if (onButton && !dragFromButtons) return false;  // 普通：让按钮自己响应点击
     return true;
 }
-function dragExceededThreshold(dx, dy) {
-    return (dx * dx + dy * dy) > (DRAG_THRESHOLD * DRAG_THRESHOLD);
+function dragThresholdFor(fromButton) {
+    return fromButton ? DRAG_BTN_THRESHOLD : DRAG_THRESHOLD;
+}
+function dragExceededThreshold(dx, dy, fromButton) {
+    const t = dragThresholdFor(fromButton);
+    return (dx * dx + dy * dy) > (t * t);
+}
+
+// 拖动时至少要留在屏内的一块（宽 × 高）。旧值 60×40 太小：手机上随手一划就能把窗口甩成屏幕边角一条
+// 几乎看不见的细边，用户只会觉得「窗口没了」。留够一块 = 既能看见它还在、也够手指抓住标题栏拖回来。
+// 上限取面板自身尺寸（keepFor）：同一套 clamp 也管着折叠成小药丸的引导浮窗，它整个才 40 来 px——
+// 按 140 强留会让它贴不到屏幕右缘，按自身尺寸留则是「整颗都得在屏内」，与改动前的手感一致。
+// boxIsReachable 用同一组阈值判定「它现在还够得着吗」（toggleWindow 的无参切换靠它区分「真的关着」
+// 与「开着但被拖出了可见区」）。纯函数，便于单测。
+const DRAG_KEEP_W = 140, DRAG_KEEP_H = 48;
+function keepFor(box) {
+    return {
+        w: Math.min(DRAG_KEEP_W, box.width || DRAG_KEEP_W),
+        h: Math.min(DRAG_KEEP_H, box.height || DRAG_KEEP_H),
+    };
+}
+function clampDragPos(box, view) {
+    const keep = keepFor(box);
+    return {
+        left: Math.max(0, Math.min(view.w - keep.w, box.left)),
+        top: Math.max(0, Math.min(view.h - keep.h, box.top)),
+    };
+}
+function boxIsReachable(box, view) {
+    const keep = keepFor(box);
+    const offX = view.offX || 0, offY = view.offY || 0;
+    const vw = Math.min(box.left + box.width, offX + view.w) - Math.max(box.left, offX);
+    const vh = Math.min(box.top + box.height, offY + view.h) - Math.max(box.top, offY);
+    return vw >= keep.w && vh >= keep.h;
+}
+// 当前可见视口（手机键盘弹出 / 捏合缩放时 visualViewport 才是真正看得见的那块）。
+function currentView() {
+    const vv = window.visualViewport;
+    return {
+        w: (vv && vv.width) || window.innerWidth,
+        h: (vv && vv.height) || window.innerHeight,
+        offX: (vv && vv.offsetLeft) || 0,
+        offY: (vv && vv.offsetTop) || 0,
+    };
+}
+// 窗口现在是否还有够得着的一块留在可见视口里。
+function windowIsReachable() {
+    if (!win) return false;
+    const r = win.getBoundingClientRect();
+    return boxIsReachable({ left: r.left, top: r.top, width: r.width, height: r.height }, currentView());
 }
 // 一次性吞掉「拖动后浏览器仍会补发的那一下 click」—— 否则在按钮上拖完会顺带触发它
 // （如把折叠药丸拖一下，松手又被那颗罗盘的 click 展开）。捕获阶段挂在把手（按钮的祖先）上抢先拦下；
@@ -16960,7 +17007,7 @@ function suppressNextClick(el) {
 function makeDraggable(panel, handle, keys = { left: 'winLeft', top: 'winTop' }, opts = {}) {
     // opts.dragFromButtons: () => boolean —— pointerdown 时若为 true，落在按钮上也可起拖（折叠药丸专用，
     //   它整张面就是那颗按钮）；配合位移阈值，没动够阈值仍算轻点，按钮自己的 click 照常触发。
-    let sx, sy, sl, st, pid = null, moved = false, fromButton = false;
+    let sx, sy, sl, st, sw, sh, pid = null, moved = false, fromButton = false;
     handle.style.touchAction = 'none';   // stop the page scrolling under a drag
     handle.addEventListener('pointerdown', (e) => {
         const onButton = !!(e.target.closest('button') || e.target.closest('.so-iconbtn'));
@@ -16971,6 +17018,7 @@ function makeDraggable(panel, handle, keys = { left: 'winLeft', top: 'winTop' },
         fromButton = onButton;            // 起手就在按钮上 → 真拖完要吞那下补发的 click
         const r = panel.getBoundingClientRect();
         sx = e.clientX; sy = e.clientY; sl = r.left; st = r.top;
+        sw = r.width; sh = r.height;      // 起拖时的面板尺寸 → 决定「至少留多少在屏内」（见 keepFor）
         panel.style.right = 'auto';
         document.body.style.userSelect = 'none';
         // 指针捕获【推迟】到真正起拖那一刻（见 pointermove）。若在此处 pointerdown 就捕获，桌面鼠标
@@ -16979,15 +17027,17 @@ function makeDraggable(panel, handle, keys = { left: 'winLeft', top: 'winTop' },
     });
     handle.addEventListener('pointermove', (e) => {
         if (e.pointerId !== pid) return;
-        if (!moved && !dragExceededThreshold(e.clientX - sx, e.clientY - sy)) return; // 阈值内仍算轻点，先不动
+        if (!moved && !dragExceededThreshold(e.clientX - sx, e.clientY - sy, fromButton)) return; // 阈值内仍算轻点，先不动
         if (!moved) {                     // 头一次越过阈值 = 真起拖：此刻才捕获指针（纯轻点走不到这里）
             moved = true;
             try { handle.setPointerCapture(pid); } catch (_) { /* ignore */ }
         }
-        const nl = Math.max(0, Math.min(window.innerWidth - 60, sl + e.clientX - sx));
-        const nt = Math.max(0, Math.min(window.innerHeight - 40, st + e.clientY - sy));
-        panel.style.left = `${nl}px`;
-        panel.style.top = `${nt}px`;
+        const p = clampDragPos(
+            { left: sl + e.clientX - sx, top: st + e.clientY - sy, width: sw, height: sh },
+            { w: window.innerWidth, h: window.innerHeight },
+        );
+        panel.style.left = `${p.left}px`;
+        panel.style.top = `${p.top}px`;
     });
     const end = (e) => {
         if (pid == null || (e && e.pointerId !== pid)) return;

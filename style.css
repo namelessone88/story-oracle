@@ -681,8 +681,9 @@
     #so-send { width: 44px; height: 44px; }
     .so-msg-btn { padding: 9px 11px; }
     .so-actions { gap: 4px; }
-    /* 诊断 / 世界书配置栏：手机上最多占半屏（内部滚动），条目列表也压低，避免盖住聊天区 */
-    #so-lb-bar, #so-diag-bar, #so-fix-bar { max-height: 50vh; overflow-y: auto; }
+    /* 各模式配置栏：手机上最多占半屏（内部滚动），条目列表也压低，避免盖住聊天区。
+       参谋 / 工坊此前漏在这条名单外，展开时能把 #so-messages（flex:1 1 0）整块压没。 */
+    #so-lb-bar, #so-diag-bar, #so-fix-bar, #so-adv-bar, #so-bld-bar { max-height: 50vh; overflow-y: auto; }
     .so-lb-entries-list { max-height: 120px; }
 }
 
