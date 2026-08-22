@@ -868,6 +868,10 @@
     padding: 9px 12px;
     border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.1));
     background: color-mix(in srgb, var(--so-diag-accent) 7%, transparent);
+    /* 自动诊断 / 外部解析等选项把本栏撑高后，桌面端也必须像校正栏一样封顶并在栏内滚动。
+       否则 flex:0 0 auto 不肯收缩，会把聊天区与输入框顶出父窗的 overflow:hidden 裁切边界。 */
+    max-height: 50%;
+    overflow-y: auto;
 }
 #so-window.so-diag-on #so-diag-bar { display: flex; }
 #so-window.so-settings-open #so-diag-bar { display: none; }
