@@ -15449,7 +15449,7 @@ function buildWindow() {
                         <label class="so-field"><span>温度</span>
                             <input id="so-temp" type="number" step="0.05" min="0" max="2">
                         </label>
-                        <label class="so-field"><span>最大 token 数</span>
+                        <label class="so-field"><span>最大 tokens 数</span>
                             <input id="so-maxtok" type="number" step="50" min="1">
                         </label>
                     </div>
