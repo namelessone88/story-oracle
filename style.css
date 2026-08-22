@@ -728,8 +728,12 @@
     #so-send { width: 44px; height: 44px; }
     .so-msg-btn { padding: 9px 11px; }
     .so-actions { gap: 4px; }
-    /* 诊断 / 世界书配置栏：手机上最多占半屏（内部滚动），条目列表也压低，避免盖住聊天区 */
-    #so-lb-bar, #so-diag-bar, #so-fix-bar { max-height: 50vh; overflow-y: auto; }
+    /* 各模式配置栏：手机上最多占半屏（内部滚动），条目列表也压低，避免盖住聊天区。
+       参谋栏此前漏在名单外——#so-messages 是 flex:1 1 0（basis 0 = 负剩余空间时收缩权重 0），
+       配置栏比可用高度还高时被压没的是聊天区。
+       ⚠ 工坊栏【故意不加】：#so-bld-bar 自带 max-height:50%（本文件靠后、源序更高会盖掉这里的
+       50vh），且 50% 窗高 < 50vh，本就更紧——写进来只会是一条无效声明。 */
+    #so-lb-bar, #so-diag-bar, #so-fix-bar, #so-adv-bar { max-height: 50vh; overflow-y: auto; }
     .so-lb-entries-list { max-height: 120px; }
 }
 
@@ -1012,6 +1016,14 @@
 .so-lb-entries.shown { display: flex; }
 .so-lb-entries-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 #so-lb-entries-summary { font-size: 0.8em; opacity: 0.75; }
+/* 体积读数（1.62.0）：过 10 万 token 标红。红字【绝不能】直接用裸 --crimson70a ——
+   那是酒馆 :root 的固定 rgba（不随主题变），压在亮皮上约 2.9:1。沿用 .so-smartsel-warn
+   立的写法把它往正文色里兑：--SmartThemeBodyColor 在 so-skin-light 档被重钉为 #1f2430，
+   跟随主题档则是酒馆自己的值，两档都成立。opacity 也要拉回 1 —— 汇总行自带 0.75。 */
+.so-lb-size-huge {
+    color: color-mix(in srgb, var(--crimson70a, #e07c7c) 78%, var(--SmartThemeBodyColor));
+    opacity: 1;
+}
 .so-lb-entries-tools { display: none; flex-wrap: wrap; align-items: center; gap: 4px; }
 .so-lb-mini {
     appearance: none; -webkit-appearance: none; cursor: pointer;
@@ -1146,6 +1158,9 @@
     font-size: 0.8em;
     opacity: 0.75;
     line-height: 1.4;
+    /* 诊断加固（2026-08-21）：逐 op 对账清单是用 \n 分行的（diagReportLines），默认 white-space 会把它们
+       压成一行。pre-line 只保留换行、照常折叠多余空格 —— 对既有的单行状态文案是零影响的空操作。 */
+    white-space: pre-line;
 }
 
 /* ---------- debug / last-prompt viewer ---------- */
@@ -2547,6 +2562,115 @@ body.so-skin-light .so-cur-disabled {
 }
 .so-mvued-bigedit-foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex: 0 0 auto; flex-wrap: wrap; }
 
+/* 🎛 修改器：字段行的 🔒 与规则标记（1.63.0）。「已冻结」的按下高亮见 .so-lb-mini.active——
+   不在这里自建，保持全文件「切换型 mini 按钮开启态」只有一套视觉语言。 */
+.so-mvued-lock { opacity: .55; }
+.so-mvued-lock:hover { opacity: 1; }
+/* .so-lb-mini.active 这套共享语言只改 background / border-color，默认假设没有变暗基线——
+   这颗 chip 偏偏有（上面那行 .55），不补这条「已冻结」会跟未冻结一样暗，看不出正生效。 */
+.so-mvued-lock.active { opacity: 1; }
+.so-mvued-rule-tag {
+    font-size: .78em;
+    opacity: .75;
+    padding: 0 .35em;
+    border-radius: 3px;
+    background: var(--so-field);
+    white-space: nowrap;
+}
+
+/* 🎛 修改器页：规则总览 / 加规则表单 / 读数行（1.63.0） */
+.so-mvued-rule-row { display: flex; align-items: center; gap: .5em; padding: .3em 0; }
+.so-mvued-rule-name { flex: 0 0 auto; font-weight: 600; }
+.so-mvued-rule-desc { flex: 1 1 auto; opacity: .85; }
+.so-mvued-rule-add { display: flex; flex-wrap: wrap; gap: .4em; margin-top: .6em; }
+.so-mvued-rule-add input { width: 6em; }
+.so-mvued-trainer-readout { margin-top: .8em; }
+.so-mvued-rule-dead .so-mvued-rule-name,
+.so-mvued-rule-dead .so-mvued-rule-desc { opacity: .45; text-decoration: line-through; }
+
 /* 搜索未命中 —— 必须排在最后：它靠【后来居上】压过上面同特异度的 display:flex（.so-mvued-leaf 等），
    在这条前面插新规则会把过滤悄悄搞失效。 */
 .so-mvued-miss { display: none; }
+
+/* ==================== ⟦记号前推⟧ 最小复查卡（ENABLE_FIX_FORWARD，2026-08-12）==================== */
+/* 卡住在【侧聊气泡里】（1.37.0 .so-multifix-box 先例），不是覆盖卡 —— 所以 CLAUDE.md 那条
+   「#so-cur-card 骨架 + 恒可达逃生 ✕ + 点遮罩关闭」构造性不适用：没有 inset:0 遮罩盖住标题 ✕，
+   也没有被短视口顶下屏的底部按钮，卡随窗滚、长了在卡内滚。
+   工作卡语义 ⇒ 配色一律走主题变量（--so-ink / --so-field / --SmartThemeBodyColor / 强调色），
+   绝不钉死浅色文字（1.45.0 的 1.05:1 隐形按钮），也绝不写 color:inherit。
+   ⚠ 父类 .so-fix-changes 带 opacity:.78 + font-size:.85em + white-space:pre-wrap ——
+   这三样都在下面被显式接管，别以为是多余声明。 */
+.so-fwd-review { opacity: 0.95; font-size: 0.86em; }
+.so-fwd-head { font-weight: 600; margin-bottom: 6px; white-space: normal; }
+/* 行列表自己是滚动容器：长回复能有几十个区域，卡不该把气泡撑成整整一页（信息不删、只折 + 卡内滚）。 */
+.so-fwd-rows {
+    display: flex; flex-direction: column; gap: 6px;
+    max-height: 46vh; overflow-y: auto; overscroll-behavior: contain;
+}
+.so-fwd-row {
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15));
+    border-radius: 8px; padding: 5px 8px;
+}
+/* 三种改动各带一条左缘色条（改写 = 校正强调色 / 删除 = 红 / 新增 = 绿）：亮皮上 rgba(--so-ink) 的淡
+   填充几乎不可见，1.45.0 起「靠左缘条示意」是本仓的既定做法。保留段不上色 —— 它是背景，不该抢眼。 */
+.so-fwd-keep { opacity: 0.8; }
+/* 被拦下的删除（无依据 → 强制保留，指挥官裁定 2026-08-12）：仍是保留行，但不许跟普通保留段一样暗淡 ——
+   它承载的是「模型想删、我们没让」这条信息，用改写同族的琥珀色缘条示意。 */
+.so-fwd-keep-licence { opacity: 1; border-left: 3px solid color-mix(in srgb, #e0a23a 70%, transparent); }
+.so-fwd-rewrite { border-left: 3px solid var(--so-fix-accent, #e3b341); }
+.so-fwd-delete { border-left: 3px solid color-mix(in srgb, var(--crimson70a, #e07c7c) 80%, transparent); }
+.so-fwd-insert { border-left: 3px solid color-mix(in srgb, #2a9d6f 70%, transparent); }
+.so-fwd-rowhead { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; white-space: normal; min-height: 28px; }
+.so-fwd-label { flex: 0 0 auto; font-weight: 600; }
+.so-fwd-excerpt { flex: 1 1 120px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.75; }
+/* 折叠钮：手机点区 ≥30px（1.37.0 同款口径）；跟随主题、绝不钉死颜色。 */
+.so-fwd-toggle {
+    flex: 0 0 auto; min-height: 30px; padding: 2px 10px; border-radius: 6px; cursor: pointer;
+    font: inherit; font-size: 0.92em;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.2));
+    background: rgba(var(--so-ink), 0.06); color: var(--SmartThemeBodyColor, #e6e6e6);
+}
+.so-fwd-toggle:hover { background: rgba(var(--so-ink), 0.12); }
+.so-fwd-body { margin-top: 4px; }
+.so-fwd-cap { font-size: 0.78em; opacity: 0.7; margin-top: 4px; }
+.so-fwd-text {
+    white-space: pre-wrap; word-break: break-word; font-size: 0.92em; line-height: 1.55;
+    background: var(--so-field); border-radius: 6px; padding: 4px 6px;
+}
+/* 被删原文：划掉 + 淡红底（底色用 color-mix 压在 --so-field 上，两种皮下都还是「有底色的一块」）。 */
+.so-fwd-deltext { text-decoration: line-through; opacity: 0.85; background: color-mix(in srgb, var(--crimson70a, #e07c7c) 14%, var(--so-field)); }
+.so-fwd-licence { font-size: 0.8em; margin-top: 4px; opacity: 0.85; }
+.so-fwd-warn { font-size: 0.82em; margin: 3px 0; color: color-mix(in srgb, #e0a23a 80%, var(--SmartThemeBodyColor, #e6e6e6)); }
+/* 读数条：逐项台账。三档语气只靠颜色分层（info 随正文 / warn 琥珀 / bad 红），混色公式与
+   .so-fix-nearcopy-warn、.so-smartsel-warn 同款 —— 与 --SmartThemeBodyColor 相混，亮皮自动变深。 */
+.so-fwd-receipts { margin-top: 8px; padding-top: 6px; border-top: 1px dashed var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.16)); }
+.so-fwd-receipts-head { font-weight: 600; margin-bottom: 3px; }
+.so-fwd-receipt { font-size: 0.84em; line-height: 1.5; padding: 1px 0 1px 1.1em; text-indent: -1.1em; white-space: normal; }
+.so-fwd-tone-info { opacity: 0.8; }
+.so-fwd-tone-warn { color: color-mix(in srgb, #e0a23a 80%, var(--SmartThemeBodyColor, #e6e6e6)); }
+.so-fwd-tone-bad { color: color-mix(in srgb, var(--crimson70a, #e07c7c) 80%, var(--SmartThemeBodyColor, #e6e6e6)); font-weight: 600; }
+/* 「放弃」= 中性钮：与「应用」并排时绝不能一样醒目。.so-apply-btn 自带渐变强调底 + 钉死白字，
+   所以【两样都要接管】（白字压淡底 = 1.45.0 隐形按钮同族）；同类同特异度，靠后来居上生效。 */
+.so-fwd-discard {
+    background: rgba(var(--so-ink), 0.08); background-image: none; box-shadow: none;
+    border-color: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.2));
+    color: var(--SmartThemeBodyColor, #e6e6e6);
+}
+.so-fwd-discard:hover:not(:disabled) { background: rgba(var(--so-ink), 0.14); filter: none; }
+
+/* ---------- ZONE-2 回执卡（ENABLE_FIX_ZONE2）：上一批只在 index.js 留了 .so-z2-* 钩子、一条规则都
+   没写（旗关时够不着）。这里补齐，与复查卡同一套变量口径。 ---------- */
+.so-z2-card { opacity: 0.95; font-size: 0.86em; }
+.so-z2-block {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; white-space: normal; font-weight: 600;
+    margin-top: 6px; padding-top: 4px; border-top: 1px solid rgba(var(--so-ink), 0.08);
+}
+.so-z2-edit { font-size: 0.9em; white-space: pre-wrap; word-break: break-word; line-height: 1.5; opacity: 0.9; }
+.so-z2-residual { font-size: 0.82em; line-height: 1.5; color: color-mix(in srgb, #e0a23a 80%, var(--SmartThemeBodyColor, #e6e6e6)); }
+/* 「撤回这个面板」同属中性动作（理由同 .so-fwd-discard）。 */
+.so-z2-block .so-apply-btn {
+    background: rgba(var(--so-ink), 0.08); background-image: none; box-shadow: none;
+    border-color: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.2));
+    color: var(--SmartThemeBodyColor, #e6e6e6);
+}
+.so-z2-block .so-apply-btn:hover:not(:disabled) { background: rgba(var(--so-ink), 0.14); filter: none; }
