@@ -11765,9 +11765,14 @@ async function applyFix(patchBlock, statusEl, expectStatKey) {
         statusEl.classList.add('so-hint-error');
         return null;
     }
+    // 开错根的路径掰回 MVU 的路径空间（口径与理由见 normalizeDiagPatchPaths 头注）。必须在交给
+    // parseMessage 【之前】掰：mis-rooted 的 insert 会让 MVU 的 _.set 把整条父链造出来，等它跑完，
+    // 垃圾分支已经在存档里了。逐 op 对账吃的也是掰过的这一份 —— 两边共用同一个路径空间。
+    const patch = normalizeDiagPatchPaths(patchBlock, diagStatOf(oldData));
+    if (patch.fixed) console.warn(`[Story Oracle] 诊断补丁有 ${patch.fixed} 条路径开错了根（多写了一层 stat_data），已按当前状态掰回。`);
     const swipePin = diagCaptureSwipe();          // M1 钉：解析【之前】把目标楼 + swipe 记下来
     const snapshot = JSON.parse(JSON.stringify(oldData));
-    const newData = await Mvu.parseMessage(patchBlock, oldData);
+    const newData = await Mvu.parseMessage(patch.text, oldData);
     if (!newData) {
         statusEl.textContent = '补丁未解析出任何改动 —— 请检查指令。';
         statusEl.classList.add('so-hint-error');
@@ -11777,7 +11782,7 @@ async function applyFix(patchBlock, statusEl, expectStatKey) {
     // ⚠ 两条口径都承重：① 基线用 snapshot（解析【前】的深拷贝）而非 oldData —— MVU 若就地改了 oldData
     // 再回克隆，拿 oldData 当基线会把真实改动误判成空转；② 比对走 diagCmpKey（剔除每轮重算的派生数据）
     // —— 拿整份比，真卡上 delta_data 每轮都换，这道闸就永远不会触发。
-    const report = diagOpOutcomes(patchBlock, (snapshot || {}).stat_data, newData.stat_data);
+    const report = diagOpOutcomes(patch.text, (snapshot || {}).stat_data, newData.stat_data);
     if (diagCmpKey(newData) === diagCmpKey(snapshot)) {
         statusEl.textContent = (report && report.total === 0)
             ? '模型认为无需改动（补丁为空）—— 未写入。'
@@ -12288,12 +12293,16 @@ async function autoApplyFix(Mvu, patchBlock, expectStatKey, expectChatKey) {
     // 陈旧闸（审计簇 A/F）：补丁按【诊断当时】的状态算，现读对不上就不写。
     // 取数走 diagStatOf（同 applyFix，理由见该函数头注 FIX 5）。
     if (expectStatKey != null && diagStatKey(diagStatOf(oldData)) !== expectStatKey) return { status: 'stale', reason: 'stateMoved' };
+    // 开错根的路径掰回 MVU 的路径空间 —— 与 applyFix 同一道闸、同一个理由（自动诊断是另一个写入口，
+    // 它才是每回合都跑的那个；只接手动那条等于漏掉大头）。
+    const patch = normalizeDiagPatchPaths(patchBlock, diagStatOf(oldData));
+    if (patch.fixed) console.warn(`[Story Oracle] 自动诊断补丁有 ${patch.fixed} 条路径开错了根（多写了一层 stat_data），已按当前状态掰回。`);
     const swipePin = diagCaptureSwipe();          // M1 钉：解析【之前】取样
     const snapshot = JSON.parse(JSON.stringify(oldData));
-    const newData = await Mvu.parseMessage(patchBlock, oldData);
+    const newData = await Mvu.parseMessage(patch.text, oldData);
     if (!newData) return { status: 'failed' };
     // 诚实闸（审计簇 C）：基线用 snapshot（解析前深拷贝）、比对走 diagCmpKey（剔除派生数据），理由同 applyFix。
-    const report = diagOpOutcomes(patchBlock, (snapshot || {}).stat_data, newData.stat_data);
+    const report = diagOpOutcomes(patch.text, (snapshot || {}).stat_data, newData.stat_data);
     if (diagCmpKey(newData) === diagCmpKey(snapshot)) {
         // 没有逐 op 对账依据（_.set 方言，diagOpOutcomes 回 null）→ 我们判断不了是「模型说无需改动」还是
         // 「指令空转」，就老实回旧的笼统 'nochange'，绝不假装分得清。
@@ -14336,8 +14345,8 @@ function verifyDiagOps(beforeStat, afterStat, ops) {
 }
 
 /* ── 🩺 诊断加固纯函数四件套（陈旧判定 / 甲乙补充探针 / 摘块失败归因 / 逐 op 对账） ──
- * 四个都无副作用、不读全局，唯一依赖是本文件既有的口径函数（normalizeForVerify / diffMvuStat /
- * mvuIsVwdPair / detectMvuBlockDialect / MVU_BLOCK_DIALECTS）—— 口径只有一份，别另起炉灶。 */
+ * 四个都无副作用、不读全局，唯一依赖是本文件既有的口径函数（normalizeForVerify / mvuIsVwdPair /
+ * detectMvuBlockDialect / MVU_BLOCK_DIALECTS）—— 口径只有一份，别另起炉灶。 */
 
 // 纯函数：stat_data 指纹（陈旧判定口径）。折 VWD 取第一格、剥 $internal（沿用 normalizeForVerify），
 // 说明槽变化 / MVU 运行期字段不算「状态变了」。可单测。
@@ -14383,9 +14392,14 @@ function diagParseFailReason(finalText) {
 }
 
 // 纯函数：逐 op 对账（Prince 点单：告诉用户为什么没生效）。只认 <JSONPatch> 里的 JSON 数组（_.set 方言
-// 回 null，调用方退回整体比较文案）。result 判定：先用 diffMvuStat(old,new) 的实际变化集对「applied」；
-// 未变化的 op 按 old 侧路径解析分类——路径解析不到且非 add = missing-path（set 不新建键），解析到且
-// 值已等于目标 = noop-equal，其余 unknown（诚实：不懂就说不懂）。VWD 按第一格比较。可单测。
+// 回 null，调用方退回整体比较文案）。result 判定：「applied」= 这条 op 【自己那条路径】上、前后两份状态
+// 的值变了没有；未变化的 op 再按 old 侧路径解析分类——路径解析不到且非 add = missing-path（set 不新建
+// 键），解析到且值已等于目标 = noop-equal，其余 unknown（诚实：不懂就说不懂）。VWD 折第一格（说明槽
+// 不是状态），口径沿用 normalizeForVerify。可单测。
+// ⚠ 判据【有意】不走 diffMvuStat 的变化集：那份差异不进列表内部（数组不是 plain object，只在外层记一条
+// 「/今日待办 变了」），于是打在列表项里的 op（/今日待办/0/状态）永远对不上自己的路径 —— 真生效了也
+// 只能报「没能从状态变化里判断」。也【不能】退而用前缀命中：同一个列表上另一条 op 造成的变化会把这条
+// 没动过的一起算成生效（diag-hardening-helpers.test.mjs 有反向钉）。逐路径取值比对两头都不沾。
 function diagOpOutcomes(patchBlock, oldStat, newStat) {
     let ops = null;
     try {
@@ -14393,7 +14407,6 @@ function diagOpOutcomes(patchBlock, oldStat, newStat) {
         if (m) ops = JSON.parse(m[1]);
     } catch (e) { ops = null; }
     if (!Array.isArray(ops)) return null;
-    const changed = new Set(diffMvuStat(oldStat, newStat, '').map((o) => o.path));
     const resolve = (stat, path) => {
         const segs = String(path || '').split('/').filter(Boolean);
         let node = stat, ok = true;
@@ -14403,9 +14416,18 @@ function diagOpOutcomes(patchBlock, oldStat, newStat) {
         }
         return ok ? { ok, value: node } : { ok };
     };
+    // 该路径上的可比指纹；解析不到回 null（JS null，与 JSON 串 'null' 不会撞）——于是「原本没有 → 现在
+    // 有了」（insert 建键）与「原本有 → 现在没了」（remove）都天然算作变了。
+    const fingerprint = (stat, path) => {
+        const r = resolve(stat, path);
+        return r.ok ? JSON.stringify(normalizeForVerify(r.value)) : null;
+    };
     const outcomes = ops.map((op) => {
         const path = (op && op.path) || '';
-        if (changed.has(path)) return { op: op && op.op, path, result: 'applied' };
+        // path 为空（move 这类只有 from/to 的 op）→ 不比：拿根路径比等于「别处只要变过就算它生效」。
+        if (path && fingerprint(oldStat, path) !== fingerprint(newStat, path)) {
+            return { op: op && op.op, path, result: 'applied' };
+        }
         const cur = resolve(oldStat, path);
         // 能建新键的动词只有 insert / add（diffMvuStat 注释同款口径：set 语义碰到不存在的路径直接跳过）。
         // insert 是【模型真会写】的那个——DIAGNOSE_SYSTEM_PROMPT 给的词表是 replace、delta、insert、
@@ -14418,6 +14440,70 @@ function diagOpOutcomes(patchBlock, oldStat, newStat) {
         return { op: op && op.op, path, result: 'unknown' };
     });
     return { total: outcomes.length, applied: outcomes.filter((o) => o.result === 'applied').length, outcomes };
+}
+
+// 纯函数：把模型【开错根】的 JSONPatch 路径掰回 MVU 的路径空间（live 用户 2026-08-22 报「29 条指令中
+// 0 条生效」，逐条都是「路径不存在」）。MVU 只剥掉开头那一个 '/' 就把整串当作 stat_data【内部】的 lodash
+// 路径（update_variables.ts：jsonPatchPathToCommandPath → _.set(variables.stat_data, path, …)）——所以
+// 模型写的 /stat_data/世界/时间 会被找成 stat_data.stat_data.世界.时间，恒不存在：replace/remove 被
+// 静默跳过（一条都不落地），insert/add 更糟 —— _.set 会把整条父链造出来，存档里就长出一支垃圾
+// stat_data.stat_data.*。提示词里已写明「根相对路径（例如 /主角状态/修为/进度百分比）」，模型照样会漏，
+// 故硬保证放在代码侧。
+// 动手条件（三条【全中】才改，宁可不改也绝不误改）：
+//   ① 状态顶层【没有】真名叫 stat_data 的键 —— 少数卡真有，那种卡上 /stat_data/… 原样就是对的；
+//   ② 这条路径按原样在当前状态里解析不到；
+//   ③ 剥掉开头那个 stat_data 段之后解析得到（= 有证据说它只是开错根，而不是把名字写错了）。
+// 判定落点按动词分：insert/add 建的就是【还不存在】的末段（数组追加更是 `-`），只能按【父容器】判，
+// 否则这一档 —— 恰恰是唯一会污染存档的那一档 —— 永远救不了；其余（replace/delta/remove/move）按整条判。
+// move 的 from/to 与 path 同等对待。
+// 回 { text, fixed }：text = 掰过的区块（一条都没掰时【逐字节】原样返回）、fixed = 掰了几条。
+// 摘不出 <JSONPatch> JSON 数组（_.set 方言）/ 拿不到状态 → 原样返回，绝不抛。可单测。
+function normalizeDiagPatchPaths(patchBlock, stat) {
+    const text = String(patchBlock == null ? '' : patchBlock);
+    const out = { text, fixed: 0 };
+    if (!stat || typeof stat !== 'object') return out;
+    if (Object.prototype.hasOwnProperty.call(stat, 'stat_data')) return out;   // 闸①
+    let m = null, ops = null;
+    try {
+        m = /<JSONPatch\s*>([\s\S]*?)<\/JSONPatch\s*>/i.exec(text);
+        if (m) ops = JSON.parse(m[1]);
+    } catch (e) { return out; }
+    if (!m || !Array.isArray(ops)) return out;
+    // 解析口径与 diagOpOutcomes 的 resolve 同源：own-property 逐段查，数组下标同样按 own-property 命中。
+    const resolves = (path) => {
+        const segs = String(path || '').split('/').filter(Boolean);
+        let node = stat;
+        for (const seg of segs) {
+            if (node && typeof node === 'object' && Object.prototype.hasOwnProperty.call(node, seg)) node = node[seg];
+            else return false;
+        }
+        return true;
+    };
+    // 单段路径的父容器 = 根（空串）→ resolves('') 恒真，于是「往顶层插一个新键」那档也掰得动。
+    const probe = (op, path) => {
+        if (op !== 'insert' && op !== 'add') return path;
+        const at = String(path).lastIndexOf('/');
+        return at > 0 ? path.slice(0, at) : '';
+    };
+    const reroot = (op, path) => {
+        if (typeof path !== 'string' || !/^\/stat_data\//.test(path)) return null;
+        if (resolves(probe(op, path))) return null;                             // 闸②：原样就查得到 → 不是开错根
+        const stripped = path.slice('/stat_data'.length);
+        return resolves(probe(op, stripped)) ? stripped : null;                 // 闸③：剥了才查得到，才算有证据
+    };
+    const next = ops.map((op) => {
+        if (!op || typeof op !== 'object') return op;
+        const copy = Object.assign({}, op);
+        for (const key of ['path', 'from', 'to']) {
+            const fixed = reroot(op.op, copy[key]);
+            if (fixed != null) { copy[key] = fixed; out.fixed++; }
+        }
+        return copy;
+    });
+    if (!out.fixed) return out;
+    const at = text.indexOf(m[1], m.index);
+    out.text = text.slice(0, at) + '\n' + JSON.stringify(next, null, 2) + '\n' + text.slice(at + m[1].length);
+    return out;
 }
 
 // 取「诊断前快照」与「诊断后现状」的差异 → 绝对值 ops。现取 MVU（autoApplyFix 刚 replaceMvuData 写过）。
