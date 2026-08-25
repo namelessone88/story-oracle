@@ -1720,7 +1720,7 @@ const ENABLE_CUSTOM_PERSONAS = true;
 // —— 更新提醒（1.38.0）——
 // SO_VERSION 是代码内唯一版本号，必须与 manifest.json 的 version 完全一致——update-check.test.mjs
 // 有失配即红的漂移钉（发版清单：两处一起 bump）。
-const SO_VERSION = '1.66.0';
+const SO_VERSION = '1.69.0';
 // 更新提醒总开关。false → 设置面板不渲染「更新」组、开窗不检查、红点绘制器与一键更新 no-op、
 // 绑定/回填跳过——字节级零行为变化。运行期另有 opt-out 设置 updAutoCheck（默认开）。
 const ENABLE_UPDATE_CHECK = true;
@@ -11729,17 +11729,24 @@ function diagPinMoved(before, after) {
 }
 
 // 纯函数：逐 op 对账折成状态行文案（report 为 null = _.set 方言、无 op 可对账，或全部生效 → ''）。
-// 'unknown' 的措辞是硬约束：insert/add 落在【当时不存在】的路径上就会落这一档，我们**真的**判断不了
-// 它生效没有，写成「失败」就是对用户撒谎（Task 1 定案）。【文案待 Prince 定】可单测。
-function diagReportLines(report) {
+// 'unknown' 的措辞是硬约束，但【分语境】（1.67.0 live 报障的根因就是一张表服务了两个语境）：
+//   ctx 缺省 = 【部分生效】语境 —— 确实有 op 写进去了，insert/add 落在【当时不存在】的路径上时我们
+//     **真的**判断不了它生效没有，写成「失败」就是对用户撒谎（1.64.0 Task 1 定案，反向钉在
+//     diag-hardening-helpers / diag-zero-change-report 两处，别削）。
+//   ctx === 'zero' = 【零变化】语境 —— diagCmpKey(新) === diagCmpKey(旧)，我们【有证据】一个字都没写，
+//     此时再说「可能已生效」就是自相矛盾。逐条一律说死「未生效」。
+// 富文本版（带分类原因 + 下一步）在 diagZeroChangeReport；这里是它取不到补丁 / 状态时的退路。
+// 【文案待 Prince 定】可单测。
+function diagReportLines(report, ctx) {
     if (!report || !report.outcomes || report.applied >= report.total) return '';
+    const zero = ctx === 'zero';
     const why = {
         'missing-path': '路径不存在（补丁写错了名字，或状态里本来就没有这一项）',
         'noop-equal': '本来就是这个值',
-        'unknown': '没能从状态变化里判断（可能已生效也可能没有）',
+        'unknown': zero ? '这条指令没能对上状态里的任何变化' : '没能从状态变化里判断（可能已生效也可能没有）',
     };
     const bad = report.outcomes.filter((o) => o.result !== 'applied').slice(0, 5)
-        .map((o) => `「${o.path}」：${why[o.result] || o.result}`);
+        .map((o) => `「${o.path}」：${zero ? '未生效 —— ' : ''}${why[o.result] || o.result}`);
     return bad.length ? '\n' + bad.join('\n') : '';
 }
 
@@ -11748,7 +11755,18 @@ function diagReportLines(report) {
 // （漂移比较锚）、report = diagOpOutcomes 的逐 op 对账（_.set 方言时为 null）。null = 一个字都没写
 // （原因已写在 statusEl 上）。成功 / 部分成功的文案【归调用方】——本函数只写失败与中止。
 // expectStatKey（可选）= 调用方带来的「这份补丁是按哪份状态算的」指纹，对不上就不写（审计簇 A/F）。
-async function applyFix(patchBlock, statusEl, expectStatKey) {
+// replyText（可选，1.68.0）= 模型这一轮回复的【原文】。双区块闸要数的是「MVU 会执行几块」，而
+// extractUpdateBlock 只摘【最早】那一个包装块 —— 模型甩了两个包装块时，第二块的指令会被静默丢掉。
+// 缺席时退化成只数补丁本身（重画出来的旧卡片没有原文，那一档仍挡得住「一个包装块里两个区块」）。
+async function applyFix(patchBlock, statusEl, expectStatKey, replyText) {
+    // 双区块闸（1.68.0，Prince 定调：检测 + 拒绝 + 请重掷，绝不替用户合并或挑一块）。必须排在
+    // 修复流水线与 parseMessage 【之前】：重复执行的风险在 parseMessage 那一刻就已经发生了。
+    const nBlocks = Math.max(diagCountPatchBlocks(patchBlock), diagCountPatchBlocks(replyText));
+    if (nBlocks >= 2) {
+        statusEl.textContent = diagDoubleBlockNotice(nBlocks);
+        statusEl.classList.add('so-hint-error');
+        return null;
+    }
     const Mvu = await getMvu();
     if (!Mvu || typeof Mvu.parseMessage !== 'function') {
         statusEl.textContent = '未检测到 MVU —— 无法自动应用。';
@@ -11765,11 +11783,12 @@ async function applyFix(patchBlock, statusEl, expectStatKey) {
         statusEl.classList.add('so-hint-error');
         return null;
     }
-    // 开错根的路径掰回 MVU 的路径空间（口径与理由见 normalizeDiagPatchPaths 头注）。必须在交给
-    // parseMessage 【之前】掰：mis-rooted 的 insert 会让 MVU 的 _.set 把整条父链造出来，等它跑完，
-    // 垃圾分支已经在存档里了。逐 op 对账吃的也是掰过的这一份 —— 两边共用同一个路径空间。
-    const patch = normalizeDiagPatchPaths(patchBlock, diagStatOf(oldData));
-    if (patch.fixed) console.warn(`[Story Oracle] 诊断补丁有 ${patch.fixed} 条路径开错了根（多写了一层 stat_data），已按当前状态掰回。`);
+    // 修复流水线（1.67.0；含 1.66.1 的开错根掰正 —— 顺序与证据闸见 repairDiagPatch 头注）。必须在交给
+    // parseMessage 【之前】跑：mis-rooted 的 insert 一旦让 MVU 建出父链，等它跑完垃圾分支已经在存档里了；
+    // 标签空白 / 毒元素那两类更是「跑完就整块没了」。逐 op 对账吃的也是修过的这一份 —— 两边共用同一个
+    // 路径空间与同一份动词，绝不能一边看模型原文一边看修好的那份。
+    const patch = repairDiagPatch(patchBlock, diagStatOf(oldData));
+    if (patch.fixed) console.warn('[Story Oracle] 诊断补丁自动修正：', patch);
     const swipePin = diagCaptureSwipe();          // M1 钉：解析【之前】把目标楼 + swipe 记下来
     const snapshot = JSON.parse(JSON.stringify(oldData));
     const newData = await Mvu.parseMessage(patch.text, oldData);
@@ -11784,9 +11803,15 @@ async function applyFix(patchBlock, statusEl, expectStatKey) {
     // —— 拿整份比，真卡上 delta_data 每轮都换，这道闸就永远不会触发。
     const report = diagOpOutcomes(patch.text, (snapshot || {}).stat_data, newData.stat_data);
     if (diagCmpKey(newData) === diagCmpKey(snapshot)) {
-        statusEl.textContent = (report && report.total === 0)
+        // 1.67.0：这一支【有证据】—— 一个字都没写。所以逐条一律说死「未生效」+ 分类原因 + 下一步，
+        // 「可能已生效」在这里【不可能】出现（那句诚实只属于部分生效语境，见 diagReportLines 头注）。
+        // ⚠ 状态取 snapshot（解析【前】的深拷贝）而不是 oldData —— 与上面 diagOpOutcomes 的基线同一份：
+        // MVU 的 parseMessage 允许【就地】改 oldData（diag-applyfix 有专门的钉），拿它当基线，预检就会
+        // 对着一份已经被动过的状态去判「这条路径存不存在」。取数仍走 diagStatOf（退化 MvuData 的唯一口径）。
+        const zero = diagZeroChangeReport(patch.text, diagStatOf(snapshot), report, patch);
+        statusEl.textContent = (zero.code === 'empty')
             ? '模型认为无需改动（补丁为空）—— 未写入。'
-            : '补丁运行了，但没有任何值发生变化 —— 未写入。' + diagReportLines(report);
+            : diagZeroHeadline(zero.code) + ' —— 未写入。' + repairDiagNote(patch) + zero.text;
         return null;
     }
     // swipe 钉（审计簇 M1）：解析等待期间换了楼 / 划了 swipe → 放弃，绝不把 A swipe 算的状态写进 B。
@@ -11797,7 +11822,7 @@ async function applyFix(patchBlock, statusEl, expectStatKey) {
     }
     await Mvu.replaceMvuData(newData, opts);
     refreshLatestMvuBar();   // 应用后刷新楼层状态栏（replaceMvuData 不发刷新事件，否则要手动重载——用户反馈）
-    return { snapshot, applied: JSON.parse(JSON.stringify(newData)), report };
+    return { snapshot, applied: JSON.parse(JSON.stringify(newData)), report, repair: patch };
 }
 
 async function undoFix(snapshot) {
@@ -12167,14 +12192,23 @@ async function runAutoDiagnose(ctx, s, targetId, chatKey, compatSession) {
     // 审计簇 N（Task 3 加宽）：方言探测只认【包装标签】。卡片直接甩一段无包装的 <json_patch> 或行首
     // `_.set(` 时它探不到，旧闸就误判「这回合没人更新过」→ 走推导。可 MVU 是【按文本位置】执行这两种
     // 裸指令的（MVU_BLOCK_DIALECTS 注释）：它们【已经生效】了，再推一遍就是同一笔算两次——1.40.2
-    // 那只 bug 的同族入口，只是形态更隐蔽。detectBareMvuOps 内部会给已识别方言让路，故三项可以并排写。
-    const deriveMode = !latestBlock && !detectMvuBlockDialect(latestReply) && !detectBareMvuOps(latestReply);
-    const systemPrompt = buildDiagnosePromptFrom(ctx, s, { wiBlock, statStr, latestBlock, latestReply, auto: true, derive: deriveMode });
-    const userMsg = deriveMode
+    // 那只 bug 的同族入口，只是形态更隐蔽。
+    // 1.69.0 D6：闸门整枚换成 diagGateProbe —— 判据从「有没有【痕迹】」升级成「MVU 这一回合到底
+    // 【执行】了没有」。旧式三项并排（extract / dialect / bare）见痕迹即判甲，于是叙述者吐出的
+    // 【死区块】（漏闭合标签 / 标签带空白 / 毒元素 / 全 move / 全开错根）每回合都被当成「已经生效」
+    // → 诊断永远修不好那个由叙述者亲手造成的冻结（2026-08-15 异录死锁的机理）。新闸多出第三条
+    // 支路【丙】：块在、但一条都没执行 → 按推导语义重算这一回合，用自己那套绝不说「已生效」的文案。
+    const gate = diagGateProbe(latestReply, stat);
+    const deadBlockMode = !gate.executed && gate.deadBlock;              // 丙
+    const deriveMode = !gate.executed && !gate.deadBlock;                // 乙（语义逐字不变）
+    const systemPrompt = buildDiagnosePromptFrom(ctx, s, { wiBlock, statStr, latestBlock, latestReply, auto: true, derive: deriveMode, deadBlock: deadBlockMode });
+    const userMsg = deadBlockMode
+        ? '【自动诊断】最新一条 AI 回复里【带有】一个变量更新区块，但它【没有生效】——格式坏损或写法引擎不认，MVU 这一回合一条指令都没有执行，当前状态【尚未】包含这条回复带来的变化。请充当变量更新引擎：通读这条回复，依本卡 MVU 规则与当前状态，重新推导出本回合应当发生的全部变量更新，输出一个 <UpdateVariable> 区块把状态更新到位。正文里那段坏掉的区块可以当线索参考，但请以剧情里确凿发生的事为准；若这条回复确实不涉及任何变量变化，则在 <JSONPatch> 里输出空数组（[]）。'
+        : (deriveMode
         ? '【自动诊断】最新一条 AI 回复的正文里【没有】变量更新区块。请充当变量更新引擎：通读这条回复，依本卡 MVU 规则与当前状态，推导出本回合应当发生的全部变量更新，输出一个 <UpdateVariable> 区块把状态更新到位；若这条回复确实不涉及任何变量变化，则在 <JSONPatch> 里输出空数组（[]）。'
         : (latestBlock
             ? '【自动诊断】最新一条 AI 回复里带有变量更新区块。请按本卡 MVU 规则与当前状态核验它：有错就只输出一个修正后的 <UpdateVariable> 区块（仅含需改正的字段）；完全正确则在 <JSONPatch> 里输出空数组（[]）。'
-            : '【自动诊断】最新一条 AI 回复里【含有】变量更新区块，但它用的标签不是标准写法、系统没能单独摘出来。请从下方回复正文里自行找到那段更新并核验：有错就只输出一个修正后的 <UpdateVariable> 区块（仅含需改正的字段）；完全正确则在 <JSONPatch> 里输出空数组（[]）。它【已经生效】了——绝不要把这回合的变化重新推导一遍。');
+            : '【自动诊断】最新一条 AI 回复里【含有】变量更新区块，但它用的标签不是标准写法、系统没能单独摘出来。请从下方回复正文里自行找到那段更新并核验：有错就只输出一个修正后的 <UpdateVariable> 区块（仅含需改正的字段）；完全正确则在 <JSONPatch> 里输出空数组（[]）。它【已经生效】了——绝不要把这回合的变化重新推导一遍。'));
     // 经自定义补全预设（1.43.0，opt-in s.diagnoseUsePreset）：破限 / 越狱用，形状同 runAutoFix。
     // ⚠ maybeWrapJb 的模式键必须是【字面量】'diagnose' —— 自动诊断在后台无头跑，触发时用户
     // 可能正坐在任何一个模式里，currentJbModeKey() 会读到那个模式的 flag、给出错误判定。
@@ -12236,8 +12270,11 @@ async function runAutoDiagnose(ctx, s, targetId, chatKey, compatSession) {
     // 回复，本回合无需改动」= 对用户撒谎。改回 'unparsed'，并把「为什么没摘到」（diagParseFailReason，
     // 会点名缺了哪个闭合标签）连同回复原文一起带上，让用户自己看得见一眼。
     const patchBlock = extractUpdateBlock(finalText);
+    // 第 5 参 finalText（1.68.0）：双区块闸要数「MVU 会执行几块」，而 extractUpdateBlock 只摘【最早】
+    // 那一个包装块 —— 模型甩了两个包装块时，第二块的指令会被静默丢掉（语料 2/768，其中一格两块的 op
+    // 完全不同）。把回复原文一并交给它，那一档才拦得住。
     const result = patchBlock
-        ? await autoApplyFix(Mvu, patchBlock, captured.statKey, captured.chatKey)
+        ? await autoApplyFix(Mvu, patchBlock, captured.statKey, captured.chatKey, finalText)
         : { status: 'unparsed', detail: diagParseFailReason(finalText).detail, raw: finalText };
     // 确有改动 → 把结果反映到消息 / 状态栏（auto 诊断走 replaceMvuData，不发刷新事件，状态栏不会自己更新）：
     //   衍生（乙，原回复无块）：写回推导块 + saveChat + 重渲染（与官方 MVU 更新一致）；
@@ -12248,7 +12285,15 @@ async function runAutoDiagnose(ctx, s, targetId, chatKey, compatSession) {
     // 判定是【第二重保险】：写正文是不可逆的，不指望上游任何一处单独兜住。
     let writeBack = null;                                    // 实际写进正文的那段（撤销 / 重新应用时据此精确同步）
     if (AUTO_DIAGNOSE_WRITE_BACK && result.status === 'applied' && aiIdx >= 0 && fixChatKey() === captured.chatKey) {
-        if (deriveMode) {
+        if (deadBlockMode) {
+            // 丙（1.69.0）：变量照写，正文【一个字节都不碰】—— 这一楼里已经躺着一个（死）区块了。
+            //   · 再追加一个包装块 = 直撞状态栏吞噬地雷（卡片显示正则贪婪 + dotall，实测 1734 张
+            //     MVU 卡里只有 123 张能在同层第二个块下活下来；CLAUDE.md 地雷条）；
+            //   · 插进那个已有块的内部也不行：1.41.0 的 insertDiagPatchIntoBlock 按设计拒绝没闭合的
+            //     块，而「没闭合」正是丙最常见的成因；标签带空白那一档就算插进去了 MVU 照样看不见。
+            // 所以丙的写回半边与【甲】同款：只刷状态栏，让楼层读数追上真数据。
+            refreshMessageBar(aiIdx);
+        } else if (deriveMode) {
             // 第三参 latestReply = 陈旧守卫：诊断期间用户改了这条回复 / 别的扩展写过它 → 正文已不是
             // 我们诊断的那一份，绝不往上面追加推导块（与 injectDiagPatchIntoMessage 同款）。
             // ⚠ 守卫拦下时【仍要刷状态栏】：变量确实已经写进去了，不刷的话数据变了而楼层状态栏停在旧值 ——
@@ -12286,17 +12331,21 @@ async function runAutoDiagnose(ctx, s, targetId, chatKey, compatSession) {
 // 「目标已失效」，它对那种情形本来就成立（reason 键名是给文案查表用的，不是内部日志）。
 // expectChatKey（可选，第 4 参）= 调用方钉的聊天身份锚点。parseMessage 是一次 await，等待期间照样能
 // 切聊天 —— 那时写进去的就是【A 聊天算出来的补丁落在 B 聊天的状态上】。
-async function autoApplyFix(Mvu, patchBlock, expectStatKey, expectChatKey) {
+// replyText（可选，第 5 参，1.68.0）= 模型这一轮回复的【原文】，供双区块闸看清「MVU 会执行几块」。
+async function autoApplyFix(Mvu, patchBlock, expectStatKey, expectChatKey, replyText) {
     if (!Mvu || typeof Mvu.parseMessage !== 'function') return { status: 'failed' };
+    // 双区块闸（1.68.0）—— 与 applyFix 【同一条】，理由见那里。自动诊断才是每回合都跑的那个入口。
+    const nBlocks = Math.max(diagCountPatchBlocks(patchBlock), diagCountPatchBlocks(replyText));
+    if (nBlocks >= 2) return { status: 'doubleblock', blocks: nBlocks };
     const opts = mvuMsgOpts();   // F4：读写共用同一解析结果（消掉 TOCTOU），别在写之前再解析一次
     const oldData = Mvu.getMvuData(opts);
     // 陈旧闸（审计簇 A/F）：补丁按【诊断当时】的状态算，现读对不上就不写。
     // 取数走 diagStatOf（同 applyFix，理由见该函数头注 FIX 5）。
     if (expectStatKey != null && diagStatKey(diagStatOf(oldData)) !== expectStatKey) return { status: 'stale', reason: 'stateMoved' };
-    // 开错根的路径掰回 MVU 的路径空间 —— 与 applyFix 同一道闸、同一个理由（自动诊断是另一个写入口，
-    // 它才是每回合都跑的那个；只接手动那条等于漏掉大头）。
-    const patch = normalizeDiagPatchPaths(patchBlock, diagStatOf(oldData));
-    if (patch.fixed) console.warn(`[Story Oracle] 自动诊断补丁有 ${patch.fixed} 条路径开错了根（多写了一层 stat_data），已按当前状态掰回。`);
+    // 修复流水线 —— 与 applyFix 【同一条】（repairDiagPatch，1.67.0；含 1.66.1 的开错根掰正）。自动诊断
+    // 是另一个写入口，且才是每回合都跑的那个；只接手动那条等于漏掉大头。
+    const patch = repairDiagPatch(patchBlock, diagStatOf(oldData));
+    if (patch.fixed) console.warn('[Story Oracle] 自动诊断补丁自动修正：', patch);
     const swipePin = diagCaptureSwipe();          // M1 钉：解析【之前】取样
     const snapshot = JSON.parse(JSON.stringify(oldData));
     const newData = await Mvu.parseMessage(patch.text, oldData);
@@ -12304,10 +12353,26 @@ async function autoApplyFix(Mvu, patchBlock, expectStatKey, expectChatKey) {
     // 诚实闸（审计簇 C）：基线用 snapshot（解析前深拷贝）、比对走 diagCmpKey（剔除派生数据），理由同 applyFix。
     const report = diagOpOutcomes(patch.text, (snapshot || {}).stat_data, newData.stat_data);
     if (diagCmpKey(newData) === diagCmpKey(snapshot)) {
-        // 没有逐 op 对账依据（_.set 方言，diagOpOutcomes 回 null）→ 我们判断不了是「模型说无需改动」还是
-        // 「指令空转」，就老实回旧的笼统 'nochange'，绝不假装分得清。
-        if (!report) return { status: 'nochange' };
-        return report.total === 0 ? { status: 'verified', report } : { status: 'ineffective', report };
+        // 没有逐 op 对账依据（diagOpOutcomes 回 null）→ 旧路一律回笼统的 'nochange'。1.67.0 收窄它：
+        // 对账件只认 <JSONPatch> 拼法，而 MVU 连 <json_patch> 拼法一起执行 —— 那种块上 report 恒为 null，
+        // 于是「补丁明明一条都没落地」也会被报成「本回合无需改动」= 又一次撒谎。预检认得两种拼法，
+        // 所以：**看得见 op** 就照实报 ineffective（正文走同一份 diagZeroChangeReport）；只有真的
+        // 判不出（_.set 方言 / 我们解析不动 = 'nodata'）或补丁本来就是空数组（'empty'）才退回旧的
+        // 'nochange' —— 那两档的行为与 1.67.0 之前【逐字一致】（diag-applyfix 的 _.set 方言腿钉着）。
+        if (!report) {
+            const bare = diagZeroChangeReport(patch.text, diagStatOf(snapshot), null, patch);
+            return (bare.code === 'nodata' || bare.code === 'empty')
+                ? { status: 'nochange', repair: patch }
+                : { status: 'ineffective', zero: bare, repair: patch };
+        }
+        // 1.67.0：零变化语境的逐条诊断在这里【一次算好】随结果带走（本函数拿得到补丁与状态，侧聊记录
+        // 那个纯函数拿不到）。zero.code === 'empty' 才是真·「模型说无需改动」——毒元素被剔光那档
+        // （total 0 但 dropped > 0）绝不能混进 verified。
+        // 基线同 diagOpOutcomes：snapshot（解析前深拷贝），理由见 applyFix 同处注释。
+        const zero = diagZeroChangeReport(patch.text, diagStatOf(snapshot), report, patch);
+        return (report.total === 0 && zero.code === 'empty')
+            ? { status: 'verified', report, repair: patch }
+            : { status: 'ineffective', report, zero, repair: patch };
     }
     // swipe 钉（审计簇 M1）：绝不把 A swipe 算的状态写进 B。
     if (diagPinMoved(swipePin, diagCaptureSwipe())) return { status: 'stale' };
@@ -12315,7 +12380,7 @@ async function autoApplyFix(Mvu, patchBlock, expectStatKey, expectChatKey) {
     // 撤销记录也不会挂错房。
     if (expectChatKey != null && fixChatKey() !== expectChatKey) return { status: 'stale', reason: 'chatSwitched' };
     await Mvu.replaceMvuData(newData, opts);
-    return { status: 'applied', snapshot, applied: JSON.parse(JSON.stringify(newData)), report };
+    return { status: 'applied', snapshot, applied: JSON.parse(JSON.stringify(newData)), report, repair: patch };
 }
 
 // 重渲染该 AI 消息，让前端状态栏反映这次自动诊断的写入。auto 诊断经 Mvu.replaceMvuData 写库，而它【不发】
@@ -14387,7 +14452,13 @@ function diagParseFailReason(finalText) {
             ? { code: 'unclosed', detail: '检测到 <' + wrapper + '> 区块，但缺少 ' + missing.join('、') + ' 闭合标签（换模型后常见）' }
             : { code: 'noblock', detail: '检测到 <' + wrapper + '> 标签，但没能按已知格式摘出完整区块' };
     }
-    if (detectBareMvuOps(s)) return { code: 'nonstd', detail: '检测到 <json_patch>/_.set 指令，但没有标准包装标签' };
+    // 1.69.0：拼法对齐 —— MVU 的块正则写的是 `json_?patch`（下划线【可有可无】），而
+    // detectBareMvuOps 的探针写死了下划线（它另有消费者，有意不动它，见其头注）。于是模型甩一段
+    // 无包装的 <JSONPatch> 时，归因会掉到最后那句「模型没按格式输出更新区块」= 不实：它输出了，
+    // 只是没套包装标签。这里补一道同族探针，只影响【归因文案】，不改任何闸门判定。
+    if (detectBareMvuOps(s) || /<json_?patch\b/i.test(s)) {
+        return { code: 'nonstd', detail: '检测到 <json_patch>/<JSONPatch>/_.set 指令，但没有标准包装标签' };
+    }
     return { code: 'noblock', detail: '模型没按格式输出更新区块' };
 }
 
@@ -14504,6 +14575,656 @@ function normalizeDiagPatchPaths(patchBlock, stat) {
     const at = text.indexOf(m[1], m.index);
     out.text = text.slice(0, at) + '\n' + JSON.stringify(next, null, 2) + '\n' + text.slice(at + m[1].length);
     return out;
+}
+
+/* ── 🩺 1.67.0：MVU「受理」预检 + 确定性修复流水线 ────────────────────────────────
+ * 全部纯函数、零副作用、绝不抛。依据是 MagVarUpdate@beta 与 mvu_zod 的【真源码】（2026-08-24 逐条核过），
+ * 不是设计稿推测 —— 改这一族之前请先回去核源码，别按印象改：
+ *   ① 块正则 /<(json_?patch)>(?:\s*```.*)?…(?:```\s*)?<\/\1>/gim：大小写不敏感（<JSONPatch> 恒命中）、
+ *      允许紧贴标签的 ``` 围栏，但标签里【一个空白都不容】——「<JSONPatch >」对 MVU 完全隐形，而我们
+ *      自家的摘块正则写的是 \s*，恒容忍 → 我们看得见、MVU 看不见，这是最难自查的一档。
+ *   ② 内文经 parseString（YAML → JSON5 → jsonrepair 三连）解析，【宽容】；失败被 catch 吞掉 = 空命令表。
+ *      所以我们的 JSON.parse 挂了【不等于】MVU 也挂 —— 那一档只敢报「判不出」，绝不敢报「一定失败」。
+ *   ③ isJsonPatch 是 every：数组 + 每个元素都是 plain object + op 是字符串 + path 是字符串（move 可只有
+ *      to）。一颗坏元素 → 整块指令一起被丢，好 op 全部陪葬。这就是「剔除毒元素」那一类修复存在的理由。
+ *   ④ 动词表只有 replace/delta/insert/add/remove/move；认不出的动词在 switch 里没有分支 = 逐条静默丢弃。
+ *   ⑤ set（replace）先 _.has，路径不存在 → outError + continue，【绝不新建】；旧值是 VWD 对 [值,"说明"]
+ *      时只写第一格（旧值是数字还会 Number(新值)）—— 把整对递回去 = Number([...]) = NaN。
+ *   ⑥ add（delta）同样先 _.has；增量非数字 → outError + continue。
+ *   ⑦ insert/add 在 extractJsonPatch 里被拆成（容器路径, 末段键, 值）三参 —— 判定落点是【父容器】；
+ *      容器不是集合（含 undefined）→ 报 assignPrimitive 跳过。1.66.1 的 probe 用的就是同一条口径。
+ *   ⑧ jsonPatchPathToCommandPath 只剥开头那【一个】'/'，其余按 '/' 切、逐段解 ~1/~0，【不丢空段】：
+ *      末尾多一个斜杠 = 多一个空键名，_.has 恒假（我们自家的解析 filter(Boolean) 会容忍它 → 分歧之二）。
+ *   ⑨ 很多卡在 MVU 之上还挂 mvu_zod（StageDog/tavern_resource dist/util/mvu_zod.js）：路径里只要有一段
+ *      以 '_' 开头就 return null【静默】不执行；整批结果 safeParse 不过也是【静默】丢弃（只有 console
+ *      错误）。那份 schema 我们看不见，所以这两条只出【提示】，绝不写成「一定失败」。
+ */
+
+// 纯函数：按 MVU 的路径语义把 JSONPatch 路径切成段。strict=true 忠实 MVU（不丢空段，见 ⑧）；
+// strict=false 沿用本仓既有的宽容口径（filter(Boolean)，同 diagOpOutcomes 的 resolve），供「剥掉多余
+// 斜杠之后查得到吗」这类证据闸使用。空串 = 根路径（MVU 的 set 允许 path === ''）。可单测。
+function diagPathSegs(path, strict) {
+    const raw = String(path == null ? '' : path);
+    if (raw === '') return [];
+    const segs = (raw.startsWith('/') ? raw.slice(1) : raw).split('/')
+        .map((s) => s.replace(/~1/g, '/').replace(/~0/g, '~'));
+    return strict ? segs : segs.filter(Boolean);
+}
+
+// 纯函数：own-property 逐段走（口径同 diagOpOutcomes 的 resolve —— 数组下标同样按 own-property 命中）。
+function diagWalkSegs(stat, segs) {
+    let node = stat;
+    for (const seg of segs) {
+        if (node && typeof node === 'object' && Object.prototype.hasOwnProperty.call(node, seg)) node = node[seg];
+        else return { ok: false };
+    }
+    return { ok: true, value: node };
+}
+
+// 纯函数：一条路径在当前状态里查不查得到。可单测。
+function diagResolvePath(stat, path, strict) {
+    return diagWalkSegs(stat, diagPathSegs(path, strict));
+}
+
+// 纯函数：这个元素过不过得了 MVU 的 isJsonPatch 形状闸（③）。过不了的那一颗会拖着整块陪葬。可单测。
+function diagOpShapeOk(o) {
+    return Object.prototype.toString.call(o) === '[object Object]'
+        && typeof o.op === 'string'
+        && (typeof o.path === 'string' || (o.op === 'move' && typeof o.to === 'string'));
+}
+
+// 纯函数：MVU 那条【严格】块正则现在看不看得见一块 json_patch —— 逐字照抄它的写法（标签里一个空白都
+// 不容、允许紧贴标签的 ``` 围栏、内部不得再出现开标签）。这是「标签空白」那一类修复与预检的【唯一】
+// 证据来源：看得见就说明这块 MVU 本来就吃得到，一个字节都不许动。可单测。
+function mvuSeesPatchBlock(text) {
+    return /<(json_?patch)>(?:\s*```.*)?((?:(?!<json_?patch>)[\s\S])*?)(?:```\s*)?<\/\1>/i
+        .test(String(text == null ? '' : text));
+}
+
+// 纯函数：把这块补丁【自己的】<json_patch> 开 / 闭标签里的多余空白抹掉（①）。回 { text, fixed }，
+// 形状与姊妹件 normalizeDiagPatchPaths 一致；一处没动 → text 逐字节原样返回。
+// ⚠ 有意【不】做全局替换：补丁的 value 里完全可能原样带着「<json_patch >」这几个字（比如把模型的
+//   输出记进某个日志字段），全局替换会去改用户真正要写进状态的【正文】——「没有证据就不改写模型
+//   原文」是本族的红线。所以只动我们摘到的那一块的两个定界标签，块内文字一个字节都不碰。
+// 别的标签（<Analysis > 之类）的空格与 MVU 无关，同样不碰。大小写原样保留：开 / 闭两侧各自捕获、
+// 不用反向引用，于是闭标签写成别的大小写时也保留它自己的写法（MVU 的块正则是 /i，本就不在乎）。可单测。
+function normalizeDiagPatchTags(text) {
+    const s = String(text == null ? '' : text);
+    // 证据闸（codex 复核 FINDING）：MVU 现在【已经】看得见一块 → 这里没有任何毛病可修，一个字节都不动。
+    // 少了这道闸，`value` 里原样带着一个 `</JSONPatch >` 的补丁会被咬伤：我们的懒惰匹配会停在【值里】
+    // 那个闭标签上、把它的空格抹掉，于是它变成一个【真的】闭标签 —— MVU 的块就此被从中间截断，一条
+    // 本来跑得好好的补丁被我们改废。修坏比不修坏得多。
+    if (mvuSeesPatchBlock(s)) return { text: s, fixed: 0 };
+    const m = /<(json_?patch)(\s*)>([\s\S]*?)<\/(json_?patch)(\s*)>/i.exec(s);
+    if (!m || (!m[2] && !m[5])) return { text: s, fixed: 0 };
+    const rebuilt = '<' + m[1] + '>' + m[3] + '</' + m[4] + '>';
+    return {
+        text: s.slice(0, m.index) + rebuilt + s.slice(m.index + m[0].length),
+        fixed: (m[2] ? 1 : 0) + (m[5] ? 1 : 0),
+    };
+}
+
+/* ── 🩺 1.68.0：弱模型错误电池（768 判分格，2026-08-25）蒸馏出的三类新修复 ────────────────
+ * 全部纯函数、零副作用、绝不抛，证据闸与 1.67.0 那七类同一条红线：拿不到证据宁可不改，
+ * 一处没动就【逐字节】原样返回。语料频次见 tests/unit/_diag-battery/FINDINGS-2026-08-25.md。
+ */
+
+// 纯函数：MVU 真会执行的【每一块】的整块原文（含定界标签）。逐字照抄它那条【严格】块正则
+// （标签里不容空白、允许紧贴围栏），/gim 全局切。MVU 的 extractCommands 用的正是 /gim ——
+// 它把【所有】块都执行，而我们的预检 / 修复只看第一块。
+// 1.69.0 起闸门要【逐块】判「这一块到底写成了没有」（第二块可以把整条回复救回甲），故切出块
+// 本身而不只是计数；diagCountPatchBlocks 从此是它的一行包装，两处口径构造性同源。可单测。
+function diagMvuPatchBlocks(text) {
+    const s = String(text == null ? '' : text);
+    if (!s) return [];
+    return s.match(/<(json_?patch)>(?:\s*```.*)?((?:(?!<json_?patch>)[\s\S])*?)(?:```\s*)?<\/\1>/gim) || [];
+}
+
+// 纯函数：MVU 真会执行几块？双区块因此既有「重复执行」的风险，又撞卡片显示正则的状态栏吞噬
+// 地雷（CLAUDE.md 地雷条）—— 这是双区块拒绝闸的唯一判据。可单测。
+function diagCountPatchBlocks(text) {
+    return diagMvuPatchBlocks(text).length;
+}
+
+// 纯函数：从这段文本里切出【第一个结构完整】的 JSON 数组跨度（字符串感知的括号配对 —— 值里的
+// 方括号 / 花括号骗不动它）。配不平 → null。给下面两类定界符修补当证据闸。可单测。
+function diagJsonArraySpan(text) {
+    const s = String(text == null ? '' : text);
+    const start = s.indexOf('[');
+    if (start < 0) return null;
+    let depth = 0, inStr = false, esc = false;
+    for (let i = start; i < s.length; i++) {
+        const c = s[i];
+        if (inStr) {
+            if (esc) esc = false;
+            else if (c === '\\') esc = true;
+            else if (c === '"') inStr = false;
+            continue;
+        }
+        if (c === '"') { inStr = true; continue; }
+        if (c === '[' || c === '{') depth++;
+        else if (c === ']' || c === '}') {
+            depth--;
+            if (depth === 0) return { start, end: i + 1 };
+            if (depth < 0) return null;
+        }
+    }
+    return null;
+}
+
+// 纯函数（修复类⑨）：补丁数组写完了、`</UpdateVariable>` 也在，就是【漏了 </JSONPatch>】——
+// 于是 MVU 与我们的提取器全瞎，整条回复被判「没有区块」。语料 5/768，四例是 gemini 家族；
+// 与 2026-08-15 异录战役钉死的 opus-4.8 漏闭合是同一物种（不是那只模型的怪癖，是弱模型通病）。
+// 证据闸（四条【全中】才补，宁可不补也绝不误补）：
+//   ① mvuSeesPatchBlock 现在【看不见任何块】—— 看得见就说明 MVU 本来就吃得到，一个字节都不许动。
+//      这条闸顺带挡住 normalizeDiagPatchTags 头注里那口最险的咬：value 里原样带着一个 `</JSONPatch>`
+//      时 MVU 的块正则会把它当真闭标签 → 它【看得见】一块 → 本类天生不动手。
+//   ② 开标签在，且【本来就干净】（<json_patch> / <JSONPatch>，标签里没有空白）。带空白的那档是
+//      类① 的活；开标签空白 + 缺闭合的双故障【有意】不修（两处都靠猜，风险不成比例）。
+//   ③ 从开标签起、到 </UpdateVariable>（没有就到结尾）为止，切得出一个结构完整、能 JSON.parse 的数组；
+//   ④ 数组里【每一个】元素都过得了 MVU 的 isJsonPatch 形状闸 —— 过不了的话补上闭合标签也是整块陪葬。
+// 闭合标签的拼法【跟着开标签走】（用户写 <json_patch> 就补 </json_patch>）；数组之后若只剩一个紧贴
+// 的 ``` 围栏，闭合标签排在围栏之后（MVU 的块正则明文允许围栏，排前面会把围栏甩出块外）。
+// 回 { text, fixed }，形状与姊妹件 normalizeDiagPatchTags 一致。可单测。
+function repairDiagCloseTag(text) {
+    const s = String(text == null ? '' : text);
+    const out = { text: s, fixed: 0 };
+    if (!s || mvuSeesPatchBlock(s)) return out;                       // 闸①
+    const om = /<(json_?patch)>/i.exec(s);                            // 闸②（不容空白 = MVU 的口径）
+    if (!om) return out;
+    const after = om.index + om[0].length;
+    const tail = s.slice(after);
+    const endM = /<\/UpdateVariable\s*>/i.exec(tail);
+    const zone = endM ? tail.slice(0, endM.index) : tail;
+    const span = diagJsonArraySpan(zone);                             // 闸③
+    if (!span) return out;
+    let ops = null;
+    try { ops = JSON.parse(zone.slice(span.start, span.end)); } catch (e) { return out; }
+    if (!Array.isArray(ops) || !ops.every((o) => diagOpShapeOk(o))) return out;   // 闸④
+    let at = span.end;
+    const fence = /^\s*```\s*/.exec(zone.slice(at));
+    if (fence) at += fence[0].length;
+    out.text = s.slice(0, after + at) + '</' + om[1] + '>' + s.slice(after + at);
+    out.fixed = 1;
+    return out;
+}
+
+// 纯函数（修复类⑩）：块在、闭合标签也在，坏的是【JSON 容器本身】。语料两种形态（2/768，均 preview 臂）：
+//   (a) 几条 op 逗号排开，忘了包 `[ ]`；(b) 开了 `[`、一条完整 op 之后忘了写 `]`。
+// 旧路：JSON.parse 死 → 预检走 parse-uncertain（有意不 fatal）→ 零变化报告回 nodata → 侧聊写
+// 「本回合无需改动」，而那几条【正确】的指令被静默扔掉。这是 1.67.0 诚实回归里最后一个撒谎的洞。
+// 证据闸：补【之前】我们解析不动（got.ops === null），补【之后】解析得到一个【非空】的、每个元素都
+// 过形状闸的数组。两种候选各试一次，互斥（包一层对 (b) 无效、补一个 ] 对 (a) 无效），谁成谁算。
+// ⚠ 空数组【有意】不算成功：把 `[` 补成 `[]` 会伪造出一份「模型认为无需改动」——那是新的谎。
+// ⚠ MVU 自己的 parseString 是【宽容】的（YAML → JSON5 → jsonrepair 三连），我们解析不动不代表它也
+//   解析不动；但把定界符补齐【只会】让两边都更容易读懂，不会把它本来读得懂的东西改坏。
+// 回 { text, fixed }。可单测。
+function repairDiagJsonWrap(text) {
+    const s = String(text == null ? '' : text);
+    const out = { text: s, fixed: 0 };
+    const got = diagPatchOpsOf(s);
+    if (!got || got.ops !== null) return out;
+    const body = String(got.inner).replace(/^\s*```[^\n]*\n?/, '').replace(/```\s*$/, '').trim();
+    if (!body) return out;
+    for (const cand of ['[' + body + ']', body + ']']) {
+        let ops = null;
+        try { ops = JSON.parse(cand); } catch (e) { continue; }
+        if (!Array.isArray(ops) || !ops.length || !ops.every((o) => diagOpShapeOk(o))) continue;
+        const at = s.indexOf(got.inner, got.m.index);
+        if (at < 0) return out;
+        out.text = s.slice(0, at) + '\n' + JSON.stringify(ops, null, 2) + '\n' + s.slice(at + got.inner.length);
+        out.fixed = 1;
+        return out;
+    }
+    return out;
+}
+
+// 纯函数（修复类⑧）：把一条 move 拆成 insert(目标, 源值) + remove(源)。
+// 依据：MagVarUpdate@beta 的 extractJsonPatch 会把 move 翻译成 type:'move' 命令，可执行 switch
+// （update_variables.ts 760–1324）里【没有 case 'move'】—— 静默丢弃。1.67.0 的预检给它判 'ok' 是
+// 假绿灯：37/768 格中招，且那 37 次 residual 文案（「问题在环境」）100% 是它，两条「常见原因」全不沾边。
+// 对照组自己给出了修法：模型自发写成 remove+insert 两步的格【全部落地且意图达成】。
+// 证据闸（全中才拆）：源路径解析得到（strict 切段、own-property 逐段走）+ 目标的【父容器】在且是集合。
+// 另外三道保守闸：源与目标同路径、互为祖先、根路径 —— 拆了会把源头连带删掉，宁可不修。
+// 值是【代码侧】从状态里深拷贝的，不经模型：VWD 的 [值,"说明"] 对整对搬走，说明槽不会掉。
+// insert 排在 remove 【之前】是刻意的：中途失败只会留下一份多余的拷贝，绝不会把数据弄丢。
+// 回 [insertOp, removeOp]；任一闸不过 → null（调用方原样保留那条 move）。可单测。
+function diagDecomposeMove(op, dest, stat) {
+    if (!op || op.op !== 'move' || typeof op.from !== 'string' || typeof dest !== 'string') return null;
+    if (!stat || typeof stat !== 'object') return null;
+    const fromSegs = diagPathSegs(op.from, true);
+    const destSegs = diagPathSegs(dest, true);
+    if (!fromSegs.length || !destSegs.length) return null;
+    if (JSON.stringify(fromSegs) === JSON.stringify(destSegs)) return null;
+    const ancestor = (a, b) => a.length < b.length && a.every((s, i) => s === b[i]);
+    if (ancestor(fromSegs, destSegs) || ancestor(destSegs, fromSegs)) return null;
+    const src = diagWalkSegs(stat, fromSegs);
+    if (!src.ok) return null;
+    const parent = diagWalkSegs(stat, destSegs.slice(0, -1));
+    if (!parent.ok || !parent.value || typeof parent.value !== 'object') return null;
+    let value;
+    try { value = JSON.parse(JSON.stringify(src.value)); } catch (e) { return null; }
+    if (value === undefined) return null;
+    return [{ op: 'insert', path: dest, value }, { op: 'remove', path: op.from }];
+}
+
+// 内部：摘出 <JSONPatch> 里的 JSON 数组。摘块正则脱胎于 diagOpOutcomes / normalizeDiagPatchPaths，
+// 另兼容 <json_patch> 拼法与紧贴标签的 ``` 围栏（MVU 的块正则明文允许两者，见 ①）。
+// ⚠ 已知的口径不对称（有意，1.67.0 不扩）：1.64.0 的 diagOpOutcomes 只认 <JSONPatch> 这一种拼法，
+//   本族认两种（MVU 自己两种都执行）。后果只有一个方向：碰上 <json_patch> 拼法的块，本族照修
+//   （对用户是净收益），而逐 op 对账仍回 null → 走「没有对账依据」那条老路，与 1.67.0 之前逐字一致。
+//   要拉齐就得连 diagOpOutcomes 一起改，那是另一批的事。（开错根那一道闸已经拉齐了 —— repairDiagPatch
+//   把 ops 包进合成外壳再喂 normalizeDiagPatchPaths，见那里的注释。）
+// 回 null = 根本没有这种块（_.set 方言）；ops === null = 我们解析不动（MVU 未必也解析不动，见 ②）。
+function diagPatchOpsOf(text) {
+    const s = String(text == null ? '' : text);
+    // 先按 MVU 的【严格】块正则切一刀，切不到再退回宽容版。次序承重（codex 复核 FINDING）：宽容版的
+    // `<\/\1\s*>` 会被【值里】一个 `</JSONPatch >` 骗停 —— 而 MVU 根本不认那个带空格的东西、照常读到
+    // 整块。先严格后宽容 = 只要 MVU 读得到，我们就跟它读到同一段；MVU 也读不到时才轮到宽容版去救场。
+    const m = /<(json_?patch)>(?:\s*```.*)?((?:(?!<json_?patch>)[\s\S])*?)(?:```\s*)?<\/\1>/i.exec(s)
+        || /<(json_?patch)\s*>([\s\S]*?)<\/\1\s*>/i.exec(s);
+    if (!m) return null;
+    const body = m[2].replace(/^\s*```[^\n]*\n?/, '').replace(/```\s*$/, '').trim();
+    try { return { m, inner: m[2], ops: JSON.parse(body) }; }
+    catch (e) { return { m, inner: m[2], ops: null }; }
+}
+
+// 纯函数：值的类型对不对得上（⑨ 的启发式提示，不是判决）。任一侧 null/undefined → 不表态（MVU 明文
+// 允许把数值字段设成 null）。数字 ↔ 【整串都是数字】的字符串不算不符：MVU 自己会强转。可单测。
+function diagTypeMismatch(cur, val) {
+    if (cur == null || val == null) return false;
+    const kind = (v) => (Array.isArray(v) ? 'array' : typeof v);
+    const a = kind(cur), b = kind(val);
+    if (a === b) return false;
+    const numish = (v) => (typeof v === 'number' ? true
+        : (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v.trim()))));
+    if (numish(cur) && numish(val)) return false;
+    return true;
+}
+
+// 纯函数：单条 op 的受理判定。verdict 取值（按判定顺序）：
+//   poison / unknown-verb / bad-path / missing-path / bad-container / bad-delta / vwd-shape
+//   / noop-equal / schema-blocked / type-mismatch / creates / ok
+// 拿不到状态 = 没有证据 → 一律停在 'ok'，绝不冤枉补丁。
+function diagPreflightOp(op, stat) {
+    const path = (typeof op.path === 'string') ? op.path : (typeof op.to === 'string' ? op.to : '');
+    const r = { index: 0, op: op.op, path, verdict: 'ok' };
+    if (['replace', 'delta', 'insert', 'add', 'remove', 'move'].indexOf(op.op) < 0) { r.verdict = 'unknown-verb'; return r; }
+    const segs = diagPathSegs(path, true);
+    const fromSegs = (op.op === 'move') ? diagPathSegs(op.from, true) : [];
+    const hasStat = !!(stat && typeof stat === 'object');
+    // 空段（多写的斜杠）→ MVU 的 _.has 会去找一个【空键名】，恒假。但「恒假」有一个真实的例外：
+    // 这张卡的变量里真有一个空串键。所以这一档也走证据闸 —— 查得到就不是这个毛病，照常往下判。
+    const empty = (a) => a.some((s) => s === '') && !(hasStat && diagWalkSegs(stat, a).ok);
+    if (empty(segs) || empty(fromSegs)) { r.verdict = 'bad-path'; return r; }
+    const under = (a) => a.some((s) => String(s).indexOf('_') === 0);
+    // 1.68.0：move 的判定【与状态无关】—— 它是【动词】层的事实，所以必须排在「没有状态就不表态」
+    // 那道早退【之前】，否则读不到状态时又变回假绿灯。MVU 的执行 switch 里没有 case 'move'
+    // （update_variables.ts 760–1324 逐行核过）：翻译层认得它、执行层静默丢弃，一个字都写不进去。
+    // 1.67.0 在这里判 'ok'，于是 37/768 格的失败被 residual 文案甩锅给「酒馆助手版本 / mvu_zod」。
+    // 修复层通常会先把它拆成 insert+remove（diagDecomposeMove），拆不动才轮到这条判定说话。
+    if (op.op === 'move') { r.verdict = 'move-unsupported'; return r; }
+    if (!hasStat) return r;                                          // 没有状态 = 没有证据
+    if (op.op === 'insert' || op.op === 'add') {
+        // ⑦ 判定落点是【父容器】：末段本来就不该存在（数组追加更是 '-'）
+        const parent = diagWalkSegs(stat, segs.slice(0, -1));
+        if (!parent.ok || !parent.value || typeof parent.value !== 'object') { r.verdict = 'bad-container'; return r; }
+        if (under(segs)) { r.verdict = 'schema-blocked'; return r; }
+        const key = segs.length ? segs[segs.length - 1] : '';
+        r.verdict = Object.prototype.hasOwnProperty.call(parent.value, key) ? 'ok' : 'creates';
+        return r;
+    }
+    const cur = diagWalkSegs(stat, segs);
+    if (!cur.ok) { r.verdict = 'missing-path'; return r; }           // ⑤⑥ set / add 都先 _.has
+    if (op.op === 'remove') { if (under(segs)) r.verdict = 'schema-blocked'; return r; }
+    if (op.op === 'delta') {
+        if (typeof op.value !== 'number' || !Number.isFinite(op.value)) { r.verdict = 'bad-delta'; return r; }
+        if (under(segs)) r.verdict = 'schema-blocked';
+        return r;
+    }
+    // replace（= MVU 的 set）
+    const isVwd = mvuIsVwdPair(cur.value);
+    if (isVwd && mvuIsVwdPair(op.value)) { r.verdict = 'vwd-shape'; return r; }   // ⑤：整对递回去 = NaN
+    const curVal = isVwd ? cur.value[0] : cur.value;
+    try {
+        if (JSON.stringify(normalizeForVerify(curVal)) === JSON.stringify(normalizeForVerify(op.value))) {
+            r.verdict = 'noop-equal'; return r;
+        }
+    } catch (e) { /* 循环结构之类：不表态 */ }
+    if (under(segs)) { r.verdict = 'schema-blocked'; return r; }
+    if (diagTypeMismatch(curVal, op.value)) r.verdict = 'type-mismatch';
+    return r;
+}
+
+// 纯函数：模拟 MVU（+ mvu_zod）会不会受理这块补丁。回
+// { code, fatal, poison:[下标], total, ops:[{index,op,path,verdict}] }。
+// code：ok / no-block / tag-space / parse-uncertain / not-array / poison。
+// fatal = MVU 连一条指令都不会执行（整块被丢）。'parse-uncertain' 【有意】不 fatal（见 ②）。可单测。
+function diagPreflightPatch(patchBlock, stat) {
+    const text = String(patchBlock == null ? '' : patchBlock);
+    const out = { code: 'no-block', fatal: false, poison: [], total: 0, ops: [] };
+    const got = diagPatchOpsOf(text);
+    if (!got) return out;
+    // 标签空白判定恒走 normalizeDiagPatchTags（唯一那一份、块作用域）：拿全文 .test 会把补丁 value
+    // 里原样带着的「<json_patch >」几个字误判成致命 —— 与那个函数里同一条红线。
+    if (normalizeDiagPatchTags(text).fixed) { out.code = 'tag-space'; out.fatal = true; return out; }
+    if (got.ops === null) { out.code = 'parse-uncertain'; return out; }
+    if (!Array.isArray(got.ops)) { out.code = 'not-array'; out.fatal = true; return out; }
+    out.ops = got.ops.map((o, i) => {
+        if (!diagOpShapeOk(o)) {
+            out.poison.push(i);
+            return { index: i, op: (o && o.op) || null, path: (o && o.path) || '', verdict: 'poison' };
+        }
+        const v = diagPreflightOp(o, stat);
+        v.index = i;
+        return v;
+    });
+    out.total = out.ops.length;
+    if (out.poison.length) { out.code = 'poison'; out.fatal = true; return out; }
+    out.code = 'ok';
+    return out;
+}
+
+/* ── 🩺 1.69.0 D6：自动诊断 甲/乙 闸门【重新配钥】 ──────────────────────────────────────
+ * 病灶（2026-08-15 异录战役 + 2026-08-25 弱模型电池 768 格，两份独立证据）：叙述模型每回合吐
+ * 一个【死区块】（漏 </JSONPatch> / 标签带空白 / 一颗毒元素 / 全 move / 全部开错根）→ MVU 一条
+ * 指令都没执行、卡片状态就此冻住。而旧闸门问的是「这段文字里有没有【包装标签的痕迹】」——
+ * 见痕迹就判【甲·核验】，附则还明明白白告诉诊断模型「它【已经生效】了」。诊断模型于是每回合
+ * 回 []，永远修不好那个由叙述者亲手造成的冻结。
+ * 另有一个【当时正在发生】的双计数洞：无包装的 <JSONPatch>（无下划线）拼法 —— MVU 的块正则写的
+ * 是 json_?patch（下划线可有可无）、照常执行，而 detectBareMvuOps 的探针写死了下划线 → 探不到
+ * → 旧闸判【乙·推导】→ 同一笔算两遍（1.40.2 那只 bug 的同族入口）。
+ * 修法：闸门语义从「有没有痕迹」改成【MVU 这一回合到底执行了没有】，收进下面这一枚纯函数，
+ * runAutoDiagnose 只读它 —— 全仓唯一判据。谓词形状 = 研究台架 _gate-matrix.mjs 的 P4（19 形状
+ * 矩阵里唯一既不掀翻任何保护钉、又能救回全部事故形状的那一个）。
+ */
+
+// 纯函数：这条 op 的判定是不是【单调安全】的「没写成」证据 —— 即拿【块跑完之后】的状态回头看，
+// 这个判定也足以反推出「当时必然一个字都没写进去」。诊断时刻能拿到的只有后态（前态可得性实测
+// 只有 29%，见台架探针 E4），所以这一条就是敢不敢降级的全部依据。
+// 【有意排除，两条红线】
+//   · noop-equal —— 那正是【已生效】的签名：一条健康的 replace 落地之后，回头看当前值当然已经
+//     等于目标值。按它降级 = 每一个健康回合都被判成「没执行」→ 全量重推 = 1.40.2 那只双计数
+//     bug 按回合规模复发。本族最重要的一行，改它之前先去看 diag-gate-rekey.test.mjs 的 P02。
+//   · remove 的 missing-path —— 一条【删成功了】的 remove，事后看起来与「这条路径本来就不存在」
+//     一模一样，单调性不成立。replace / delta 不建键（MVU 的 set 语义碰到不存在的路径直接跳过），
+//     那两个动词上它才是真证据。可单测。
+function diagGateOpInert(v) {
+    if (!v) return false;
+    if (v.verdict === 'move-unsupported') return true;                  // 翻译层认、执行 switch 里没有 case
+    if (v.verdict === 'unknown-verb' || v.verdict === 'bad-path' || v.verdict === 'bad-delta') return true;
+    if (v.verdict === 'bad-container') return true;                     // 真 MVU 会就地建容器 → 后态还缺 = 当时没跑成
+    if (v.verdict === 'missing-path' && (v.op === 'replace' || v.op === 'delta')) return true;
+    return false;
+}
+
+// 纯函数：【单独一块】MVU 看得见的补丁，算不算「执行了点什么」。算 → 回一个短原因码；
+// 不算（= 可证零写入）→ 回 null。可单测。
+//   · parse-uncertain 【有意】算作执行：我们的 JSON.parse 未必比 MVU 的解析器严格，没有证据说
+//     它没跑成 —— 而误判成「没执行」的代价是把一个已生效的回合重推一遍。永久已知接受项。
+//   · total === 0（空数组 []）算作执行：那是叙述者【显式声明】「本回合无变化」，不是「一条都没
+//     写成」。少了这道闸，每一个健康的无变化回合都会被重新推导一遍（台架 P3a 就是栽在这里）。
+function diagGateBlockReason(blockText, stat) {
+    const pf = diagPreflightPatch(blockText, stat);
+    if (pf.code === 'parse-uncertain') return 'parse-uncertain';
+    if (pf.fatal || pf.code !== 'ok') return null;                      // tag-space / not-array / poison / no-block
+    if (!pf.total) return 'empty-patch';
+    return pf.ops.every(diagGateOpInert) ? null : 'ops-effective';
+}
+
+// 纯函数：MVU 这一回合到底执行了没有？—— 自动诊断三分支的【唯一】判据。
+// 回 { executed, reason, deadBlock }：
+//   executed=true                    → 甲·核验（状态里已经含这回合的变化，绝不重推）
+//   executed=false · deadBlock=false → 乙·推导（正文里根本没有更新，我们代 MVU 推一遍）
+//   executed=false · deadBlock=true  → 丙·带死区块推导（1.69.0 新增：块在、但一条都没执行）
+// 判定顺序（承重）：
+//   ① 裸指令（行首 _.set( / 带下划线的 <json_patch>）—— MVU 按【文本位置】执行，已生效；
+//   ② MVU 一块都看不见 —— 有包装标签 / patch 开标签的【痕迹】= 块坏了（丙），什么痕迹都没有 = 乙；
+//   ③ 看得见 → 【逐块】判，任意一块算执行就整条判甲（MVU 的 /gim 把所有块都跑，第二块救得回第一块）；
+//   ④ 每一块都可证零写入 → 丙。
+// 抛错时朝【甲】倒：推导是破坏性分支（写库 + 写回正文），没有证据就绝不启动它。可单测。
+function diagGateProbe(latestReply, stat) {
+    const s = String(latestReply == null ? '' : latestReply);
+    try {
+        if (detectBareMvuOps(s)) return { executed: true, reason: 'bare-ops', deadBlock: false };
+        const blocks = diagMvuPatchBlocks(s);
+        if (!blocks.length) {
+            // 痕迹探测比 MVU 宽得多，【有意】如此：宁可把一段其实无关的标签当成死块（代价 = 文案
+            // 说得更保守，仍照常推导），也不要把一个真死块说成「正文里没有区块」。
+            const trace = !!detectMvuBlockDialect(s) || /<json_?patch\b/i.test(s);
+            return { executed: false, reason: trace ? 'dead-block' : 'none', deadBlock: trace };
+        }
+        for (const b of blocks) {
+            const why = diagGateBlockReason(b, stat);
+            if (why) return { executed: true, reason: why, deadBlock: false };
+        }
+        return { executed: false, reason: 'block-inert', deadBlock: true };
+    } catch (e) {
+        return { executed: true, reason: 'probe-error', deadBlock: false };
+    }
+}
+
+// 纯函数：确定性修复流水线 —— 把模型常犯的几种写法掰成 MVU 真的会受理的样子。
+// 【流水线顺序】（顺序本身承重，别调）：
+//   ① 标签空白（与状态无关，纯文本层，必须最先——不然后面几步改完再回写，空白还在，整块照样隐形）
+//   ⑨ 补上缺失的 </JSONPatch>（1.68.0，文本层，紧跟 ①：后面每一步都要 diagPatchOpsOf 先【摘得到块】，
+//      而缺闭合标签时它连块都找不到。排在 ① 之后是因为 ① 已经把「标签带空白」那档变成 MVU 看得见的块，
+//      于是 ⑨ 的第一道闸 mvuSeesPatchBlock 天生把它让开，两类不会互相踩）
+//   ⑩ JSON 容器坏损（1.68.0，文本层，紧跟 ⑨：⑨ 把块补出来之后，才轮得到「块里的 JSON 缺定界符」）
+//   ② 开错根（证据闸【逐字节】复用 1.66.1 的 normalizeDiagPatchPaths，绝不另起炉灶；喂给它的是包了
+//      合成 <JSONPatch> 外壳的 ops 数组，好让 <json_patch> 拼法的块也享受同一道闸——详见下方注释）
+//   ③ 剔除形状不合规的元素（救活整块；后面几步就能在干净数组上跑）
+//   ④ 多余斜杠（路径层最后一道；②→④ 的次序让「开错根 + 末尾斜杠」双中那档也能一路掰通）
+//   ⑤ 动词同义词（必须在路径修完【之后】：它的证据闸是「这条路径查得到」）
+//   ⑥ delta 的数字串
+//   ⑦ VWD 整对折成第一格（必须在 ⑤【之后】：set→replace 掰完才轮得到它）
+//   ⑧ move → insert + remove（1.68.0，【每条 op 的最后一步】：它的证据闸是「这两条路径现在查得到吗」，
+//      所以必须等 ②④ 把路径掰完；它是唯一会把【一条】op 变成【两条】的一步）
+// 每一类都【证据闸】：拿不到证据宁可不改。一处没动 → text 逐字节原样返回。绝不抛。可单测。
+// 回 { text, fixed, tag, closetag, wrap, rooted, slash, verb, delta, vwd, move, dropped }。
+function repairDiagPatch(patchBlock, stat) {
+    const original = String(patchBlock == null ? '' : patchBlock);
+    const out = { text: original, fixed: 0, tag: 0, closetag: 0, wrap: 0, rooted: 0, slash: 0, verb: 0, delta: 0, vwd: 0, move: 0, dropped: 0 };
+    try {
+        const tagged = normalizeDiagPatchTags(out.text);                                  // ①
+        out.tag = tagged.fixed; out.text = tagged.text;
+        const closed = repairDiagCloseTag(out.text);                                      // ⑨
+        out.closetag = closed.fixed; out.text = closed.text;
+        const wrapped = repairDiagJsonWrap(out.text);                                     // ⑩
+        out.wrap = wrapped.fixed; out.text = wrapped.text;
+        const got = diagPatchOpsOf(out.text);
+        if (got && Array.isArray(got.ops)) {
+            // ② 开错根：口径只有 normalizeDiagPatchPaths 那一份（1.66.1，本批一个字节都不改它）。
+            // 它只认 <JSONPatch> 拼法，而 MVU 同样执行 <json_patch> 拼法的块 —— 所以这里把【ops 数组
+            // 本身】包进一个合成的 <JSONPatch> 外壳喂给它，再把掰过的数组取回来：证据闸仍是它那三条，
+            // 而用户的标签拼法一个字节都不动。（直接拿 out.text 喂它，underscore 拼法就永远享受不到这道闸。）
+            let ops = got.ops;
+            const shell = normalizeDiagPatchPaths('<JSONPatch>' + JSON.stringify(ops) + '</JSONPatch>', stat);
+            out.rooted = shell.fixed;
+            if (shell.fixed) {
+                try { ops = JSON.parse(/<JSONPatch\s*>([\s\S]*?)<\/JSONPatch\s*>/i.exec(shell.text)[1]); }
+                catch (e) { ops = got.ops; out.rooted = 0; }
+            }
+            const hasStat = !!(stat && typeof stat === 'object');
+            // 与 normalizeDiagPatchPaths 的 probe 同款：insert/add 按【父容器】判，其余按整条判。
+            // ⚠ 有意【不】先把「含空段」一律判死：这张卡真有一个空串键时，那条路径原样就查得到，
+            // 于是闸① 会挡住剥斜杠 —— 正是我们要的（剥了反而改坏）。insert/add 落在带尾斜杠的路径上
+            // 时按父容器判恒成立，同样会被闸① 挡住不修：把 /a/b/ 剥成 /a/b 会把「往 a.b 里插一个空键」
+            // 变成「往 a 里插 b」，那是另一条指令 —— 宁可不修，交给预检去说。
+            const probeOk = (verb, p) => {
+                const segs = diagPathSegs(p, true);
+                return diagWalkSegs(stat, (verb === 'insert' || verb === 'add') ? segs.slice(0, -1) : segs).ok;
+            };
+            const slashFix = (verb, p) => {
+                if (typeof p !== 'string' || !/\/\/|\/$/.test(p)) return null;             // 没有多余斜杠 → 不是这毛病
+                if (probeOk(verb, p)) return null;                                         // 原样就查得到 → 不动
+                const stripped = '/' + diagPathSegs(p, false).join('/');
+                return (stripped !== p && probeOk(verb, stripped)) ? stripped : null;       // 剥了才查得到，才算有证据
+            };
+            const next = [];
+            for (const op of ops) {
+                if (!diagOpShapeOk(op)) { out.dropped++; continue; }                        // ③
+                const copy = Object.assign({}, op);
+                if (hasStat) {
+                    for (const key of ['path', 'from', 'to']) {                             // ④
+                        const fixed = slashFix(copy.op, copy[key]);
+                        if (fixed != null) { copy[key] = fixed; out.slash++; }
+                    }
+                    // ⑤ 只掰成 replace，且必须「这条路径现在查得到」。查不到就【不掰】——尤其绝不掰成
+                    // insert：那是唯一会往用户存档里造垃圾父链的动词（1.66.1 头注）。
+                    if (typeof copy.op === 'string'
+                        && ['set', 'update', 'change', 'modify', '修改'].indexOf(copy.op.toLowerCase()) >= 0
+                        && probeOk('replace', copy.path)) { copy.op = 'replace'; out.verb++; }
+                }
+                if (copy.op === 'delta' && typeof copy.value === 'string') {                // ⑥
+                    const t = copy.value.trim();
+                    if (t !== '' && Number.isFinite(Number(t))) { copy.value = Number(t); out.delta++; }
+                }
+                if (hasStat && copy.op === 'replace' && mvuIsVwdPair(copy.value)) {         // ⑦
+                    const cur = diagResolvePath(stat, copy.path, true);
+                    // ⚠ 收窄闸（codex 复核 FINDING c）：现值的【第一格是字符串】时，这个形状是**有歧义**的
+                    // ——它可能是 VWD 的 [值,"说明"]，也可能就是一个正正经经的两串列表（["张三","李四"]）。
+                    // 折错了 = 把人家第二个元素直接抹掉。本仓对这份歧义早有定案：1.56.0 的「当作列表」开关
+                    // 就是因为 [串,串] 分不清、**拒绝替用户自动决定**（数值对才照常按 VWD 覆盖）。这里沿用
+                    // 同一条：只有第一格【不是字符串】（数值 / 布尔 = VWD 无歧义）才折；字符串那档交给预检
+                    // 出提示，绝不动手。
+                    if (cur.ok && mvuIsVwdPair(cur.value) && typeof cur.value[0] !== 'string') {
+                        copy.value = copy.value[0]; out.vwd++;
+                    }
+                }
+                // ⑧ move → insert + remove（1.68.0）。MVU 的执行 switch 里没有 case 'move'，翻译层
+                // 认得、执行层静默丢弃 —— 全语料 37/768 中招。目标路径按 MVU 翻译层同一条口径取
+                // （`op.path ?? op.to`）。证据闸 + 三道保守闸全在 diagDecomposeMove 里，那是唯一那一份。
+                if (hasStat && copy.op === 'move') {
+                    const two = diagDecomposeMove(copy, (typeof copy.path === 'string') ? copy.path
+                        : (typeof copy.to === 'string' ? copy.to : null), stat);
+                    if (two) { next.push(two[0], two[1]); out.move++; continue; }
+                }
+                next.push(copy);
+            }
+            if (out.rooted || out.dropped || out.slash || out.verb || out.delta || out.vwd || out.move) {
+                // got.inner 是从 out.text 上摘下来的，indexOf 必中；真没中就把这一轮的 op 级计数【全部
+                // 归零】—— 读数只准报【真写回去了】的修复，宁可少报也绝不虚报（标签那一类在文本层已落地，
+                // 不受影响）。
+                const at = out.text.indexOf(got.inner, got.m.index);
+                if (at >= 0) out.text = out.text.slice(0, at) + '\n' + JSON.stringify(next, null, 2) + '\n' + out.text.slice(at + got.inner.length);
+                else { out.rooted = 0; out.dropped = 0; out.slash = 0; out.verb = 0; out.delta = 0; out.vwd = 0; out.move = 0; }
+            }
+        }
+    } catch (e) {
+        console.warn('[Story Oracle] 诊断补丁修复流水线出错（按未修处理，绝不改写模型原文）：', e);
+        return { text: original, fixed: 0, tag: 0, closetag: 0, wrap: 0, rooted: 0, slash: 0, verb: 0, delta: 0, vwd: 0, move: 0, dropped: 0 };
+    }
+    out.fixed = out.tag + out.closetag + out.wrap + out.rooted + out.slash + out.verb + out.delta + out.vwd + out.move + out.dropped;
+    if (!out.fixed) out.text = original;    // 保险绳：一处没动就【逐字节】等于模型原文
+    return out;
+}
+
+// 纯函数：修复计数折成状态行里的一句短读数（没修 → 空串，不啰嗦）。【文案待 Prince 定】可单测。
+function repairDiagNote(rep) {
+    if (!rep || !rep.fixed) return '';
+    const parts = [];
+    const add = (n, label) => { if (n) parts.push(`${label} ${n} 条`); };
+    add(rep.tag, '标签写法');
+    add(rep.closetag, '补上缺失的闭合标签');
+    add(rep.wrap, '补齐 JSON 的方括号');
+    add(rep.rooted, '路径开错根');
+    add(rep.slash, '多余的斜杠');
+    add(rep.verb, '动词写法');
+    add(rep.delta, '增量不是数字');
+    add(rep.vwd, '值的形状');
+    add(rep.move, '改名/搬家拆成两步');
+    add(rep.dropped, '认不出的条目已剔除');
+    return `\n（已自动修正补丁里的 ${rep.fixed} 处写法问题：${parts.join('、')}。）`;
+}
+
+// 纯函数：零变化语境的【头条】。1.68.0 新增一档 —— 「指令列表根本没读懂」时说「补丁运行了」是
+// 一句假话（它压根没跑成）。其余语境逐字不变（1.67.0 的措辞两处共用，绝不许漂成两种说法）。
+// 【文案待 Prince 定】可单测。
+function diagZeroHeadline(code) {
+    return code === 'malformed'
+        ? '补丁格式不完整，没有执行'
+        : '补丁运行了，但没有任何值发生变化';
+}
+
+// 纯函数：一条回复里有两个（或更多）MVU 更新区块时的说法。Prince 定调：【检测 + 拒绝 + 请重掷】，
+// 绝不替用户合并、也绝不挑一块执行 —— MVU 会把它们逐个执行（同一笔可能算两次），而卡片的显示正则
+// 是贪婪 + dotall 的，两个区块会让状态栏被整段吞掉（CLAUDE.md 地雷条：1734 张卡实测 123/1734 幸存）。
+// 语料 2/768，其中一格两块的 op 完全不同 = 我们只摘第一块 → 另一半指令被静默丢掉。
+// 【文案待 Prince 定】可单测。
+function diagDoubleBlockNotice(n) {
+    return `这条回复有 ${n} 个更新区块，不安全（重复执行 + 状态栏消失），已跳过未写入。`
+        + '下一步：请重新诊断。';
+}
+
+// 纯函数：【零变化】语境专用的逐条诊断。与 diagReportLines 的区别是这里【有证据】——
+// diagCmpKey(新) === diagCmpKey(旧)，一个字都没写；所以每一条都必须说死「未生效」，再给分类原因
+// 与一个照做得了的下一步。「可能已生效」那句诚实只在【部分生效】语境成立，这里出现就是撒谎。
+// 回 { code, text }：
+//   classified  逐条都归得了类（含块级致命）
+//   residual    有 op 按 MVU 的规则本该写进去 → 问题在环境（酒馆助手版本 / mvu_zod 静默拒绝）
+//   all-dropped 毒元素剔完就没指令了（绝不冒充「无需改动」）
+//   empty       本来就没有 op（调用方去说「模型认为无需改动」）
+//   nodata      判不出（_.set 方言 / 解析不动）→ 退回 diagReportLines 的零变化版
+// 【文案待 Prince 定】可单测。
+function diagZeroChangeReport(patchText, stat, report, repair) {
+    const pre = diagPreflightPatch(patchText, stat);
+    const dropped = (repair && repair.dropped) | 0;
+    const blockLine = {
+        'poison': `补丁里有 ${pre.poison.length} 条格式不合规的条目 —— MVU 会把整块指令一起丢掉，所以一条都没执行。下一步：请再点一次「诊断」重新生成补丁。`,
+        'not-array': '补丁不是一个 JSON 数组 —— MVU 会把整块指令丢掉，所以一条都没执行。下一步：请再点一次「诊断」重新生成补丁。',
+        'tag-space': '<JSONPatch> 标签里多了空格 —— MVU 认不出这块，整块指令都没被执行。下一步：请再点一次「诊断」重新生成补丁。',
+    }[pre.code];
+    if (blockLine) return { code: 'classified', text: '\n' + blockLine };
+    // 'no-block' = _.set 方言等，我们【真的】判不出（1.64.0 定案，反向钉在案）→ 退回笼统那一版。
+    // 'parse-uncertain' 1.67.0 与它同挤一档 → 一路走到 applyFix 的 'nochange' → 「本回合无需改动」，
+    // 而那几条【正确】的指令被静默扔掉（1.68.0 电池语料 2/768，均落在 live 报障的同一型号上）。
+    // 修复层的类⑩已经能补齐两种常见的定界符坏损；补不了的那些说实话：读不懂 + 一个字都没写 + 下一步。
+    // ⚠ 措辞【不敢】说「MVU 一定也读不懂」：它的 parseString 是宽容三连（YAML → JSON5 → jsonrepair）。
+    //   但这一支【有证据】证明状态一个字都没变，所以「没有任何值被写进去」是站得住的。
+    if (pre.code === 'no-block') return { code: 'nodata', text: diagReportLines(report, 'zero') };
+    if (pre.code === 'parse-uncertain') {
+        return { code: 'malformed', text: '\n这份补丁的 JSON 缺了括号之类的东西，没能解析 —— 未写入任何值。'
+            + '下一步：请重新诊断。' };
+    }
+    if (!pre.ops.length) {
+        return dropped
+            ? { code: 'all-dropped', text: `\n补丁里的 ${dropped} 条指令格式都不合规，已全部剔除 —— 没有一条能执行的指令。下一步：请再点一次「诊断」重新生成补丁。` }
+            : { code: 'empty', text: '' };
+    }
+    const why = {
+        'unknown-verb': ['指令动词「%OP%」不是 MVU 认识的写法，这条被直接丢掉了', 'MVU 只认 replace / delta / insert / remove / move —— 请再点一次「诊断」重新生成'],
+        'missing-path': ['状态里没有这个路径（replace / remove 碰到不存在的路径只会跳过，不会新建）', '核对一下这个变量名是不是写错了；确实要【新增】的项得用 insert'],
+        'bad-container': ['要挂进去的上一层不存在，或那一层不是个集合', '先确认上一层的变量名写对了，再重新诊断一次'],
+        'bad-path': ['路径里有空的层级（多写了斜杠）', '请再点一次「诊断」重新生成补丁'],
+        'bad-delta': ['delta 的增量不是数字', '请再点一次「诊断」，或改用 replace 直接写最终值'],
+        // 措辞有意只描述【形状】、不断言它一定是「值＋说明」对：[串,串] 那种两格结构本身就有歧义
+        // （可能是 VWD，也可能就是个两项列表）—— 但不论哪种读法，把整对递回去的后果都一样。
+        'vwd-shape': ['这一项是两格结构，补丁却把整对写了回去 —— MVU 只会把整对塞进第一格（变成嵌套），它认的是【第一格那个值】', '把它改成只写第一格该有的那个值，或再点一次「诊断」重新生成'],
+        'noop-equal': ['本来就是这个值', '这一条不用管'],
+        'type-mismatch': ['写进去的值和现在的值【类型】对不上（卡片若开了 schema 校验，这类写入会被静默拒绝）', '看一眼状态栏里这一项本该是数字还是文字，再重新诊断一次'],
+        'schema-blocked': ['路径里有以下划线开头的层级 —— 卡片的 schema 校验层（mvu_zod）会静默拦掉这种改动', '这类内部字段请在🎛 变量编辑器里直接改'],
+        'poison': ['这一条的格式不合规', '请再点一次「诊断」重新生成补丁'],
+        // 1.68.0：move 的执行器在 MVU 里【根本不存在】（源码级事实，见 diagPreflightOp 那条注释）。
+        // 修复层通常已把它拆成 insert+remove；能走到这一行，说明连拆的证据都不够（源路径查不到之类）。
+        'move-unsupported': ['这条写的是「搬家」（move），酒馆助手的变量更新引擎不认这个动作，直接跳过了',
+            '重新诊断一次，让它拆成「新建 + 删除」两条'],
+    };
+    const bad = pre.ops.filter((o) => why[o.verdict]);
+    const lines = bad.slice(0, 5).map((o) =>
+        `「${o.path}」：未生效 —— ${why[o.verdict][0].replace('%OP%', String(o.op))}。下一步：${why[o.verdict][1]}。`);
+    const residual = pre.ops.length - bad.length;
+    if (residual) {
+        // Deliverable A ③：这些 op 按 MVU 自己的规则本该落地，却一个字都没写 —— 死胡同到此为止，
+        // 把两条真实可查的路指出来（环境 / schema），别再让用户对着「可能已生效」发呆。
+        lines.push('这些指令按 MVU 的规则本身是成立的（动词、路径、取值都对得上），可卡片侧一条也没执行。'
+            + '常见原因有两种：① 酒馆助手（MagVarUpdate 变量更新）版本偏旧或没正常工作；'
+            + '② 这张卡开了 schema 校验（mvu_zod），【类型不符】的写入会被静默拒绝 —— 而且是【整批一起】'
+            + '拒绝，所以哪怕只有一条的类型不对，同一批的其它改动也会跟着一起作废。'
+            + '下一步：先看看平时正常聊天时这张卡的变量会不会自己变 —— 不会变就去更新酒馆助手；'
+            + '会变就对着状态栏核一下这几项该是数字还是文字。');
+    }
+    return { code: residual ? 'residual' : 'classified', text: lines.length ? '\n' + lines.join('\n') : '' };
 }
 
 // 取「诊断前快照」与「诊断后现状」的差异 → 绝对值 ops。现取 MVU（autoApplyFix 刚 replaceMvuData 写过）。
@@ -14696,8 +15417,14 @@ async function selectSwipe(idx, swipeId) {
 //   nochange     旧的笼统「无需改动」：_.set 方言下我们【真的】分不清 verified / ineffective，那时老实
 //                回它；也留作旧调用方的别名，故其文案逐字不变。
 // stamp 由调用方传入（纯函数不读时钟，便于单测）。【文案待 Prince 定】可单测。
-function autoDiagNoteContent({ status, patch, stamp, detail, raw, report, notice }) {
+// zero / repair（1.67.0，两个可选槽）：zero = autoApplyFix 在【零变化】那一支算好的逐条诊断
+// （本函数是纯的、拿不到补丁与状态，只能由调用方带进来；缺席则退回 diagReportLines 的零变化版，
+// 那一版同样【不会】说「可能已生效」）。repair = 修复流水线的计数读数。两槽都缺席时正文
+// 与加这两个槽之前【逐字节】相同（老记录零漂移，diag-note-content.test.mjs 有字节钉）。
+//   doubleblock  回复里有两个（或更多）MVU 更新区块 → 一个字都没写，请重掷（1.68.0，Prince 定调）
+function autoDiagNoteContent({ status, patch, stamp, detail, raw, report, notice, zero, repair, blocks }) {
     const t = stamp ? ' · ' + stamp : '';
+    const fixNote = repairDiagNote(repair);
     if (status === 'applied') {
         const body = (patch && patch.trim()) ? `\n${patch.trim()}` : '';
         // notice（Task 7）= 写入落在用户自己那一楼时的落点提示，由调用方【在写入那一刻】算好传进来
@@ -14710,9 +15437,9 @@ function autoDiagNoteContent({ status, patch, stamp, detail, raw, report, notice
         // 没生效的指令。形状对齐 ineffective 那一支：头条说清 M/N，末尾附 diagReportLines 的逐条原因。
         // report 缺席（_.set 方言，无对账依据）或全生效 → 走下面那句，【逐字节】与本次改动之前相同。
         if (report && report.applied < report.total) {
-            return `🔧 自动诊断${t} —— 已修复本回合的 MVU 状态（${report.total} 条指令中 ${report.applied} 条生效，在下方点「撤销」可还原）。${n}${body}${diagReportLines(report)}`;
+            return `🔧 自动诊断${t} —— 已修复本回合的 MVU 状态（${report.total} 条指令中 ${report.applied} 条生效，在下方点「撤销」可还原）。${n}${body}${diagReportLines(report)}${fixNote}`;
         }
-        return `🔧 自动诊断${t} —— 已自动修复本回合的 MVU 状态（在下方点「撤销」可还原）。${n}${body}`;
+        return `🔧 自动诊断${t} —— 已自动修复本回合的 MVU 状态（在下方点「撤销」可还原）。${n}${body}${fixNote}`;
     }
     if (status === 'failed') {
         return `⚠️ 自动诊断${t} —— 跑完了，但这条更新没能解析 / 应用（已跳过，未改动状态）。`;
@@ -14721,8 +15448,17 @@ function autoDiagNoteContent({ status, patch, stamp, detail, raw, report, notice
         return `🩺 自动诊断${t} —— 模型核验通过（补丁为空），本回合无需改动。`;
     }
     if (status === 'ineffective') {
-        // diagReportLines 全生效 / 无对账依据时回空串，故这里直接拼、不留空行残渣。
-        return `⚠️ 自动诊断${t} —— 补丁运行了，但没有任何值发生变化（未写入）。${diagReportLines(report)}`;
+        // 1.67.0：这一支【有证据】—— 一个字都没写，所以逐条一律说死「未生效」+ 原因 + 下一步。
+        // zero 缺席时退回 diagReportLines 的【零变化版】（ctx='zero'），它同样不会说「可能已生效」——
+        // 那句诚实只属于部分生效语境。两条路都在全生效 / 无对账依据时回空串，故直接拼、不留空行残渣。
+        // 1.68.0：头条走 diagZeroHeadline（与手动路共用那一份）—— 「指令列表没读懂」那一档不能说
+        // 「补丁运行了」。zero 缺席时它回默认那句，与加这一步之前【逐字节】相同。
+        const z = (zero && zero.text) ? zero.text : diagReportLines(report, 'zero');
+        return `⚠️ 自动诊断${t} —— ${diagZeroHeadline(zero && zero.code)}（未写入）。${fixNote}${z}`;
+    }
+    if (status === 'doubleblock') {
+        // 1.68.0：模型在一条回复里甩了两个更新区块。绝不合并、绝不挑一块 —— 说清风险，请重掷。
+        return `⚠️ 自动诊断${t} —— ${diagDoubleBlockNotice(blocks || 2)}`;
     }
     if (status === 'unparsed') {
         // 只取开头 3 行【且】至多 400 字：记录是给人看的，不是日志。行数闸单独用是不够的（FIX 6）——
@@ -14873,7 +15609,13 @@ function notifyAutoDiagnose(result, patch, writeBack, opts) {
             // 'failed' 的那句逐字保留（旧行为），其余三种各自说人话；详细原因在诊断记录里。
             // stale 这一句只服务【留得下记录】的那几种（状态被改动过 / 换楼换 swipe）；切聊天走上面那支。
             const msg = {
-                ineffective: '补丁运行了，但没有任何值发生变化（未写入）——详情见诊断记录。',
+                // 1.67.0：补丁本身完全合规却零变化 = 问题在环境（酒馆助手版本 / mvu_zod 静默拒绝），
+                // 与「补丁自己写错了」是两件事 —— toast 是大多数用户唯一会看到的一面，得说到点上。
+                ineffective: (result && result.zero && result.zero.code === 'residual')
+                    ? '补丁本身没问题，但卡片侧的 MVU 一条也没执行（未写入）——详情见诊断记录。'
+                    : (diagZeroHeadline(result && result.zero && result.zero.code) + '（未写入）——详情见诊断记录。'),
+                // 1.68.0：双区块是【模型的输出形状】出问题，与「补丁没生效」是两件事，得各说各的。
+                doubleblock: '模型写了两个更新区块，为安全起见未写入——详情见诊断记录。',
                 unparsed: '没能读懂模型的回复，本轮没有诊断结论（未改动状态）——详情见诊断记录。',
                 stale: '本轮已跳过：写入前状态 / 聊天已经变了（未写入）——详情见诊断记录。',
             }[status] || '自动诊断跑完了，但这条更新没能解析 / 应用（已跳过）。';
@@ -14901,6 +15643,11 @@ function notifyAutoDiagnose(result, patch, writeBack, opts) {
             detail: result && (result.detail != null ? result.detail : result.reason),
             raw: result && result.raw,
             report: result && result.report,
+            // 1.67.0：零变化的逐条诊断 + 修复流水线读数由 autoApplyFix 一次算好带过来（本函数下游的
+            // autoDiagNoteContent 是纯的，拿不到补丁与状态）。两槽缺席时正文逐字节与加槽前相同。
+            zero: result && result.zero,
+            repair: result && result.repair,
+            blocks: result && result.blocks,   // 1.68.0：双区块那一支要报出「几块」
             // Task 7（审计簇 D）：落点提示【在这里现算】——记录是持久物、会在很久以后被重画，
             // 那时的最末楼早不是写入时那一楼了。只有真写进去的那一轮才算它。
             notice: status === 'applied' ? diagUserFloorNotice() : '',
@@ -15015,7 +15762,7 @@ function addNoteUndoControls(wrap, info) {
                     const n = diagUserFloorNotice();   // Task 7：落点提示，现算（见 diagUserFloorNotice 头注）
                     status.textContent = ((r.report && r.report.applied < r.report.total)
                         ? `已重新应用（${r.report.total} 条指令中 ${r.report.applied} 条生效）。` + diagReportLines(r.report)
-                        : '已重新应用。') + (n ? '\n' + n : '');
+                        : '已重新应用。') + repairDiagNote(r.repair) + (n ? '\n' + n : '');
                 }
             } catch (e) {
                 status.textContent = '重新应用失败：' + (e?.message || e);
@@ -21838,7 +22585,7 @@ function buildFixPrompt(ctx, s) {
 // 回复的正文当输入、据 MVU 规则【推导】出本回合应有的更新——即充当 MVU「额外模型解析」的替代品
 // （那也是每回合用另一个模型从回复里抽更新；二者择一，绝不并用——见首开警告）。latestReply 是这条
 // AI 回复的正文（仅在没有更新区块的推导情形用到）。手动诊断 auto 缺省为假，行为与原先完全一致。
-function buildDiagnosePromptFrom(ctx, s, { wiBlock, statStr, latestBlock, latestReply, auto, derive }) {
+function buildDiagnosePromptFrom(ctx, s, { wiBlock, statStr, latestBlock, latestReply, auto, derive, deadBlock }) {
     // 审计簇 J：数据段恒【逐字】，指令段照旧展开宏。
     // 原先整条拼好的 prompt 过一次 substituteParams —— 序列化状态里【字面写着】的 {{user}} 也被展开成
     // 真名：模型读到的是展开值，可它开出的补丁打在的却是字面数据（parseMessage 拿到的 stat_data 里就写着
@@ -21861,12 +22608,19 @@ function buildDiagnosePromptFrom(ctx, s, { wiBlock, statStr, latestBlock, latest
     // 【尚未】包含这条回复带来的变化…请充当变量更新引擎」这句在核验情形下也照样在提示词里，模型只能靠
     // 「哪个小节标题出现了」自行选边——高上下文下这是实打实的误选风险。现在它只会看到当下适用的那一段。
     if (auto) {
-        push(derive
+        push(deadBlock
+            // 丙（1.69.0 D6）：回复里【有】区块，但 MVU 一条都没执行（漏闭合标签 / 标签带空白 /
+            // 毒元素 / 全 move / 全开错根）。甲的「已经生效」在这里是【假的】，乙的「正文里没有
+            // 区块」也是【假的】—— 两条都会把模型引向错误动作，故单列第三段。
+            ? '【自动诊断模式 —— 重要】这是一次后台自动诊断，时机是一条新 AI 回复刚到。这条回复的正文里【带有】一个变量更新区块，但那个区块【没有生效】——它的格式坏了（缺闭合标签／写法引擎不认／指令本身落不了地），变量引擎这一回合一条指令都没有执行，当前状态【尚未】包含这条回复带来的变化。请你充当变量更新引擎——通读这段回复，依角色卡 MVU 规则与当前状态，重新推导出本回合【应当】发生的全部变量更新（好感度增减、物品获得 / 消耗、时间推进、地点 / 状态变化……），生成 <UpdateVariable> 补丁把状态更新到这条回复之后的正确值。\n'
+                + '正文里那段坏掉的区块可以当【线索】参考（它写了什么、想改哪些字段），但不要照抄它的路径与写法——以剧情里确凿发生的事、以及当前状态里真实存在的字段为准，绝不脑补没写的细节。\n'
+                + '遵循下方输出规则；确实没有任何变量需要变动时，输出空的 JSONPatch（[]）。'
+            : (derive
             ? '【自动诊断模式 —— 重要】这是一次后台自动诊断，时机是一条新 AI 回复刚到，而这条回复的正文里【没有】任何变量更新区块：说明本回合的变量更新【还没有】被写入，当前状态【尚未】包含这条回复带来的变化。请你充当变量更新引擎——通读这段回复，依角色卡 MVU 规则与当前状态，推导出本回合【应当】发生的全部变量更新（好感度增减、物品获得 / 消耗、时间推进、地点 / 状态变化……），生成 <UpdateVariable> 补丁把状态更新到这条回复之后的正确值。只依据回复里确凿发生的事，绝不脑补没写的细节。\n'
                 + '遵循下方输出规则；确实没有任何变量需要变动时，输出空的 JSONPatch（[]）。'
             : '【自动诊断模式 —— 重要】这是一次后台自动诊断。这条 AI 回复【自带】变量更新，且它【已经生效】——当前状态就是该更新应用之后的结果。你的任务只是【核验并最小化修正】它（仍以当前状态为事实依据）。\n'
                 + '【绝对不要】把这回合的变化重新推导、重新计算一遍：那些增减（花掉的钱、涨的好感度、推进的时间……）都已经算进当前状态了，再补一次就会把同一笔算两遍。只在当前状态里能指出【具体错值】时才出补丁。\n'
-                + '遵循下方输出规则；没有缺陷时输出空的 JSONPatch（[]）。');
+                + '遵循下方输出规则；没有缺陷时输出空的 JSONPatch（[]）。'));
     }
 
     // World info carries the card's MVU rules (blue/constant entries always fire).
@@ -21877,8 +22631,13 @@ function buildDiagnosePromptFrom(ctx, s, { wiBlock, statStr, latestBlock, latest
     pushRaw('=== 当前变量状态（stat_data）===\n' +
         (statStr || '（不可用 —— 未检测到 MVU 框架）'));
 
-    // 更新区块 / 回复正文同理，全走逐字（下面四条分支都是 pushRaw）。
-    if (latestBlock) {
+    // 更新区块 / 回复正文同理，全走逐字（下面五条分支都是 pushRaw）。
+    // 丙（1.69.0）排在【最前】：那种回复往往【摘得到】一个闭合齐全的 <UpdateVariable>（坏的只是
+    // 里面的 <JSONPatch>），若让 latestBlock 那一支先命中，模型会看到一个写着「待检查的更新」的
+    // 小节 —— 等于把它引回核验，正是这次要修掉的那条死路。
+    if (auto && latestReply && deadBlock) {
+        pushRaw('=== 最新一条 AI 回复（其中那段变量更新区块【没有生效】——格式坏损，变量引擎这一回合一条指令都没执行；请据这段剧情、依 MVU 规则与当前状态，重新推导出本回合应当发生的全部变量更新）===\n' + latestReply);
+    } else if (latestBlock) {
         pushRaw('=== 最新更新区块（待检查的更新）===\n' + latestBlock);
     } else if (auto && latestReply && derive) {
         // 推导情形：把整条回复正文交给模型，明确「正文里没有更新区块、请据此推导」。
@@ -23024,7 +23783,9 @@ async function generateReply() {
             convo.push(aEntry);
             persistConvo();
             if (diagnoseMode) {
-                if (block) addApplyControls(assistantEl, block, aEntry);
+                // 第 4 参 finalText（1.68.0）：双区块闸要数「MVU 会执行几块」，而 block 只是最早那一个
+                // 包装块 —— 模型甩两个包装块时，第二块的指令会被静默丢掉。
+                if (block) addApplyControls(assistantEl, block, aEntry, finalText);
             } else if (lorebookMode) {
                 const parsed = parseLorebookBlocks(finalText);
                 if (parsed.ops.length || parsed.errors.length) addLorebookApplyControls(assistantEl, parsed, aEntry);
@@ -25917,7 +26678,10 @@ function addRetryControl(assistantEl, entry) {
 }
 
 // Apply / Undo bar appended to a diagnose reply that contains a corrective patch.
-function addApplyControls(assistantEl, patchBlock, entry) {
+// replyText（可选，第 4 参，1.68.0）= 这条诊断回复的【原文】，供双区块闸看清 MVU 会执行几块
+// （extractUpdateBlock 只摘最早那一个包装块）。换房重画 / 重载后的卡片拿不到原文 → 退化成只数补丁
+// 本身：那仍挡得住「一个包装块里两个区块」这一档，只是「两个包装块」那一档在重画后回到旧行为。
+function addApplyControls(assistantEl, patchBlock, entry, replyText) {
     const bar = document.createElement('div');
     bar.className = 'so-apply-bar';
     const btn = document.createElement('button');
@@ -26015,7 +26779,7 @@ function addApplyControls(assistantEl, patchBlock, entry) {
             // status 上）。判据是 r 而不是 r.snapshot：读不到写入【前】的状态时 snapshot 会是 null，但
             // 那一份【确实写进去了】——按 snapshot 判会让界面停在「正在应用…」，等于对用户撒谎。
             // 部分生效同样要如实说出来，别一律报「已应用」。
-            const r = await applyFix(patchBlock, status, expectStatKey);
+            const r = await applyFix(patchBlock, status, expectStatKey, replyText);
             snapshot = r ? r.snapshot : null;
             applied = r ? (r.applied || null) : null;
             if (r) {
@@ -26069,7 +26833,7 @@ function addApplyControls(assistantEl, patchBlock, entry) {
                 const n = diagUserFloorNotice();
                 status.textContent = ((r.report && r.report.applied < r.report.total)
                     ? `已应用（${r.report.total} 条指令中 ${r.report.applied} 条生效）。` + diagReportLines(r.report)
-                    : '已应用 —— 状态已更新。') + (n ? '\n' + n : '');
+                    : '已应用 —— 状态已更新。') + repairDiagNote(r.repair) + (n ? '\n' + n : '');
             }
         } catch (e) {
             status.textContent = '应用失败：' + (e?.message || e);
