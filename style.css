@@ -1370,6 +1370,94 @@
 }
 #so-sysprompt-preset-recurate { flex: 0 0 auto; width: 32px; height: 32px; }
 
+/* ---------- 附加参数弹窗（1.70.0，仿 #so-curate 骨架） ---------- */
+/* 恒深色卡 + 钉死浅色文字（同 #so-cur-card 的 1.27.1 定案：浅色主题防深字压深底）。 */
+#so-extraparams {
+    display: none;
+    position: absolute;
+    inset: 0;
+    z-index: 50;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    box-sizing: border-box;
+    background: var(--so-scrim);
+    backdrop-filter: blur(4px);
+}
+#so-xp-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-width: 560px;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+    border-radius: 12px;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+    background-color: #1b1d23;
+    color: #e6e6e6;
+    background-image: linear-gradient(180deg, color-mix(in srgb, var(--so-accent) 9%, transparent), transparent 140px);
+    box-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.7);
+}
+#so-xp-head {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.1));
+    background: linear-gradient(180deg, color-mix(in srgb, var(--so-accent) 14%, transparent), transparent);
+}
+#so-xp-title { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+#so-xp-title > i { color: var(--so-accent); }
+/* 正文内部滚动、底钮恒在屏上（短视口手机不锁死 —— 同 #so-cur-card 的骨架法则）。 */
+#so-xp-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 10px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+#so-xp-warn {
+    padding: 9px 11px;
+    border-radius: 8px;
+    font-size: 0.78em;
+    line-height: 1.55;
+    color: #f0d28a;
+    background: rgba(242, 201, 76, 0.12);
+    border: 1px solid rgba(242, 201, 76, 0.35);
+}
+.so-xp-field { display: flex; flex-direction: column; gap: 4px; }
+.so-xp-field > span { font-size: 0.82em; font-weight: 600; opacity: 0.9; }
+.so-xp-field textarea {
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+    border-radius: 8px;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+    background: rgba(0, 0, 0, 0.3);
+    color: #e6e6e6;   /* 恒深色卡里的输入框：钉浅字，别吃主题正文色 */
+    font-family: var(--monoFontFamily, monospace);
+    font-size: 0.8em;
+    line-height: 1.5;
+    padding: 7px 9px;
+}
+.so-xp-field textarea::placeholder { color: rgba(230, 230, 230, 0.35); }
+.so-xp-err:empty { display: none; }
+.so-xp-err { font-size: 0.75em; }
+.so-xp-err.so-hint-error { color: #f0a0a0; }
+#so-xp-foot {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: flex-end;
+    padding: 10px 14px;
+    border-top: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.1));
+}
+
 /* ---------- advisor mode (剧情参谋, experimental) ---------- */
 /* A cool teal tint distinguishes advisor mode from diagnose (theme accent) and
  * lorebook (parchment gold) at a glance, while still blending with the theme. */

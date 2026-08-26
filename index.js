@@ -1720,7 +1720,7 @@ const ENABLE_CUSTOM_PERSONAS = true;
 // —— 更新提醒（1.38.0）——
 // SO_VERSION 是代码内唯一版本号，必须与 manifest.json 的 version 完全一致——update-check.test.mjs
 // 有失配即红的漂移钉（发版清单：两处一起 bump）。
-const SO_VERSION = '1.69.0';
+const SO_VERSION = '1.71.0';
 // 更新提醒总开关。false → 设置面板不渲染「更新」组、开窗不检查、红点绘制器与一键更新 no-op、
 // 绑定/回填跳过——字节级零行为变化。运行期另有 opt-out 设置 updAutoCheck（默认开）。
 const ENABLE_UPDATE_CHECK = true;
@@ -1847,6 +1847,13 @@ const defaults = {
     // 直连「地址原样使用」（1.22.0，原生化自二创「最终模式」）：裸地址不再自动补 /v1——请求打到
     // 地址/chat/completions、获取模型打到 地址/models。路径特殊的中转站用。默认关 = 旧行为字节不变。
     directRawUrl: false,
+    // 附加参数（1.70.0，仿 ST「自定义（兼容 OpenAI）」源的同名面板；用户反馈：DS 类中转要传
+    // enable_thinking: false 等关思维链参数，神谕请求体是写死的没处填）：三份原始文本（YAML 或 JSON），
+    // 随每次请求附加 / 剔除主体参数、附加请求头。直连两条路全生效；profile 路仅「自定义（兼容 OpenAI）」
+    // 源的配置档生效（ST 后端只在 custom 分支读这三键）。默认空 = 请求字节不变。
+    extraIncludeBody: '',
+    extraExcludeBody: '',
+    extraIncludeHeaders: '',
     // profile mode
     profileId: '',
     // shared generation params
@@ -6232,7 +6239,9 @@ function applyPlanInjection() {
     const active = getActiveConstruct();
     let text = '';
     if (active && active.type === 'arc' && active.arc.currentBeat) {
-        const raw = active.arc.currentBeat.injectedText || '';
+        // ✏️ 1.71.0：customText 优先（用户整份自定义的注入；缺席＝派生的 injectedText）。
+        const b = active.arc.currentBeat;
+        const raw = b.customText || b.injectedText || '';
         try { text = ctx.substituteParams(raw); } catch (e) { text = raw; }
     } else if (active && active.type === 'plan') {
         text = buildDirective(active.plan);
@@ -6443,7 +6452,7 @@ function arcResolvedRecord(beat, outcome) {
         seed: beat.seed,
         why: beat.why,
         type: beat.type || '',          // #3 类型轮换：揭晓记录也带类型，供 recentBeatTypes 喂回编译器
-        injectedText: beat.injectedText,
+        injectedText: beat.customText || beat.injectedText,  // ✏️ 1.71.0：记【实际注入】——用户改过就记改后的
         outcome,
     };
 }
@@ -6614,12 +6623,20 @@ function arcReroll(arc, now) {
 }
 
 // 逐拍切换强度（仅透明用）：改 currentBeat.intensity 并重建 injectedText。返回新弧线对象。
+// ✏️ 1.71.0：用户自定义过注入（customText 在场）时镜像 setPlanIntensity——节奏行完好则原位换行、
+// 被改/删则整条不动（UI 侧本就把强度档置灰，这里是防丢字的第二道闸）。派生基线 injectedText 照常重建。
 function arcSetIntensity(arc, intensity) {
     if (!arc || !arc.currentBeat || !ADVISOR_INTENSITIES[intensity]) return arc;
     const next = cloneArc(arc);
-    next.currentBeat.intensity = intensity;
-    next.currentBeat.injectedText = buildDirectiveRaw({
-        goal: next.currentBeat.goal, seed: next.currentBeat.seed, intensity, depiction: true,
+    const b = next.currentBeat;
+    if (b.customText) {
+        const swapped = swapPaceLine(b.customText, b.intensity, intensity);
+        if (swapped == null) return next;                    // 换档无处落笔 → 原样返回
+        b.customText = swapped;
+    }
+    b.intensity = intensity;
+    b.injectedText = buildDirectiveRaw({
+        goal: b.goal, seed: b.seed, intensity, depiction: true,
     });
     return next;
 }
@@ -16272,6 +16289,11 @@ function buildWindow() {
                         </label>
                         <div class="so-hint" id="so-profile-hint">使用已保存的连接配置文件，通过 ST 服务器转发（无 CORS 问题）。</div>
                     </div>
+                    <label class="so-row" title="像 ST「自定义（兼容 OpenAI）」接口的「附加参数」面板：给每次请求附加 / 剔除自定义参数、附加请求头（YAML 或 JSON）——例如给 DeepSeek 类中转关掉思维链。">
+                        <span>附加参数</span>
+                        <div class="so-iconbtn" id="so-extraparams-btn" title="打开附加参数设置"><i class="fa-solid fa-sliders"></i></div>
+                    </label>
+                    <div class="so-hint" id="so-extraparams-hint"></div>
                 </div>
             </details>
 
@@ -17114,6 +17136,8 @@ function bindControls() {
     fixWarnOverlay.querySelector('.so-warn-x').addEventListener('click', closeFixWarn);
     fixWarnOverlay.addEventListener('click', (e) => { if (e.target === fixWarnOverlay) closeFixWarn(); });
     win.querySelector('#so-profile-refresh').addEventListener('click', refreshProfiles);
+    win.querySelector('#so-extraparams-btn').addEventListener('click', openExtraParams); // 附加参数（1.70.0）
+    updateExtraParamsHint(); // 开窗即反映「设了没设」，不用点开弹窗才知道
 
     // settings inputs -> persist
     const bind = (id, key, parse = (v) => v) => {
@@ -19618,7 +19642,13 @@ function renderPlanBar() {
     planBarSetDisplay('#so-arc-reject', isBlind);
     planBarSetDisplay('#so-arc-exit', isArc);
     planBarSetDisplay('#so-arc-retry', isArc && !!arcRetryPending);   // shown only after a compile failure
-    planBarSetDisplay('#so-plan-edit', !isArc);          // ✏️ 仅单拍（弧线提示词 code-only + 盲盒防剧透）
+    // ✏️ 1.71.0 全构件开放（用户功能请求；Prince 拍板盲盒也开——点 ✏️＝主动选择剧透，与点击揭开
+    // 遮罩同级，title 换用既有防剧透提示句）。1.48.0 时的「仅单拍」闸就此撤除。
+    planBarSetDisplay('#so-plan-edit', true);
+    const editBtn = planBarEl.querySelector('#so-plan-edit');
+    if (editBtn) editBtn.title = isBlind
+        ? '点击查看隐藏指令（含剧透）'
+        : '编辑注入内容（保留原样的「节奏：」行则上方强度档仍可用）';
     planBarSetDisplay('#so-plan-editwrap', false);        // 任何重画都收起编辑器
     pre.style.display = '';
     if (isArc) renderArcBarBody(active.arc);
@@ -19723,9 +19753,12 @@ function renderArcBarBody(arc) {
         planBarEl.querySelector('#so-plan-goal').textContent = beat ? beat.goal : '';
         badge.style.display = 'none';
         seg.style.display = '';
-        renderIntensitySegments(beat ? beat.intensity : 'normal', arcSetActiveIntensity);
+        // ✏️ 1.71.0：customText 在场且节奏行被改/删 → 强度档置灰（换档无处落笔），同 1.48.0 单拍文案。
+        const paceLocked = !!(beat && beat.customText && !paceLineIntact(beat.customText, beat.intensity));
+        renderIntensitySegments(beat ? beat.intensity : 'normal', arcSetActiveIntensity, paceLocked);
         const I = ADVISOR_INTENSITIES[(beat && beat.intensity)] || ADVISOR_INTENSITIES.normal;
-        planBarEl.querySelector('#so-plan-caption').textContent = I.caption;
+        planBarEl.querySelector('#so-plan-caption').textContent =
+            paceLocked ? '节奏已自定义——强度档暂不可用；点 ✏️ 里的「恢复默认」可找回' : I.caption;
         pre.classList.remove('so-spoiler', 'peek');
         pre.title = '';
     }
@@ -19760,18 +19793,23 @@ function currentInjectionPreview() {
     return buildDirective(active.plan);
 }
 function arcInjectionPreview(arc) {
-    const raw = (arc.currentBeat && arc.currentBeat.injectedText) || '';
+    const b = arc.currentBeat;
+    const raw = (b && (b.customText || b.injectedText)) || '';   // ✏️ 1.71.0：customText 优先
     try { return getCtx().substituteParams(raw); } catch (e) { return raw; }
 }
 
-/* ✏️ 注入内容编辑（1.48.0，用户功能请求「引导总是差点内容」）。铅笔常显（不必先展开预览）、
- * 仅单拍；编辑态用 textarea 顶替 <pre> 的位置。保存＝所见即所存（预览是 substitute 过的文本，
- * 用户改哪存哪）；与自动生成全等则视为「改回默认」删掉 customText。任何 renderPlanBar 重画都
- * 无条件收起编辑器——陈旧编辑框绝不跨状态存活（切聊天 / 换构造 / 换强度）。
+/* ✏️ 注入内容编辑（1.48.0 单拍，用户功能请求「引导总是差点内容」；1.71.0 起弧线也开放——
+ * 透明＋盲盒，盲盒下点 ✏️＝用户主动选择剧透，设计记录 _ADVISOR-ARC-DESIGN.md §2.1）。铅笔常显
+ * （不必先展开预览）；编辑态用 textarea 顶替 <pre> 的位置。保存＝所见即所存（预览是 substitute
+ * 过的文本，用户改哪存哪）；与自动生成全等则视为「改回默认」删掉 customText（单拍存 plan.customText、
+ * 弧线存 currentBeat.customText——只属于当前拍，前进/换个思路的新拍回到派生态）。任何 renderPlanBar
+ * 重画都无条件收起编辑器——陈旧编辑框绝不跨状态存活（切聊天 / 换构造 / 换强度）。
  * 一律经 planBarEl 查询：条可能已被搬进浮窗（与 #so-plan-show 监听器同规矩）。 */
 function enterPlanEdit() {
     const active = getActiveConstruct();
-    if (!active || active.type !== 'plan') return;
+    if (!active) return;
+    // ✏️ 1.71.0 弧线放行（透明＋盲盒都可编，Prince 拍板）；弧线已完＝无当前拍、无可编辑 → 早退。
+    if (active.type === 'arc' && !active.arc.currentBeat) return;
     const wrap = planBarEl.querySelector('#so-plan-editwrap');
     // 已在编辑中 → 再点无操作。铅笔在编辑期间【仍然可见】，不挡这一下的话，误点第二次
     // 就会把用户正在写的整段字换成自动生成文本——一个手势、没有撤销。
@@ -19782,7 +19820,8 @@ function enterPlanEdit() {
     pre.style.display = 'none';
     wrap.style.display = '';
     const box = planBarEl.querySelector('#so-plan-editbox');
-    box.value = buildDirective(active.plan);
+    // 所见即所存：两种构件都喂 substitute 过的【实际注入】（弧线＝customText||injectedText 展开后）。
+    box.value = (active.type === 'arc') ? arcInjectionPreview(active.arc) : buildDirective(active.plan);
     box.focus();
     // 赋值后光标默认落在【末尾】，focus() 会把它滚进视野 —— 于是编辑器一开就停在底部，把开头两行
     // （【幕后剧情引导…】抬头 + 「故事应逐步走向：<目标>」）顶出框外。用户要读的正是这两行，故显式
@@ -19792,7 +19831,9 @@ function enterPlanEdit() {
     // 编辑期间强度档一律置灰。换档会走 setPlanIntensity → renderPlanBar → 收起编辑器，
     // 没保存的字就没了；而首次编辑（还没有 customText）恰恰是档位全部可点的常见情形。
     // 「任何重画都收编辑器」这条不变量不动，改成把触发源掐掉。
-    planBarEl.querySelectorAll('#so-plan-intensity .so-plan-int').forEach((b) => { b.disabled = true; });
+    // 1.71.0：弧线的塑形档（#so-arc-shaping-seg）点一下同样触发重画 → 同规矩一并掐灰。
+    planBarEl.querySelectorAll('#so-plan-intensity .so-plan-int, #so-arc-shaping-seg .so-plan-int')
+        .forEach((b) => { b.disabled = true; });
 }
 function exitPlanEdit() {
     const pre = planBarEl.querySelector('#so-plan-directive');
@@ -19808,23 +19849,40 @@ function closePlanEdit() {
     renderPlanBar();
 }
 function savePlanEdit() {
-    const plan = getPlan();
-    if (!plan) { closePlanEdit(); return; }
+    const active = getActiveConstruct();
+    if (!active) { closePlanEdit(); return; }
     const text = String(planBarEl.querySelector('#so-plan-editbox').value || '').trim();
     if (!text) { closePlanEdit(); return; }                      // 全删＝无效编辑，不存
-    let generated = buildDirectiveRaw(plan);
-    try { generated = getCtx().substituteParams(generated); } catch (e) { /* keep raw */ }
-    if (text === generated.trim()) delete plan.customText;       // 手动改回默认 → 回到派生态
-    else plan.customText = text;
-    setPlan(plan);
+    if (active.type === 'arc') {
+        // ✏️ 1.71.0 弧线枝：派生基线＝本拍的 injectedText（编译/换档时已按 goal/seed/intensity 建好）。
+        const beat = active.arc.currentBeat;
+        if (!beat) { closePlanEdit(); return; }
+        let generated = beat.injectedText || '';
+        try { generated = getCtx().substituteParams(generated); } catch (e) { /* keep raw */ }
+        if (text === generated.trim()) delete beat.customText;   // 手动改回默认 → 回到派生态
+        else beat.customText = text;
+        setArc(active.arc);
+    } else {
+        const plan = active.plan;
+        let generated = buildDirectiveRaw(plan);
+        try { generated = getCtx().substituteParams(generated); } catch (e) { /* keep raw */ }
+        if (text === generated.trim()) delete plan.customText;   // 手动改回默认 → 回到派生态
+        else plan.customText = text;
+        setPlan(plan);
+    }
     applyPlanInjection();
     closePlanEdit();
 }
 function resetPlanEdit() {
-    const plan = getPlan();
-    if (!plan) { closePlanEdit(); return; }
-    delete plan.customText;
-    setPlan(plan);
+    const active = getActiveConstruct();
+    if (!active) { closePlanEdit(); return; }
+    if (active.type === 'arc') {
+        if (active.arc.currentBeat) delete active.arc.currentBeat.customText;
+        setArc(active.arc);
+    } else {
+        delete active.plan.customText;
+        setPlan(active.plan);
+    }
     applyPlanInjection();
     closePlanEdit();
 }
@@ -26088,6 +26146,174 @@ function directHeaders(apiKey) {
     return h;
 }
 
+// ---- 附加参数（1.70.0）：ST「自定义（兼容 OpenAI）」源「附加参数」面板的神谕版 ----
+// 三份文本原样存设置（extraIncludeBody / extraExcludeBody / extraIncludeHeaders）；发送前
+// resolveExtraParams 统一校验，坏文本【抛错点名是哪个框】、绝不静默跳过（静默 no-op 是本仓地雷）。
+// 生效面：直连（浏览器 fetch 客户端合并 / 后端转发把原文透传给 ST 的 custom 分支）+ profile
+// （经 overridePayload 透传，仅「自定义（兼容 OpenAI）」源的配置档会被 ST 后端读取）。
+
+// PURE：解析一份附加参数文本。kind='object'（包括主体参数 / 请求头）| 'array'（排除列表）。
+// 空白 → {ok:true, value:null}=未设置；解析失败 / 形状不符 → {ok:false, error}。
+// lib 缺省取 SillyTavern.libs.yaml（ST 前端打包的真 yaml 库）；旧版 ST 拿不到就退 JSON.parse
+// ——JSON 本就是合法 YAML，两种写法都吃。
+function parseExtraParams(text, kind, lib) {
+    const t = String(text ?? '').trim();
+    if (!t) return { ok: true, value: null };
+    if (lib === undefined) lib = (globalThis.SillyTavern && globalThis.SillyTavern.libs && globalThis.SillyTavern.libs.yaml) || null;
+    let value;
+    try {
+        value = (lib && typeof lib.parse === 'function') ? lib.parse(t) : JSON.parse(t);
+    } catch (e) {
+        return { ok: false, error: `解析失败：${e?.message || e}` };
+    }
+    if (kind === 'array') {
+        if (!Array.isArray(value)) return { ok: false, error: '需要一个字符串列表（每行一个「- 参数名」）' };
+        if (!value.every((v) => typeof v === 'string')) return { ok: false, error: '列表里只能是参数名字符串' };
+        return { ok: true, value };
+    }
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return { ok: false, error: '需要一个「键: 值」对象' };
+    }
+    return { ok: true, value };
+}
+
+// 发送前统一校验闸：读设置三框 → {include, exclude, headers}（未填 = null）。任一框不合法 → 抛
+// 中文错点名该框。stream 恒被剥（include 键 + exclude 项）：流式开关是神谕自己的 SSE 读取机制，
+// 被参数翻转 = 读取器空手而归的静默空回复地雷；其余键（含 model / max_tokens / messages）都可
+// 覆盖 / 剔除 = ST 后端同款脚枪容忍度（requestBody 里 ...bodyParams 排在 messages 之后、exclude
+// 跑在最后，见 src/endpoints/backends/chat-completions.js 的 custom 分支）。
+function resolveExtraParams(s, lib) {
+    const boxes = [
+        ['extraIncludeBody', 'object', '包括主体参数'],
+        ['extraExcludeBody', 'array', '排除主体参数'],
+        ['extraIncludeHeaders', 'object', '包含请求标头'],
+    ];
+    const vals = {};
+    for (const [key, kind, label] of boxes) {
+        const r = parseExtraParams(s?.[key], kind, lib);
+        if (!r.ok) throw new Error(`附加参数「${label}」不可用——${r.error}。请到 设置 → 连接 → 附加参数 修正或清空该框。`);
+        vals[key] = r.value;
+    }
+    let include = vals.extraIncludeBody;
+    if (include && ('stream' in include)) {
+        include = { ...include };
+        delete include.stream;
+        if (!Object.keys(include).length) include = null;
+    }
+    let exclude = vals.extraExcludeBody;
+    if (exclude) {
+        exclude = exclude.filter((k) => k !== 'stream');
+        if (!exclude.length) exclude = null;
+    }
+    return { include, exclude, headers: vals.extraIncludeHeaders };
+}
+
+// PURE：附加参数并进直连请求体。未设置 → 返回【原引用】（零行为变化）。include 盖既有键、
+// exclude 最后删（同键双写 = 删）——与 ST 后端的组装顺序一致。绝不变异入参。
+function applyExtraBody(body, extra) {
+    if (!extra || (!extra.include && !extra.exclude)) return body;
+    const out = { ...body, ...(extra.include || {}) };
+    for (const k of (extra.exclude || [])) delete out[k];
+    return out;
+}
+
+// PURE：附加请求头并进直连 headers。未设置 → 原引用。用户填的头（含 Authorization）覆盖默认
+// ——专家逃生舱，且与 ST 后端「custom_include_headers 合并在 secret 派生头之后」同语义。
+function applyExtraHeaders(headers, extra) {
+    if (!extra || !extra.headers) return headers;
+    return { ...headers, ...extra.headers };
+}
+
+// PURE：为 profile 路生成 ST 后端认识的三个透传键（JSON.stringify——JSON 是合法 YAML，服务器
+// mergeObjectWithYaml / excludeKeysByYaml 走的与 ST 自家「附加参数」同一条路）。未设键不出现，
+// 三框全空恒返回 {} = overridePayload 零污染。
+function extraParamsOverride(extra) {
+    const o = {};
+    if (extra?.include) o.custom_include_body = JSON.stringify(extra.include);
+    if (extra?.exclude) o.custom_exclude_body = JSON.stringify(extra.exclude);
+    if (extra?.headers) o.custom_include_headers = JSON.stringify(extra.headers);
+    return o;
+}
+
+// 附加参数弹窗：仿 ST 的按钮弹出三框（标签用 ST 官方中文译名——包括主体参数 / 排除主体参数 /
+// 包含请求标头——用户在两边对得上号）。文本原样存设置、输入即持久化；这里只做即时提示不拦截，
+// 发送时 resolveExtraParams 统一抛错。骨架 / 逃生阀仿 #so-curate（顶部 ✕ + 点遮罩关闭，卡片
+// 高度被窗口封顶、正文内部滚动——短视口手机不锁死）。
+function openExtraParams() {
+    const s = getSettings();
+    let modal = win.querySelector('#so-extraparams');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'so-extraparams';
+        win.appendChild(modal);
+    }
+    modal.innerHTML = `
+        <div id="so-xp-card">
+            <div id="so-xp-head">
+                <div id="so-xp-title"><i class="fa-solid fa-sliders"></i> 附加参数</div>
+                <div class="so-iconbtn" id="so-xp-x" title="关闭"><i class="fa-solid fa-xmark"></i></div>
+            </div>
+            <div id="so-xp-body">
+                <div id="so-xp-warn">⚠️ 生效范围：<b>直连模式</b>（含「经酒馆后端转发」）全部生效；<b>连接配置文件</b>模式下，只有 API 类型为「自定义（兼容 OpenAI）」的配置档才会生效——OpenAI / Claude / Gemini 等官方接口会忽略这里的全部内容。</div>
+                <label class="so-xp-field"><span>包括主体参数</span>
+                    <textarea id="so-extra-include-body" rows="4" placeholder="随每次请求一起发送的参数（YAML 或 JSON 对象）&#10;&#10;例：给 DeepSeek 类中转关掉思维链&#10;enable_thinking: false"></textarea>
+                    <div class="so-hint so-xp-err" data-box="extraIncludeBody"></div>
+                </label>
+                <label class="so-xp-field"><span>排除主体参数</span>
+                    <textarea id="so-extra-exclude-body" rows="3" placeholder="要从请求里剔除的参数名（YAML 列表）&#10;&#10;例：&#10;- frequency_penalty&#10;- presence_penalty"></textarea>
+                    <div class="so-hint so-xp-err" data-box="extraExcludeBody"></div>
+                </label>
+                <label class="so-xp-field"><span>包含请求标头</span>
+                    <textarea id="so-extra-include-headers" rows="3" placeholder="额外的请求头（YAML 或 JSON 对象）&#10;&#10;例：&#10;X-Custom-Header: some-value"></textarea>
+                    <div class="so-hint so-xp-err" data-box="extraIncludeHeaders"></div>
+                </label>
+            </div>
+            <div id="so-xp-foot"><button type="button" class="so-cur-btn" id="so-xp-close">完成</button></div>
+        </div>`;
+
+    const FIELDS = [
+        ['#so-extra-include-body', 'extraIncludeBody', 'object'],
+        ['#so-extra-exclude-body', 'extraExcludeBody', 'array'],
+        ['#so-extra-include-headers', 'extraIncludeHeaders', 'object'],
+    ];
+    const showErr = (key, kind) => {
+        const el = modal.querySelector(`.so-xp-err[data-box="${key}"]`);
+        if (!el) return;
+        const r = parseExtraParams(getSettings()[key], kind);
+        el.textContent = r.ok ? '' : `⚠ ${r.error}`;
+        el.classList.toggle('so-hint-error', !r.ok);
+    };
+    for (const [sel, key, kind] of FIELDS) {
+        const ta = modal.querySelector(sel);
+        ta.value = s[key] || '';
+        ta.addEventListener('input', () => {
+            getSettings()[key] = ta.value;
+            save();
+            showErr(key, kind);
+            updateExtraParamsHint();
+        });
+        showErr(key, kind);
+    }
+    const close = () => { modal.style.display = 'none'; };
+    modal.querySelector('#so-xp-x').addEventListener('click', close);
+    modal.querySelector('#so-xp-close').addEventListener('click', close);
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+    modal.style.display = 'flex';
+    updateExtraParamsHint();
+}
+
+// 设置行的一句状态读数：让「设了没设」在不打开弹窗时也看得见（静默设置是地雷）。
+function updateExtraParamsHint() {
+    const hint = win?.querySelector?.('#so-extraparams-hint');
+    if (!hint) return;
+    const s = getSettings();
+    const parts = [];
+    if (String(s.extraIncludeBody || '').trim()) parts.push('包括主体参数');
+    if (String(s.extraExcludeBody || '').trim()) parts.push('排除主体参数');
+    if (String(s.extraIncludeHeaders || '').trim()) parts.push('包含请求标头');
+    hint.textContent = parts.length ? `已设置：${parts.join('、')}` : '';
+}
+
 // PURE：为「经酒馆后端转发的直连」（s.directViaBackend）构造 ChatCompletionService.processRequest 的 requestData。
 // 背景（2026-07-01 用户 xxw / 若葉睦）：直连=浏览器→端点，会撞第三方端点的 CORS（opencode 等 → failed to fetch）；
 // 配置文件模式又因【无自带密钥的配置档回退到激活连接的密钥】而 401（只有神谕选档 == 酒馆当前激活档才不报错）。
@@ -26098,11 +26324,15 @@ function directHeaders(apiKey) {
 // 入参 url = 直连规范化后的 .../chat/completions（callDirect/streamDirect 收到的那个）；后端会对 custom_url 再追加
 // /chat/completions，故这里剥掉后缀，保证 custom_url + '/chat/completions' == 原直连 URL（端点逐字一致）。
 // custom_include_headers 必须是【字符串】（后端 mergeObjectWithYaml → yaml.parse；JSON 是合法 YAML 流式映射）。
-function buildBackendForwardPayload(url, apiKey, body, stream) {
+// extra（1.70.0 可选第 5 参 = resolveExtraParams 的产物）：include / exclude 以 JSON 字符串透传
+// 给 ST 后端 custom 分支的 mergeObjectWithYaml / excludeKeysByYaml（与 ST 自家「附加参数」同一条
+// 路，语义逐字一致）；headers 直接并进 Authorization 头对象（用户填的覆盖默认）。不传 / 全空 →
+// 输出与旧 4 参调用逐字节一致（backend-forward.test.mjs 8 腿 + extra-params.test.mjs 守身钉）。
+function buildBackendForwardPayload(url, apiKey, body, stream, extra) {
     const customUrl = String(url || '').replace(/\/chat\/completions\/?$/, '');
-    const headers = apiKey ? { Authorization: 'Bearer ' + apiKey } : {};
+    const headers = { ...(apiKey ? { Authorization: 'Bearer ' + apiKey } : {}), ...(extra?.headers || {}) };
     const { model, messages, max_tokens, stream: _drop, ...rest } = (body || {});
-    return {
+    const payload = {
         chat_completion_source: 'custom',
         custom_url: customUrl,
         custom_include_headers: JSON.stringify(headers),
@@ -26112,6 +26342,9 @@ function buildBackendForwardPayload(url, apiKey, body, stream) {
         stream: !!stream,
         ...rest,
     };
+    if (extra?.include) payload.custom_include_body = JSON.stringify(extra.include);
+    if (extra?.exclude) payload.custom_exclude_body = JSON.stringify(extra.exclude);
+    return payload;
 }
 
 // 经酒馆后端转发的「直连」——非流式。复用直连的 (url, apiKey, body)，走 ST 的 ChatCompletionService（custom 源 + 显式
@@ -26121,7 +26354,8 @@ async function callBackendForward(url, apiKey, body, signal) {
     if (typeof ctx?.ChatCompletionService?.processRequest !== 'function') {
         throw new Error('此 SillyTavern 版本缺少 ChatCompletionService，无法用后端转发——请取消勾选“经酒馆后端转发”，或改用连接配置文件。');
     }
-    const payload = buildBackendForwardPayload(url, apiKey, body, false);
+    const extra = resolveExtraParams(getSettings()); // 附加参数（1.70.0）：坏文本在此抛错、绝不静默
+    const payload = buildBackendForwardPayload(url, apiKey, body, false, extra);
     const result = await ctx.ChatCompletionService.processRequest(payload, { presetName: undefined }, true, signal);
     return result?.content ?? '';
 }
@@ -26133,7 +26367,8 @@ async function streamBackendForward(url, apiKey, body, signal, onDelta) {
     if (typeof ctx?.ChatCompletionService?.processRequest !== 'function') {
         throw new Error('此 SillyTavern 版本缺少 ChatCompletionService，无法用后端转发——请取消勾选“经酒馆后端转发”，或改用连接配置文件。');
     }
-    const payload = buildBackendForwardPayload(url, apiKey, body, true);
+    const extra = resolveExtraParams(getSettings()); // 附加参数（1.70.0）
+    const payload = buildBackendForwardPayload(url, apiKey, body, true, extra);
     const gen = await ctx.ChatCompletionService.processRequest(payload, { presetName: undefined }, true, signal);
     const iterator = (typeof gen === 'function') ? gen() : gen;
     let prev = '';
@@ -26154,7 +26389,8 @@ async function streamBackendForwardArc(url, apiKey, body, signal, onLive) {
     if (typeof ctx?.ChatCompletionService?.processRequest !== 'function') {
         throw new Error('此 SillyTavern 版本缺少 ChatCompletionService，无法用后端转发——请取消勾选“经酒馆后端转发”，或改用连接配置文件。');
     }
-    const payload = buildBackendForwardPayload(url, apiKey, body, true);
+    const extra = resolveExtraParams(getSettings()); // 附加参数（1.70.0）
+    const payload = buildBackendForwardPayload(url, apiKey, body, true, extra);
     const gen = await ctx.ChatCompletionService.processRequest(payload, { presetName: undefined }, true, signal);
     const iterator = (typeof gen === 'function') ? gen() : gen;
     let content = '', reasoning = '';
@@ -26279,10 +26515,11 @@ async function onFetchModels() {
 
 async function callDirect(url, apiKey, body, signal) {
     if (getSettings().directViaBackend) return callBackendForward(url, apiKey, body, signal); // 经酒馆后端转发（避免 CORS）
+    const extra = resolveExtraParams(getSettings()); // 附加参数（1.70.0）：坏文本在此抛错、绝不静默
     const res = await fetch(url, {
         method: 'POST',
-        headers: directHeaders(apiKey),
-        body: JSON.stringify({ ...body, stream: false }),
+        headers: applyExtraHeaders(directHeaders(apiKey), extra),
+        body: JSON.stringify({ ...applyExtraBody(body, extra), stream: false }),
         signal,
     });
     if (!res.ok) {
@@ -26308,10 +26545,11 @@ function extractNonStreamContent(raw) {
 
 async function streamDirect(url, apiKey, body, signal, onDelta) {
     if (getSettings().directViaBackend) return streamBackendForward(url, apiKey, body, signal, onDelta); // 经酒馆后端转发（避免 CORS）
+    const extra = resolveExtraParams(getSettings()); // 附加参数（1.70.0）：坏文本在此抛错、绝不静默
     const res = await fetch(url, {
         method: 'POST',
-        headers: directHeaders(apiKey),
-        body: JSON.stringify({ ...body, stream: true }),
+        headers: applyExtraHeaders(directHeaders(apiKey), extra),
+        body: JSON.stringify({ ...applyExtraBody(body, extra), stream: true }),
         signal,
     });
     if (!res.ok || !res.body) {
@@ -26357,7 +26595,8 @@ async function streamDirect(url, apiKey, body, signal, onDelta) {
 // content 卡在空。返回值仍是 content 全文（供 parseArcBeat / parseArcCheck 解析，与非流式完全一致）。
 async function streamDirectArc(url, apiKey, body, signal, onLive) {
     if (getSettings().directViaBackend) return streamBackendForwardArc(url, apiKey, body, signal, onLive); // 经酒馆后端转发（避免 CORS）
-    const res = await fetch(url, { method: 'POST', headers: directHeaders(apiKey), body: JSON.stringify({ ...body, stream: true }), signal });
+    const extra = resolveExtraParams(getSettings()); // 附加参数（1.70.0）：坏文本在此抛错、绝不静默
+    const res = await fetch(url, { method: 'POST', headers: applyExtraHeaders(directHeaders(apiKey), extra), body: JSON.stringify({ ...applyExtraBody(body, extra), stream: true }), signal });
     if (!res.ok || !res.body) {
         const t = await res.text().catch(() => '');
         throw new Error(`HTTP ${res.status} ${res.statusText} ${t.slice(0, 300)}`);
@@ -26400,18 +26639,22 @@ async function streamDirectArc(url, apiKey, body, signal, onLive) {
 
 async function callProfile(profileId, messages, maxTokens, overridePayload, signal) {
     const ctx = getCtx();
+    // 附加参数（1.70.0）：经 overridePayload 透传三键——仅「自定义（兼容 OpenAI）」源的配置档会被
+    // ST 后端读取（其余源忽略，弹窗警示行有言在先）。排在展开序前面 = 调用点显式 override 恒赢。
+    const extra = resolveExtraParams(getSettings());
     const result = await ctx.ConnectionManagerRequestService.sendRequest(
         profileId,
         messages,
         maxTokens,
         { stream: false, extractData: true, signal },
-        overridePayload || {},
+        { ...extraParamsOverride(extra), ...(overridePayload || {}) },
     );
     return result?.content ?? '';
 }
 
 async function callProfileStream(profileId, messages, maxTokens, overridePayload, signal, onText) {
     const ctx = getCtx();
+    const extra = resolveExtraParams(getSettings()); // 附加参数（1.70.0）：仅 custom 源配置档生效，同 callProfile
     // With stream:true, sendRequest resolves to a function that creates an
     // AsyncGenerator. Each chunk's `.text` is the CUMULATIVE text so far.
     const gen = await ctx.ConnectionManagerRequestService.sendRequest(
@@ -26419,7 +26662,7 @@ async function callProfileStream(profileId, messages, maxTokens, overridePayload
         messages,
         maxTokens,
         { stream: true, signal },
-        overridePayload || {},
+        { ...extraParamsOverride(extra), ...(overridePayload || {}) },
     );
     const iterator = (typeof gen === 'function') ? gen() : gen;
     let full = '';
