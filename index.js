@@ -195,6 +195,28 @@ why: 为什么贴合当前故事（呼应了哪条伏笔 / 哪段关系）
 - 如果上下文里带有「当前已采用的引导方案」，说明主聊天正被它引导。用户问起进度时（例如"检查进度"），请对照最近的剧情如实评估：铺垫是否已出现、推进到了哪一步、强度是否合适、是否可以完成或该调整方向。
 - 全程使用简体中文作答。除非用户要求展开，否则保持简明。`;
 
+// 序列引导教学段（1.72.0）——独立于 ADVISOR_SYSTEM_PROMPT 之外单推：这样用户自定义过参谋
+// 提示词也仍能收到序列能力（他们的自定义只覆盖内置正文）。文字 = spike 电池验证草案
+// （tests/unit/_seq-tuning/，2026-08-26，卡型混淆 0/12）——改词先重跑验收电池；
+// seq-advisor.test.mjs 有一条与 _feeds.mjs 的 SEQ_SECTION_DRAFT 逐字节比对的冻结钉。
+const SEQ_ADVISOR_SECTION = `- 当讨论收敛到的是【一整段长线剧情】——用户在铺排多个先后相连的阶段或事件（例如聊出了某一学年、某一卷、某段旅程里想经历的一串剧情点）——就不要拆成多个独立的 <StoryPlan>，改用一个 <StorySequence> 区块输出【一条有序的引导序列】，供用户一次采用、逐拍推进（同一时间只有当前一拍在引导主聊天）。格式如下，beat 行是每一拍的开头，拍数由讨论内容决定（通常 3~10 拍），按先后顺序排列：
+
+<StorySequence>
+title: 整条序列的短标题（4~10 字）
+beat: 第一拍的短标题（4~10 字）
+goal: 与 StoryPlan 的 goal 同规格——单句、结果式、可执行（这句话会被原样注入主聊天作为该拍的引导目标）
+seed: 这一拍最初显露的迹象（一个具体、轻巧的画面或细节）
+why: 为什么贴合当前故事
+beat: 第二拍的短标题
+goal: ……（其后每拍同上：每一拍都必须有自己的 goal，seed / why 亦然）
+</StorySequence>
+
+- 两种区块怎么选：用户在比较【几个可选的下一步走向】→ <StoryPlan>（1~3 个备选）；用户在铺排【一段先后相连的长线剧情】→ <StorySequence>（一条有序序列，前一拍的结果为后一拍铺路）。一次回复只输出其中一种，拿不准该用哪种时先问用户。
+
+- 用户【没有亲口挑定】的方向，绝不能在回复里被说成是他选的（「你选了 X」「你刚才拍板的那几件事」都不行）。
+
+- 用户【写死的硬性约束】（谁给谁什么、谁不能死、哪件事必须在哪之前发生）要逐条落到对应的那一拍上（只出一张卡时就落在卡里），不因为节奏更顺就被删掉或改写成别的样子。`;
+
 // 工坊三区块的格式契约——访谈与锻造两个提示词共用这一份，绝不各写一份。
 // 逐字对齐 T1 解析器（parseCharBrief/parseCharDraft/parseDraftPatch）：头部键名、围栏标签（desc/content/replace）、
 // 模糊锚点语义都必须与解析器一致，改这里前先核对那三个函数。
@@ -1454,6 +1476,21 @@ const ENABLE_SYSPROMPT_PRESET = true;
 // 关掉时参谋彻底退回 v1.14.x 单拍行为：getActiveConstruct 忽略任何弧线元数据，弧线入口不出现。
 const ENABLE_ARC = true;
 
+// 序列引导（beat playlist，1.72.0）：参谋讨论 → <StorySequence> 卡 → 预写拍列表逐拍推进。
+// 设计：docs/superpowers/specs/2026-08-27-beat-playlist-design.md。
+// false → 与 1.71.0 字节一致：方案条不出序列元素、参谋提示词无序列教学段、<StorySequence>
+// 解析分支惰性、getActiveConstruct 忽略 seq 元数据。
+// 读点：getActiveConstruct + buildAdvisorPrompt（教学段/状态块）+ splitStoryPlanSegments +
+// generateReply（addSeqControls）+ 方案条模板/renderPlanBar + adoptPlan/onArcCreate 三方清扫。
+const ENABLE_PLAN_SEQ = true;
+
+// 落拍感应（seq pulse，spec docs/superpowers/specs/2026-08-27-seq-pulse-design.md）：序列激活期间
+// 注入常驻状态行协议（D0）+ 纯代码检测「已达成」翻转 → 序列条确认提示。false → 协议槽恒空、
+// 检测不挂、设置行不渲染、隐藏正则不注册，与 1.72.0 逐字节一致。
+// 读点：applyPlanInjection（协议槽）+ checkSeqPulse + 设置行渲染 + syncSeqPulseHideRegex
+// + seqPulseHintOn（1.74.1 闪烁判据——方案条 ✔ 与折叠罗盘共用）。
+const ENABLE_SEQ_PULSE = true;
+
 // 自动诊断总开关（用户功能请求；实验性——它是唯一会【自动写入 MVU 游戏状态】的功能，故配真正的杀死开关）。
 // === 出问题时的一键回退：把这一行改成 false ===（无需动其它代码）。关掉时：
 //   · 诊断按钮退回原始两态（关 ↔ 诊断，AUTO 不可达）；· 后台 message_received 监听器空转、绝不调用模型、
@@ -1720,7 +1757,7 @@ const ENABLE_CUSTOM_PERSONAS = true;
 // —— 更新提醒（1.38.0）——
 // SO_VERSION 是代码内唯一版本号，必须与 manifest.json 的 version 完全一致——update-check.test.mjs
 // 有失配即红的漂移钉（发版清单：两处一起 bump）。
-const SO_VERSION = '1.71.0';
+const SO_VERSION = '1.74.1';
 // 更新提醒总开关。false → 设置面板不渲染「更新」组、开窗不检查、红点绘制器与一键更新 no-op、
 // 绑定/回填跳过——字节级零行为变化。运行期另有 opt-out 设置 updAutoCheck（默认开）。
 const ENABLE_UPDATE_CHECK = true;
@@ -1971,6 +2008,15 @@ const defaults = {
     // 启动观察窗；见 busy 后锁存整批直到最终 idle UPDATE_ENDED（跨 retry false 间隙），最多 10 分钟。
     // 关闭时 awaitMvuCompatBatch 立即返回，不给普通 / 行内 MVU 用户增加任何延时。
     autoDiagnoseMvuCompat: false,
+    // 🔁 失败自动重试（Prince 点单 2026-08-28，默认关——每次重试都是一次真金白银的模型调用）：
+    // 自动诊断这一轮没跑成时自动再试。Max = 次数上限（用户可输入，2 只是默认；经 diagRetryMax
+    // 消毒后钳 [1,99]）；三枚分类勾选框独立组合（空白回复 / 格式错误 / 调用失败），全勾是「开主
+    // 开关即生效」的种子。成功 / 无需改动 / 安全跳过恒不重试——判据全集见 diagRetryCategory。
+    autoDiagnoseRetry: false,
+    autoDiagnoseRetryMax: 2,
+    autoDiagnoseRetryOnEmpty: true,
+    autoDiagnoseRetryOnFormat: true,
+    autoDiagnoseRetryOnError: true,
     // 🩺 把诊断修正写进正文（ENABLE_DIAG_BODY_INJECT，默认关；1.65.0 起 UI 上不再标「实验性」、行住在诊断设置栏）。开了才会动消息正文；
     // 关着时核验（甲）分支的行为与 1.40.2 逐字节相同。详见该开关处的长注释。
     diagInjectBody: false,
@@ -2074,6 +2120,7 @@ const defaults = {
     // is injected into the MAIN chat prompt (in-chat, system role). ~4 reads as
     // "ambient narrative intent" — too shallow railroads, too deep gets buried.
     advisorDepth: 4,
+    seqPulse: true,
     // Whether advisor mode runs THROUGH the curated preset (directive layered on
     // top, RP markers skipped) — same opt-in pattern as lorebookUsePreset.
     advisorUsePreset: false,
@@ -2176,6 +2223,9 @@ let chatWorldData = '';     // 外部扩展（世界引擎等）世界信息，�
 let lwbSummaryCache = '';   // 小白X 记忆桥：当前聊天镜像到的剧情总结（抓拍 / metadata 回填 / 冷启动暖 三源写入）
 let planBarEl = null;       // the ONE plan strip element — lives inside the window
                             // OR reparented into the floating container (never both)
+let seqEditBeatId = null;   // ✏️ 序列（1.72.0）：编辑器这一次的目标拍 id。null = 当前拍
+                            // （＝条上那枚铅笔的语义）；列表行的 ✏️ 点开时才指向某个待播拍。
+                            // 任何重画都把它复位 —— 与「任何重画都收起编辑器」同一条不变量。
 let planFloat = null;       // floating container shown when window closed + plan active
 let planFloatSlot = null;
 // Per-entry selection for a single targeted book: { [bookName]: Set<uid> }.
@@ -2600,6 +2650,7 @@ function init() {
     syncChatBarButton();   // 用户功能请求：按设置在聊天栏放 / 撤快捷按钮
     syncFixSelBarButton();   // ✂️ 按设置在输入框上方那一排放 / 撤「选段校正」快捷按钮（1.44.0）
     loadRegexEngine(); // warm the cache so it's ready by first send
+    syncSeqPulseHideRegex();   // 落拍感应：按旗与设置幂等同步显示层隐藏规则
 
     // Advisor plan lifecycle: re-register (or clear) the injection whenever a
     // chat loads, and run the staleness check as the main chat grows. These are
@@ -2611,6 +2662,7 @@ function init() {
             ctx.eventSource.on(et.CHAT_CHANGED || 'chat_id_changed', () => supersedePostReply());
             ctx.eventSource.on(et.CHAT_CHANGED || 'chat_id_changed', onChatChanged);
             ctx.eventSource.on(et.MESSAGE_RECEIVED || 'message_received', checkPlanReminder);
+            ctx.eventSource.on(et.MESSAGE_RECEIVED || 'message_received', () => checkSeqPulse());
             // 回复后编排：每条新 AI 回复在共享锁下先自动校正、后自动诊断（各自仅在其自动模式开启时动作）。
             // 必须「即发即忘」：ST 的 eventSource.emit 会 await 监听器，直接挂上 async 的
             // maybePostReply 会让每条回复都卡住整个校正 + 诊断往返。包一层、不把 promise 交回去。
@@ -5222,10 +5274,13 @@ async function lbDryRunOps(ops) {
  * （applyPlanInjection 对 plan == null 正是这么做的）。
  * ------------------------------------------------------------------ */
 const ADVISOR_PROMPT_KEY = 'story_oracle_plan';
+const SEQ_PULSE_PROMPT_KEY = MODULE + '_seqPulse';
 const ADVISOR_REMIND_AFTER = 20;   // 主聊天走过这么多条消息后，提醒一次方案仍在引导
 const PLAN_META_KEY = MODULE + '_plan';
 // 弧线元数据键（layer-2+）。每个聊天「单拍 plan 异或 弧线 arc」，二者互斥（见 getActiveConstruct）。
 const ARC_META_KEY = MODULE + '_arc';
+// 序列引导元数据键（1.72.0）。plan / arc / seq 三方互斥（采用任一清另两，见各 adopt）。
+const SEQ_META_KEY = MODULE + '_seq';
 // 用户功能请求 —— 都按【当前聊天】持久化，与 plan/arc 同风格（随聊天保存、随切换刷新）：
 //   _convo   持久化的侧聊问答历史（原本仅在内存里、刷新即丢）
 //   _summary 用户粘贴的运行总结 / 前情提要
@@ -5286,6 +5341,27 @@ function setPlan(plan) {
     if (!md) return false;
     if (plan) md[PLAN_META_KEY] = plan;
     else delete md[PLAN_META_KEY];
+    try {
+        const ctx = getCtx();
+        (ctx.saveMetadataDebounced || ctx.saveMetadata || (() => {}))();
+    } catch (e) { /* metadata still set in memory */ }
+    return true;
+}
+
+// The active beat playlist for the CURRENT chat, or null.
+// Shape: { title, beats:[{id,title,goal,seed,why,intensity,customText?,status}], cursor,
+//          beatStartAt, reminded, adoptedAt } —— 见设计文档 §2。
+function getSeq() {
+    const md = getChatMetadataSafe();
+    const q = md ? md[SEQ_META_KEY] : null;
+    return (q && typeof q === 'object' && Array.isArray(q.beats) && q.beats.length) ? q : null;
+}
+
+function setSeq(seq) {
+    const md = getChatMetadataSafe();
+    if (!md) return false;
+    if (seq) md[SEQ_META_KEY] = seq;
+    else delete md[SEQ_META_KEY];
     try {
         const ctx = getCtx();
         (ctx.saveMetadataDebounced || ctx.saveMetadata || (() => {}))();
@@ -6243,8 +6319,23 @@ function applyPlanInjection() {
         const b = active.arc.currentBeat;
         const raw = b.customText || b.injectedText || '';
         try { text = ctx.substituteParams(raw); } catch (e) { text = raw; }
+    } else if (active && active.type === 'seq') {
+        // 序列引导（1.72.0）：同一时间只有【当前拍】在引导主聊天——拍与单拍同形，
+        // 所以走同一条 buildDirective（customText || buildDirectiveRaw，内部已 substitute）。
+        // 无当前拍（全部播完 / 元数据被外力弄脏）→ 空串 = 清掉注入，绝不留半条陈旧引导。
+        const b = seqActiveBeat(active.seq);
+        text = b ? buildDirective(b) : '';
     } else if (active && active.type === 'plan') {
         text = buildDirective(active.plan);
+    }
+    try {
+        let pulse = '';
+        if (ENABLE_SEQ_PULSE && s.seqPulse !== false && active && active.type === 'seq') {
+            pulse = buildSeqPulsePrompt(active.seq);   // 无 active 拍 / 无码内部自回 ''
+        }
+        ctx.setExtensionPrompt(SEQ_PULSE_PROMPT_KEY, pulse, pos, 0, false, role);
+    } catch (e) {
+        console.warn('[Story Oracle] seq pulse setExtensionPrompt failed:', e);
     }
     try {
         ctx.setExtensionPrompt(ADVISOR_PROMPT_KEY, text, pos, depth, false, role);
@@ -6268,6 +6359,7 @@ function adoptPlan(p, intensity) {
         reminded: false,
     };
     if (!plan.goal) return;
+    if (ENABLE_PLAN_SEQ && getSeq()) setSeq(null);   // 三方互斥（确认已在 UI 入口做过）
     if (!setPlan(plan)) {
         addSystemNote('无法保存引导方案：当前似乎没有打开任何聊天。');
         return;
@@ -6296,6 +6388,42 @@ function endPlan(done) {
         : `方案『${plan.title || plan.goal}』已放弃，引导已停止——主聊天恢复原状。`);
 }
 
+/* 条上「完成 / 放弃」两枚钮按【当前构件】分发（1.72.0 起三构件共用这两枚钮；单拍路径原样）。
+ * 具名函数而不是内联箭头：分发本身是承重逻辑（点错构件 = 把用户的整条序列当单拍清掉），
+ * 而 bindControls 在 jsdom 里跑不起来 —— 具名了才能被单测【真驱动】而不是只钉源码字符串。 */
+function planBarDoneClick() {
+    const active = getActiveConstruct();
+    if (ENABLE_PLAN_SEQ && active && active.type === 'seq') { seqComplete(); return; }
+    endPlan(true);
+}
+function planBarDropClick() {
+    const active = getActiveConstruct();
+    // 序列的放弃自带确认（比单拍损失大）——它是 async，这里刻意不 await：钮的点击处理器
+    // 不需要等确认结果，seqAbandon 内部自己收尾。
+    if (ENABLE_PLAN_SEQ && active && active.type === 'seq') { void seqAbandon(); return; }
+    endPlan(false);
+}
+
+// 送回讨论（1.72.0，设计 §5；钮上的用户文案是「💬 找参谋改改」）：什么都不拆——注入保持活跃（聊天是免费的，主聊天的引导直到
+// 真正采用修订才变），只是开窗进参谋房并落一条代码侧罐头开场白：**真 assistant 条目**、随
+// convoForPrompt 喂回模型（参谋才知道自己已经开过口，接着聊而不是重新自我介绍），零 LLM 调用。
+// 修订依据（当前序列的状态块）由 buildAdvisorSeqBlock 恒随参谋调用注入，无需在此重复。
+async function seqSendBack() {
+    const seq = getSeq();
+    if (!seq) return;
+    toggleWindow(true);
+    if (!advisorMode) await toggleAdvisor();   // toggleAdvisor 是开关型：已在参谋房则不动
+    // 换房确认里点了「取消」= 用户选择留在原来那一房。此时开场白绝不能落地：它会变成一条
+    // 对不上下文的 AI 发言凭空插进那一房（多半是普通聊天），而参谋房里什么都没有。
+    if (!advisorMode) return;
+    const b = seqActiveBeat(seq);
+    const content = `你当前在${seqProgressLabel(seq)}${b ? `（${b.title || b.goal}）` : ''}。想调整后面的剧情吗？聊好我把剩余的拍重新列给你。`;
+    const entry = { id: ++cidSeq, role: 'assistant', content };
+    entry._el = addMessage('assistant', content, entry);
+    convo.push(entry);
+    persistConvo();
+}
+
 // Change intensity on the fly: metadata updated, directive rebuilt, re-registered.
 // 1.48.0 customText 在场时：节奏行完好 → 原位换成新档那句（用户的其余编辑一字不动）；
 // 节奏行已被用户改掉 → 强度档在 UI 里已置灰，这里再防御一次（swap 返回 null 即 no-op）。
@@ -6311,6 +6439,240 @@ function setPlanIntensity(intensity) {
     setPlan(plan);
     applyPlanInjection();
     renderPlanBar();
+}
+
+/* ------------------------------------------------------------------ *
+ * 序列引导（beat playlist，1.72.0）—— 纯函数层。时钟 now = 主聊天消息数
+ * 由调用方注入（chatMsgCount()），不碰 getCtx()，jsdom 可确定性单测。
+ * 设计：docs/superpowers/specs/2026-08-27-beat-playlist-design.md §2–3。
+ * ------------------------------------------------------------------ */
+function buildSeq(parsed, now) {
+    const beats = (parsed.beats || []).map((b, i) => ({
+        id: i + 1,
+        title: String(b.title || '').trim(),
+        goal: String(b.goal || '').trim(),
+        seed: String(b.seed || '').trim(),
+        why: String(b.why || '').trim(),
+        intensity: 'normal',
+        status: i === 0 ? 'active' : 'pending',
+    }));
+    return {
+        title: String(parsed.title || '').trim(),
+        beats, cursor: 0, beatStartAt: now, reminded: false, adoptedAt: now,
+        pulseNonce: seqPulseNonce(),
+    };
+}
+
+function seqActiveBeat(seq) {
+    const b = seq && seq.beats && seq.beats[seq.cursor];
+    return (b && b.status === 'active') ? b : null;
+}
+
+// 完成当前拍：done → 下一个 pending（跨越 skipped）→ 重置停滞。无 pending ⇒ ended。
+function seqAdvance(seq, now) {
+    const b = seqActiveBeat(seq);
+    if (!b) {
+        delete seq.pulseHint;
+        return { ended: true };
+    }
+    b.status = 'done';
+    for (let i = seq.cursor + 1; i < seq.beats.length; i++) {
+        if (seq.beats[i].status === 'pending') {
+            seq.beats[i].status = 'active';
+            seq.cursor = i;
+            seq.beatStartAt = now;
+            seq.reminded = false;
+            seq.pulseNonce = seqPulseNonce(seq.pulseNonce);
+            delete seq.pulseHint;
+            return { ended: false };
+        }
+    }
+    delete seq.pulseHint;
+    return { ended: true };
+}
+
+// 跳过一个待播拍。仅 pending 可跳（active 无跳过钮——完成即推进；历史不可改）。
+function seqSkipBeat(seq, beatId) {
+    const b = (seq.beats || []).find((x) => x.id === beatId);
+    if (!b || b.status !== 'pending') return { changed: false };
+    b.status = 'skipped';
+    return { changed: true };
+}
+
+// 尾段拼接（送回讨论的修订采用）：cursor 起整段替换为新拍，历史保留、id 续号绝不复用、
+// 被替换拍的 customText 随拍消亡（新拍新文本）。
+function seqSpliceTail(seq, newBeats, now) {
+    const maxId = (seq.beats || []).reduce((m, b) => Math.max(m, b.id || 0), 0);
+    const fresh = (newBeats || []).map((b, i) => ({
+        id: maxId + i + 1,
+        title: String(b.title || '').trim(),
+        goal: String(b.goal || '').trim(),
+        seed: String(b.seed || '').trim(),
+        why: String(b.why || '').trim(),
+        intensity: 'normal',
+        status: i === 0 ? 'active' : 'pending',
+    }));
+    // 空提案（解析出零拍）绝不落地：否则尾段被截掉、cursor 指向不存在的拍 =「引导凭空消失」，
+    // 且 seqActiveBeat 恒 null → 注入被清空却还有一条序列元数据挂着（不变量破裂）。
+    if (!fresh.length) return seq;
+    seq.beats = [...seq.beats.slice(0, seq.cursor), ...fresh];
+    seq.beatStartAt = now;
+    seq.pulseNonce = seqPulseNonce(seq.pulseNonce);
+    delete seq.pulseHint;
+    seq.reminded = false;
+    return seq;
+}
+
+function seqProgressLabel(seq) {
+    return `第 ${seq.cursor + 1} / ${seq.beats.length} 拍`;
+}
+
+// 逐拍强度：镜像 setPlanIntensity 的守卫——customText 在场时节奏行完好才原位换档，
+// 被改/删则拒改（UI 侧置灰是第一道闸，这里是防丢字第二道闸）。
+function seqBeatSetIntensity(beat, intensity) {
+    if (!ADVISOR_INTENSITIES[intensity] || !beat) return false;
+    if (beat.customText) {
+        const swapped = swapPaceLine(beat.customText, beat.intensity, intensity);
+        if (swapped === null) return false;
+        beat.customText = swapped;
+    }
+    beat.intensity = intensity;
+    return true;
+}
+
+/* ------------------------------------------------------------------ *
+ * 落拍感应（seq pulse）—— 纯函数层。设计：docs/superpowers/specs/2026-08-27-seq-pulse-design.md
+ * 叙述模型每回合发一行 <so_seq> 状态行；检测的是值的翻转，行消失＝无信号。
+ * ------------------------------------------------------------------ */
+// 码字符集去掉易混形（I/L/O/0/1 不参与生成；解析端仍容 [A-Z0-9] 全集）。
+const SEQ_PULSE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+function seqPulseNonce(prev) {
+    let n;
+    do {
+        n = Array.from({ length: 4 }, () => SEQ_PULSE_ALPHABET[Math.floor(Math.random() * SEQ_PULSE_ALPHABET.length)]).join('');
+    } while (n === prev);
+    return n;
+}
+
+// 协议段草案——语义钉死、措辞待验收电池调优后字节冻结（spec §3/§9）。{{BEAT}}/{{NONCE}} 为占位。
+const SEQ_PULSE_PROTOCOL = `【序列状态行（系统协议）】
+你每条正文的最末尾必须原样输出一行状态标签，报告上方剧情推进指令中当前目标的落实情况：
+<so_seq>拍={{BEAT}} 码={{NONCE}} 状态=进行中</so_seq>
+仅当该目标已在你本次回复的正文中完整发生（不是计划、预告、回忆或对话提及）时，改报：
+<so_seq>拍={{BEAT}} 码={{NONCE}} 状态=已达成 证据=「逐字摘自本次正文中能证明它的一句原话」</so_seq>
+规则：标签每次只出现一次、贴正文最末；拍与码原样照抄；这行是给引导系统读的锚点，请务必每次输出。`;
+
+function buildSeqPulsePrompt(seq) {
+    const b = seqActiveBeat(seq);
+    if (!b || !seq.pulseNonce) return '';
+    return SEQ_PULSE_PROTOCOL.replaceAll('{{BEAT}}', String(b.id)).replaceAll('{{NONCE}}', seq.pulseNonce);
+}
+
+// 解析：matchAll（不共享 lastIndex——/g 正则跨调用带状态是仓内已知雷）；多行取最后一条合法的。
+const SEQ_PULSE_LINE_RE = /<so_seq\b[^>\r\n]*>\s*拍\s*=\s*(\d+)\s+码\s*=\s*([A-Z0-9]{4})\s+状态\s*=\s*(进行中|已达成)(?:\s+证据\s*=\s*「([^」\r\n]*)」)?\s*<\/so_seq>/g;
+function parseSeqPulseLine(text) {
+    const ms = [...String(text ?? '').matchAll(SEQ_PULSE_LINE_RE)];
+    if (!ms.length) return null;
+    const m = ms[ms.length - 1];
+    return { beatId: parseInt(m[1], 10), nonce: m[2], status: m[3], quote: (m[4] || '').trim(), count: ms.length };
+}
+
+const SEQ_PULSE_QUOTE_MIN = 6;   // 证据最短码点数——防「他。」式空泛引文
+function seqPulseVerdict(replyText, seq) {
+    const b = seqActiveBeat(seq);
+    if (!b) return { hint: false, reason: 'no-active' };
+    const p = parseSeqPulseLine(replyText);
+    if (!p) return { hint: false, reason: 'no-line' };
+    if (p.beatId !== b.id) return { hint: false, reason: 'beat-mismatch' };
+    if (!seq.pulseNonce || p.nonce !== seq.pulseNonce) return { hint: false, reason: 'nonce-mismatch' };
+    if (p.status !== '已达成') return { hint: false, reason: 'ongoing' };
+    // grounding：证据必须逐字出现在【剥掉全部 so_seq 行后】的正文里（自引用不算）
+    const body = String(replyText ?? '').replace(SEQ_PULSE_LINE_RE, '');
+    const q = p.quote;
+    if ([...q].length < SEQ_PULSE_QUOTE_MIN || !body.includes(q)) return { hint: false, reason: 'quote-missing' };
+    return { hint: true, quote: q, reason: 'ok' };
+}
+
+/* ------------------------------------------------------------------ *
+ * 序列引导 —— 集成层（副作用：元数据 + 注入 + 方案条重画 + 侧聊记录）。与弧线集成层同规矩：
+ * 纯函数算状态、这里落盘并把注入整体重注册。三方互斥（弧线 / 序列 / 单拍）在【采用】那一刻
+ * 落实，注入随后由 applyPlanInjection 现场从 metadata 推导——不存在第二份真相。
+ * ------------------------------------------------------------------ */
+
+// 是否还有未播完的拍（active 或 pending）——采用别的构件前的确认判据。
+function seqHasUnplayed(seq) {
+    return !!(seq && seq.beats && seq.beats.some((b) => b.status === 'active' || b.status === 'pending'));
+}
+
+// 采用序列卡。已有序列在场 = 尾段修订（设计 §5：零新语法，语义全在采用时——参谋重新提案的是
+// 「当前拍起的剩余序列」，历史拍锁定不动）；否则全新采用（三方互斥：静默清 plan/arc——UI 入口
+// 已就「会丢弃未播完的序列」确认过，这里不再二次打断）。
+function adoptSeq(parsed) {
+    if (!parsed || !Array.isArray(parsed.beats) || !parsed.beats.length) return;
+    const now = chatMsgCount();
+    const existing = getSeq();
+    if (existing) {
+        seqSpliceTail(existing, parsed.beats, now);
+        if (!setSeq(existing)) {
+            // 与全新采用那一枝同样不许静默：没有聊天 = 存不下，用户必须知道修订没落地。
+            addSystemNote('无法保存引导序列：当前似乎没有打开任何聊天。');
+            return;
+        }
+        applyPlanInjection();
+        renderPlanBar();
+        addSystemNote(`已按讨论更新剩余序列（${seqProgressLabel(existing)}）——历史拍保持不变，从当前拍起换用新内容。`);
+        return;
+    }
+    const prevPlan = getPlan();
+    const prevArc = ENABLE_ARC ? getArc() : null;
+    if (prevPlan) setPlan(null);
+    // 拆弧线必须连 ↻重试 的待办一起清（全仓其余四处 setArc(null) 都是这么配对的）：
+    // arcRetryPending 是会话级模块状态，留着就会有一枚指向【已经不存在的弧线】的重试钮，
+    // 点下去真的发一次编译调用，钱花完了才被 arcStamp 身份闸丢弃。
+    if (prevArc) { setArc(null); clearArcRetry(); }
+    const seq = buildSeq(parsed, now);
+    if (!setSeq(seq)) {
+        addSystemNote('无法保存引导序列：当前似乎没有打开任何聊天。');
+        return;
+    }
+    const ok = applyPlanInjection();
+    renderPlanBar();
+    addSystemNote(
+        ((prevPlan || prevArc) ? '已替换原有引导构件。' : '') +
+        (ok
+            ? `已开始序列引导（共 ${seq.beats.length} 拍）：当前只有第 1 拍在引导主聊天，完成后点「完成」换下一拍。`
+            : '序列已保存，但当前 SillyTavern 不支持注入接口（setExtensionPrompt）——引导不会生效，请更新 ST 版本。'),
+    );
+}
+
+// 完成当前拍：推进或圆满收束（同 endPlan(done) 语义——清元数据 + 清注入 + 恢复原状）。
+function seqComplete() {
+    const seq = getSeq();
+    if (!seq) return;
+    const r = seqAdvance(seq, chatMsgCount());
+    if (r.ended) {
+        setSeq(null);
+        applyPlanInjection();
+        renderPlanBar();
+        addSystemNote(`序列『${seq.title || '未命名'}』全部拍已完成，引导已停止——主聊天恢复原状。`);
+        return;
+    }
+    setSeq(seq);
+    applyPlanInjection();
+    renderPlanBar();
+    const b = seqActiveBeat(seq);
+    addSystemNote(`已进入${seqProgressLabel(seq)}：『${b.title || b.goal}』。`);
+}
+
+// 放弃整条序列（带确认——比单拍损失大；同弧线退出惯例）。
+async function seqAbandon() {
+    const seq = getSeq();
+    if (!seq) return;
+    if (!(await uiConfirm('确定放弃？整条序列和引导将被完全清除，主聊天恢复原状。'))) return;
+    setSeq(null);
+    applyPlanInjection();
+    renderPlanBar();
+    addSystemNote(`序列『${seq.title || '未命名'}』已放弃，引导已停止——主聊天恢复原状。`);
 }
 
 // One-time staleness ping: a silent perpetual injection is how "the AI keeps
@@ -6332,6 +6694,19 @@ function checkPlanReminder() {
         }
         return;
     }
+    if (active.type === 'seq') {
+        // 序列引导（1.72.0）：按【当前拍】计时（beatStartAt，推进即复位）——同一条序列会跨很多
+        // 消息，按 adoptedAt 计时的话只会在整条序列开头提醒一次，此后每一拍都静默挂着。
+        const seq = active.seq;
+        if (seq.reminded) return;
+        const n = chatMsgCount() - (seq.beatStartAt || 0);
+        if (n < ADVISOR_REMIND_AFTER) return;
+        seq.reminded = true;
+        setSeq(seq);
+        const b = seqActiveBeat(seq);
+        addSystemNote(`序列引导仍在进行（${seqProgressLabel(seq)}${b ? `：${b.title || b.goal}` : ''}）——这一拍已持续 ${n} 条消息。若已达成可点「完成」进入下一拍，或「找参谋改改」调整。`);
+        return;
+    }
     const plan = active.plan;
     if (plan.reminded) return;
     const n = chatMsgCount() - (plan.adoptedAt || 0);
@@ -6340,6 +6715,84 @@ function checkPlanReminder() {
         setPlan(plan);
         addSystemNote(`引导方案『${plan.title || plan.goal}』已持续 ${n} 条消息——剧情推进到了吗？可以在剧情参谋模式里问我「检查进度」，或在上方方案条里完成 / 调整它。`);
     }
+}
+
+// 落拍感应检测：MESSAGE_RECEIVED 上的轻监听——纯正则 + 子串检查，不进 maybePostReply 共享锁
+// （它是 UI 提示不是写入）。latest-reply-only：每条新 AI 回复重算，说进行中/没带行就清旧 hint
+// ——swipe 掉触发行时提示自然消失，手动 ✔ 恒权威（spec §5/§8）。
+function checkSeqPulse() {
+    if (!ENABLE_SEQ_PULSE) return;
+    const s = getSettings();
+    if (s.seqPulse === false) return;
+    const seq = getSeq();
+    if (!seq || !seqActiveBeat(seq)) return;
+    const chat = getCtx().chat || [];
+    let m = null, at = -1;
+    for (let i = chat.length - 1; i >= 0; i--) {
+        const c = chat[i];
+        if (c && !c.is_user && !c.is_system) { m = c; at = i; break; }
+    }
+    if (!m || typeof m.mes !== 'string') return;
+    const v = seqPulseVerdict(m.mes, seq);
+    const had = !!seq.pulseHint;
+    if (v.hint) seq.pulseHint = { beatId: seqActiveBeat(seq).id, quote: v.quote, at };
+    else delete seq.pulseHint;
+    if (v.hint || had) { setSeq(seq); renderPlanBar(); }
+}
+
+// 落拍提示是否现役（旗 + 当前构件是序列 + hint 属当前 active 拍）。方案条 ✔ 完成钮闪烁与
+// 折叠罗盘闪烁（1.74.1）共用的唯一判据——两处指示灯从同一口读数，结构上不可能不同步。
+// 有意不看 s.seqPulse 设置：与 renderSeqBarBody 1.73.0 起的行为一致（设置关掉后 checkSeqPulse
+// 不再产新 hint，闪烁自然随 hint 消失而停）。
+function seqPulseHintOn() {
+    if (!ENABLE_SEQ_PULSE) return false;
+    const active = getActiveConstruct();
+    if (!active || active.type !== 'seq') return false;
+    const b = seqActiveBeat(active.seq);
+    return !!(b && active.seq.pulseHint && active.seq.pulseHint.beatId === b.id);
+}
+
+/* 落拍感应显示层隐藏——柏宝书 timeTag 同款形态（固定 id 幂等 upsert；markdownOnly=只影响
+ * 显示，标签必须留在提示词里＝few-shot 机制本体，spec §6）。扩展被删而正则残留＝与柏宝书
+ * 相同的已接受权衡（README 记一句手删法）。 */
+const SEQ_PULSE_HIDE_ID = 'so-seq-pulse-hide';
+function ensureSeqPulseHideRegex() {
+    const ctx = getCtx();
+    const es = ctx && ctx.extensionSettings;
+    if (!es) return;
+    if (!Array.isArray(es.regex)) es.regex = [];
+    const script = {
+        id: SEQ_PULSE_HIDE_ID,
+        scriptName: '故事神谕 · 落拍感应隐藏行',   // 文案 Prince 亲选 2026-08-28
+        findRegex: '/<so_seq\\b[^>\\r\\n]*>[^<\\r\\n]*<\\/so_seq>/gi',
+        replaceString: '', trimStrings: [],
+        // ⚠ placement 绝不含 0（已废弃的 MD_DISPLAY）：ST regex 扩展的 migrateSettings
+        // （public/scripts/extensions/regex/index.js，含 0 即触发）会剥掉 0 并【强制
+        // promptOnly:true】——那等于把状态行从出站提示词里剥掉，few-shot 惯性当场死亡
+        // （柏宝书三条正则在现版 ST 上正是这么被翻掉的，2026-08-28 盘面实证）。
+        // [1,2]=USER_INPUT/AI_OUTPUT + markdownOnly 才是「只藏显示、提示词保留」的现代形态。
+        placement: [1, 2],
+        disabled: false, markdownOnly: true, promptOnly: false,
+        runOnEdit: true, substituteRegex: 0, minDepth: null, maxDepth: null,
+    };
+    const i = es.regex.findIndex((r) => r && r.id === SEQ_PULSE_HIDE_ID);
+    if (i >= 0) es.regex[i] = { ...es.regex[i], ...script };
+    else es.regex.push(script);
+    if (typeof ctx.saveSettingsDebounced === 'function') ctx.saveSettingsDebounced();
+}
+function removeSeqPulseHideRegex() {
+    const ctx = getCtx();
+    const es = ctx && ctx.extensionSettings;
+    if (!es || !Array.isArray(es.regex)) return;
+    const next = es.regex.filter((r) => !r || r.id !== SEQ_PULSE_HIDE_ID);
+    if (next.length !== es.regex.length) {
+        es.regex = next;
+        if (typeof ctx.saveSettingsDebounced === 'function') ctx.saveSettingsDebounced();
+    }
+}
+function syncSeqPulseHideRegex() {
+    if (ENABLE_SEQ_PULSE && getSettings().seqPulse !== false) ensureSeqPulseHideRegex();
+    else removeSeqPulseHideRegex();
 }
 
 // Chat switched (or first chat loaded): re-register from THIS chat's metadata —
@@ -6394,11 +6847,14 @@ function setArc(arc) {
     return true;
 }
 
-// 当前聊天的 active 构件：弧线优先于单拍（采用任一会清掉另一，见 adoptArc）。ENABLE_ARC
-// 关闭时彻底忽略弧线元数据 —— kill switch 让参谋干净退回单拍行为。
+// 当前聊天的 active 构件：弧线 > 序列 > 单拍（采用任一会清掉另两，见各 adopt）。ENABLE_ARC /
+// ENABLE_PLAN_SEQ 关闭时各自彻底忽略对应元数据 —— kill switch 让参谋干净退回上一代行为。
+// 三方本互斥、正常不会共存；这里的先后只是防御性排序（元数据被外力弄脏时的确定性）。
 function getActiveConstruct() {
     const arc = ENABLE_ARC ? getArc() : null;
     if (arc) return { type: 'arc', arc };
+    const seq = ENABLE_PLAN_SEQ ? getSeq() : null;
+    if (seq) return { type: 'seq', seq };
     const plan = getPlan();
     if (plan) return { type: 'plan', plan };
     return null;
@@ -6657,6 +7113,7 @@ function arcSetShaping(arc, shaping) {
 function adoptArc(spec) {
     if (!ENABLE_ARC) return;
     if (getPlan()) setPlan(null);                 // 互斥：弧线取代单拍
+    if (ENABLE_PLAN_SEQ && getSeq()) setSeq(null);   // 三方互斥（确认已在 UI 入口做过）
     const arc = buildArc(spec, chatMsgCount());
     if (!arc.waypoints.length) { addSystemNote('弧线至少需要一个路标。'); return; }
     if (!setArc(arc)) { addSystemNote('无法保存弧线：当前似乎没有打开任何聊天。'); return; }
@@ -8126,7 +8583,7 @@ function listTopLevelTagNames(text) {
 // 已知【正文包裹】标签名（大小写不敏感）——命中即高置信（名字本身就是强信号）。小写常量以避开元测试「ALL_CAPS 须引用≥2次」规则。
 const scopeKnownNames = new Set(['content', 'gametxt', '正文', 'story', 'text', 'narration', 'main', 'reply', 'msg']);
 // 作用域【内层】里算【结构块】（保留区候选）的已知标签名（大小写不敏感，故存小写）。
-const innerStructuralNames = new Set(['status', 'status_profile', 'item_info', 'char_info', 'options', 'branches', 'details', 'htmlcontent', 'updatevariable', 'img_gen', 'image', 'roll', 'bginfor', 'style', 'cestuff', 'action_info']);   // action_info：命定之诗类战斗卡的结算面板（1.18.0 语料跑批采纳——此前靠标记密集启发式命中，改已知名后确定性守卫）。image：st-chatu8 类图生扩展的 <image>…</image> 生图提示词块（1.18.6 语料 prince-08 采纳——bare 模式靠 own-line 已守，wrapped 模式需白名单，否则 danbooru tag 被当散文送模型改花；姊妹名 img_gen 早已在册）
+const innerStructuralNames = new Set(['status', 'status_profile', 'item_info', 'char_info', 'options', 'branches', 'details', 'htmlcontent', 'updatevariable', 'img_gen', 'image', 'roll', 'bginfor', 'style', 'cestuff', 'action_info', 'so_seq']);   // action_info：命定之诗类战斗卡的结算面板（1.18.0 语料跑批采纳——此前靠标记密集启发式命中，改已知名后确定性守卫）。image：st-chatu8 类图生扩展的 <image>…</image> 生图提示词块（1.18.6 语料 prince-08 采纳——bare 模式靠 own-line 已守，wrapped 模式需白名单，否则 danbooru tag 被当散文送模型改花；姊妹名 img_gen 早已在册）
 // 「有意义的正文」阈值（字）——低于它视作结构化 / 空块（noWrapper 据此判定）。
 const scopeProseMin = 20;
 
@@ -12110,7 +12567,7 @@ async function maybePostReply(messageId) {
             if (postReplyShouldStop()) break;                   // 用户中断 / 新回合 supersede → 跳过剩余步骤
             try {
                 if (step === 'fix') await runAutoFix(ctx, s, idx, compatSession);
-                else if (step === 'diag') await runAutoDiagnose(ctx, s, idx, chatKey, compatSession);
+                else if (step === 'diag') await runAutoDiagnoseWithRetry(ctx, s, idx, chatKey, compatSession);
                 else await runTrainer(chatKey, compatSession);
             } catch (e) {
                 if (postReplyShouldStop()) break;               // abort / supersede → 静默收尾，不当报错
@@ -12148,10 +12605,76 @@ async function maybePostReply(messageId) {
     }
 }
 
+// ── 🔁 自动诊断 · 失败自动重试（Prince 点单 2026-08-28，默认关） ──────────────────────────
+// 纯：一轮自动诊断的【结局】→ 重试类别；null = 恒不重试。
+// outcome = runAutoDiagnose 的返回值：安全跳过（早退）回 undefined；分类结局回 result
+// （{status, code?}）；调用抛错由包装层折成 { kind: 'error' }。
+//   'empty'  空白回复——unparsed 且 diagParseFailReason 码 'empty'（拒答 / 截断，模型什么都没给）
+//   'format' 格式错误——unparsed 其余码（unclosed/noblock/nonstd）+ doubleblock + failed
+//            （模型给了东西但我们受理不了 / MVU 解析不动）
+//   'error'  调用本身失败（网络 / 中转 / 超时）
+// 「恒不重试」是承重面：applied/verified = 成功；ineffective/nochange = 【判定型】结局（补丁被
+// 受理、跑过了——重掷大概率原样落空，且 noop-equal 本就是「已生效」的签名，见 1.69.0 地雷条）；
+// stale 与一切安全跳过 = 世界已变（切聊天 / 状态被写 / 中断 / supersede），重试 = 与事务闸对着干。
+function diagRetryCategory(outcome) {
+    if (!outcome) return null;
+    if (outcome.kind === 'error') return 'error';
+    if (outcome.status === 'unparsed') return outcome.code === 'empty' ? 'empty' : 'format';
+    if (outcome.status === 'doubleblock' || outcome.status === 'failed') return 'format';
+    return null;
+}
+
+// 纯：重试次数上限。用户可输入任意次数（Prince 定调：2 只是默认值）——非数回默认 2，取整后钳
+// [1,99]（想关请用主开关，0 不是「关」的写法；上钳挡手滑的天文数字——每一跳都是真调用）。
+function diagRetryMax(s) {
+    const n = Math.floor(Number(s && s.autoDiagnoseRetryMax));
+    if (!Number.isFinite(n)) return 2;
+    return Math.min(99, Math.max(1, n));
+}
+
+// 纯：这一轮结束后还要不要再试。used = 已用掉的重试次数（首跑之后为 0）。
+// 三道闸依次：主开关 → 次数上限 → 该类别的勾选框。
+function diagShouldRetry(outcome, s, used) {
+    if (!s || !s.autoDiagnoseRetry) return false;
+    if (used >= diagRetryMax(s)) return false;
+    const cat = diagRetryCategory(outcome);
+    if (cat === 'empty') return !!s.autoDiagnoseRetryOnEmpty;
+    if (cat === 'format') return !!s.autoDiagnoseRetryOnFormat;
+    if (cat === 'error') return !!s.autoDiagnoseRetryOnError;
+    return false;
+}
+
+// 编排包装（maybePostReply 的 diag 步走这里）：跑一次 runAutoDiagnose，按结局决定重不重试。
+// 每一跳都是【完整的一轮】——重新等 MVU、重新快照状态与正文、重新组提示词，绝不拿上一跳的旧
+// 快照凑合（部分失败后世界可能已经变了）。抛错折成 'error' 类别参与裁决；最终不再重试的抛错
+// 【原样上抛】，走 maybePostReply 既有的 console.warn + 每会话一次的失败 toast（= 主开关关时
+// 与旧行为逐字节相同）。中断 / supersede 恒赢：跳与跳之间再核一次 postReplyShouldStop。
+async function runAutoDiagnoseWithRetry(ctx, s, targetId, chatKey, compatSession) {
+    const max = (s && s.autoDiagnoseRetry) ? diagRetryMax(s) : 0;
+    for (let used = 0; ; used++) {
+        let outcome = null, thrown = null;
+        try {
+            outcome = await runAutoDiagnose(ctx, s, targetId, chatKey, compatSession, { used, max });
+        } catch (e) {
+            thrown = e;
+            outcome = { kind: 'error', error: e };
+        }
+        if (postReplyShouldStop() || !diagShouldRetry(outcome, s, used)) {
+            if (thrown) throw thrown;
+            return;
+        }
+        console.warn(`[Story Oracle] 自动诊断这一跳没跑成（${thrown ? '调用失败' : String(outcome && outcome.status)}），自动重试 ${used + 1}/${max}…`, thrown || '');
+    }
+}
+
 // 后台诊断主体：自建诊断提示词 → 调模型 → 解析出修正区块 → 仅在确有改动时经 MVU 应用。
 // chatKey（第 4 参）= 编排入口 maybePostReply 现拍的聊天身份锚点，事务闸拿它当基准；compatSession
 //（第 5 参）= 同一入口立刻起跑的 MVU 外部解析批次观察器，必须先于状态 / 正文快照消费。
-async function runAutoDiagnose(ctx, s, targetId, chatKey, compatSession) {
+// retryState（第 6 参，可空）= 🔁 重试包装传入的 { used, max }：used>0 时「正在诊断」toast 带上
+// 重试标注；本轮失败且还会再试时，记录末尾加一行标注、失败 warning 让位（见 notifyAutoDiagnose）。
+// 返回值 = 本轮结局（分类结局回 result，安全跳过回 undefined），供包装层裁决重试；直调不接返回值
+// 的旧调用方零影响。
+async function runAutoDiagnose(ctx, s, targetId, chatKey, compatSession, retryState) {
     const Mvu = await getMvu();
     if (!Mvu) return;                                       // 没有 MVU 就没什么可诊断
     // 连接没配好就静默退出——别让每条回复都报错（开自动模式的人一般已配好直连 / 配置文件）。
@@ -12248,7 +12771,8 @@ async function runAutoDiagnose(ctx, s, targetId, chatKey, compatSession) {
 
     const effMaxTokens = Math.max(s.maxTokens, 4096);
     const ctl = beginPostReplyCall(POST_REPLY_CALL_TIMEOUT_MS);      // 模块级中断器：240s 超时兜底 + 让「正在自动诊断…」提示可点一下中断
-    const genToast = showAutoDiagGenerating();   // 「正在分析…（点此中断）」——点一下即 cancelPostReply
+    // 「正在分析…（点此中断）」——点一下即 cancelPostReply。重试跳（used>0）带标注，用户看得出是第几次。
+    const genToast = showAutoDiagGenerating(retryState && retryState.used > 0 ? retryState : null);
     let finalText = '';
     try {
         if (s.mode === 'direct') {
@@ -12290,9 +12814,12 @@ async function runAutoDiagnose(ctx, s, targetId, chatKey, compatSession) {
     // 第 5 参 finalText（1.68.0）：双区块闸要数「MVU 会执行几块」，而 extractUpdateBlock 只摘【最早】
     // 那一个包装块 —— 模型甩了两个包装块时，第二块的指令会被静默丢掉（语料 2/768，其中一格两块的 op
     // 完全不同）。把回复原文一并交给它，那一档才拦得住。
+    // 🔁 重试要按「为什么没读懂」分类（空白 vs 格式），故 code 随 detail 一起进 result——
+    // diagParseFailReason 只算一次，两个槽同源。
+    const parseFail = patchBlock ? null : diagParseFailReason(finalText);
     const result = patchBlock
         ? await autoApplyFix(Mvu, patchBlock, captured.statKey, captured.chatKey, finalText)
-        : { status: 'unparsed', detail: diagParseFailReason(finalText).detail, raw: finalText };
+        : { status: 'unparsed', code: parseFail.code, detail: parseFail.detail, raw: finalText };
     // 确有改动 → 把结果反映到消息 / 状态栏（auto 诊断走 replaceMvuData，不发刷新事件，状态栏不会自己更新）：
     //   衍生（乙，原回复无块）：写回推导块 + saveChat + 重渲染（与官方 MVU 更新一致）；
     //   核验（甲，原回复已有块）：只重渲染刷新状态栏，不碰消息正文（避免出现两个更新块）。
@@ -12332,9 +12859,15 @@ async function runAutoDiagnose(ctx, s, targetId, chatKey, compatSession) {
     // 事务闸同一条不变量：【侧聊记录】是【聊天作用域】的东西，appendNoteToRoom 写的是【现在】那个聊天
     // 的元数据 —— 落进去就是在一个无辜的对话里说另一个对话的事。toast 则是【会话作用域】的环境提示、
     // 不落任何聊天，该发照发（用户刚切走，也有权知道上一轮作废了）。故这里只掐掉记录、留住 toast。
+    // 🔁 本轮失败且包装层还会再试 → 记录末尾标注一行、失败 warning 让位给紧随其后的「正在重试」
+    // 提示。判据与包装层是【同一枚纯函数 + 同一份输入】——两处裁决构造性一致，绝不出现「记录说
+    // 会重试、实际没试」的错位。成功 / 安全跳过在 diagShouldRetry 里天然为 false，不受影响。
+    const willRetry = !!(retryState && diagShouldRetry(result, s, retryState.used));
     notifyAutoDiagnose(result, patchBlock, writeBack, {
         noNote: result.status === 'stale' && result.reason === 'chatSwitched',
+        retryLine: willRetry ? `↻ 这一轮没跑成，将自动重试（第 ${retryState.used + 1}/${retryState.max} 次）…` : '',
     });
+    return result;
 }
 
 // 自动应用修复：解析补丁。与手动 applyFix 同一套闸（陈旧 / 诚实 / swipe 钉），只是回状态码而不写状态行。
@@ -12420,6 +12953,18 @@ function refreshMessageBar(idx) {
         const et = ctx.eventTypes || ctx.event_types || {};
         if (ctx.eventSource && typeof ctx.eventSource.emit === 'function') {
             Promise.resolve(ctx.eventSource.emit(et.MESSAGE_UPDATED || 'message_updated', idx)).catch(() => {});
+            // 1.71.1（Discord 实报：诊断一写，正则 / 美化就被刷掉，得刷新浏览器或点「重新处理变量」
+            // 才回来）：再补发一枚 RENDERED。生态事实（对酒馆助手真源码钉：src/function/
+            // displayed_message.ts refreshOneMessage 收尾）——TH 每次程序化改楼重渲染后发的是
+            // USER/CHARACTER_MESSAGE_RENDERED（按楼层类型二选一），MVU 每回合写块走的就是它，所以
+            // 正则 / 卡内美化生态的重渲染钩子普遍挂在 RENDERED 上；上面的 updateMessageBlock 已把
+            // .mes_text 重画成素身 HTML，只发 MESSAGE_UPDATED 这些美化就一直死着。安全性：MVU 不听
+            // RENDERED（结构性证明：TH 在每次 MVU 写库后都发它，MVU 若监听即自环）；translate/TTS
+            // 这类挂 RENDERED 的官方扩展在 MVU 生态里本就每回合收到 TH 的同款补发，不构成新行为。
+            const rendered = m.is_user
+                ? (et.USER_MESSAGE_RENDERED || 'user_message_rendered')
+                : (et.CHARACTER_MESSAGE_RENDERED || 'character_message_rendered');
+            Promise.resolve(ctx.eventSource.emit(rendered, idx)).catch(() => {});
         }
     } catch (e) { console.warn('[Story Oracle] 自动诊断后发 MESSAGE_UPDATED 失败：', e); }
 }
@@ -15422,6 +15967,36 @@ async function selectSwipe(idx, swipeId) {
     return true;
 }
 
+// 纯函数：unparsed 记录里那段「回复摘要」的唯一裁剪口（1.71.1 从 autoDiagNoteContent 提炼，逻辑
+// 逐字节不变）。只取开头 3 行【且】至多 400 字：记录是给人看的，不是日志。行数闸单独用是不够的
+// （FIX 6）——这条记录每失败一轮就【持久化】进 chat metadata 一份，而模型完全可能吐一整段没有换行
+// 的几千字（JSON / 长散文），三行照样能把 metadata 撑起来。\r 一并剥掉（/\r?\n/）：中转回来的
+// CRLF 会让残留的 \r 混进记录正文。截断（按行或按字）恒补一个 … ——不补的话用户看到的是一段
+// 干净收尾的文本，会以为模型就说了这么多。
+// cut 同时是「查看完整回复」按钮的出现判据（diagFullReplyOpts）——按钮与 … 必须同源，
+// 否则会出现「有 … 没按钮」或「没 … 还挂按钮」。
+// 400 这个数【有意写成字面量】：提成 ALL_CAPS 常量就要凑够元测试要求的 ≥2 处引用（同 1.62.0
+// 体积读数阈值的处理），而它只有这一个消费者（本函数）。
+function diagRawExcerpt(raw) {
+    const lines = String(raw == null ? '' : raw).trim().split(/\r?\n/);
+    let head = lines.slice(0, 3).join('\n');
+    let cut = lines.length > 3;
+    if (head.length > 400) { head = head.slice(0, 400); cut = true; }
+    if (head && cut) head += '…';
+    return { head, cut };
+}
+
+// 纯函数：这条自动诊断记录要不要挂「查看完整回复」按钮（1.71.1，Prince 点单：摘要被截时得能自己
+// 看到模型的完整回复才断得了因）。只有 unparsed 且摘要真被截过（… 在场）才挂——没截过时记录本来
+// 就是全文，再挂按钮反而暗示「还有更多」。负载 = 回复原文，只进【内存】注册表（registerNoteOpts）
+// 绝不落盘：这条记录每失败一轮就持久化一份，把几千字原文一起落盘正是 FIX 6 要挡的存档膨胀；代价
+// 是重载后按钮消失、记录只剩摘要（与撤销按钮同一契约，Prince 拍板 2026-08-27）。
+function diagFullReplyOpts(status, raw) {
+    if (status !== 'unparsed') return null;
+    const s = String(raw == null ? '' : raw);
+    return (s.trim() && diagRawExcerpt(s).cut) ? { fullReply: s } : null;
+}
+
 // 纯函数：拼一条自动诊断侧聊记录的正文。诚实分类（Task 4，审计簇 C/E）——每一种结局都渲染
 // 【它真正发生的那件事】，绝不再折成同一句「无需改动」：
 //   applied      已改动、已写入（带补丁，记录上还会长一个撤销按钮）
@@ -15478,19 +16053,12 @@ function autoDiagNoteContent({ status, patch, stamp, detail, raw, report, notice
         return `⚠️ 自动诊断${t} —— ${diagDoubleBlockNotice(blocks || 2)}`;
     }
     if (status === 'unparsed') {
-        // 只取开头 3 行【且】至多 400 字：记录是给人看的，不是日志。行数闸单独用是不够的（FIX 6）——
-        // 这条记录每失败一轮就【持久化】进 chat metadata 一份，而模型完全可能吐一整段没有换行的几千
-        // 字（JSON / 长散文），三行照样能把 metadata 撑起来。\r 一并剥掉（/\r?\n/）：中转回来的
-        // CRLF 会让残留的 \r 混进记录正文。截断（按行或按字）恒补一个 … ——不补的话用户看到的是一段
-        // 干净收尾的文本，会以为模型就说了这么多。
-        const lines = String(raw == null ? '' : raw).trim().split(/\r?\n/);
-        let head = lines.slice(0, 3).join('\n');
-        let cut = lines.length > 3;
-        // 400 这个数【有意写成字面量】：提成 ALL_CAPS 常量就要凑够元测试要求的 ≥2 处引用（同 1.62.0
-        // 体积读数阈值的处理），而它只有这一个消费者。
-        if (head.length > 400) { head = head.slice(0, 400); cut = true; }
-        if (head && cut) head += '…';
-        return `⚠️ 自动诊断${t} —— 没能读懂模型的回复，本轮没有诊断结论（未改动状态）。\n可能原因：${detail || '未知'}${head ? `\n模型回复开头：\n${head}` : ''}`;
+        // 摘要裁剪在 diagRawExcerpt（1.71.1 提炼——「查看完整回复」按钮与 … 必须同一判据）。
+        const { head, cut } = diagRawExcerpt(raw);
+        // 1.71.1：没截过就说「全文」——「开头」两个字暗示后面还有，Discord 实锤有用户把一条
+        // 孤标签回复（模型真就只回了那么多）读成「记录把消息截断了、诊断不了」。截断分支逐字节不动。
+        const rawLabel = cut ? '模型回复开头' : '模型回复全文（模型只返回了这些）';
+        return `⚠️ 自动诊断${t} —— 没能读懂模型的回复，本轮没有诊断结论（未改动状态）。\n可能原因：${detail || '未知'}${head ? `\n${rawLabel}：\n${head}` : ''}`;
     }
     if (status === 'stale') {
         // 认不出的 reason 走兜底 —— 绝不把内部键名漏给用户看。
@@ -15622,6 +16190,9 @@ function notifyAutoDiagnose(result, patch, writeBack, opts) {
             // stale 文案，末尾却挂着「详情见诊断记录」—— 指着一份根本没写的记录，而用户已经在别的
             // 聊天里了。换成与写入前那道事务闸【同一句】（toastDiagChatSwitched），并点名真正的原因。
             toastDiagChatSwitched();
+        } else if (opts && opts.retryLine) {
+            // 🔁 这一轮失败但马上会自动重试：失败 warning 只在【最终】失败后发（不然每一跳都弹一次
+            // = 重试越多越吵），中间跳靠记录里的重试标注 + 紧随其后的「正在重试」toast 说话。
         } else {
             // 'failed' 的那句逐字保留（旧行为），其余三种各自说人话；详细原因在诊断记录里。
             // stale 这一句只服务【留得下记录】的那几种（状态被改动过 / 换楼换 swipe）；切聊天走上面那支。
@@ -15668,20 +16239,29 @@ function notifyAutoDiagnose(result, patch, writeBack, opts) {
             // Task 7（审计簇 D）：落点提示【在这里现算】——记录是持久物、会在很久以后被重画，
             // 那时的最末楼早不是写入时那一楼了。只有真写进去的那一轮才算它。
             notice: status === 'applied' ? diagUserFloorNotice() : '',
-        }) };
+        // 🔁 重试标注拼在纯函数【之外】：autoDiagNoteContent 的既有输出保持逐字节不动（它有字节钉），
+        // retryLine 缺席时这条拼接是空操作。
+        }) + ((opts && opts.retryLine) ? '\n' + opts.retryLine : '') };
         // 改动型记录在本会话挂可用的撤销按钮；其余（无改动 / 失败 / 重载后）是只读记录。
         // applied（Task 5）= 这一轮写进去的那一份，撤销侧拿它当漂移比较锚：「这条记录之后世界又动过没有」。
+        // 1.71.1：unparsed 且摘要被截过 → 改挂「查看完整回复」按钮（diagFullReplyOpts；与 undoable
+        // 结构性互斥——unparsed 那一支没有 snapshot/patch）。
         const undoable = (snapshot && patch) ? { snapshot, applied: result.applied, patch, writeBack: writeBack || null } : null;
-        appendNoteToRoom('diagnose', entry, undoable);   // 自动诊断记录归入【诊断房间】（不可见时直接落其元数据、不上屏）
+        appendNoteToRoom('diagnose', entry, undoable || diagFullReplyOpts(status, result && result.raw));   // 自动诊断记录归入【诊断房间】（不可见时直接落其元数据、不上屏）
     } catch (e) { console.warn('[Story Oracle] 自动诊断记录写入侧聊失败：', e); }
 }
 
 // 「正在自动诊断…」提示。返回一个句柄交给 dismissToast 收掉（toastr 不在则回 null）。timeOut:0 = 不
 // 自动消失，由我们在生成结束后手动 clear。
-function showAutoDiagGenerating() {
+// retry（可空）= 🔁 重试跳的 { used, max }：带上「第几次」标注，用户看得出这不是首跑。不传时
+// 文案与 1.73.0 之前逐字相同。
+function showAutoDiagGenerating(retry) {
     try {
         if (window.toastr && window.toastr.info) {
-            return window.toastr.info('正在分析最新回复、生成诊断报告…（点此中断）', '故事神谕 · 自动诊断', { timeOut: 0, extendedTimeOut: 0, tapToDismiss: false, onclick: () => cancelPostReply() });
+            const msg = retry
+                ? `诊断重试中（第 ${retry.used}/${retry.max} 次）…（点此中断）`   // 文案 Prince 亲选（换序版，2026-08-28）
+                : '正在分析最新回复、生成诊断报告…（点此中断）';
+            return window.toastr.info(msg, '故事神谕 · 自动诊断', { timeOut: 0, extendedTimeOut: 0, tapToDismiss: false, onclick: () => cancelPostReply() });
         }
     } catch (e) { /* ignore */ }
     return null;
@@ -15699,6 +16279,36 @@ function dismissToast(handle) {
 //     算回来 —— 撤销就等于白撤。没有 writeBack 时两个调用都是空操作。
 //   · undone 记在 info 上（注册表存的就是这个对象的引用）——换房重画时按钮按真实状态重生，不会把
 //     「已撤销」的记录又画成崭新「撤销」态（1.33.2 fixApply.applied 同款做法）。
+// 「查看完整回复」（1.71.1，Prince 点单）：unparsed 记录的摘要被截过（…）时挂一枚按钮，把模型回复
+// 【原文】就地展开 / 收起——Discord 实锤：三行摘要常常不够用户看清模型到底回了什么。原文只活在
+// 会话注册表（见 diagFullReplyOpts 头注），重载后按钮不再出现（记录只读，与撤销同契约）。
+// ⚠ 面板恒 textContent：原文里满是 <UpdateVariable> 这类标签，走 innerHTML 会被当 HTML 吞掉。
+function addFullReplyControls(wrap, fullText) {
+    const bar = document.createElement('div');
+    bar.className = 'so-apply-bar so-note-undo';
+    const btn = document.createElement('button');
+    btn.className = 'so-apply-btn';
+    bar.appendChild(btn);
+    wrap.appendChild(bar);
+    let panel = null;
+    const paint = () => {
+        btn.innerHTML = panel
+            ? '<i class="fa-solid fa-eye-slash"></i> 收起'
+            : '<i class="fa-solid fa-eye"></i> 查看完整回复';
+    };
+    paint();
+    btn.addEventListener('click', () => {
+        if (panel) { panel.remove(); panel = null; }
+        else {
+            panel = document.createElement('div');
+            panel.className = 'so-note-fullreply';
+            panel.textContent = String(fullText == null ? '' : fullText);
+            wrap.insertBefore(panel, bar);   // 面板落在摘要正文之下、按钮条之上
+        }
+        paint();
+    });
+}
+
 function addNoteUndoControls(wrap, info) {
     const bar = document.createElement('div');
     bar.className = 'so-apply-bar so-note-undo';
@@ -16322,6 +16932,7 @@ function buildWindow() {
                     <label class="so-field"><span>剧情引导注入深度（参谋模式：方案指令插入主聊天的深度）</span>
                         <input id="so-adv-depth" type="number" step="1" min="0">
                     </label>
+                    ${ENABLE_SEQ_PULSE ? '<label class="so-row"><input id="so-seq-pulse" type="checkbox"> 落拍感应（自动提示当前拍可能已完成）</label>' : ''}
                     <label class="so-check"><input id="so-card" type="checkbox"><span>包含角色卡（描述 / 性格 / 场景）</span></label>
                     <label class="so-check"><input id="so-stat" type="checkbox"><span>附带变量状态（MVU stat_data，普通模式）—— 数值问题的权威来源；关掉则如实拒答数值</span></label>
                     <label class="so-check"><input id="so-world" type="checkbox"><span>附带「世界引擎」后台世界状态（普通 / 参谋模式）—— 目前仅适配世界引擎（World Engine，含本机改版）的当前版本；其它世界状态类扩展需日后单独适配。喂完整数据较吃 token，未识别到相关扩展时无开销</span></label>
@@ -16424,7 +17035,7 @@ function buildWindow() {
             <details class="so-mode-collapse" id="so-diag-collapse" open>
                 <summary class="so-mode-collapse-sum"><i class="fa-solid fa-stethoscope"></i><span>诊断设置</span></summary>
                 <div class="so-mode-collapse-body">
-            ${ENABLE_AUTO_DIAGNOSE ? '<label class="so-check so-lb-check"><input id="so-diag-auto" type="checkbox"><span>自动诊断每条新回复（后台自动检查并修复 MVU）</span></label>\n            <div class="so-hint">每收到一条新的 AI 回复就在后台检查其中的变量更新，发现问题自动修复，并在诊断记录里留一条可撤销的记录。窗口关着也照常工作——诊断按钮变红就表示它在后台跑着。每条回复会多发一次模型请求。</div>\n            <label class="so-check so-lb-check"><input id="so-diag-mvu-compat" type="checkbox"><span>⏳ 兼容 MVU「额外模型解析」</span></label>\n            <div class="so-hint">只有同时使用自动诊断与 TavernHelper / MVU 的「额外模型解析」时才勾选。每条 AI 回复先观察 4 秒启动窗；一旦外部解析启动，会等完整重试批次结束。成功写出更新块就核验；失败或没有有效更新块，就由自动诊断照常推导。最多等 10 分钟，仍未收尾则本轮安全跳过、不抢写。若自动校正也开启，它会在落新 swipe 前共享这次等待并合并更新块。</div>' : ''}
+            ${ENABLE_AUTO_DIAGNOSE ? '<label class="so-check so-lb-check"><input id="so-diag-auto" type="checkbox"><span>自动诊断每条新回复（后台自动检查并修复 MVU）</span></label>\n            <div class="so-hint">每收到一条新的 AI 回复就在后台检查其中的变量更新，发现问题自动修复，并在诊断记录里留一条可撤销的记录。窗口关着也照常工作——诊断按钮变红就表示它在后台跑着。每条回复会多发一次模型请求。</div>\n            <label class="so-check so-lb-check"><input id="so-diag-mvu-compat" type="checkbox"><span>⏳ 兼容 MVU「额外模型解析」</span></label>\n            <div class="so-hint">只有同时使用自动诊断与 TavernHelper / MVU 的「额外模型解析」时才勾选。每条 AI 回复先观察 4 秒启动窗；一旦外部解析启动，会等完整重试批次结束。成功写出更新块就核验；失败或没有有效更新块，就由自动诊断照常推导。最多等 10 分钟，仍未收尾则本轮安全跳过、不抢写。若自动校正也开启，它会在落新 swipe 前共享这次等待并合并更新块。</div>\n            <label class="so-check so-lb-check"><input id="so-diag-retry" type="checkbox"><span>🔁 失败自动重试</span></label>\n            <div class="so-hint">自动诊断这一轮没跑成时自动再试（每次重试都会重新读取当前状态、再发一次模型请求）。在下方勾选哪些失败情形需要重试；成功、无需改动、以及安全跳过（切聊天 / 状态已变 / 手动中断）永不重试。</div>\n            <div id="so-diag-retry-opts">\n            <label class="so-field"><span>最多重试次数</span><input id="so-diag-retry-count" type="number" step="1" min="1" max="99"></label>\n            <label class="so-check so-lb-check"><input id="so-diag-retry-empty" type="checkbox"><span>空白回复（模型没返回内容）</span></label>\n            <label class="so-check so-lb-check"><input id="so-diag-retry-format" type="checkbox"><span>格式错误（没能读懂 / 拒收模型给的更新）</span></label>\n            <label class="so-check so-lb-check"><input id="so-diag-retry-error" type="checkbox"><span>调用失败（网络错误 / 超时等）</span></label>\n            </div>' : ''}
             ${ENABLE_DIAG_BODY_INJECT ? '<label class="so-check so-lb-check"><input id="so-diag-inject" type="checkbox"><span>把诊断修正写进正文 —— 开启后，诊断的修正（自动与手动）会写进这条回复的更新区块——撤销时一并移除。</span></label>' : ''}
             <label class="so-check so-lb-check"><input id="so-diag-preset" type="checkbox"><span>套用我的补全预设（诊断指令叠加其上）</span></label>
             <div class="so-hint so-diag-preset-warn">⚠ 仅在诊断确实被模型拒绝时才勾选：预设的额外内容会分散模型注意力、影响诊断精度。</div>
@@ -16678,6 +17289,7 @@ function buildWindow() {
                 <button type="button" class="so-plan-mini" id="so-plan-edit" title="编辑注入内容（保留原样的「节奏：」行则上方强度档仍可用）"><i class="fa-solid fa-pencil"></i></button>
                 <span class="so-plan-spacer"></span>
                 <button type="button" class="so-plan-mini so-plan-done" id="so-plan-done" title="目标已达成，停止引导">完成</button>
+                ${ENABLE_PLAN_SEQ ? '<button type="button" class="so-plan-mini" id="so-seq-sendback" title="回参谋房继续聊——当前这一拍照常引导着，聊好可只重排剩余的拍" style="display:none">💬 找参谋改改</button>' : ''}
                 <button type="button" class="so-plan-mini so-plan-drop" id="so-plan-drop" title="不再需要，停止引导">放弃</button>
                 <button type="button" class="so-plan-mini so-plan-done" id="so-arc-complete" title="这一拍落地了，进入下一拍" style="display:none">完成</button>
                 <button type="button" class="so-plan-mini" id="so-arc-reroll" title="同一路标换条路线" style="display:none">换个思路</button>
@@ -16699,6 +17311,7 @@ function buildWindow() {
                     <button type="button" class="so-plan-mini" id="so-plan-edit-reset" title="丢弃自定义，回到按方案自动生成的注入内容">恢复默认</button>
                 </div>
             </div>
+            ${ENABLE_PLAN_SEQ ? '<div id="so-seq-list" style="display:none"></div>' : ''}
         </div>
 
         <div id="so-messages"></div>
@@ -16873,8 +17486,14 @@ function bindControls() {
      * 排除面 = 一切 so- 前缀元素（本扩展全部选择器按约定带 so- 前缀，含浮条/toast/🌙/✂️）
      * + ST 弹窗 + 魔杖菜单（不排除会出现「点菜单先关窗、点菜单项又开窗」的双开关打架）。 */
     document.addEventListener('click', onDocClickOutside, true);
-    win.querySelector('#so-plan-done').addEventListener('click', () => endPlan(true));
-    win.querySelector('#so-plan-drop').addEventListener('click', () => endPlan(false));
+    // 完成 / 放弃：三构件共用，按 getActiveConstruct 分发（见 planBarDoneClick / planBarDropClick）。
+    win.querySelector('#so-plan-done').addEventListener('click', planBarDoneClick);
+    win.querySelector('#so-plan-drop').addEventListener('click', planBarDropClick);
+    // 序列专属：把整条序列送回参谋房继续讨论（旗关时模板里没有这枚钮）。
+    if (ENABLE_PLAN_SEQ) {
+        const sendBack = win.querySelector('#so-seq-sendback');
+        if (sendBack) sendBack.addEventListener('click', () => seqSendBack());
+    }
     // Arc lifecycle buttons. Hidden unless the matching arc kind is the active construct
     // (renderPlanBar toggles them); handlers are no-ops without one.
     // Transparent arc (layer 2):
@@ -17230,12 +17849,28 @@ function bindControls() {
     // After bind() has written the new depth, re-register the active injection —
     // otherwise the setting silently applies only on the next chat switch.
     win.querySelector('#so-adv-depth').addEventListener('input', () => applyPlanInjection());
+    if (ENABLE_SEQ_PULSE) {
+        bind('#so-seq-pulse', 'seqPulse');
+        win.querySelector('#so-seq-pulse').addEventListener('change', () => {
+            applyPlanInjection();
+            syncSeqPulseHideRegex();
+            renderPlanBar();
+        });
+    }
     bind('#so-card', 'includeCard');
     bind('#so-stat', 'chatIncludeStat');
     bind('#so-world', 'chatIncludeWorld');
     if (ENABLE_BBS_BRIDGE) bind('#so-bbs', 'chatIncludeBbs');   // 柏宝书记忆桥（行仅在开关开时渲染）
     if (ENABLE_LWB_BRIDGE) bind('#so-lwb', 'chatIncludeLwb');   // 小白X 记忆桥（行仅在开关开时渲染）
     if (ENABLE_AUTO_DIAGNOSE) bind('#so-diag-mvu-compat', 'autoDiagnoseMvuCompat');   // MVU external-analysis compatibility (opt-in)
+    if (ENABLE_AUTO_DIAGNOSE) {   // 🔁 失败自动重试（2026-08-28）：主开关 + 次数 + 三枚分类
+        bind('#so-diag-retry', 'autoDiagnoseRetry');
+        win.querySelector('#so-diag-retry').addEventListener('change', () => reflectDiagRetryVisible());
+        bind('#so-diag-retry-count', 'autoDiagnoseRetryMax', (v) => parseInt(v, 10));
+        bind('#so-diag-retry-empty', 'autoDiagnoseRetryOnEmpty');
+        bind('#so-diag-retry-format', 'autoDiagnoseRetryOnFormat');
+        bind('#so-diag-retry-error', 'autoDiagnoseRetryOnError');
+    }
     if (ENABLE_DIAG_BODY_INJECT) bind('#so-diag-inject', 'diagInjectBody');   // 🩺 诊断修正写进正文（1.65.0 起在「诊断设置」里，行同上）
     if (ENABLE_UPDATE_CHECK) {
         bind('#so-upd-auto', 'updAutoCheck');
@@ -17551,12 +18186,22 @@ function loadSettingsIntoForm() {
     win.querySelector('#so-maxtok').value = s.maxTokens;
     win.querySelector('#so-depth').value = s.contextDepth;
     win.querySelector('#so-adv-depth').value = s.advisorDepth;
+    if (ENABLE_SEQ_PULSE) win.querySelector('#so-seq-pulse').checked = s.seqPulse !== false;
     win.querySelector('#so-card').checked = !!s.includeCard;
     win.querySelector('#so-stat').checked = !!s.chatIncludeStat;
     win.querySelector('#so-world').checked = !!s.chatIncludeWorld;
     if (ENABLE_BBS_BRIDGE) win.querySelector('#so-bbs').checked = !!s.chatIncludeBbs;   // 柏宝书记忆桥
     if (ENABLE_LWB_BRIDGE) win.querySelector('#so-lwb').checked = !!s.chatIncludeLwb;   // 小白X 记忆桥
     if (ENABLE_AUTO_DIAGNOSE) win.querySelector('#so-diag-mvu-compat').checked = !!s.autoDiagnoseMvuCompat;   // MVU external-analysis compatibility
+    if (ENABLE_AUTO_DIAGNOSE) {   // 🔁 失败自动重试（2026-08-28）
+        win.querySelector('#so-diag-retry').checked = !!s.autoDiagnoseRetry;
+        // 次数经 diagRetryMax（与运行时同一枚消毒器）回画：存档里的胡话 / 越界值不原样上屏。
+        win.querySelector('#so-diag-retry-count').value = diagRetryMax(s);
+        win.querySelector('#so-diag-retry-empty').checked = !!s.autoDiagnoseRetryOnEmpty;
+        win.querySelector('#so-diag-retry-format').checked = !!s.autoDiagnoseRetryOnFormat;
+        win.querySelector('#so-diag-retry-error').checked = !!s.autoDiagnoseRetryOnError;
+        reflectDiagRetryVisible();
+    }
     if (ENABLE_DIAG_BODY_INJECT) win.querySelector('#so-diag-inject').checked = !!s.diagInjectBody;   // 🩺 诊断修正写进正文（1.65.0 起住在「诊断设置」里）
     reflectAutoDiagCheckbox();   // 🩺 自动诊断勾选框（1.65.0）：与 autoDiagnoseEnabled 同步，唯一写者
     if (ENABLE_UPDATE_CHECK) {
@@ -19561,13 +20206,17 @@ async function toggleAdvisor() {
     if (!(await confirmModeSwitch('advisor'))) return;   // 1.36.0 中断确认
     priorOracleMode = currentOracleMode();
     setOracleMode('advisor');
+    // 「当前已有构件在引导中」的判据（1.72.0 序列引导）：单拍 plan 与序列 seq 都算数——
+    // 序列同样在引导主聊天，进门提示与下面的「导入」chip 没有理由只认 plan。弧线不进这个
+    // 判据（历史范围如此，弧线有自己的进门语境）。两处共用同一个 const，免得日后漂移。
+    const hasGuidingConstruct = !!(getPlan() || (ENABLE_PLAN_SEQ && getSeq()));
     modeEntryNote('剧情参谋模式已开启。我会通读整段对话，和你一起构思剧情接下来可以怎么走。讨论出具体方案后，我会把它列成卡片——点「开始引导」并选择强度（只铺垫 / 自然推进 / 尽快引爆），主聊天的 AI 就会被悄悄引导着把剧情推向那个方向。引导随时可在上方的方案条里查看、调整或停止。'
-        + (getPlan() ? '\n当前已有一个方案在引导中——可以问我「检查进度」。' : ''));
+        + (hasGuidingConstruct ? '\n当前已有一个方案在引导中——可以问我「检查进度」。' : ''));
     // 每模式独立房间：参谋房间现独立于普通聊天。普通聊天已有讨论、且参谋房间尚空（避免重复导入）→ 提供一键「导入」。
     // （此时 setOracleMode('advisor') 已 syncConvoStream，convo 即参谋房间。）
     const offerImport = ENABLE_MODE_ROOMS
-        ? (roomHasDiscussion(getConvoMeta('main')) && convoForPrompt().length === 0 && !getPlan())
-        : (convoForPrompt().length > 0 && !getPlan());
+        ? (roomHasDiscussion(getConvoMeta('main')) && convoForPrompt().length === 0 && !hasGuidingConstruct)
+        : (convoForPrompt().length > 0 && !hasGuidingConstruct);
     if (offerImport) addBridgeChip();
     focusOracleInput();
 }
@@ -19615,6 +20264,9 @@ function addBridgeChip() {
  * ------------------------------------------------------------------ */
 function renderPlanBar() {
     if (!planBarEl) return;
+    // 任何重画都收起编辑器（1.48.0 不变量）—— 待播拍 ✏️ 的目标随之作废（1.72.0）。不复位的话，
+    // 重画之后条上那枚铅笔会指着【上一次点开的待播拍】，把当前拍的字存到别人身上。
+    seqEditBeatId = null;
     const active = getActiveConstruct();
     if (win) win.classList.toggle('so-plan-on', !!active);
     const pre = planBarEl.querySelector('#so-plan-directive');
@@ -19622,11 +20274,18 @@ function renderPlanBar() {
         pre.classList.remove('open');
         planBarEl.querySelector('#so-plan-show').textContent = '▸ 查看注入内容';
         planBarSetDisplay('#so-plan-editwrap', false);
+        // 序列专属两件也要收（1.72.0）：条整体虽被 so-plan-on 隐藏，但它会被搬进浮窗、
+        // 而下一个构件未必是序列 —— 残件留在 DOM 里迟早以「上一条序列的拍列表」形式冒出来。
+        if (ENABLE_PLAN_SEQ) {
+            planBarSetDisplay('#so-seq-sendback', false);
+            planBarSetDisplay('#so-seq-list', false);
+        }
         pre.style.display = '';
         placePlanBar();
         return;
     }
     const isArc = active.type === 'arc';
+    const isSeq = active.type === 'seq';                  // 序列引导（1.72.0；三方互斥，与 isArc 不同真）
     const isBlind = isArc && active.arc.mode === 'blind';
     const isTransparent = isArc && !isBlind;
     // Toggle button families by construct type: single-shot (完成/放弃) ·
@@ -19642,6 +20301,12 @@ function renderPlanBar() {
     planBarSetDisplay('#so-arc-reject', isBlind);
     planBarSetDisplay('#so-arc-exit', isArc);
     planBarSetDisplay('#so-arc-retry', isArc && !!arcRetryPending);   // shown only after a compile failure
+    // 序列专属两件（1.72.0）：送回讨论钮 + 逐拍列表。旗关时模板里根本没有这两个元素，
+    // planBarSetDisplay 找不到就是空操作 —— 这里的 if 只为省两次无用查询，语义上冗余但便宜。
+    if (ENABLE_PLAN_SEQ) {
+        planBarSetDisplay('#so-seq-sendback', isSeq);
+        planBarSetDisplay('#so-seq-list', isSeq);
+    }
     // ✏️ 1.71.0 全构件开放（用户功能请求；Prince 拍板盲盒也开——点 ✏️＝主动选择剧透，与点击揭开
     // 遮罩同级，title 换用既有防剧透提示句）。1.48.0 时的「仅单拍」闸就此撤除。
     planBarSetDisplay('#so-plan-edit', true);
@@ -19652,6 +20317,7 @@ function renderPlanBar() {
     planBarSetDisplay('#so-plan-editwrap', false);        // 任何重画都收起编辑器
     pre.style.display = '';
     if (isArc) renderArcBarBody(active.arc);
+    else if (isSeq) renderSeqBarBody(active.seq);
     else renderSinglePlanBody(active.plan);
     if (pre.classList.contains('open')) pre.textContent = currentInjectionPreview();
     syncPlanBarCollapsed();
@@ -19697,6 +20363,11 @@ function renderIntensitySegments(current, onPick, disabled) {
 // intensity segments, directive spoiler) in case a blind arc previously left them toggled.
 function renderSinglePlanBody(plan) {
     planBarEl.querySelector('#so-plan-label').textContent = '引导中';
+    // 序列残件清理（1.74.1）：落拍药丸与 ✔ 闪烁类只有 renderSeqBarBody 会摘，换构件后它不再跑，
+    // 不在这里摘就会以「上一条序列的提示」形式留在单拍条上（同下方 arc-only 部件复位的道理）。
+    const strayPill = planBarEl.querySelector('#so-seq-pulse-hint');
+    if (strayPill) strayPill.remove();
+    planBarEl.querySelector('#so-plan-done').classList.remove('so-pulse-glow');
     planBarEl.querySelector('#so-arc-diff-badge').style.display = 'none';
     planBarEl.querySelector('#so-plan-intensity').style.display = '';
     planBarEl.querySelector('#so-arc-shaping').style.display = 'none';   // arc-only (layer 6)
@@ -19712,12 +20383,115 @@ function renderSinglePlanBody(plan) {
         paceLocked ? '节奏已自定义——强度档暂不可用；点 ✏️ 里的「恢复默认」可找回' : I.caption;
 }
 
+// 序列方案条主体（1.72.0）。同 renderSinglePlanBody：顺手复位 arc-only 部件——盲盒弧线留下的
+// 防剧透遮罩（so-spoiler/peek + title）绝不许跨构件存活，序列是全透明的，没有任何隐藏内容。
+function renderSeqBarBody(seq) {
+    // 条头（1.72.0 文案定稿）：与折叠药丸 `activeConstructLabel` 对齐 —— 【序列名 · 进度】，
+    // 无标题时同一套回落（'序列引导'）。序列没有第二行读数，名字与进度必须挤在这一行里。
+    planBarEl.querySelector('#so-plan-label').textContent = `${seq.title || '序列引导'} · ${seqProgressLabel(seq)}`;
+    // 落拍感应提示（spec §7）：hint 属当前 active 拍才渲染；title 带证据句。
+    // 判据走 seqPulseHintOn（1.74.1）——与折叠罗盘闪烁同一口，两处指示灯不可能不同步。
+    const hintOk = seqPulseHintOn();
+    let pill = planBarEl.querySelector('#so-seq-pulse-hint');
+    if (hintOk && !pill) {
+        pill = document.createElement('span');
+        pill.id = 'so-seq-pulse-hint';
+        pill.className = 'so-seq-pulse-hint';
+        planBarEl.querySelector('#so-plan-label').after(pill);
+    }
+    if (pill && !hintOk) { pill.remove(); pill = null; }
+    if (pill) {
+        pill.textContent = '这一拍可能已落地——完成？';   // 文案 Prince 亲选 2026-08-28
+        pill.title = `证据：「${seq.pulseHint.quote}」`;
+    }
+    planBarEl.querySelector('#so-plan-done').classList.toggle('so-pulse-glow', !!hintOk);
+    planBarEl.querySelector('#so-arc-diff-badge').style.display = 'none';
+    planBarEl.querySelector('#so-plan-intensity').style.display = '';
+    planBarEl.querySelector('#so-arc-shaping').style.display = 'none';   // arc-only (layer 6)
+    const pre = planBarEl.querySelector('#so-plan-directive');
+    pre.classList.remove('so-spoiler', 'peek');
+    pre.title = '';
+    const b = seqActiveBeat(seq);
+    planBarEl.querySelector('#so-plan-goal').textContent =
+        b ? (b.title ? `${b.title}：${b.goal}` : b.goal) : '（无进行中的拍）';
+    // ✏️ 同 1.48.0 单拍 / 1.71.0 弧线：customText 在场且节奏行被改/删 → 强度档置灰（换档无处落笔）。
+    const paceLocked = !!(b && b.customText && !paceLineIntact(b.customText, b.intensity));
+    renderIntensitySegments(b ? b.intensity : 'normal', setSeqActiveIntensity, paceLocked);
+    const I = ADVISOR_INTENSITIES[b ? b.intensity : 'normal'] || ADVISOR_INTENSITIES.normal;
+    planBarEl.querySelector('#so-plan-caption').textContent =
+        paceLocked ? '节奏已自定义——强度档暂不可用；点 ✏️ 里的「恢复默认」可找回' : I.caption;
+    renderSeqList(seq);
+}
+
+// 拍列表：每拍一行，点行展开 goal/seed/why；pending 行带 ✏️ 与 跳过。当前拍与历史行只读
+// （当前拍的 ✏️ 是条上那一枚；已播 / 已跳过的拍改了也不会再注入，给钮只会误导）。
+function renderSeqList(seq) {
+    const list = planBarEl.querySelector('#so-seq-list');
+    if (!list) return;
+    list.innerHTML = '';
+    const mark = { done: '✓', active: '▶', pending: '○', skipped: '⤫' };
+    seq.beats.forEach((b, i) => {
+        const row = document.createElement('details');
+        row.className = `so-seq-row so-seq-row-${b.status}`;
+        const sum = document.createElement('summary');
+        const label = document.createElement('span');
+        label.className = 'so-seq-row-label';
+        label.textContent = `${mark[b.status] || '?'} ${i + 1}. ${b.title || b.goal}`;
+        sum.appendChild(label);
+        if (b.status === 'pending') {
+            const edit = document.createElement('button');
+            edit.type = 'button';
+            edit.className = 'so-seq-row-btn';
+            edit.title = '编辑这一拍的注入内容';
+            edit.innerHTML = '<i class="fa-solid fa-pencil"></i>';
+            edit.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); enterSeqBeatEdit(b.id); });
+            const skip = document.createElement('button');
+            skip.type = 'button';
+            skip.className = 'so-seq-row-btn';
+            skip.title = '跳过这一拍（不会播它）';
+            skip.textContent = '跳过';
+            skip.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); seqSkipBeatUi(b.id); });
+            sum.appendChild(edit);
+            sum.appendChild(skip);
+        }
+        row.appendChild(sum);
+        const body = document.createElement('div');
+        body.className = 'so-seq-row-body';
+        body.textContent = [`目标：${b.goal}`, b.seed && `起始迹象：${b.seed}`, b.why && `契合点：${b.why}`,
+            b.customText && '（注入内容已手改）'].filter(Boolean).join('\n');
+        row.appendChild(body);
+        list.appendChild(row);
+    });
+}
+
+// 强度换档（active 拍）：纯层守卫 + 落盘 + 重注入 + 重画（同 setPlanIntensity 三连）。
+function setSeqActiveIntensity(intensity) {
+    const seq = getSeq();
+    const b = seq && seqActiveBeat(seq);
+    if (!b || !seqBeatSetIntensity(b, intensity)) return;
+    setSeq(seq);
+    applyPlanInjection();
+    renderPlanBar();
+}
+
+// 跳过一个待播拍。注入不变（跳的从来不是当前拍），故只落盘 + 重画。
+function seqSkipBeatUi(beatId) {
+    const seq = getSeq();
+    if (!seq || !seqSkipBeat(seq, beatId).changed) return;
+    setSeq(seq);
+    renderPlanBar();
+}
+
 // Arc body. Transparent: waypoint intent + beat goal + per-beat intensity segments.
 // Blind: player-facing OBJECTIVE (never the goal) + difficulty badge/caption, no
 // intensity (blind uses arc-level difficulty), and the waypoint intent is withheld from
 // the progress line — only 路标 n/m + 贯穿线 show, so the bar can't telegraph the current
 // beat's subject. The directive viewer (which holds the goal) is blurred — soft secrecy.
 function renderArcBarBody(arc) {
+    // 序列残件清理（1.74.1）：同 renderSinglePlanBody——落拍药丸 / ✔ 闪烁类不摘就跨构件存活。
+    const strayPill = planBarEl.querySelector('#so-seq-pulse-hint');
+    if (strayPill) strayPill.remove();
+    planBarEl.querySelector('#so-plan-done').classList.remove('so-pulse-glow');
     const beat = arc.currentBeat;
     const blind = arc.mode === 'blind';
     const total = arc.waypoints.length;
@@ -19790,6 +20564,12 @@ function currentInjectionPreview() {
     const active = getActiveConstruct();
     if (!active) return '';
     if (active.type === 'arc') return arcInjectionPreview(active.arc);
+    // 序列（1.72.0）：预览的永远是【当前拍】的实际注入——即使编辑器此刻的目标是某个待播拍
+    // （seqEditBeatId），预览框读的仍是主聊天正在收到的那一份，两者有意不同源。
+    if (active.type === 'seq') {
+        const b = seqActiveBeat(active.seq);
+        return b ? buildDirective(b) : '';
+    }
     return buildDirective(active.plan);
 }
 function arcInjectionPreview(arc) {
@@ -19810,6 +20590,8 @@ function enterPlanEdit() {
     if (!active) return;
     // ✏️ 1.71.0 弧线放行（透明＋盲盒都可编，Prince 拍板）；弧线已完＝无当前拍、无可编辑 → 早退。
     if (active.type === 'arc' && !active.arc.currentBeat) return;
+    // 序列同理：连当前拍都没有（全部播完 / 元数据被外力弄脏）＝无可编辑。
+    if (active.type === 'seq' && !seqEditTargetBeat()) return;
     const wrap = planBarEl.querySelector('#so-plan-editwrap');
     // 已在编辑中 → 再点无操作。铅笔在编辑期间【仍然可见】，不挡这一下的话，误点第二次
     // 就会把用户正在写的整段字换成自动生成文本——一个手势、没有撤销。
@@ -19820,8 +20602,12 @@ function enterPlanEdit() {
     pre.style.display = 'none';
     wrap.style.display = '';
     const box = planBarEl.querySelector('#so-plan-editbox');
-    // 所见即所存：两种构件都喂 substitute 过的【实际注入】（弧线＝customText||injectedText 展开后）。
-    box.value = (active.type === 'arc') ? arcInjectionPreview(active.arc) : buildDirective(active.plan);
+    // 所见即所存：三种构件都喂 substitute 过的【实际注入】（弧线＝customText||injectedText 展开后；
+    // 序列的拍与单拍同形，故与单拍走同一条 buildDirective＝customText||buildDirectiveRaw 再 substitute。
+    // 注意序列喂的是【目标拍】——列表行点开时它可能是某个待播拍，不是正在注入的那一拍）。
+    box.value = (active.type === 'arc') ? arcInjectionPreview(active.arc)
+        : (active.type === 'seq') ? buildDirective(seqEditTargetBeat())
+            : buildDirective(active.plan);
     box.focus();
     // 赋值后光标默认落在【末尾】，focus() 会把它滚进视野 —— 于是编辑器一开就停在底部，把开头两行
     // （【幕后剧情引导…】抬头 + 「故事应逐步走向：<目标>」）顶出框外。用户要读的正是这两行，故显式
@@ -19845,6 +20631,7 @@ function exitPlanEdit() {
 // paceLocked 重新判定该不该灰），所以【每一条】退出路径都走这里——保存 / 取消 / 恢复默认 /
 // 中途方案没了。任何一条改回裸 exitPlanEdit，档位就会永远停在编辑期的灰态。
 function closePlanEdit() {
+    seqEditBeatId = null;       // 这一次的目标拍到此为止（1.72.0；renderPlanBar 里还有一道同样的闸）
     exitPlanEdit();
     renderPlanBar();
 }
@@ -19862,6 +20649,16 @@ function savePlanEdit() {
         if (text === generated.trim()) delete beat.customText;   // 手动改回默认 → 回到派生态
         else beat.customText = text;
         setArc(active.arc);
+    } else if (active.type === 'seq') {
+        // ✏️ 1.72.0 序列枝：语义逐条镜像单拍（派生基线＝buildDirectiveRaw(拍)）。目标可能是
+        // 某个【待播拍】—— 只改那一拍的注入文本，账本（goal/seed/why/status/cursor）一字不动。
+        const b = seqEditTargetBeat();
+        if (!b) { closePlanEdit(); return; }
+        let generated = buildDirectiveRaw(b);
+        try { generated = getCtx().substituteParams(generated); } catch (e) { /* keep raw */ }
+        if (text === generated.trim()) delete b.customText;      // 手动改回默认 → 回到派生态
+        else b.customText = text;
+        setSeq(active.seq);
     } else {
         const plan = active.plan;
         let generated = buildDirectiveRaw(plan);
@@ -19879,12 +20676,45 @@ function resetPlanEdit() {
     if (active.type === 'arc') {
         if (active.arc.currentBeat) delete active.arc.currentBeat.customText;
         setArc(active.arc);
+    } else if (active.type === 'seq') {
+        const b = seqEditTargetBeat();                           // 目标拍（可能是待播拍）
+        if (b) delete b.customText;
+        setSeq(active.seq);
     } else {
         delete active.plan.customText;
         setPlan(active.plan);
     }
     applyPlanInjection();
     closePlanEdit();
+}
+
+/* 待播拍 ✏️（1.72.0）：预写文本已经在场，没理由锁到播到它才能改。共用上面这套 1.48.0 的编辑器
+ * 骨架，只是目标拍由 seqEditBeatId 指定（null = 沿用「当前构件」语义 = 条上那枚铅笔）。
+ * 编辑器已经开着时【不改目标】：enterPlanEdit 那时会早退（1.48.0 的防重灌护栏），若这里仍把
+ * 目标换掉，textarea 里躺着的还是当前拍的字，一按保存就存到另一拍身上。 */
+function enterSeqBeatEdit(beatId) {
+    const wrap = planBarEl.querySelector('#so-plan-editwrap');
+    if (wrap && wrap.style.display !== 'none') return;
+    // 先【解析】再赋值：目标拍不存在 / 已播完 / 已跳过时一个字都不动，绝不留下一个指向
+    // 不可编拍的陈旧目标（此后条上那枚铅笔会照着它走）。
+    const seq = getSeq();
+    const b = seq && (seq.beats || []).find((x) => x.id === beatId);
+    if (!b || (b.status !== 'pending' && b.status !== 'active')) return;
+    seqEditBeatId = beatId;
+    enterPlanEdit();
+    // 兜底：enterPlanEdit 若因别的缘故没开起来（没有构件等），目标同样不许留下。
+    if (planBarEl.querySelector('#so-plan-editwrap').style.display === 'none') seqEditBeatId = null;
+}
+// 这一次编辑到底改哪一拍：显式指定且仍可编（pending / active）就用它，否则回落到当前拍。
+// 已播完 / 已跳过的拍改了也不会再注入，故不认——按「目标已失效」处理，回落而不是硬编。
+function seqEditTargetBeat() {
+    const seq = getSeq();
+    if (!seq) return null;
+    if (seqEditBeatId != null) {
+        const b = (seq.beats || []).find((x) => x.id === seqEditBeatId);
+        if (b && (b.status === 'pending' || b.status === 'active')) return b;
+    }
+    return seqActiveBeat(seq);
 }
 
 // One-line label for the active construct (collapsed-float tooltip).
@@ -19896,6 +20726,11 @@ function activeConstructLabel() {
         // 盲盒：tooltip 绝不露幕后 goal / throughline —— 只给【玩家可见】objective（与方案条防剧透遮罩一致，§9）。
         if (active.arc.mode === 'blind') return b ? (arcVisibleObjective(b) || '引导进行中') : '引导进行中';
         return b ? b.goal : (active.arc.throughline || '');
+    }
+    // 序列（1.72.0）：折叠药丸的 tooltip。序列全透明，没有防剧透顾虑 —— 给【序列名 + 进度】
+    // 而不是光一个「序列引导」：药丸自己已经写着「引导中」，重复一遍等于什么都没说。
+    if (active.type === 'seq') {
+        return `${active.seq.title || '序列引导'} · ${seqProgressLabel(active.seq)}`;
     }
     const p = active.plan;
     return p.title ? `${p.title}：${p.goal}` : p.goal;
@@ -19923,7 +20758,7 @@ function resetArcForm() {
     if (wpL) wpL.textContent = '路标（每行一个，意图级——透明弧你看得到每一拍，需自己填写）';
 }
 
-function onArcCreate() {
+async function onArcCreate() {
     const throughline = win.querySelector('#so-arc-throughline').value.trim();
     const waypoints = win.querySelector('#so-arc-waypoints').value
         .split('\n').map((x) => x.trim()).filter(Boolean);
@@ -19950,6 +20785,10 @@ function onArcCreate() {
         addSystemNote('请至少填写一个路标（每行一个）。透明弧的路标你看得到，需要你来定。');
         return;
     }
+    // 三方互斥（1.72.0）：采用弧线会静默丢弃在场的序列——先问一次。排在全部校验【之后】，
+    // 免得用户为一次注定失败的提交（路标空）先答一遍确认。
+    if (ENABLE_PLAN_SEQ && seqHasUnplayed(getSeq())
+        && !(await uiConfirm('当前有一条尚未播完的引导序列，采用弧线将丢弃它。继续？'))) return;
     resetArcForm();
     if (waypoints.length) adoptArc(spec);
     else adoptArcWithDraftedWaypoints(spec);   // 盲盒留空：异步起草整条骨架后采用
@@ -20072,6 +20911,9 @@ function applyPlanFloatCollapsed() {
     const label = activeConstructLabel();
     btn.title = collapsed ? (label ? `展开 · ${label}` : '展开剧情引导') : '收起成指南针（不挡屏）';
     planFloat.querySelector('#so-plan-float-head').title = '';
+    // 落拍闪烁（1.74.1）：折叠成罗盘 + hint 现役 → 整颗药丸缓慢呼吸到全亮（展开态由条上的
+    // ✔ 完成钮闪，两处判据同一口 seqPulseHintOn）。classList.toggle 同值不动类 → 动画不重启。
+    planFloat.classList.toggle('so-pulse-flash', collapsed && seqPulseHintOn());
 }
 
 // Decide where the strip lives right now. Rules: no plan -> hidden (and parked
@@ -21533,6 +22375,13 @@ function reflectDiagPickerVisible(on) {
     if (bar) bar.classList.toggle('so-diag-usesel-on', !!on);
 }
 
+// 🔁 重试子选项（次数 + 三枚分类）只在主开关开启后显示——照抄上面 reflectDiagPickerVisible
+// 的 class 切换法（CSS 里 #so-diag-bar.so-diag-retry-on #so-diag-retry-opts 才 display:flex）。
+function reflectDiagRetryVisible() {
+    const bar = win && win.querySelector('#so-diag-bar');
+    if (bar) bar.classList.toggle('so-diag-retry-on', !!getSettings().autoDiagnoseRetry);
+}
+
 // L1（用精选条目）切换：首开且无既有选择 -> 预选当前快照；否则载入既有。落元数据、刷新可见性、填充。
 async function onDiagUseSelToggle(on) {
     const meta = getDiagWiMeta();
@@ -22828,11 +23677,34 @@ function buildAdvisorArcBlock(arc, since) {
     return lines.join('\n');
 }
 
+// 序列状态块（1.72.0）：参谋讨论期间的全景 + 送回讨论的修订依据。纯透明构件——手改拍给【实际注入】。
+// since = 自【当前拍】开始以来的主聊天消息数，由调用方注入（同弧线块把”时钟”作参数的约定）。
+// 末尾那两句是承重的：参谋重新提案时必须只交出「当前拍起的剩余序列」，adoptSeq 的尾段拼接才接得上
+// （它按 cursor 切，历史拍锁定不动）——模型若把已完成的拍也重抄一遍，历史就会被当成新拍重播一次。
+function buildAdvisorSeqBlock(seq, since) {
+    if (!seq || !Array.isArray(seq.beats) || !seq.beats.length) return '';
+    const lines = ['=== 当前已采用的引导序列（正在引导主聊天）==='];
+    if (seq.title) lines.push(`序列：${seq.title}`);
+    lines.push(`进度：${seqProgressLabel(seq)} · 当前拍已持续 ${Math.max(0, Number(since) || 0)} 条主聊天消息`);
+    const mark = { done: '已完成', active: '进行中', pending: '待播', skipped: '已跳过' };
+    seq.beats.forEach((b, i) => {
+        lines.push(`${i + 1}.（${mark[b.status] || b.status}）${b.title ? `${b.title}：` : ''}${b.goal}`);
+        if (b.customText) lines.push(`   实际注入（用户手改）：${b.customText}`);
+    });
+    lines.push('已完成 / 已跳过的拍是锁定历史。若用户想调整序列，讨论后用 <StorySequence> 区块'
+        + '重新提案时【只提交当前拍起的剩余序列】（不要重复已完成的拍）——采用后会自动接在历史之后。');
+    return lines.join('\n');
+}
+
 // 参谋模式提示词：参谋指令 + 人格（若选）+ 当前引导构件（单拍 异或 弧线，若有，供”检查进度”
 // 用）+ 角色卡 + 世界书 + 【整段】对话记录。无论全局上下文深度设成多少，参谋
 // 都看全史——只看最近十几条提出的方案会漏掉长线伏笔。
 function buildAdvisorPrompt(ctx, s) {
     const parts = [resolveModePrompt(s, 'advisor')];   // 用户在设置里自定义了就用其覆盖，否则用内置 ADVISOR_SYSTEM_PROMPT
+    // 序列引导教学段（1.72.0）：单独一段推，不并进内置正文——自定义过参谋提示词的用户
+    // 覆盖掉的只是内置正文，序列能力仍到得了他们手上。预设路径复用本函数产物（advBlock），
+    // 所以这一处 push 同时喂到裸参谋与预设参谋两条路（同柏宝书 / 小白X 记忆桥的漏斗）。
+    if (ENABLE_PLAN_SEQ) parts.push(SEQ_ADVISOR_SECTION);
 
     // 说话人格（仅当用户主动选了某个人格时）：参谋指令之上叠语气皮肤，附带
     // 职责调整（构思未来剧情正是本职，不算「擅自续写」）+ 结构保护。
@@ -22845,6 +23717,11 @@ function buildAdvisorPrompt(ctx, s) {
     if (arc) {
         const beatAt = (arc.currentBeat && arc.currentBeat.beatAdoptedAt) || arc.adoptedAt || 0;
         parts.push(buildAdvisorArcBlock(arc, Math.max(0, chatMsgCount() - beatAt)));
+    } else if (ENABLE_PLAN_SEQ && getSeq()) {
+        // 序列（1.72.0）：三方同序（弧线 > 序列 > 单拍，与 getActiveConstruct / 注入 / 停滞提醒一致）。
+        // 计时口径 = beatStartAt（当前拍），与停滞提醒同源。
+        const seq = getSeq();
+        parts.push(buildAdvisorSeqBlock(seq, Math.max(0, chatMsgCount() - (seq.beatStartAt || 0))));
     } else {
         const plan = getPlan();
         if (plan) {
@@ -23085,11 +23962,17 @@ function renderReplyHtml(text) {
 // 配对规则（大小写不敏感、非贪婪到最近闭合、同样容错 <story_plan>/<story-plan> 等方言变体）；未闭合的
 // 尾部 <StoryPlan>（截断回复）整段算方案块，免得半截方案被 Markdown 搅碎——这条 EOF 救援 parseStoryPlans
 // 也有，两侧【完全一致】。孤儿 </StoryPlan> 留在散文里（parseStoryPlans 同样无视它）。
+// 1.72.0 序列引导：<StorySequence> 卡走同一条 raw 段（渲染层照旧进 <pre class="so-plan-raw">，
+// 采纳卡由 parseStorySequences 另行从【字符串】解析）。开关关时表达式退回 1.71.0 那条正则字面量
+// = 字节惰性。⚠ 有意【不用反向引用】配对：开闭标签各自按变体匹配，才与上面那条「第三块闭标签
+// snake_case」的容错逐字一致。
 function splitStoryPlanSegments(text) {
     const t = String(text || '');
     if (!t) return [];
     const out = [];
-    const re = /<Story[_-]?Plan>[\s\S]*?<\/Story[_-]?Plan>|<Story[_-]?Plan>[\s\S]*$/gi;
+    const re = ENABLE_PLAN_SEQ
+        ? /<Story[_-]?(?:Plan|Sequence)>[\s\S]*?<\/Story[_-]?(?:Plan|Sequence)>|<Story[_-]?(?:Plan|Sequence)>[\s\S]*$/gi
+        : /<Story[_-]?Plan>[\s\S]*?<\/Story[_-]?Plan>|<Story[_-]?Plan>[\s\S]*$/gi;
     let last = 0;
     let m;
     while ((m = re.exec(t)) !== null) {
@@ -23850,6 +24733,12 @@ async function generateReply() {
             } else if (advisorMode) {
                 const plans = parseStoryPlans(cleanText);
                 if (plans.length) addPlanControls(assistantEl, plans);
+                // 序列提案卡（1.72.0）：判据只看 parseStorySequences 的产物，绝不看分段类型——
+                // splitStoryPlanSegments 把 <StorySequence> 也标成 'plan'（那正是它原样进 <pre> 的原因）。
+                if (ENABLE_PLAN_SEQ) {
+                    const seqs = parseStorySequences(cleanText);
+                    if (seqs.length) addSeqControls(assistantEl, seqs);
+                }
             } else if (fixMode) {
                 // 失败时 .so-content 已显示剥离机制/思维链后的 cleanText，不覆盖它——只补一条说明 note。
                 const fixStatus = renderFixCard(assistantEl, contentEl, aEntry, finalText);
@@ -27505,6 +28394,42 @@ function parseStoryPlans(text) {
     return out;
 }
 
+// <StorySequence> 卡（1.72.0 序列引导）：title 头 + 若干 beat 段（beat: 行开拍）。
+// 与 parseStoryPlans 同族：中英键名 / 全角冒号容错、截断尾块救援。无 goal 的拍丢弃、
+// 零有效拍的序列丢弃。ENABLE_PLAN_SEQ 关时调用点不来（解析器本身保持纯函数）。
+function parseStorySequences(text) {
+    const out = [];
+    const re = /<Story[_-]?Sequence>([\s\S]*?)<\/Story[_-]?Sequence>|<Story[_-]?Sequence>([\s\S]*)$/gi;
+    let m;
+    while ((m = re.exec(String(text || ''))) !== null) {
+        const inner = m[1] !== undefined ? m[1] : (m[2] || '');
+        const lines = inner.split('\n');
+        const kv = (line, keys) => {
+            for (const k of keys) {
+                const mm = line.match(new RegExp('^\\s*' + k + '\\s*[:：]\\s*(.+)$', 'i'));
+                if (mm && mm[1].trim()) return mm[1].trim();
+            }
+            return null;
+        };
+        let title = '';
+        const beats = [];
+        let cur = null;
+        for (const line of lines) {
+            const beatOpen = kv(line, ['beat', '拍']);
+            if (beatOpen !== null) { cur = { title: beatOpen, goal: '', seed: '', why: '' }; beats.push(cur); continue; }
+            const t = kv(line, ['title', '标题']);
+            if (t !== null && !cur && !title) { title = t; continue; }
+            if (!cur) continue;
+            const g = kv(line, ['goal', '目标']); if (g !== null) { cur.goal = g; continue; }
+            const sd = kv(line, ['seed', '起始迹象', '种子']); if (sd !== null) { cur.seed = sd; continue; }
+            const w = kv(line, ['why', '契合点', '理由']); if (w !== null) { cur.why = w; continue; }
+        }
+        const valid = beats.filter((b) => b.goal);
+        if (valid.length) out.push({ title, beats: valid });
+    }
+    return out;
+}
+
 // Render one adopt card per parsed plan under the advisor reply. Third instance
 // of the parse-block -> action-button pattern (after Diagnose / Lorebook), and
 // the simplest: adoption is metadata + one setExtensionPrompt call, no ST write
@@ -27587,7 +28512,10 @@ function addPlanControls(assistantEl, plans) {
         btn.type = 'button';
         btn.className = 'so-apply-btn';
         btn.innerHTML = '<i class="fa-solid fa-compass"></i> 开始引导';
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', async () => {
+            // 三方互斥（1.72.0）：采用单拍会静默丢弃在场的序列——序列损失比单拍大，先问一次。
+            if (ENABLE_PLAN_SEQ && seqHasUnplayed(getSeq())
+                && !(await uiConfirm('当前有一条尚未播完的引导序列，采用单拍方案将丢弃它。继续？'))) return;
             adoptPlan(p, intensity);
             // Mark this card as the adopted one; others stay usable (clicking
             // another replaces the plan, with an explicit note — single-goal rule).
@@ -27601,6 +28529,80 @@ function addPlanControls(assistantEl, plans) {
     }
 
     bubble.appendChild(wrap);
+    scrollToBottom();
+}
+
+/* 这张提案卡是不是【当前在跑的那条序列】的来源（1.72.0）——重画时恢复「已采纳」高亮用，
+ * 对应单拍卡的 `activePlan.goal === p.goal`（1.33.2 重画保真）。序列这边更要紧：再点一次采用
+ * 走的是尾段拼接、按设计不弹确认，一张重画后没高亮的卡会诱导用户再点一次，把剩余拍上的 ✏️
+ * 手改静默换掉。
+ * 判据 = 卡里那串 goal 恰好是在场序列 beats 的【末尾一段】。两条采用路径都落在这个形状上：
+ * 全新采用 ⇒ beats 就是这张卡（末尾一段 = 全部）；尾段拼接 ⇒ 历史拍在前、这张卡的拍在后。
+ * 而且推进（seqAdvance 只改 status/cursor、不动 beats）不会让它失配，所以播到第几拍都认得出。
+ * 已知限度：① goal 是身份键（同单拍卡）——两张 goal 逐字相同的卡会一起亮；② 一条序列被【别的】
+ * 卡修订过尾段之后，原来那张卡不再匹配、高亮消失，这是对的：它已经不是在跑的那条了。 */
+function seqCardIsAdopted(seq, sq) {
+    const live = (seq && seq.beats) || [];
+    const want = (sq && sq.beats) || [];
+    if (!want.length || want.length > live.length) return false;
+    const tail = live.slice(live.length - want.length);
+    return tail.every((b, i) => b.goal === String(want[i].goal || '').trim());
+}
+
+// 序列提案卡（1.72.0）：列出全部拍（纯透明——无任何隐藏内容），一键采用整条。
+// 无强度选择器：逐拍默认 normal、采用后在方案条上按拍调（同透明弧习惯）。
+// 容器复用 .so-plan-cards：同一条回复里既有 <StoryPlan> 又有 <StorySequence> 时两族卡同栏，
+// 不另起一条分隔线。按钮沿用单拍卡那一套（.so-plan-card-actions + .so-apply-btn），
+// 免得同一张卡里长出两种观感的采用钮。
+function addSeqControls(assistantEl, seqs) {
+    if (!seqs.length) return;
+    let wrap = assistantEl.querySelector('.so-plan-cards');
+    if (!wrap) {
+        wrap = document.createElement('div');
+        wrap.className = 'so-plan-cards';
+        // 家是【气泡】而不是消息行：.so-msg 是 flex 行（头像 + 气泡），挂到行上会变成第三个
+        // flex 项 —— 一条挤在气泡旁边、连气泡底色都不在其下的窄条。与 addPlanControls 同一处。
+        (assistantEl.querySelector('.so-bubble') || assistantEl).appendChild(wrap);
+    }
+    const liveSeq = getSeq();
+    for (const sq of seqs) {
+        const card = document.createElement('div');
+        card.className = 'so-plan-card so-seq-card';
+        if (seqCardIsAdopted(liveSeq, sq)) card.classList.add('so-plan-adopted');
+        const head = document.createElement('div');
+        head.className = 'so-seq-card-title';
+        head.textContent = `${sq.title || '引导序列'}（共 ${sq.beats.length} 拍）`;
+        card.appendChild(head);
+        sq.beats.forEach((b, i) => {
+            const row = document.createElement('details');
+            row.className = 'so-seq-card-beat';
+            const sum = document.createElement('summary');
+            sum.textContent = `${i + 1}. ${b.title ? b.title + ' — ' : ''}${b.goal}`;
+            row.appendChild(sum);
+            const body = document.createElement('div');
+            body.className = 'so-seq-card-beatbody';
+            body.textContent = [b.seed && `起始迹象：${b.seed}`, b.why && `契合点：${b.why}`]
+                .filter(Boolean).join('\n') || '（无附加说明）';
+            row.appendChild(body);
+            card.appendChild(row);
+        });
+        const actions = document.createElement('div');
+        actions.className = 'so-plan-card-actions';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'so-apply-btn so-seq-adopt';
+        btn.innerHTML = '<i class="fa-solid fa-list-ol"></i> 开始序列引导';
+        btn.addEventListener('click', () => {
+            // 已有序列在场时 adoptSeq 走的是【尾段拼接】（修订语义，历史拍不动）——所以这里
+            // 不像单拍/弧线那样先确认：序列被序列替换不会丢掉已播完的部分。
+            adoptSeq(sq);
+            wrap.querySelectorAll('.so-plan-card').forEach((c) => c.classList.remove('so-plan-adopted'));
+            card.classList.add('so-plan-adopted');
+        });
+        actions.appendChild(btn);
+        card.appendChild(actions);
+        wrap.appendChild(card);
+    }
     scrollToBottom();
 }
 
@@ -27651,6 +28653,7 @@ function addNoteMessage(entry, opts) {
     if (opts && opts.snapshot && opts.patch) addNoteUndoControls(wrap, opts);   // info 形状：{snapshot, applied, patch, writeBack, undone?}
     else if (opts && opts.fix) addAutoFixControls(wrap, opts.fix);
     else if (opts && opts.mvued) addMvuedUndoControls(wrap, opts.mvued);   // 🎛 手动编辑记录：整份快照互换的撤销
+    else if (opts && opts.fullReply) addFullReplyControls(wrap, opts.fullReply);   // 1.71.1 unparsed 记录：查看完整回复
     messagesEl.appendChild(wrap);
     scrollToBottom();
     return wrap;
@@ -27764,6 +28767,12 @@ function repaintControlPlan(streamKey, list) {
             if (!isReply(m)) continue;
             const plans = parseStoryPlans(m.content);
             if (plans.length) out.push({ id: m.id, kind: 'plans', plans });
+            // 序列提案卡也要重挂（1.72.0）：漏了这一处 = 切房间 / 重载后采用钮静默消失，
+            // 而回复正文里那张序列卡还印着，用户只会以为「按钮坏了」。
+            if (ENABLE_PLAN_SEQ) {
+                const seqs = parseStorySequences(m.content);
+                if (seqs.length) out.push({ id: m.id, kind: 'seqs', seqs });
+            }
         }
     } else if (streamKey === 'lorebook') {
         for (const m of arr) {
@@ -27828,6 +28837,7 @@ function loadConvoForChat() {
         const m = convo.find((x) => x.id === p.id);
         if (!m || !m._el) continue;
         if (p.kind === 'plans') addPlanControls(m._el, p.plans);
+        else if (p.kind === 'seqs') addSeqControls(m._el, p.seqs);
         else if (p.kind === 'lorebook') addLorebookApplyControls(m._el, p.parsed, m);
         else if (p.kind === 'diagPatch') addApplyControls(m._el, p.block, m);
         else if (p.kind === 'fixApply') {

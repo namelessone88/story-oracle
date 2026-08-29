@@ -883,6 +883,10 @@
 /* L2 混合开关 + 选条目区只在 L1（用精选条目）开启后才出现 */
 #so-diag-picker { display: none; flex-direction: column; gap: 6px; }
 #so-diag-bar.so-diag-usesel-on #so-diag-picker { display: flex; }
+/* 🔁 失败自动重试（2026-08-28）：子选项（次数 + 三枚分类勾选）只在主开关开启后显示，
+   照抄 #so-diag-picker 的 class 切换法；竖向间距同 #so-diag-wisel 的理由（父级 gap 会被包裹层吃掉）。 */
+#so-diag-retry-opts { display: none; flex-direction: column; gap: 6px; }
+#so-diag-bar.so-diag-retry-on #so-diag-retry-opts { display: flex; }
 
 /* 校正模式配置栏。结构与诊断栏同构（默认隐藏 + 竖向 flex 布局），只在 .so-fix-on 时显示、
    配置面板打开时让位。复用 --so-fix-accent（淡金）的局部换肤与共享的 .so-mode-collapse 折叠机制。 */
@@ -1554,6 +1558,9 @@
     align-items: baseline;
     gap: 7px;
     min-width: 0;
+    /* 1.74.1：hint 药丸（定宽单行）在场后，窄浮窗里定宽件可能装不下——换行而不是溢出窗外。
+       没有药丸时定宽件只有图标+标签，永远装得下 ⇒ 既有布局逐像素不变。 */
+    flex-wrap: wrap;
 }
 .so-plan-icon { color: var(--so-adv-accent); flex: 0 0 auto; align-self: center; }
 .so-plan-label {
@@ -1663,6 +1670,31 @@
     border-color: color-mix(in srgb, var(--so-adv-accent) 45%, transparent);
 }
 
+/* ---- 序列引导（1.72.0）：拍列表 + 送回讨论钮。配色跟主题走（--so-field 底 + 主题正文/描边色，
+   与 .so-plan-mini / #so-plan-directive 同源），送回讨论钮本体直接复用 .so-plan-mini，
+   这里只管列表自己的排布。
+   高度上限取 min(40vh, 240px) 的保守值：条会被搬进 #so-plan-float，而浮窗【没有高度上限】
+   且 overflow:hidden —— 长序列按 40vh 能把浮窗顶出屏外。列表自带 overflow-y:auto，
+   两个家里都在自己内部滚。真机几何待眼检后再定死。 ---- */
+#so-seq-list { max-height: min(40vh, 240px); overflow-y: auto; margin-top: 4px; }
+.so-seq-row summary { display: flex; align-items: center; gap: 6px; cursor: pointer; list-style: none; }
+.so-seq-row-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.so-seq-row-done .so-seq-row-label, .so-seq-row-skipped .so-seq-row-label { opacity: 0.55; }
+.so-seq-row-active .so-seq-row-label { font-weight: 600; }
+.so-seq-row-btn {
+    flex: 0 0 auto;
+    cursor: pointer;
+    padding: 1px 6px;
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.85em;
+    color: var(--SmartThemeBodyColor, #e6e6e6);
+    background-color: var(--so-field);
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+}
+.so-seq-row-btn:hover { filter: brightness(1.15); }
+.so-seq-row-body { white-space: pre-wrap; opacity: 0.85; padding: 2px 0 4px 20px; font-size: 0.8em; line-height: 1.5; }
+
 /* ---------- plan adopt cards (under an advisor reply) ---------- */
 .so-plan-cards {
     display: flex;
@@ -1696,6 +1728,21 @@
 .so-plan-card-dim { opacity: 0.72; }
 .so-plan-card-caption { line-height: 1.4; }
 .so-plan-card-actions { display: flex; margin-top: 2px; }
+
+/* ---- 序列提案卡（1.72.0）：骑 .so-plan-card 骨架，只加序列特有件（标题行 + 逐拍折叠行）。
+   字号跟单拍卡同一套（标题 .so-plan-card-title 0.9em / 行 .so-plan-card-line 0.82em，
+   展开体再按 .so-plan-card-dim 压暗），采用钮也不另立门户 —— 沿用 .so-plan-card-actions +
+   .so-apply-btn。行距全交给 .so-plan-card 的 gap:5px，这里不再自带 margin（会叠加）。 ---- */
+.so-seq-card-title { font-size: 0.9em; font-weight: 600; line-height: 1.4; }
+.so-seq-card-beat summary { cursor: pointer; font-size: 0.82em; line-height: 1.5; color: var(--SmartThemeBodyColor); }
+.so-seq-card-beatbody {
+    white-space: pre-wrap;
+    font-size: 0.82em;
+    line-height: 1.5;
+    opacity: 0.72;
+    padding: 2px 0 4px 16px;
+    overflow-wrap: anywhere;
+}
 
 /* ---------- bridge chip (chat-mode discussion -> advisor plans) ---------- */
 .so-bridge { padding-top: 0; }
@@ -1790,6 +1837,20 @@
 #so-plan-float.so-collapsed:active { opacity: 1; }
 /* 正在编译节拍（罗盘转圈）时它在后台干活，别太隐身 —— 提到接近满不透明 */
 #so-plan-float.so-collapsed.so-arc-busy { opacity: 0.9; }
+/* 落拍闪烁（1.74.1）：hint 现役时罗盘药丸从静息半透明缓慢呼吸到全亮 + accent 光环——闪烁本身
+   就是提醒，低点回到 0.5＝永不长驻满亮（保住上面「别挡正文」的静息约定）。动画声明压过静息
+   opacity 与 :hover 的 1（同特异度后来居上 + animation 优先），hint 一清就恢复原样。 */
+#so-plan-float.so-collapsed.so-pulse-flash { animation: so-pulse-float-kf 2s ease-in-out infinite; }
+@keyframes so-pulse-float-kf {
+    0%, 100% {
+        opacity: 0.5;
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--so-adv-accent) 0%, transparent);
+    }
+    50% {
+        opacity: 1;
+        box-shadow: 0 0 10px 3px color-mix(in srgb, var(--so-adv-accent) 55%, transparent);
+    }
+}
 #so-plan-float.so-collapsed #so-plan-float-slot { display: none; }
 #so-plan-float.so-collapsed #so-plan-float-head {
     border-bottom: none;
@@ -2021,6 +2082,17 @@
 }
 /* 撤销按钮条：复用 .so-apply-bar/.so-apply-btn/.so-apply-status（手动诊断同款），仅留点上间距 */
 .so-note-undo { margin-top: 2px; }
+/* 「查看完整回复」展开面板（1.71.1）：与 .so-note-record-text 同款滚动上限；底色走皮肤墨色
+   rgba(var(--so-ink), α)（1.45.0 律：不碰 ST 那族不随主题变的 :root 常量），与摘要区分一格好认 */
+.so-note-fullreply {
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 220px;
+    overflow: auto;
+    padding: 4px 6px;
+    border-radius: 4px;
+    background: rgba(var(--so-ink), 0.06);
+}
 
 /* 概要图标的「有内容」小红点 */
 #so-summary-btn { position: relative; }
@@ -2679,6 +2751,28 @@ body.so-skin-light .so-cur-disabled {
 .so-mvued-trainer-readout { margin-top: .8em; }
 .so-mvued-rule-dead .so-mvued-rule-name,
 .so-mvued-rule-dead .so-mvued-rule-desc { opacity: .45; text-decoration: line-through; }
+
+.so-seq-pulse-hint {
+    font-size: 0.85em; padding: 1px 8px; border-radius: 9px;
+    background: rgba(var(--so-ink), .10); opacity: .9;
+    /* 1.74.1 真机回归（Prince 截图）：条头是 flex、goal 吃满剩余宽——药丸没有收缩保护时会被
+       压到 CJK 的最小内容宽＝一字一行的竖条。.so-plan-label 同款定宽 + 单行；装不下由条头换行。 */
+    flex: 0 0 auto; white-space: nowrap;
+}
+/* 落拍闪烁升级（1.74.1，Prince 点单「更醒目」）：1.73.0 的 ink 淡影呼吸太含蓄，真闪要动底色——
+   向 accent 脉动 + 光环。减动效偏好由上方 prefers-reduced-motion 块统一压掉（两个家
+   #so-window / #so-plan-float 都在列，条搬进浮窗后同样生效）。 */
+@keyframes so-pulse-glow-kf {
+    0%, 100% {
+        background-color: var(--so-field);
+        box-shadow: 0 0 0 0 color-mix(in srgb, var(--so-adv-accent) 0%, transparent);
+    }
+    50% {
+        background-color: color-mix(in srgb, var(--so-adv-accent) 32%, var(--so-field));
+        box-shadow: 0 0 8px 2px color-mix(in srgb, var(--so-adv-accent) 55%, transparent);
+    }
+}
+.so-pulse-glow { animation: so-pulse-glow-kf 2s ease-in-out infinite; }
 
 /* 搜索未命中 —— 必须排在最后：它靠【后来居上】压过上面同特异度的 display:flex（.so-mvued-leaf 等），
    在这条前面插新规则会把过滤悄悄搞失效。 */
