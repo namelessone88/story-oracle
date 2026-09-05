@@ -920,6 +920,8 @@
 /* ✨ 校正 Phase 4：全局命名套餐库的一行控件（下拉 + 加载 / 保存为… / 删除）。 */
 .so-fix-bundle-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
 .so-fix-bundle-row #so-fix-bundle { flex: 1 1 120px; min-width: 100px; }
+/* 📋 自定义任务的模板下拉同住一行——长模板名在手机上会把四件套撑出栏外，给同款收缩保护。 */
+.so-fix-bundle-row #so-fixc-template { flex: 1 1 120px; min-width: 100px; }
 .so-fix-bundle-row .so-fix-run-btn { margin-top: 0; padding: 5px 9px; flex: 0 0 auto; }
 
 /* ✨ 校正 Phase 6（B）：作用域判定预览行——命中(绿) / 会切标签·会跳过(琥珀) / 整条(中性淡)。 */

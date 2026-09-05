@@ -901,6 +901,71 @@ const FIX_TARGET_MODULES = {
 };
 const FIX_TARGETS_LEAD = '按以下校正目标，在 <text_to_transform> 里定位并修正问题（其余原样保留，没命中就原样返回）：';
 
+// 📋 自定义模板任务（spec §5.3）：输出契约由【代码】拥有——用户模板只写任务，绝不需要写格式。两条都字节冻结
+// （fix-custom-prompt.test.mjs 钉）。FIX_CUSTOM_LEAD 是用户轮的中性一句，刻意不含「其余原样保留 / 没命中就原样返回」。
+const FIX_CUSTOM_FOOTER = '输出格式（硬性）：只输出 <FixedReply>…</FixedReply>，里面是处理后的【完整】正文；不要任何前言、说明或注释。';
+const FIX_CUSTOM_LEAD = '请按系统提示处理 <text_to_transform> 里的内容。';
+// 📋 raw 表专属（沿用识别【有分段表】时不附）——整条模式把包裹标签与 MVU 块一起交给模型，真模型电池
+// 8/10 丢了 <content>（battery-report §R2），这一句是代码拥有的契约补丁。判据见 buildFixPrompt：
+// fixCustomRawTable 出的表（raw:true 整条 + raw:false 无分段表退路）都附——两者的 core 里都带着包裹标签；
+// 有分段表那条路不附（结构块本就不在画布上，由 head/tail 与保留区锚点收走）。
+const FIX_CUSTOM_RAW_NOTE = '原文里的所有标签与结构块（如 <content>、<status>、<UpdateVariable> 及其中的 _.set 行）必须原样保留、留在原位——不翻译、不改写、不删除、不重复；只处理它们之外的正文。';
+
+// 📋 内置示例模板（1.77.0 owed wave；2026-09-05 产品负责人改判：直接列进模板下拉，不再有「示例…」按钮）。
+// 两份【真模型电池交付物】——在 #so-fixc-template 末尾的 optgroup「内置示例」里，选中即可用。
+// 正文的唯一源头是 `tests/unit/_custom-tpl-battery/SAMPLES.md` 的「### 最终文本」两个围栏块
+// （dialog r4 = 对白 / layout r2 = 排版），由 `fix-custom-samples.test.mjs` 读那份 md 逐字节钉住
+// —— 电池验过的字一个都不许在这里「顺手改好一点」。**只读**：`fixTemplates`（用户库）里永远没有它们，
+// 读路由 findFixTemplate 的兜底分支供给；改过再按「保存」= 另存成一份用户模板（saveFixTemplate 硬拒同名）。
+// 名字末尾的「（示例）」是【标记】，`fixSampleCopyName` 另存时把它去掉。
+const FIX_SAMPLE_TEMPLATES = Object.freeze([
+    {
+        name: '对白更生动+旁白去味（示例）',
+        prompt: '改完之后，这段回复读起来像真人写的：人物和事情一点没动，换的只是说法。\n'
+            + '\n'
+            + '对白像活人开口：还是那个人、在那个处境里说的那层意思，但有口气、有停顿、有省略，短句和口语多，会被情绪带偏一点，而不是把心里话工整地报告出来、把前因后果解释得一清二楚。各人的性格、说话习惯和彼此的关系不变——谁强势谁怯场、谁话多谁话少，读完还是同一群人。\n'
+            + '\n'
+            + '对白的外形照旧：原文怎么标的就还怎么标——原本行首带说话人名字的照旧带着，原本不带的也别添上；原本独立成行的仍独立成行，原本嵌在叙述里的仍嵌在叙述里；引号还是原来那一种。说话的人和话的句数一个不多一个不少——变的只有引号里的那句话。\n'
+            + '\n'
+            + '对白之外的叙述里没有套式和空话：无来由的气氛烘托、不承担剧情的精确数字、故弄玄虚的暗示、为显文采堆上去的比喻，都不在了；留下的是看得见听得到的具体动作和细节，句子干净直接。\n'
+            + '\n'
+            + '事件、人物、地点、物件、先后顺序一样不多一样不少；名字——人的、地方的、东西的——还是原来那几个字，不换称呼、不简称；不新增情节、人物或设定，不解释，不评论。',
+    },
+    {
+        name: '排版美化·对白气泡（示例）',
+        prompt: '把正文排成适合消息栏阅读的版式。字词与标点一个都不改、不增删、不换序，只加排版标记。\n'
+            + '· 每行对白独占一个小气泡：气泡里是说话人名字加这行原文；引号后面拖着的动作句、夹在两段引号中间的动作句，都留在同一气泡里、用 <i> 包住，逗号句号照旧；相邻两行对白就是两个气泡，绝不合并。\n'
+            + '· 气泡只有这一种形式：<div style="width:fit-content;max-width:92%;padding:6px 12px;margin:6px 0;border-radius:10px;background:rgba(128,128,128,0.15);border:1px solid rgba(128,128,128,0.35)"><b>名字</b>：“……”</div>\n'
+            + '· 说话人按上下文判断：引号前后的叙述写了谁在说话，「他／她」要认出是前文哪个人；原文没写名字又判断不了的，气泡里只留引号句、不标名字；绝不编造名字。\n'
+            + '· 叙述段只做轻装饰：段与段、段与气泡、气泡与气泡之间各空一行；只在明显的时间或地点跳转处放一行 ---（前后各空一行，没有跳转就一条不放）；一段叙述里至多一处 *斜体*，只给拟声词或没加引号的内心独白。\n'
+            + '· 气泡内的强调只用 <b> 和 <i>；整篇不设文字颜色，背景只用上面那种半透明灰，亮暗主题都能看清；不用 class、脚本、图片、链接、标题。',
+    },
+]);
+
+// 纯函数：按【名字】取一份内置示例（下拉的 value 就是名字）。空 / 非串 / 认不出 → null。
+// 名字是这一族唯一的键——下拉 value、fixC_template、findFixTemplate 的兜底、saveFixTemplate 的拒绝闸
+// 全按它对齐；改名字必须同时改 SAMPLES.md 的注记与三处文档（fix-custom-samples.test.mjs 会钉住）。
+function fixSampleTemplateByName(name) {
+    const n = String(name == null ? '' : name).trim();
+    if (!n) return null;
+    return FIX_SAMPLE_TEMPLATES.find((t) => t.name === n) || null;
+}
+
+// 纯函数：这个名字是不是内置示例的名字。用户库不许出现同名（saveFixTemplate 硬拒），
+// 「保存 / 删除」两个按钮据此改走另存 / 拒绝分支。
+function fixTemplateIsBuiltin(name) {
+    return !!fixSampleTemplateByName(name);
+}
+
+// 纯函数：把内置示例的名字变成「另存为」的默认名 = 去掉末尾的「（示例）」标记（半角括号也收）。
+// 去空之后为空（用户把名字整个改成「（示例）」这种）→ 回原名，绝不返回空串让起名框开着空的。
+function fixSampleCopyName(name) {
+    const raw = String(name == null ? '' : name).trim();
+    const stripped = raw.replace(/[（(]示例[）)]\s*$/, '').trim();
+    return stripped || raw;
+}
+
+
 // 自动模式「成本门」用的禁词正则（高召回、低精度；命中只【授权】一次 LLM 调用，绝不强制改动）。
 // 禁词逐字取自语料 §7（实验/意识流/克劳德禁词表、测试禁用词表、双人成行 anatomy/sci-fi、TGbreak 词集），
 // 按目标键归并：slop=八股/套话、dialogue=对话机械、precision=过度精确、magic=魔法理科化、pacing=详略得当（解剖名词弱信号）。
@@ -1500,6 +1565,10 @@ const ENABLE_SEQ_PULSE = true;
 // 读点：init 监听注册 + onPromptReadyGlue（入口闸，含 glueNote('flag-off') 那一枝）。无用户开关（Prince 2026-09-02）。
 const ENABLE_INJECT_GLUE = true;
 
+// 📋 自定义模板任务（spec 2026-09-03）：校正模式第三档「自定义」——用户自存模板接管「每条新回复」的校正槽位
+// （与校正互斥；「沿用校正的正文识别」可关）。false ⇒ 下拉无第三档、自定义键惰性、出站字节与 1.76.0 全同。
+const ENABLE_FIX_CUSTOM_TASK = true;
+
 // 自动诊断总开关（用户功能请求；实验性——它是唯一会【自动写入 MVU 游戏状态】的功能，故配真正的杀死开关）。
 // === 出问题时的一键回退：把这一行改成 false ===（无需动其它代码）。关掉时：
 //   · 诊断按钮退回原始两态（关 ↔ 诊断，AUTO 不可达）；· 后台 message_received 监听器空转、绝不调用模型、
@@ -1768,7 +1837,7 @@ const ENABLE_CUSTOM_PERSONAS = true;
 // —— 更新提醒（1.38.0）——
 // SO_VERSION 是代码内唯一版本号，必须与 manifest.json 的 version 完全一致——update-check.test.mjs
 // 有失配即红的漂移钉（发版清单：两处一起 bump）。
-const SO_VERSION = '1.76.0';
+const SO_VERSION = '1.77.0';
 // 更新提醒总开关。false → 设置面板不渲染「更新」组、开窗不检查、红点绘制器与一键更新 no-op、
 // 绑定/回填跳过——字节级零行为变化。运行期另有 opt-out 设置 updAutoCheck（默认开）。
 const ENABLE_UPDATE_CHECK = true;
@@ -1995,6 +2064,10 @@ const defaults = {
     // 之后在任何聊天里一键加载到本聊天的 per-chat 覆盖。形如 [{ name, cfg:{<FIX_CFG_KEYS 子集> } }]。
     // 全局（跨聊天）存设置；加载时写本聊天元数据（setFixCfg），不污染全局默认。
     fixBundles: [],
+    // 📋 自定义模板任务：全局具名模板库 [{ name, prompt }]（仿套餐；读时 normalizeFixTemplates 归一）。
+    fixTemplates: [],
+    // 自定义任务的 per-chat 键（进 FIX_CFG_KEYS、随套餐走）：任务二选一 / 选中模板名 / 沿用识别 / 自带两区。
+    fixA_task: 'fix', fixC_template: '', fixC_useMechanic: true, fixC_keepTags: '', fixC_dropTags: '',
     // 普通模式附带 MVU 实时变量状态（stat_data）。这是数值问题的唯一权威来源：
     // 没有它，模型会从剧情里的状态栏残影 / 自身想象中自信地编出数值（v1.14.6）。
     // 大状态卡 + 频繁提问会吃 token，可在设置里关掉（关掉后会改为如实拒答数值）。
@@ -2043,6 +2116,7 @@ const defaults = {
     // ✨ 校正：首次切到「自动校正」时弹一次性提醒（讲清标签块 <sceneinfo>/<details> 的留存要靠排除区·保留）。
     // 与 autoDiagnoseWarned 同款一次性警告：勾「不再提示」后置真，从此不再弹。
     autoFixWarned: false,
+    customFixWarned: false,   // 📋 首次关掉「沿用识别」的一次性确认已出过
     worldInfoMode: 'off',      // 'off' | 'st' (constant + keyword) | 'all' (every entry)
     // 世界书 EJS 渲染（ENABLE_WI_EJS_RENDER，opt-in，默认关）：开了才在神谕读世界书（普通 / 参谋 / 手动校正）时
     // 执行条目里的 <% %> 模板（需已装「提示词模板」ST-Prompt-Template）。含【写变量】的模板会被额外执行、可能
@@ -2062,6 +2136,9 @@ const defaults = {
     clickOutsideClose: false,
     // ✂️ 选段校正快捷按钮：放在输入框【上方】那一排（快速回复条）。默认关；开关在【校正设置 → 手动】里。
     fixSelBarButton: false,
+    // ✂️ 最新一条 AI 回复右上角的选段按钮（1.42.0 起一直常驻）。1.77.0 用户请求——可藏起来；
+    // 默认【开】= 与 1.76.0 行为相同。改成默认关就是「真 opt-in」，一行的事（等产品负责人拍板）。
+    fixSelRowButton: true,
     // A5：把 ⋯ 工具菜单里的项搬到标题栏（省一次点击）。默认关——⋯ 菜单留给未来的小模式。原生化自二创 tools-expand。
     toolsInHeader: false,
     // A6：连接预设（端点 URL + API 密钥 + 模型 的命名快照，随时切换服务商）。原生化自二创 connection-presets。
@@ -2144,7 +2221,7 @@ const defaults = {
     planBarCollapsed: true,
     // ✨ 校正模式（手动 + 自动）是否经【自定义补全预设】发送——仅破限 / 越狱用（同 advisorUsePreset 模式：保留预设的
     // 文本块 + 角色、跳过 RP 内容标记，把校正调用塞到 chatHistory 位）。默认关；全局（不进 per-chat 覆盖）。
-    fixM_usePreset: false, fixA_usePreset: false,
+    fixM_usePreset: false, fixA_usePreset: false, fixC_usePreset: false,
     // Floating plan strip position (when the oracle window is closed while a
     // plan is steering). null = default top-right docking until first drag.
     planFloatLeft: null,
@@ -2223,12 +2300,32 @@ let fixScope = { active: false };   // ✨ 作用域信封（splitContentScope�
 let fixScopeDecision = null;   // ✨ Phase 5 D+E：resolveFixScope 的决策快照（captureFixContext 设，仅自动模式；runAutoFix/runFixByTargets 消费，决定 detected/suggest/skip 该做什么、提示什么）
 let fixPieceDecision = null;   // ✨ 分段校正（1.18.0）：resolveFixPieces 决策快照（captureFixContext 设，仅自动+开关开；runAutoFix / runFixByTargets / updateFixVerdict 消费）
 let fixPieceTable = null;      // ✨ 分段校正：fixSegmentReply 的分段表（多段 run 时非空；bypass / whole / ask / suggest / skip 时 null）
+let fixCustomJoin = null;      // 📋 自定义模板任务：「整条」/ 无分段表时的 head/core/tail 表（captureFixContext mode:'custom' 设；其它模式恒 null）
 // ⟦记号前推⟧ 武装槽（ENABLE_FIX_FORWARD）：手动整篇校正发调用【之前】建好的画布
 // （fixFwdBuildCanvas 的返回 + armed/reason）。captureFixContext 每次先复位成 null，只有 generateReply
 // 的手动分支才武装 → 「按目标校正」/ 自动 / 选段 三条路一律走老契约（本批有意如此）。
 let fixFwdState = null;
 let fixCaptured = null;   // ✨ Phase 4 目标完整性：校正触发时抓下的快照 {chatId,targetIdx,swipeId,fingerprint,prose}；应用前用 fixTargetStale 比对（P-CORRUPT 切聊天 / 换 swipe / 内容变更守卫）
+// ✨/📋 切聊天不取消：结果【暂存】，回到原聊天时自动落地（1.77.0，Prince 亲裁 2026-09-04）。
+// 此前切一次聊天 = onChatChanged 无条件 cancelPostReply()，把在途那一轮连同已经买单的模型回复一起扔掉。
+// 现在校正 / 模板任务照跑完，只是落地时若发现聊天已切走（fixTargetStale 判 'chatSwitched'）就把成品放进
+// 这里，等 CHAT_CHANGED 回到那个聊天再落（fixDrainParked）。一个聊天一个槽，后来居上。
+// 【纯内存，刷新页面即失】：成品是一整条回复正文，塞进 chat metadata 会把每个聊天的存档撑大，而「暂存」
+// 本就只承诺这一次会话内有效。🩺 诊断 / 🎛 修改器不暂存——它们写的是【当前聊天】的 MVU 状态，切走即作废。
+const fixParked = new Map();   // chatKey → { captured, joined, targetIdx, status, problems, before, after, meta, at }
+const FIX_PARK_TTL_MS = 30 * 60 * 1000;   // 暂存的保质期：半小时后那条回复的处理结果再落地已离用户心智太远
+const FIX_PARK_MAX = 8;                   // 槽位上限（按 at 淘汰最旧的）——Map 不封顶会随「切了 N 个聊天」一路长
 let fixActiveMode = 'manual';  // 当前校正调用是哪套（captureFixContext 设）：'manual' → buildFixPrompt 用 FIX_SYSTEM_PROMPT_MANUAL；'auto' → 轻校恒 FIX_SYSTEM_PROMPT_TIGHTEN / 精校按侧重
+let fixCustomTemplateText = '';   // 📋 自定义模板任务：本次调用的模板正文（runCustomTask 设；buildFixPrompt 自定义分支读）
+// 📋 自定义模板任务：#so-fixc-prompt 里有【未保存】的改动（spec §4.3 防误覆盖）。必须是模块级而不是
+// 处理器闭包里的局部量——seedFixControls 会从别处被调（切聊天、两个自动勾选），它得看得见这个旗才能
+// 「脏就不要覆盖用户正在写的正文」；旗留在闭包里时，重种子会静默吃掉用户的字，而旗还赖着 true，
+// 下一次切模板还会弹一个假的「有未保存的改动」。回填 / 保存 / 删除后一律清旗。
+let fixTplDirty = false;
+// 📋 未保存正文的【归属】——它是哪一份模板的正文。脏着的时候下拉和文本框必须一起钉在这个名字上：
+// 程序化写 select.value 不发 change，所以切聊天 / 加载套餐会把下拉悄悄挪到别的模板 B 上，而框里还是
+// A 的未保存文字，再按保存就把 A 的文字写进了 B（与第一轮「删除后错位」同一类事故的另一扇门）。
+let fixTplDirtyFor = '';
 let fixAutoPromptVersion = 'light';    // ✨ 自动校正提示词选择器（captureFixContext 经 resolveFixModeCfg 设，仅自动有意义）：'thorough' → buildFixPrompt 用精校提示（resolveFixAutoPrompt）；'light' → 轻校（现行）
 let fixAutoPromptFlavor = 'deepseek';  // ✨ 精校侧重：'opus' → FIX_PROMPT_JINGXIAO_OPUS，否则 FIX_PROMPT_JINGXIAO_DEEPSEEK
 let advStatData = '';       // stringified current MVU stat_data for advisor sends
@@ -2362,6 +2459,9 @@ function getSettings() {
     else if (ENABLE_BUILDER_PERSONA_STYLES) s.bldTarget = normalizeBldTarget(s.bldTarget);
     // 自定义人格归一（幂等）：坏形条目丢弃、超限截断——UI 与解析读到的恒是干净数组。
     s.customPersonas = normalizeCustomPersonas(s.customPersonas);
+    // 📋 模板库归一（幂等）：坏形 / 空名 / 重名条目清掉；顺带把 defaults 里那个【按引用赋过来的空数组】
+    // 换成本设置对象自己的新数组——否则往它里面写会顺着引用污染 defaults（同 customPersonas 那行的用意）。
+    s.fixTemplates = normalizeFixTemplates(s.fixTemplates);
     return s;
 }
 
@@ -2674,7 +2774,9 @@ function init() {
         const ctx = getCtx();
         const et = ctx.eventTypes || ctx.event_types || {};
         if (ctx.eventSource && typeof ctx.eventSource.on === 'function') {
-            ctx.eventSource.on(et.CHAT_CHANGED || 'chat_id_changed', () => supersedePostReply());
+            // 1.77.0：切聊天不再无条件作废在途那一轮（只有 🩺 诊断 / 🎛 修改器还作废）——校正 / 模板
+            // 任务跑完后把成品暂存、回到原聊天再落。判据与 onChatChanged 那一处共用 postReplyCancelsOnChatSwitch。
+            ctx.eventSource.on(et.CHAT_CHANGED || 'chat_id_changed', () => supersedePostReplyOnChatSwitch());
             ctx.eventSource.on(et.CHAT_CHANGED || 'chat_id_changed', onChatChanged);
             ctx.eventSource.on(et.MESSAGE_RECEIVED || 'message_received', checkPlanReminder);
             ctx.eventSource.on(et.MESSAGE_RECEIVED || 'message_received', () => checkSeqPulse());
@@ -6066,6 +6168,7 @@ const FIX_CFG_KEYS = [
     'fixA_pieceJoin',   // ✨ 整体校正开关（偏好，可进套餐）：1 次调用锚点保留 vs 分段逐次调用
     'fixA_promptVersion', 'fixA_promptFlavor',   // ✨ 校正提示词选择器（轻校 / 精校 + 侧重）
     'autoFixEnabled', 'fixAutoMinChars',
+    'fixA_task', 'fixC_template', 'fixC_useMechanic', 'fixC_keepTags', 'fixC_dropTags',   // 📋 自定义模板任务（spec 2026-09-03 §3）
 ];
 
 // 纯函数：把全局设置 s 与本聊天元数据 md（或 null/undefined）合并成生效校正配置。
@@ -6082,9 +6185,11 @@ function getEffectiveFixCfg(s, md) {
 }
 
 // ✨ 校正：「经自定义补全预设发送」开关按模式取值——手动/自动分家后各自独立（用户功能请求 2026-06-27）。
-// 全局键 fixM_usePreset / fixA_usePreset；非 'auto' 一律看手动键；s 缺失容错为 false。纯判定，便于单测。
+// 全局键 fixM_usePreset / fixA_usePreset / fixC_usePreset（📋 自定义模板任务自成一套，绝不借手动/自动的键）；
+// 其余模式一律看手动键；s 缺失容错为 false。纯判定，便于单测（fix-custom-prompt.test.mjs）。
 function fixUsePresetFor(s, mode) {
-    return !!(s && s[mode === 'auto' ? 'fixA_usePreset' : 'fixM_usePreset']);
+    const key = mode === 'auto' ? 'fixA_usePreset' : (mode === 'custom' ? 'fixC_usePreset' : 'fixM_usePreset');
+    return !!(s && s[key]);
 }
 
 // 纯函数：把 getEffectiveFixCfg 的【原始 fixM_*/fixA_* 键】归一成校正代码消费的统一形状（按 mode 取对应一套）。
@@ -6133,6 +6238,72 @@ function resolveFixModeCfg(e, mode) {
         promptVersion: 'light', promptFlavor: 'deepseek',   // 手动模式不走精校（buildFixPrompt 手动分支另选 FIX_SYSTEM_PROMPT_MANUAL）；给确定值避免 undefined 外泄
         protectThink: c.fixM_protectThink !== false,   // ✨ 思考块保护（W1）：缺键（老配置 / 老套餐）= 开——迁移安全；显式 false 才关
     };
+}
+
+// 📋 纯函数：自定义模板任务的 per-chat 配置归一（resolveFixModeCfg(cfg,'auto') 逐字节不动——校正用户零波及）。
+// 缺键 = 校正任务 / 沿用识别开（迁移安全）；task 非法 → 'fix'；显式 false 才关识别。可单测（fix-custom-cfg.test.mjs）。
+function resolveFixCustomCfg(e) {
+    const c = e || {};
+    return {
+        task: c.fixA_task === 'custom' ? 'custom' : 'fix',
+        template: typeof c.fixC_template === 'string' ? c.fixC_template : '',
+        useMechanic: c.fixC_useMechanic !== false,
+        keepTags: c.fixC_keepTags || '',
+        dropTags: c.fixC_dropTags || '',
+    };
+}
+
+// 📋 纯函数：全局模板库读时归一——去空名 / 非对象、名字 trim、prompt 非字符串归 ''。
+// 同名：内容保【后者】，位置保【首次出现处】（Map.set 覆写不挪位）——面板列表不会因为改一条就跳到末尾。
+function normalizeFixTemplates(arr) {
+    if (!Array.isArray(arr)) return [];
+    const byName = new Map();
+    for (const t of arr) {
+        if (!t || typeof t.name !== 'string') continue;
+        const name = t.name.trim();
+        if (!name) continue;
+        byName.set(name, { name, prompt: typeof t.prompt === 'string' ? t.prompt : '' });
+    }
+    return [...byName.values()];
+}
+
+// 📋 纯函数：按名取模板；缺失 → null（调用方判 prompt 是否为空）。
+// 用户库【先】查，内置示例是【兜底】：同名时用户那份赢（老存档里可能躺着一份 1.77.0 之前存下的同名模板；
+// 新建同名由 saveFixTemplate 硬拒，所以冲突造不出来）。兜底这一支让「选中内置示例」与「选中自己的模板」
+// 在整条运行路上完全同形——runCustomTask / runCustomTaskNow / 判定行 / 套餐提示全走这一个函数。
+function findFixTemplate(s, name) {
+    const list = normalizeFixTemplates(s && s.fixTemplates);
+    const n = String(name || '');
+    if (!n) return null;
+    return list.find((t) => t.name === n) || fixSampleTemplateByName(n);
+}
+
+// 📋 纯函数：一个标签规格（parseExcludeTags 的产物）的【比对键】= 分隔符种类 + 小写名
+// （<Status> → '<status'，[IMG_GEN] → '[img_gen'）。「同名」的口径只此一处——两区比对原来在
+// fixDropMinusKeep / fixTagOverlap 里各手写了三四遍，改口径时漏改一处两边就会分家。
+function fixTagKey(spec) {
+    return (spec.bracket ? '[' : '<') + spec.name.toLowerCase();
+}
+
+// 📋 纯函数：两区同名规则 = 保留优先（spec §5.2）——丢弃串里剔掉也在保留串里的项（名 + 括号种类都相同才算同项）。
+// 保留原始书写形式与顺序，行分隔输出。
+function fixDropMinusKeep(keepTags, dropTags) {
+    const keep = new Set(parseExcludeTags(keepTags).map(fixTagKey));
+    return String(dropTags || '').split(/[,\n]+/).map((s) => s.trim()).filter(Boolean).filter((raw) => {
+        const spec = parseExcludeTags(raw)[0];
+        if (!spec) return false;
+        return !keep.has(fixTagKey(spec));
+    }).join('\n');
+}
+
+// 📋 纯函数：两区同名的名字列表（面板警告用；大小写不敏感、括号种类须相同）。
+function fixTagOverlap(keepTags, dropTags) {
+    const keep = new Set(parseExcludeTags(keepTags).map(fixTagKey));
+    const out = [];
+    for (const sp of parseExcludeTags(dropTags)) {
+        if (keep.has(fixTagKey(sp)) && !out.includes(sp.name.toLowerCase())) out.push(sp.name.toLowerCase());
+    }
+    return out;
 }
 
 // ✨ 自动校正提示词选择器（纯映射，设计 §4）：把归一后的 {promptVersion, promptFlavor} 映射到具体系统提示常量。
@@ -6196,6 +6367,58 @@ function saveFixBundle(name) {
     return true;
 }
 
+// 📋 「模板不存在 / 正文为空」的侧聊记录【每聊天每模板只留一条】的记忆。runCustomTask 这条路每来一条
+// 新回复都会走一遍——无条件写会把侧聊无界刷爆（评审 owed A2）。键 = 聊天身份 + 模板名，故换聊天 /
+// 换模板自然各提醒一次；保存同名模板时清掉（fixNoTemplateForget），补完正文若仍为空要再提醒。
+const fixNoTemplateNoted = new Map();
+
+// 纯函数（唯一副作用是改【传进来的】map）：这一次该不该写记录。第一次见 (chatKey, name) → true 并记下，
+// 之后恒 false。map 缺失 / 不是 Map → true（宁可多写一条，也不静默吞掉用户唯一的线索）。
+function fixNoTemplateShouldNote(map, chatKey, name) {
+    if (!map || typeof map.has !== 'function') return true;
+    const key = String(chatKey == null ? '' : chatKey) + '::' + String(name == null ? '' : name);
+    if (map.has(key)) return false;
+    map.set(key, true);
+    return true;
+}
+
+// 纯函数（同上）：忘掉某个模板名在【所有聊天】里的记忆——名字进了键的后半段，故按后缀清一族。
+function fixNoTemplateForget(map, name) {
+    if (!map || typeof map.keys !== 'function') return;
+    const suffix = '::' + String(name == null ? '' : name);
+    for (const key of [...map.keys()]) if (key.endsWith(suffix)) map.delete(key);
+}
+
+// 📋 全局模板库（仿套餐）：存 / 删；名字 trim、同名覆盖。读取一律经 normalizeFixTemplates。
+// 恒【赋新数组】给 s.fixTemplates，绝不 push 进原数组——getSettings 的 defaults 是按引用赋的，
+// 往原数组里 push 会污染 defaults 常量（下一个空设置对象会带着上一位用户的模板出生）。
+function saveFixTemplate(name, prompt) {
+    const trimmed = String(name || '').trim();
+    if (!trimmed) return false;
+    // 内置示例的名字是【保留名】：造得出同名，findFixTemplate 的兜底就够不着示例、下拉里也两条同名。
+    // 硬拒在这一层（唯一的写入口），面板不必各自设防。
+    if (fixTemplateIsBuiltin(trimmed)) {
+        if (typeof toastr !== 'undefined') toastr.info('这是内置示例的名字，换一个');
+        return false;
+    }
+    const s = getSettings();
+    const list = normalizeFixTemplates(s.fixTemplates).filter((t) => t.name !== trimmed);
+    list.push({ name: trimmed, prompt: String(prompt == null ? '' : prompt) });
+    s.fixTemplates = list;
+    save();
+    fixNoTemplateForget(fixNoTemplateNoted, trimmed);   // 正文改了 → 下一条回复若仍为空，值得再提醒一次
+    return true;
+}
+function deleteFixTemplate(name) {
+    const s = getSettings();
+    const before = normalizeFixTemplates(s.fixTemplates);
+    const after = before.filter((t) => t.name !== name);
+    if (after.length === before.length) return false;
+    s.fixTemplates = after;
+    save();
+    return true;
+}
+
 // 把某个具名套餐加载进【本聊天】的校正覆盖（setFixCfg）并回填控件（loadFixCfgForChat）。
 function loadFixBundle(name) {
     const s = getSettings();
@@ -6205,6 +6428,13 @@ function loadFixBundle(name) {
     // fixA_scopeTag / scopeManual，加载时会泄漏到当前卡。加载侧也过滤（新键 pieceMode/pieceAsked 一并挡住）。
     setFixCfg(filterBundleCfg(bundle.cfg));
     loadFixCfgForChat();     // 重新种子校正控件，UI 立刻反映
+    // 📋 自定义模板任务：套餐会把本聊天整个切到模板任务——这是【看不见】的行为变化（面板可能还停在自动视图），
+    // 故明说一句；套餐点名的模板本机不存在时降级成警告（spec §3「加载的套餐点名的模板本机不存在 → toast 提醒」）。
+    if (ENABLE_FIX_CUSTOM_TASK && bundle.cfg.fixA_task === 'custom' && typeof toastr !== 'undefined') {
+        const tplName = typeof bundle.cfg.fixC_template === 'string' ? bundle.cfg.fixC_template : '';
+        if (findFixTemplate(getSettings(), tplName)) toastr.info('套餐已把本聊天切到模板任务〔' + tplName + '〕');
+        else toastr.warning('套餐指定的模板〔' + tplName + '〕本机不存在——到「校正设置 → 自定义」里新建同名模板，或换回校正');
+    }
     return true;
 }
 
@@ -7040,7 +7270,15 @@ function syncSeqPulseHideRegex() {
 // only event-driven side effect; everything else stays pull-based.
 function onChatChanged() {
     primeLwbFromMetadata();   // 小白X 记忆桥(a)：从本聊天 metadata 快照回填缓存（重开酒馆 / 切聊天即暖；自守门）
-    cancelPostReply();    // ✨ Phase 4 P-CORRUPT：切聊天先尽力中断在途的自动校正 / 诊断，避免它带着旧聊天的目标写回新聊天（应用前还有 fixTargetStale 兜底）
+    // ✨ Phase 4 P-CORRUPT 的【1.77.0 修订】（Prince 亲裁 2026-09-04）：切聊天不再无条件作废在途那一轮。
+    //   · 🩺 自动诊断 / 🎛 修改器写的是【当前聊天】的 MVU 状态 —— 切走即作废，这一条不变。
+    //   · ✨ 自动校正 / 📋 模板任务 只往【那条回复】里写一个新 swipe —— 让它跑完，落地时发现聊天已切走就
+    //     暂存（fixLandOrPark），等回到那个聊天再落（下面的 fixDrainParked）。此前这里的无条件 cancel 把
+    //     已经买单的模型回复直接扔掉。
+    // 判据里的 postReplyBusy 那一半同样不可少：postReplyCancelled 是【轮次级】状态，没有轮次在飞时置位就是
+    // 一面粘滞的旗——两个自动开关都关的用户 maybePostReply 从不清零，按钮路的产出会被永久静默丢弃
+    //（1.77.0 根因，见 runCustomTaskNow）。判据与 CHAT_CHANGED 的 supersede 监听器共用同一份。
+    if (postReplyCancelsOnChatSwitch()) cancelPostReply();
     // 保活：切聊天必须显式中断在途的后台锻造 / 深度精简并清两槽——它们属于【旧聊天】（用旧卡/草稿生成），
     // 绝不能把结果写进新聊天。清空后 runForge / runCondenseDepth 的完成/失败分支会看到身份不符而丢弃落盘。
     if (isGenerating && abortCtl) { try { abortCtl.abort(); } catch (e) { /* ignore */ } }
@@ -7058,6 +7296,10 @@ function onChatChanged() {
     loadDiagSelForChat(); // 用户功能请求：载入本聊天的诊断「精选世界书条目」选择
     loadFixCfgForChat();  // ✨ 校正模式 Phase 4：把校正控件重置成本聊天的生效配置（per-chat 持久化）
     if (win) refreshDraftCard();  // 角色工坊：把本聊天保存的草稿常驻卡载入 / 清空（per-chat 持久化，随切换刷新）
+    // ✨/📋 1.77.0：回到这个聊天时，把切走那会儿暂存下来的校正 / 模板成品落地。放在【最后】——记录要落进
+    // loadConvoForChat() 刚载好的那份侧聊里。不 await（与 drainPendingPostReply 同一约定：事件监听不该被
+    // 一趟 saveChat 拖住）；没有暂存时是即时返回的空操作。
+    Promise.resolve(fixDrainParked()).catch((e) => console.warn('[Story Oracle] 暂存的校正结果落地失败：', e));
 }
 
 /* ------------------------------------------------------------------ *
@@ -8596,6 +8838,17 @@ function extractUpdateBlock(text) {
     return best;
 }
 
+// 纯函数：这段【模型产出】里是否已经带着一个更新区块（跨方言，走 MVU_BLOCK_DIALECTS，绝不手搓正则）。
+// 语义刻意【宽松】——与 detectMvuBlockDialect 同一口径：开标签在就算数（块被模型改写、截断、没闭合也算）。
+// 用途只有一个：📋 自定义模板任务的「整条」路把 MVU 块一起交给了模型，模型很可能把块【改写】了（例如
+// 「整篇翻译」会连块里的中文分析一起译）。composeFixedReply / mergeMvuTail 的补接判据是【逐字包含】，
+// 分不清「模型弄丢了块」与「模型改写了块」——后者会让改写版与原版【同时】落进一条消息 = MVU 地雷 ②
+// （一条消息两个更新区块 → 卡片的贪婪显示正则连状态栏一起吞掉，1734 张卡只有 123 张幸存）。
+// 宽松判据是这里的 fail-safe 方向：宁可少接一次（块本来就在模型稿里），绝不多接出第二块。可单测。
+function fixOutputHasMvuBlock(text) {
+    return !!detectMvuBlockDialect(text);
+}
+
 // 纯函数：把"排除标签"输入解析成标签名数组。每行 / 逗号分隔一项；项可写成开标签 <konatan_planning~> 或裸名 konatan_planning。
 function parseExcludeTagNames(str) {
     return String(str || '').split(/[,\n]+/)
@@ -9267,6 +9520,23 @@ function fixTableCounts(table) {
     };
 }
 
+// 📋 判定行（自定义任务）：纯文案（spec §4；§11 草稿）。
+// preview（评审 F4）：本聊天【跑的还是校正】，用户只是把面板切到「自定义」看看——这时一句结局都不能许。
+// 缺模板：不说「本条不会处理」（那对这个聊天是假话，它跑的是校正），改说现状 + 怎么切过来。
+// 有模板：把如常那句原样加一个前缀标明是预览。判据只有 preview 这一个形参，其余分支逐字节不动。
+function fixCustomVerdictText({ template, exists, useMechanic, mode, tag, pieces, prose, guards, keepCount, preview }) {
+    const name = `模板〔${template || ''}〕`;
+    if (preview && !exists) return { cls: 'so-fix-verdict so-fix-verdict-neutral', text: 'ⓘ 本聊天目前跑的是校正。要改用模板，先在下方选或新建一份，再勾「每条新回复自动运行模板」。' };
+    if (!exists) return { cls: 'so-fix-verdict so-fix-verdict-warn', text: `⚠ ${name}不存在或正文为空，本条不会处理——先在下方选或新建一份模板。` };
+    const pre = preview ? '（预览·本聊天目前跑校正）' : '';
+    if (!useMechanic) return { cls: 'so-fix-verdict so-fix-verdict-neutral', text: `${pre}ⓘ 本条回复将：整条交给${name}（保留区 ${keepCount | 0} 块原位保留）。` };
+    if (mode === 'wrapped' || mode === 'bare') {
+        const where = mode === 'wrapped' ? `命中 <${tag}> → ` : '散文正文 → ';
+        return { cls: 'so-fix-verdict so-fix-verdict-ok', text: `${pre}✓ ${where}沿用识别：${pieces | 0} 段正文（共 ${prose | 0} 字）交给${name}；${guards | 0} 块结构原样保留。` };
+    }
+    return { cls: 'so-fix-verdict so-fix-verdict-neutral', text: `${pre}ⓘ 这条回复没有包裹标签也没有结构块 → 整条正文交给${name}。` };
+}
+
 // 纯函数：✨ 检测收据（1.18.3）——把分段表里的守卫段重扫成「本条已自动保留」清单，供保留区上方的
 // 芯片读数（点芯片=固定进保留区）。对每个 guard 段：fixMaskInert 遮惰性区间 → scanTopLevelBlocks
 // 数命名块（信封段里可能拼着多块，逐块计）；惰性区间按 kind 记（注释 / 代码栏 / 空标记 / 分隔线 /
@@ -9521,6 +9791,34 @@ function fixJoinTable(table, dropTags) {
     const trail = (core.match(/\s*$/) || [''])[0];
     if (trail) { tail = trail + tail; core = core.slice(0, core.length - trail.length); }
     return { head, core, tail, keepBlocks };
+}
+
+// 📋 自定义模板任务「整条」表（spec §5.2）：与 fixJoinTable 输出同构 { head, core, tail, keepBlocks }，落地代码共用。
+// 两区皆空 → 不跑任何抠取，core = 原文逐字节（首尾空白挪进 head/tail：head+core+tail === 原文）；任一区非空 → 只跑
+// extractExcludedSections（保留 → ⟦SO_KEEP_n⟧ 锚点、丢弃 → 移除；该函数折叠 3+ 空行并 trim，与自动路径排除区一致）。
+// 不剥 MVU 块、不认作用域、不做结构识别；raw:true 让 fixJoinCall 跳过 stripMechanismBlocks（opts.raw:false = 沿用识别
+// 的「整条」退路：仍剥 MVU、composeFixedReply 接回）。两区同名 → 保留优先（fixDropMinusKeep）。空文本 → null。可单测。
+function fixCustomRawTable(text, keepTags, dropTags, opts) {
+    const s = String(text == null ? '' : text);
+    if (!s.trim()) return null;
+    const keep = String(keepTags || '').trim();
+    const drop = fixDropMinusKeep(keepTags, dropTags).trim();
+    // 「有没有区」按【解析出来的条目数】判，不按 trim 后的字符串：'###' 一类噪音 trim 后非空、却一条标签
+    // 也解析不出，老写法据此白跑一趟 extractExcludedSections（它折叠 3+ 空行并 trim）——「两区皆空 =
+    // 逐字节」这条不变量就被一段无效文字破掉了（评审 owed A3）。
+    const hasZone = parseExcludeTags(keep).length > 0 || parseExcludeTags(drop).length > 0;
+    let core = s, keepBlocks = [];
+    if (hasZone) {
+        const ex = extractExcludedSections(s, keep, drop);
+        core = ex.prose; keepBlocks = ex.keepBlocks;
+    }
+    const lead = (core.match(/^\s*/) || [''])[0];
+    const head = lead;
+    core = core.slice(lead.length);
+    const trail = (core.match(/\s*$/) || [''])[0];
+    let tail = '';
+    if (trail) { tail = trail; core = core.slice(0, core.length - trail.length); }
+    return { head, core, tail, keepBlocks, raw: !(opts && opts.raw === false) };
 }
 
 /* ------------------------------------------------------------------ *
@@ -12188,7 +12486,19 @@ function fixConfigWarnings(cfg, reply) {
     const scope = (hasReply && scopeName) ? splitContentScope(reply, scopeName) : null;
     const keepBlocks = (scope && scope.active) ? rawBlocks.concat(scanTopLevelBlocks(scope.inner)) : rawBlocks;
 
-    for (const field of ['fixA_keepTags', 'fixA_dropTags']) {
+    // 📋 自定义模板任务：两区同名 → 保留优先（spec §6 不变量 7）。只报警不拦，字段名 fixC_ 让 UI 分流到自定义面板的警告盒。
+    if (ENABLE_FIX_CUSTOM_TASK) {
+        for (const n of fixTagOverlap(c.fixC_keepTags, c.fixC_dropTags)) {
+            warnings.push({ code: 'keepDropOverlap', field: 'fixC_keepTags', message: `同一标签「${n}」既在保留区又在丢弃区：按保留处理` });
+        }
+    }
+
+    // 📋 自定义档自己的两个字段只在旗开着时参与体检——旗关 = 面板根本没渲染，报了也没地方显示，
+    // 且警告集必须与 1.76.0 逐条相同（「旗关 = 与上一版全同」的统一语义）。
+    const warnFields = ENABLE_FIX_CUSTOM_TASK
+        ? ['fixA_keepTags', 'fixA_dropTags', 'fixC_keepTags', 'fixC_dropTags']
+        : ['fixA_keepTags', 'fixA_dropTags'];
+    for (const field of warnFields) {
         for (const spec of parseExcludeTags(c[field])) {
             const lower = spec.name.toLowerCase();
 
@@ -12381,10 +12691,13 @@ function composeFixedReply(fixedProse, originalReply, keepBlocks) {
 // 占位符；校正是并行跑的，composeFixedReply 只接回了【捕获时】的机制块（那时 MVU 还没写）。这里把【当前】回复里的
 // 机制块补接到校正稿末尾（已在则不重复），让新 swipe 带上 MVU 刚写好的变量块。MVU 注在整条消息末尾，故末尾追加即对齐。
 // 纯函数、幂等、nullish 安全、可单测。
-function mergeMvuTail(fixedText, currentReply) {
+// opts.skipBlock（📋 1.77.0，仅「整条」模板任务传）：成品里【已经】带着一个（被模型改写过的）更新区块——
+// 逐字包含判不出来，再补一块就是 MVU 地雷 ②。占位符分支不受影响（那一块补接是幂等的、也不会造成双区块）。
+// 校正一族三个调用点都不传 opts ⇒ 逐字节旧行为。
+function mergeMvuTail(fixedText, currentReply, opts) {
     let out = String(fixedText == null ? '' : fixedText);
     const cur = String(currentReply == null ? '' : currentReply);
-    const block = extractUpdateBlock(cur);
+    const block = (opts && opts.skipBlock) ? '' : extractUpdateBlock(cur);
     if (block && !out.includes(block)) out = out.trimEnd() + '\n\n' + block;
     if (cur.includes(STATUS_PLACEHOLDER) && !out.includes(STATUS_PLACEHOLDER)) out = out.trimEnd() + '\n\n' + STATUS_PLACEHOLDER;
     return out;
@@ -12590,13 +12903,61 @@ function supersedePostReply() {
     return true;
 }
 
-// 纯决策核（零回归证据核，单测在 fix-orchestrator.test.mjs）：给定两个杀死开关 flags={fix,diag}
-// 与设置 s，返回按执行顺序排好的处理器名数组。'fix' 在前、'diag' 在后；某项要跑当且仅当
-// 「杀死开关开 且 对应设置开」。【false 开关压过 true 设置】。nullish 安全（flags / s 缺省即按未开处理）。
+// 纯（1.77.0）：切聊天时【哪些处理器】的在途轮次必须随之作废。
+// 🩺 诊断 / 🎛 修改器写的是【当前聊天】的 MVU 状态 —— 切走即作废，这一条不变。
+// ✨ 校正 / 📋 模板任务只往【那条回复】里写一个新 swipe，让它跑完：落地时发现聊天已切走就暂存
+// （fixLandOrPark），回到原聊天时自动落地（fixDrainParked）。step 为空（还没进任一步）时不作废——
+// 那一轮还没花钱，也没有任何待写的东西。
+function postReplyStepCancels(step) {
+    return step === 'diag' || step === 'trainer';
+}
+
+// 运行时薄封装：当前这一轮该不该因为切聊天而作废。onChatChanged 与 CHAT_CHANGED 的 supersede
+// 监听器【共用同一条判据】——两处各写一份就是漂移温床（1.77.0 第一版就漏了监听器那一处，
+// 结果模板轮照样被 supersede 掉、暂存永远走不到）。
+function postReplyCancelsOnChatSwitch() {
+    return !!(postReplyBusy && activePostReplyRun && postReplyStepCancels(activePostReplyRun.step));
+}
+
+// CHAT_CHANGED 专用：切聊天先撤掉尚未开跑的旧 AI pending（它属于旧聊天，绝不该在新聊天里补跑），
+// 但只有诊断 / 修改器的在途轮次才随之作废。返回值只供测试 / 诊断。
+function supersedePostReplyOnChatSwitch() {
+    pendingPostReplyRun = null;
+    if (postReplyCancelsOnChatSwitch()) return supersedePostReply();
+    return false;
+}
+
+// 共享锁的【补跑步】：锁忙期间若又落了一条 AI 回复，释放后立即补跑最新那条。maybePostReply 的 finally
+// 与 📋 runCustomTaskNow 的 finally 逐字共用同一份（两处曾各写一份 = 漂移温床）。
+// 不 await，保持与原 MESSAGE_RECEIVED 调度一样 fire-and-forget，也避免把旧轮的 finally 生命周期错误地
+// 延长到新轮。调用点必须先把 postReplyBusy 置回 false（否则补跑那一轮会立刻被锁挡下、再次入队）。
+function drainPendingPostReply() {
+    const pending = pendingPostReplyRun;
+    pendingPostReplyRun = null;
+    const pendingCtx = getCtx();
+    if (pending
+        && pending.chatKey === fixChatKey()
+        && (pendingCtx?.chat || [])[pending.messageId] === pending.messageRef) {
+        Promise.resolve(maybePostReply(pending.messageId)).catch((e) => console.warn('[Story Oracle] pending 回复后编排失败：', e));
+    }
+    // ✨/📋 1.77.0（复审 minor #9）：暂存的成品若因为「有一轮在飞」而被 fixDrainParked 让过，这里是锁刚
+    // 释放的那一刻——补唤一次。放在补跑【之后】：补跑那一轮若真开跑会同步把锁重新置真，我们就再让一次，
+    // 由它自己的 finally 把这条链接下去（不会丢，也永远不会与在飞的一轮交错写）。
+    Promise.resolve(fixDrainParked()).catch((e) => console.warn('[Story Oracle] 暂存的校正结果落地失败：', e));
+}
+
+// 纯决策核（零回归证据核，单测在 fix-orchestrator.test.mjs）：给定杀死开关 flags={fix,diag,trainer,custom}
+// 与设置 s，返回按执行顺序排好的处理器名数组。'fix'（或占同一槽位的 'custom'）在前、'diag' 在后；某项要跑
+// 当且仅当「杀死开关开 且 对应设置开」。【false 开关压过 true 设置】。nullish 安全（flags / s 缺省即按未开处理）。
 // 诊断单开（autoFixEnabled:false）时计划恒为 ['diag']，与旧 maybeAutoDiagnose 的门控严格等价。
+// 📋 'custom' 与 'fix' 是【二选一】（if/else），绝不同现：同一个 autoFixEnabled 闸门、同一个槽位，
+// 由 s.fixTask（'fix' | 'custom'）分流；fixTask 缺省 / 非 'custom' 一律回退 'fix'——老用户零波及。
 function postReplyPlan(flags, s) {
     const plan = [];
-    if (flags && flags.fix && s && s.autoFixEnabled) plan.push('fix');
+    // 📋 自定义模板任务（spec §5.1）：占 fix 的槽位、与 fix 二选一——同一把锁、同一顺序（诊断 / 修改器仍排其后）。
+    const custom = !!(flags && flags.custom && s && s.autoFixEnabled && s.fixTask === 'custom');
+    if (custom) plan.push('custom');
+    else if (flags && flags.fix && s && s.autoFixEnabled) plan.push('fix');
     if (flags && flags.diag && s && s.autoDiagnoseEnabled) plan.push('diag');
     // 🎛 修改器（1.63.0）恒排最后：诊断是「猜剧情该怎么改」，修改器是用户的显式覆盖，后写者赢。
     // 条件是【本聊天有生效规则】，与两个自动开关无关——关了自动校正不该让修改器停摆。
@@ -12740,10 +13101,19 @@ async function awaitMvuIdle(mvu, opts = {}) {
 // 自动校正的统一写边界。诊断兼容开启时，即使 fixWaitForMvu 没勾，fixer 也必须共享同一批次 promise：
 // LLM 生成照常与 MVU 并行，但落 swipe 前才 await；批次超时 / 取消则丢弃旧稿。旧的 fixer-only
 // fixWaitForMvu 仍保留（没开诊断兼容也照常按 busy 等），两者任一开启即启用尾块合并 + MVU 容忍守卫。
-async function awaitFixMvuBoundary(s, compatSession) {
+async function awaitFixMvuBoundary(s, compatSession, capturedChatId) {
     const compatEnabled = !!(compatSession && compatSession.enabled && typeof compatSession.wait === 'function');
     const coordinated = !!(s && s.fixWaitForMvu) || compatEnabled;
     if (postReplyShouldStop()) return { proceed: false, coordinated, status: 'cancelled' };
+    // 1.77.0：切聊天不再作废校正 / 模板轮（成品会暂存），但【等 MVU】这件事在切走之后已经没有意义 ——
+    // 它协调的是【当前聊天】的 MVU 写入，而本轮的成品接下来只会被暂存。继续等只会白占共享锁最长十分钟
+    // （兼容会话的上限）。直接放行：落地闸随即判 chatSwitched → 暂存。coordinated 报 false 是诚实的
+    // （这一轮没等成），也让 mergeMvuTail 不去动一条已经不在眼前的回复；fixTargetStale 先比 chatId，
+    // 所以暂存的结论与 coordinated 无关。
+    // ★ 判据用【调用方传进来的】捕获聊天 id，绝不读模块级 fixCaptured（复审 Critical #1）：那个全局
+    // 在这几十秒里可能已被别的聊天里的手动校正覆写，读它会让「聊天已切走」判成假 → 逃生门失灵 →
+    // 接着按【别人的】捕获去比对现状 → 跨聊天串写。缺省（旧的两参调用）= 不启用逃生门，行为同 1.76.0。
+    if (capturedChatId != null && capturedChatId !== fixChatKey()) return { proceed: true, coordinated: false, status: 'chatSwitched' };
 
     if (compatEnabled) {
         const outcome = await compatSession.wait();
@@ -12770,8 +13140,10 @@ async function maybePostReply(messageId) {
         autoDiagnoseEnabled: s.autoDiagnoseEnabled,
         // 现读规则表：修改器的「开关」就是「这个聊天有没有规则」，没有第二个开关要维护。
         trainerActive: ENABLE_MVU_TRAINER && trainerReadRules().length > 0,
+        // 📋 自定义模板任务：任务选择也是【本聊天】配置，与 autoFixEnabled 同一份 cfg（'fix' | 'custom'）。
+        fixTask: resolveFixCustomCfg(cfg).task,
     };
-    const plan = postReplyPlan({ fix: ENABLE_REPLY_FIX, diag: ENABLE_AUTO_DIAGNOSE, trainer: ENABLE_MVU_TRAINER }, gate);
+    const plan = postReplyPlan({ fix: ENABLE_REPLY_FIX, diag: ENABLE_AUTO_DIAGNOSE, trainer: ENABLE_MVU_TRAINER, custom: ENABLE_FIX_CUSTOM_TASK && ENABLE_REPLY_FIX }, gate);
     if (!plan.length) return;                               // 两个杀死开关 / 两个设置都没开 → 不做事、不动模型
     const idx = Number(messageId); const m = (ctx.chat || [])[idx];
     if (!m || m.is_user || m.is_system) return;             // 只处理 AI 回复（排除用户 / 系统消息）
@@ -12789,7 +13161,7 @@ async function maybePostReply(messageId) {
     // 🩺 诊断加固 Task 3：自动诊断的事务闸也认这【同一枚】锚点（它的模型往返比修改器长得多，
     // 更需要一个「这一轮开始时」的基准），故一并顺给 runAutoDiagnose。
     const chatKey = fixChatKey();
-    const run = { messageId: idx, superseded: false };
+    const run = { messageId: idx, superseded: false, step: null };   // step = 正在跑的处理器名（onChatChanged 据此决定作废谁）
     postReplyBusy = true;
     postReplyCancelled = false;                                 // 每轮开始清零；用户点提示「中断」会把它置真
     activePostReplyRun = run;
@@ -12805,13 +13177,20 @@ async function maybePostReply(messageId) {
         if (!await awaitPostReplyDelay(Math.max(0, (s.autoDiagnoseDelayMs | 0) || 1200))) return;
         for (const step of plan) {
             if (postReplyShouldStop()) break;                   // 用户中断 / 新回合 supersede → 跳过剩余步骤
+            // 🩺/🎛 诊断与修改器写的是【当前聊天】的 MVU 状态：聊天已切走就别再开跑（此前靠 onChatChanged
+            // 的无条件 cancelPostReply 顺手挡下；1.77.0 起校正 / 模板轮不再被切聊天作废，这道判据要显式写出来，
+            // 否则「校正跑到一半切了聊天」会让诊断在新聊天里白花一次调用，回来才被写入前的事务闸拦下）。
+            // 判据走【唯一那份】谓词 postReplyStepCancels —— 把 'diag' / 'trainer' 的名单抄第二遍就是漂移温床。
+            if (postReplyStepCancels(step) && fixChatKey() !== chatKey) break;
+            run.step = step;                                    // onChatChanged 的作废判据读它（只作废 diag / trainer）
             try {
                 if (step === 'fix') await runAutoFix(ctx, s, idx, compatSession);
+                else if (step === 'custom') await runCustomTask(ctx, s, idx, compatSession);
                 else if (step === 'diag') await runAutoDiagnoseWithRetry(ctx, s, idx, chatKey, compatSession);
                 else await runTrainer(chatKey, compatSession);
             } catch (e) {
                 if (postReplyShouldStop()) break;               // abort / supersede → 静默收尾，不当报错
-                const stepName = step === 'fix' ? '自动校正' : (step === 'diag' ? '自动诊断' : '🎛 修改器');
+                const stepName = step === 'fix' ? '自动校正' : (step === 'custom' ? '📋 模板任务' : (step === 'diag' ? '自动诊断' : '🎛 修改器'));
                 console.warn(`[Story Oracle] ${stepName}失败：`, e);
                 // 沿用诊断的「每会话一次」错误 toast（校正的失败已在其侧聊记录里反映，不再额外打扰；
                 // 修改器有意静默——不弹 toast，只留上面这行 console.warn）。
@@ -12832,16 +13211,8 @@ async function maybePostReply(messageId) {
         // 直接刷、不走防抖：message_received 那颗定时器早在 300ms 后就烧完了（诊断一趟是完整的模型往返），
         // 靠它等于赌运气。本函数空操作安全（卡没开 / 值没变 / 切了聊天都自己返回），无脑调即可。
         try { mvuedMaybeRefresh('post-reply'); } catch (e) { /* 刷新失败绝不影响编排收尾 */ }
-        // 锁忙期间若又落了一条 AI 回复，立即补跑最新那条。这里不 await，保持与原 MESSAGE_RECEIVED
-        // 调度一样 fire-and-forget，也避免把旧轮的 finally 生命周期错误地延长到新轮。
-        const pending = pendingPostReplyRun;
-        pendingPostReplyRun = null;
-        const pendingCtx = getCtx();
-        if (pending
-            && pending.chatKey === fixChatKey()
-            && (pendingCtx?.chat || [])[pending.messageId] === pending.messageRef) {
-            Promise.resolve(maybePostReply(pending.messageId)).catch((e) => console.warn('[Story Oracle] pending 回复后编排失败：', e));
-        }
+        // 锁忙期间若又落了一条 AI 回复，立即补跑最新那条（共用 drainPendingPostReply）。
+        drainPendingPostReply();
     }
 }
 
@@ -16378,6 +16749,23 @@ function autoFixNoteContent({ status, problems, stamp }) {
     return `✨ 自动校正${t} —— 已检查最新回复，无需校正（未改动）。`;   // nochange
 }
 
+// 📋 自定义模板任务记录文案（spec §5.6；§11 草稿待 Prince 否决权）。与 autoFixNoteContent 分函数 = 校正字串逐字节不动。
+function customTaskNoteContent({ status, problems, stamp, template }) {
+    const t = stamp ? ' · ' + stamp : '';
+    const who = `📋 模板〔${template || ''}〕${t}`;
+    const p = (problems && typeof problems === 'string') ? problems.trim() : '';
+    if (status === 'fixed') return `${who} —— 已处理最新回复，并作为新 swipe 应用。原文还在——向左划看原文，或点下方「看改动」对比。${p ? '\n' + p : ''}`;
+    if (status === 'nochange') return `${who} —— 无需处理${p ? '（' + p + '）' : ''}，未改动回复。`;
+    if (status === 'notemplate') return `⚠ 模板〔${template || ''}〕不存在或正文为空，本条未处理——到「校正设置 → 自定义」里选一份模板。`;
+    if (status === 'failed') return `⚠️ ${who} —— 跑完了，但没能从模型回复里解析出处理稿（已跳过，未改动回复）。${p ? '\n可能原因：' + p : ''}`;
+    if (status === 'truncated') return `⚠️ ${who} —— 模型回复像是被截断了（没写完就断了），未应用（把「校正输出上限」调大些再试）。`;
+    if (status === 'stale') {
+        const why = { chatSwitched: '聊天已切换（避免写到别的对话）', contentChanged: '这条回复已发生变化（避免覆盖新内容）', swipeChanged: '这条回复已切到别的 swipe', gone: '目标回复已不在了' }[problems] || '目标已失效';
+        return `⏭️ ${who} —— 已跳过：${why}，未改动这条回复。`;
+    }
+    return autoFixNoteContent({ status, problems, stamp });   // scope / ask 等共用句式
+}
+
 // 「诊断途中聊天被切走」的环境提示 —— 两道闸【共用】的唯一一份（whole-branch review FIX 2/3）。
 // 判这件事的地方有两处：① 写入前的事务闸（runAutoDiagnose 里 fixChatKey() !== captured.chatKey）；
 // ② autoApplyFix 内部 parseMessage 那扇 await 窗口（回 stale/chatSwitched，经 notifyAutoDiagnose 的
@@ -17317,7 +17705,7 @@ function buildWindow() {
             <details class="so-mode-collapse" id="so-fix-collapse" open>
                 <summary class="so-mode-collapse-sum"><i class="fa-solid fa-wand-magic-sparkles"></i><span>校正设置</span></summary>
                 <div class="so-mode-collapse-body">
-                    <label class="so-check so-lb-check"><span>校正模式</span>&nbsp;<select id="so-fix-mode-select" title="手动 = 在输入框直接说要改什么（单稿、快）；自动 = 按目标 / 每条新回复后台校正（双稿收紧）"><option value="manual">手动（说要改哪里）</option><option value="auto">自动（按目标 / 每条新回复）</option></select></label>
+                    <label class="so-check so-lb-check"><span>校正模式</span>&nbsp;<select id="so-fix-mode-select" title="手动 = 在输入框直接说要改什么（单稿、快）；去 AI 味 = 按目标去八股 / 每条新回复后台跑（双稿收紧）"><option value="manual">手动（说要改哪里）</option><option value="auto">去 AI 味（按目标 / 每条新回复）</option>${ENABLE_FIX_CUSTOM_TASK ? '<option value="custom">自定义（用自己的模板处理每条回复）</option>' : ''}</select></label>
                     <!-- ✨ 判定预览行（1.18.0 迁出 #so-fix-auto-wrap，修 P8）：本聊天开了自动校正就该看得见
                          「这条回复会被怎么处理」，不再被「面板正显示手动视图」这个全局偏好埋没。 -->
                     <div id="so-fix-verdict" class="so-fix-verdict" hidden></div>
@@ -17337,13 +17725,13 @@ function buildWindow() {
                         <label class="so-check so-lb-check"><span>校正回复上限</span>&nbsp;<input id="so-fix-maxtok" type="number" min="0" step="1024" style="width:6em" placeholder="自动·4096" title="校正调用的 max_tokens 下限自动为 4096；长楼层（约 3000 字以上）改写被截断、校正总失败时可调高（如 8192/12288）。对手动与自动校正都生效。注意：超过服务商单次输出上限会被直接拒绝——报错就调回来。留空 = 自动。"></label>
                         <div class="so-hint">手动：在下方输入框直接说要改哪里（如「换种写法重写这段」「她这里不该笑」），只改最新这一条回复，单稿、更快。</div>
                         ${ENABLE_FIX_SELECT ? '<button type="button" id="so-fixsel-open" class="so-fix-run-btn" title="划选回复里的一段，只把这段发给模型改——弱模型 / 长聊天下更稳，绝不动你没选的部分（状态栏 / 面板等）"><i class="fa-solid fa-scissors"></i> 选段校正（只改划选的一段）</button>' : ''}
-                        ${ENABLE_FIXSEL_CHAT_ENTRY && ENABLE_FIX_SELECT ? '<label class="so-check so-lb-check"><input id="so-fixsel-barbtn" type="checkbox"><span>在聊天输入框上方放一个「✂️ 选段校正」快捷按钮</span></label><div class="so-hint">免去每次开窗切模式：在主聊天里划选一段，点它即可直接打开选段卡（不划选 = 直接开卡）。</div>' : ''}
+                        ${ENABLE_FIXSEL_CHAT_ENTRY && ENABLE_FIX_SELECT ? '<label class="so-check so-lb-check"><input id="so-fixsel-barbtn" type="checkbox"><span>在聊天输入框上方放一个「✂️ 选段校正」快捷按钮</span></label><div class="so-hint">免去每次开窗切模式：在主聊天里划选一段，点它即可直接打开选段卡（不划选 = 直接开卡）。</div><label class="so-check so-lb-check"><input id="so-fixsel-rowbtn" type="checkbox"><span>在最新一条 AI 回复的右上角放「✂️」选段按钮</span></label><div class="so-hint">不想看到回复上的小剪刀就取消勾选；输入框上方的快捷按钮不受影响。</div>' : ''}
                     </div>
 
                     <!-- 自动模式（1.18.3 新手优先重排）：判定行 → 跑一次 / 每条 → 目标 → 强度 → 警告盒 → 进阶折叠 → 恢复推荐。 -->
                     <div id="so-fix-auto-wrap">
-                        <button type="button" id="so-fix-run" class="so-fix-run-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> 按目标校正最新回复</button>
-                        <label class="so-check so-lb-check"><input id="so-fix-auto" type="checkbox"><span>自动校正每条新回复</span></label>
+                        <button type="button" id="so-fix-run" class="so-fix-run-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> 按目标给最新回复去 AI 味</button>
+                        <label class="so-check so-lb-check"><input id="so-fix-auto" type="checkbox"><span>每条新回复自动去 AI 味</span></label>
                         <div class="so-fix-targets-head">校正目标</div>
                         <div class="so-fix-tgt-grid">
                             <label class="so-check so-lb-check"><input id="so-fix-tgt-slop" type="checkbox"><span>AI 八股 / 套话</span></label>
@@ -17362,10 +17750,10 @@ function buildWindow() {
                             <div class="so-hint">通常不用动：会自动识别卡片的正文标签（默认 <code>content</code>），认不准时会请你确认一次。识别错了才在这里改（<strong>手填后自动识别会停用</strong>，交还给你）；<strong>留空</strong> = 校正整条回复。</div>
                             <button type="button" id="so-fix-scan" class="so-fix-run-btn"><i class="fa-solid fa-magnifying-glass"></i> 重新扫描正文标签（识别不对时用）</button>
                             <div id="so-fix-scan-panel" class="so-fix-scan-panel" hidden></div>
-                            <div class="so-fix-targets-head">保留区 / 丢弃区：结构块会自动识别并原样保留——下面是<strong>本条回复</strong>实际识别到的。没认出的块，点它加进保留区（或手动填，每行一个<strong>起始</strong>标记；支持嵌套同名标签与 <code>[IMG_GEN]</code> 方括号块）；丢弃区 = 直接删掉、不放回。识别不对的格式欢迎在 Discord 私信 <strong>@Prince</strong>，会加进测试集修复。</div>
+                            <div class="so-fix-targets-head">保留区 / 丢弃区：结构块会自动识别并原样保留——下面是<strong>本条回复</strong>实际识别到的。没认出的块，点它加进保留区（或手动填，每行一个<strong>起始</strong>标记；支持嵌套同名标签与 <code>[IMG_GEN]</code> 方括号块）；丢弃区 = 直接删掉、不放回。识别不对的格式欢迎在 Discord 私信 <strong>@Prince</strong>，会加进测试集修复。标签写法：&lt;thinking&gt; 或 thinking 都行，不用写闭合标签；方括号块写 [IMG_GEN]；同一标签两边都填按保留处理。</div>
                             <div id="so-fix-receipts" class="so-hint" hidden></div>
-                            <textarea id="so-fix-keep" rows="2" placeholder="保留区标签（每行一个）：强制原样保留（自动没认出的才需要）"></textarea>
-                            <textarea id="so-fix-drop" rows="2" placeholder="丢弃区标签（每行一个，如 <thinking>）：直接删掉、不放回"></textarea>
+                            <textarea id="so-fix-keep" rows="3" placeholder="保留区标签：每行一个，只写开标签或名字即可——例如 <status> 或 status（不用写 </status>）；方括号块写 [IMG_GEN]"></textarea>
+                            <textarea id="so-fix-drop" rows="3" placeholder="丢弃区标签：每行一个，只写开标签或名字即可——例如 <thinking>（不用写 </thinking>）；方括号块写 [IMG_GEN]。命中的块直接删掉、不放回"></textarea>
                             <label class="so-check so-lb-check"><input id="so-fix-join" type="checkbox"><span>整体校正（默认开）：正文合并为 1 次调用，结构块用锚点原位保留</span></label>
                             <div class="so-hint">开 = 省调用、整篇更连贯；结构块位置靠锚点标记保留（模型极偶尔挪动锚点时内容不丢、位置兜底接到正文末尾，记录里会如实说明）。关 = 每段正文各发一次调用（位置由代码百分百把控、单段失败只损失那一段，调用更多）。</div>
                             <label class="so-check so-lb-check"><input id="so-fix-wait-mvu" type="checkbox"><span>⏳ 与 MVU「额外模型更新」并用（避免抢写冲突）</span></label>
@@ -17392,8 +17780,42 @@ function buildWindow() {
                             <div class="so-hint">套餐＝把当前这套自动校正配置（目标 / 约束 / 上下文）存成一个名字（如「硬核西幻」），换聊天后一键加载回来。</div>
                         </details>
                         <button type="button" id="so-fix-reset" class="so-fix-run-btn"><i class="fa-solid fa-rotate-left"></i> 恢复推荐设置</button>
-                        <div class="so-hint">把本聊天的自动校正设置一键还原成推荐值：作用域 = <code>content</code>、默认校正目标、排除区清空、自动关（也会清掉已确认的正文形态，回到自动识别）。</div>
+                        <div class="so-hint">把本聊天的自动校正设置一键还原成推荐值：作用域 = <code>content</code>、默认校正目标、排除区清空、自动关、任务切回校正（也会清掉已确认的正文形态，回到自动识别）。</div>
                     </div>
+
+                    ${ENABLE_FIX_CUSTOM_TASK ? ''
+                    // 📋 自定义模式（1.77.0）：用自己的模板处理每条回复。整块由 ENABLE_FIX_CUSTOM_TASK 门控——
+                    // 关着时下面一个节点都不渲染（与「旗关 = 与上一版 DOM 全同」的统一语义一致）。
+                    // ⚠ 这段说明【必须】留在插值表达式里、写成 JS 注释：写成模板字面量正文里的 <!-- --> 会变成
+                    //   一个真的 DOM 注释节点，旗关时 DOM 就不再与 1.76.0 逐字节相同（评审 F5a）。
+                    + '<div id="so-fix-custom-wrap">'
+                    + '<button type="button" id="so-fixc-run" class="so-fix-run-btn"><i class="fa-solid fa-clipboard-list"></i> 用模板处理最新回复</button>'
+                    + '<label class="so-check so-lb-check"><input id="so-fixc-auto" type="checkbox"><span>每条新回复自动运行模板</span></label>'
+                    + '<div class="so-fix-targets-head">模板</div>'
+                    + '<div class="so-fix-bundle-row">'
+                    // 📋 下拉里除了用户自己的模板，末尾还有一个 optgroup「内置示例」装两份现成的
+                    // （populateFixTemplates 填；2026-09-05 产品负责人裁定：示例直接列进下拉，不再有「示例…」按钮）。
+                    + '<select id="so-fixc-template" title="已存的模板（全局，跨聊天可用）；末尾「内置示例」两份可直接选用"></select>'
+                    + '<button type="button" id="so-fixc-tpl-new" class="so-fix-run-btn">新建…</button>'
+                    + '<button type="button" id="so-fixc-tpl-save" class="so-fix-run-btn">保存</button>'
+                    + '<button type="button" id="so-fixc-tpl-del" class="so-fix-run-btn">删除</button>'
+                    + '</div>'
+                    // 「未保存」标记：fixTplDirty 的唯一可视化（updateFixTplDirtyMarker 是唯一写它的地方）。
+                    // 默认 hidden——旗关时这一整段本就不渲染，旗开而不脏时它也不占视觉。
+                    + '<span id="so-fixc-dirty" class="so-hint" hidden>未保存</span>'
+                    + '<textarea id="so-fixc-prompt" rows="6" placeholder="只写你要它做的事（例：把正文完整翻译成日文）。输出格式与保留标记由神谕自动附上。"></textarea>'
+                    + '<label class="so-check so-lb-check"><input id="so-fixc-mech" type="checkbox"><span>沿用校正的正文识别</span></label>'
+                    + '<div class="so-hint">开：只处理剧情正文，状态栏、变量块等原样保留。关：整条回复交给模板，输出原样替换。</div>'
+                    + '<div class="so-fix-targets-head">保留区 / 丢弃区（本档自己的）</div>'
+                    // 标签写法提示（1.77.0 UI 二波）：自动面板把同一句追加在它那段长说明末尾，这里因为没有那段
+                    // 说明，单独起一行 so-hint 放在两个 textarea 之上。
+                    + '<div class="so-hint">标签写法：&lt;thinking&gt; 或 thinking 都行，不用写闭合标签；方括号块写 [IMG_GEN]；同一标签两边都填按保留处理。</div>'
+                    + '<textarea id="so-fixc-keep" rows="3" placeholder="保留区标签：每行一个，只写开标签或名字即可——例如 <status> 或 status（不用写 </status>）；方括号块写 [IMG_GEN]"></textarea>'
+                    + '<textarea id="so-fixc-drop" rows="3" placeholder="丢弃区标签：每行一个，只写开标签或名字即可——例如 <thinking>（不用写 </thinking>）；方括号块写 [IMG_GEN]。命中的块直接删掉、不放回"></textarea>'
+                    + '<div id="so-fixc-warnings" class="so-hint" hidden></div>'
+                    + '<label class="so-check so-lb-check"><input id="so-fixc-preset" type="checkbox"><span>经自定义补全预设发送（破限 / 越狱用）</span></label>'
+                    + '<label class="so-check so-lb-check"><span>最少字数（更短的回复不处理）</span>&nbsp;<input id="so-fixc-minchars" type="number" min="50" max="2000" style="width:72px;"></label>'
+                    + '</div>' : ''}
                 </div>
             </details>
         </div>
@@ -17612,7 +18034,7 @@ function buildWindow() {
                     <p>格式特别的卡可能有漏网。遇到识别不对：打开「进阶设置」可以看到<strong>这条回复实际识别到了哪些结构块</strong>，没认出的块点一下（或手动填）加进保留区就行；也欢迎<strong>把那条回复原文在 Discord 私信发给作者 @Prince</strong>——这种格式会加进测试集，之后的版本就能自动认出。</p>
                     <p>面板顶部的<strong>判定行</strong>随时告诉你：最新这条回复会被怎么处理（校正哪几段、保留多少块、还是跳过）。</p>
                     <p>校正只改文字表达：<strong>不</strong>翻译、<strong>不</strong>改设定、<strong>不</strong>算数值、<strong>不</strong>修卡片本身的问题。</p>
-                    <p class="so-autowarn-note">成本：开「自动校正每条新回复」后每条回复多发一次模型请求；很短 / 很干净的回复自动跳过。只想偶尔用，就用「按目标校正最新回复」，点一次跑一次。</p>
+                    <p class="so-autowarn-note">成本：开「每条新回复自动去 AI 味」后每条回复多发一次模型请求；很短 / 很干净的回复自动跳过。只想偶尔用，就用「按目标给最新回复去 AI 味」，点一次跑一次。</p>
                 </div>
                 <label class="so-autowarn-check"><input type="checkbox" id="so-fixwarn-never"><span>不再提示</span></label>
                 <div id="so-fixwarn-btns">
@@ -18218,7 +18640,7 @@ function bindControls() {
     const fixModeSel = win.querySelector('#so-fix-mode-select');
     if (fixModeSel) {
         fixModeSel.addEventListener('change', () => {
-            getSettings().fixSettingsView = (fixModeSel.value === 'auto') ? 'auto' : 'manual';
+            getSettings().fixSettingsView = (fixModeSel.value === 'auto') ? 'auto' : ((ENABLE_FIX_CUSTOM_TASK && fixModeSel.value === 'custom') ? 'custom' : 'manual');
             save();
             applyFixModeView();
             updateFixVerdict();   // ✨ 1.18.0：判定行可见性跟视图 / per-chat 自动开关走（P8），切视图即时对齐
@@ -18288,6 +18710,13 @@ function bindControls() {
         save();
         syncFixSelBarButton();
     });
+    // ✂️ 回复右上角那颗的隐藏开关（1.77.0，opt-out `fixSelRowButton`）：同款手感——改设置后立刻
+    // 重挂 / 拔掉（refreshFixChatEntry 起手就先拔光，所以取消勾选是当场生效，不必等楼层重建）。
+    win.querySelector('#so-fixsel-rowbtn')?.addEventListener('change', (e) => {
+        getSettings().fixSelRowButton = e.target.checked;
+        save();
+        refreshFixChatEntry();
+    });
     win.querySelector('#so-fix-scan')?.addEventListener('click', () => { scanFixScope(); });   // ✨ Phase 6：扫描本卡正文标签
     win.querySelector('#so-fix-reset')?.addEventListener('click', () => { resetFixCfg(); });   // ✨ Phase 7（M4）：恢复推荐设置
     bindFix('#so-fix-auto', 'autoFixEnabled');   // 自动校正每条新回复（message_received 编排读 cfg.autoFixEnabled）
@@ -18322,6 +18751,112 @@ function bindControls() {
         if (!(await uiConfirm(`删除套餐「${name}」？`))) return;
         if (deleteFixBundle(name)) { populateFixBundles(); toastr.success(`已删除套餐「${name}」`); }
     });
+    // 📋 自定义模板任务（1.77.0）：整块由旗 + 面板存在性双门控——旗关时面板根本没渲染，一个监听都不挂。
+    if (ENABLE_FIX_CUSTOM_TASK && win.querySelector('#so-fix-custom-wrap')) {
+        win.querySelector('#so-fixc-run').addEventListener('click', () => { runCustomTaskNow(); });
+        win.querySelector('#so-fixc-auto').addEventListener('change', (e) => {
+            // 首次勾选【不】弹「自动模式会花钱」提醒（Prince 2026-09-04 定：模板档不需要这道一次性提醒）；
+            // 自动面板 #so-fix-auto 的首弹保持原样。
+            if (e.target.checked) {
+                setFixCfg({ autoFixEnabled: true, fixA_task: 'custom' });
+            } else setFixCfg({ autoFixEnabled: false });
+            seedFixControls(); updateFixButtonVisual();
+        });
+        // 自动面板的勾选：勾上即回到校正任务（互斥）。任务变了 ✨ 金色指示也要跟着重算（pending 判据看 task）。
+        win.querySelector('#so-fix-auto')?.addEventListener('change', (e) => { if (e.target.checked) { setFixCfg({ fixA_task: 'fix' }); seedFixControls(); updateFixButtonVisual(); } });
+        const tplSel = win.querySelector('#so-fixc-template');
+        const tplBox = win.querySelector('#so-fixc-prompt');
+        tplBox.addEventListener('input', () => { fixTplDirty = true; updateFixTplDirtyMarker(); });   // 只置脏；归属由「回填正文」的那些地方记
+        tplSel.addEventListener('change', async () => {
+            // 用户【亲手】换模板才走这条确认；取消时退回【归属】而不是配置里的名字——脏着时配置可能早被
+            // 切聊天 / 套餐改成别人了，退回配置等于把未保存的正文交给另一份模板。
+            if (fixTplDirty && !(await uiConfirm('当前模板正文有未保存的改动，放弃并切换？'))) { tplSel.value = fixTplDirtyFor || getEffectiveFixCfg(getSettings(), getFixCfg()).fixC_template || ''; updateFixTplDirtyMarker(); return; }
+            setFixCfg({ fixC_template: tplSel.value });
+            const t = findFixTemplate(getSettings(), tplSel.value);
+            tplBox.value = t ? t.prompt : '';
+            fixTplDirty = false; fixTplDirtyFor = tplSel.value; updateFixTplDirtyMarker();
+            updateFixVerdict();
+        });
+        win.querySelector('#so-fixc-tpl-new').addEventListener('click', async () => {
+            // 新建会把文本框清空——脏着时先问一句，与「亲手换模板」同一道防误覆盖闸（spec §4.3）。
+            // 放在起名之前：用户改主意时连名字都不必编。
+            if (fixTplDirty && !(await uiConfirm('当前模板正文有未保存的改动，放弃并新建？'))) return;
+            const name = (await uiPrompt('给这份模板起个名字（如「中译日」）：', '') || '').trim();
+            if (!name) return;
+            // 「已存在」只问【用户库】：findFixTemplate 现在会兜底到内置示例，拿它判会对着内置名多问一句
+            // 「覆盖？」，而 saveFixTemplate 压根不会覆盖它（保留名硬拒）。
+            if (normalizeFixTemplates(getSettings().fixTemplates).some((t) => t.name === name)
+                && !(await uiConfirm(`模板「${name}」已存在，覆盖？`))) return;
+            // 存不下就停在这儿（内置保留名被拒）：照着往下走会把配置指到一个用户库里没有的名字上
+            // ——下拉显示内置那一份、正文框却空着，再按保存又是一次另存，纯属添乱。
+            if (!saveFixTemplate(name, '')) return;
+            setFixCfg({ fixC_template: name });
+            populateFixTemplates(); tplSel.value = name; tplBox.value = ''; fixTplDirty = false; fixTplDirtyFor = name; updateFixTplDirtyMarker(); updateFixVerdict();
+        });
+        win.querySelector('#so-fixc-tpl-save').addEventListener('click', async () => {
+            // 写回【归属】那一份，不是下拉此刻显示的那一份：脏着时两者本就该相等（seed 会把下拉钉住），
+            // 但归属才是这段文字真正的主人，按它写永远不会写错人。写完把配置也同步到实际保存的那份。
+            const name = fixTplDirtyFor || tplSel.value;
+            if (!name) { toastr.info('先新建或选一份模板'); return; }
+            // 📋 内置示例是只读的（正文由电池钉死）：正文框照旧可改，但「保存」改走【另存为】——
+            // 起个新名字存成用户自己的一份并选中它，示例本身一个字不动。收尾与「新建」逐项同一套。
+            if (fixTemplateIsBuiltin(name)) {
+                const copy = (await uiPrompt('内置示例本身不会被改动。给你改过的这一份起个名字：', fixSampleCopyName(name)) || '').trim();
+                if (!copy) return;
+                if (fixTemplateIsBuiltin(copy)) { toastr.info('这是内置示例的名字，换一个'); return; }
+                // 「已存在」只问【用户库】：findFixTemplate 现在会兜底到示例，拿它判会把上面那句拒绝重问一遍。
+                if (normalizeFixTemplates(getSettings().fixTemplates).some((t) => t.name === copy)
+                    && !(await uiConfirm(`模板「${copy}」已存在，覆盖？`))) return;
+                if (!saveFixTemplate(copy, tplBox.value)) return;
+                setFixCfg({ fixC_template: copy });
+                fixTplDirty = false; fixTplDirtyFor = copy; updateFixTplDirtyMarker();
+                populateFixTemplates(); tplSel.value = copy;
+                updateFixVerdict();
+                toastr.success(`已另存为「${copy}」——内置示例本身不会被改动`);
+                return;
+            }
+            saveFixTemplate(name, tplBox.value);
+            fixTplDirty = false; fixTplDirtyFor = name; updateFixTplDirtyMarker();
+            setFixCfg({ fixC_template: name });
+            populateFixTemplates(); tplSel.value = name;
+            updateFixVerdict();
+            toastr.success(`已保存模板「${name}」`);
+        });
+        win.querySelector('#so-fixc-tpl-del').addEventListener('click', async () => {
+            const name = tplSel.value;
+            if (!name) { toastr.info('先选一个要删的模板'); return; }
+            // 内置示例删不掉（它根本不在 fixTemplates 里，deleteFixTemplate 会静默 false）——先说一句，
+            // 否则用户点了确认框、什么也没发生，看着像坏了。
+            if (fixTemplateIsBuiltin(name)) { toastr.info('内置示例不能删除'); return; }
+            if (!(await uiConfirm(`删除模板「${name}」？`))) return;
+            if (deleteFixTemplate(name)) {
+                // 删掉后下拉会落到【另一份】模板上（populateFixTemplates 的 prev 已不存在）——必须把选择态
+                // 与正文一起搬过去认领它，否则「配置说没选、下拉显示着 A、正文却空着」，再点一次保存就把
+                // 用户从没打开过的 A 清空了（spec §4.3 防误覆盖）。清旗后交给 seedFixControls 统一回填
+                // ——它在「不脏」这一支里会把 fixTplDirtyFor 一并记成新认领的这份。
+                fixTplDirty = false; fixTplDirtyFor = ''; updateFixTplDirtyMarker();
+                setFixCfg({ fixC_template: '' });
+                populateFixTemplates();
+                setFixCfg({ fixC_template: tplSel.value || '' });
+                seedFixControls();
+                updateFixVerdict();
+                toastr.success(`已删除模板「${name}」`);
+            }
+        });
+        win.querySelector('#so-fixc-mech').addEventListener('change', async (e) => {
+            if (!e.target.checked && !getSettings().customFixWarned) {
+                const ok = await uiConfirm('关掉后，状态栏 / 变量块也会一起交给模板，模板输出会原样替换整条回复。原文仍留在 swipe 0。确定？');
+                if (!ok) { e.target.checked = true; return; }
+                getSettings().customFixWarned = true; save();
+            }
+            setFixCfg({ fixC_useMechanic: e.target.checked }); updateFixVerdict(); updateFixButtonVisual();
+        });
+        bindFix('#so-fixc-keep', 'fixC_keepTags');
+        bindFix('#so-fixc-drop', 'fixC_dropTags');
+        for (const id of ['#so-fixc-keep', '#so-fixc-drop']) win.querySelector(id).addEventListener('input', () => { renderFixConfigWarnings(); updateFixVerdict(); });
+        win.querySelector('#so-fixc-preset').addEventListener('change', (e) => { getSettings().fixC_usePreset = e.target.checked; save(); });
+        bindFix('#so-fixc-minchars', 'fixAutoMinChars', (v) => clampFixAutoMinChars(v));
+    }
     bind('#so-regex', 'applyRegex');
     bind('#so-wi', 'worldInfoMode');
     if (ENABLE_WI_EJS_RENDER) bind('#so-wi-ejs', 'wiRenderEjs');   // 世界书 EJS 渲染（行仅在开关开时渲染）
@@ -18457,6 +18992,8 @@ function loadSettingsIntoForm() {
     win.querySelector('#so-window-skin').value = s.windowSkin;   // 1.45.0 窗口配色
     const fixSelBarBox = win.querySelector('#so-fixsel-barbtn');   // 门控关时该行不存在
     if (fixSelBarBox) fixSelBarBox.checked = !!s.fixSelBarButton;
+    const fixSelRowBox = win.querySelector('#so-fixsel-rowbtn');   // 同上；判 !== false = 老档缺键当「开」
+    if (fixSelRowBox) fixSelRowBox.checked = getSettings().fixSelRowButton !== false;
     win.querySelector('#so-tools-header-toggle').checked = !!s.toolsInHeader;
     win.querySelector('#so-regex').checked = !!s.applyRegex;
     win.querySelector('#so-wi').value = s.worldInfoMode;
@@ -19040,6 +19577,7 @@ function modeWantsJb(s, mode) {
         case 'builder': return !!s.bldUsePreset;
         case 'fixManual': return fixUsePresetFor(s, 'manual');
         case 'fixAuto': return fixUsePresetFor(s, 'auto');
+        case 'fixCustom': return ENABLE_FIX_CUSTOM_TASK && fixUsePresetFor(s, 'custom');
         default: return false;
     }
 }
@@ -19597,7 +20135,7 @@ const MODE_EMPTY = {
     // 用与校正按钮同款的 fa-wand-magic-sparkles（不是 emoji，emoji 拼进 class 会渲染空白）。
     fix: {
         icon: 'fa-wand-magic-sparkles',
-        lead: '手动：在下方输入框直接说要改哪里，只改这一条回复（快、单稿）。<br>自动：每条新回复后台自动清 AI 味——「校正设置」切到「自动」、开「自动校正每条新回复」。',
+        lead: '手动：在下方输入框直接说要改哪里，只改这一条回复（快、单稿）。<br>自动：每条新回复后台自动清 AI 味——「校正设置」切到「去 AI 味」、开「每条新回复自动去 AI 味」。',
         sub: '校正只去 AI 腔 / 收紧读感——不翻译、不改设定、不算数值、不修卡片本身的问题。',
         chips: ['这个角色不该知道这件事，重写他的对话', '这个事件的日期不对，回看上下文改正', '这个角色的台词太机械，重写得更像真人', '扩写这一段，补充更多剧情细节'],
     },
@@ -19732,7 +20270,8 @@ function updateDiagButtonVisual() {
 // 自动校正」一致。可单测（fix-button-visual.test.mjs）。
 function fixButtonVisualState(cfg) {
     if (!ENABLE_REPLY_FIX || !cfg || !cfg.autoFixEnabled) return 'off';
-    if (cfg.fixA_pieceAsked && !cfg.fixA_pieceMode) return 'pending';
+    // 📋 自定义模板任务：整条模式（沿用识别关）没有确认阶梯——恒 on，绝不显示 pending（否则一个永不出现的确认在催用户）。
+    if (cfg.fixA_pieceAsked && !cfg.fixA_pieceMode && !(ENABLE_FIX_CUSTOM_TASK && cfg.fixA_task === 'custom' && cfg.fixC_useMechanic === false)) return 'pending';
     return 'on';
 }
 
@@ -22663,13 +23202,17 @@ function loadDiagSelForChat() {
 // 校正设置面板：按 fixSettingsView 显示手动 / 自动那一套（纯视图切换，不改任何行为）。窗口未建好时静默跳过。
 function applyFixModeView() {
     if (!win) return;
-    const view = (getSettings().fixSettingsView === 'auto') ? 'auto' : 'manual';
+    // 📋 三态（1.77.0）：manual / auto / custom。旗关时 'custom' 回落 manual——旧档存过 custom 也不会卡在一个没渲染的视图上。
+    const raw = getSettings().fixSettingsView;
+    const view = (raw === 'auto') ? 'auto' : ((ENABLE_FIX_CUSTOM_TASK && raw === 'custom') ? 'custom' : 'manual');
     const sel = win.querySelector('#so-fix-mode-select');
     if (sel) sel.value = view;
     const man = win.querySelector('#so-fix-manual');
     const auto = win.querySelector('#so-fix-auto-wrap');
+    const custom = win.querySelector('#so-fix-custom-wrap');
     if (man) man.style.display = (view === 'manual') ? '' : 'none';
     if (auto) auto.style.display = (view === 'auto') ? '' : 'none';
+    if (custom) custom.style.display = (view === 'custom') ? '' : 'none';
     applyFixFlavorView();   // ✨ 精校侧重行仅在选了「精校」时显示
     updateFixVerdict();   // ✨ Phase 6：切到自动视图 / 刷新时更新作用域判定预览
 }
@@ -22752,8 +23295,40 @@ function updateFixVerdict() {
     if (!el) return;
     try { renderFixGuardReceipts(); } catch (e) { /* 收据渲染失败无碍判定行（防御：分段函数吃到诡异回复时） */ }
     const cfg = getEffectiveFixCfg(getSettings(), getFixCfg());
-    if (getSettings().fixSettingsView !== 'auto' && !cfg.autoFixEnabled) { el.hidden = true; return; }
+    // 📋 视图三态必须与 applyFixModeView 同一套归一（评审 F5b）：旗关时存档里残留的 'custom' 不算数——
+    // 直接读原始 fixSettingsView 会让旗关的用户在「其实是 manual」的视图下把判定行显出来。
+    const rawView = getSettings().fixSettingsView;
+    const view = (rawView === 'auto') ? 'auto' : ((ENABLE_FIX_CUSTOM_TASK && rawView === 'custom') ? 'custom' : 'manual');
+    if (view !== 'auto' && view !== 'custom' && !cfg.autoFixEnabled) { el.hidden = true; return; }
     el.hidden = false;
+    // 📋 自定义模板任务：本聊天的任务是 custom（或面板正显示自定义视图）→ 改渲自定义句。
+    // ask / pending 时故意 v = null 落回下面的自动分支：同一句提示 + 同一颗「确认」按钮，用户只学一次。
+    const cc = ENABLE_FIX_CUSTOM_TASK ? resolveFixCustomCfg(cfg) : null;
+    if (cc && (cc.task === 'custom' || view === 'custom')) {
+        // 只因【视图】进这一支 = 这个聊天跑的还是校正 ⇒ 整支改渲【预览】，一句结局都不许（评审 F4）。
+        const preview = cc.task !== 'custom';
+        const latestC = getLatestAiMessage();
+        const tpl = findFixTemplate(getSettings(), cc.template);
+        const exists = !!(tpl && String(tpl.prompt || '').trim());
+        let v;
+        // 预览态（本聊天跑的仍是校正，只是面板切到了自定义视图）要把这件事说在前面——否则这句读起来
+        // 像是「模板已经在管这个聊天了，只差一条回复」。非预览那句一字不动（真用户零波及，评审 F4 同款口径）。
+        if (latestC.idx < 0) v = { cls: 'so-fix-verdict so-fix-verdict-neutral', text: preview
+            ? 'ⓘ 本聊天目前跑的是校正；还没有可预览的回复——主聊天里发一条后，这里会显示切到模板后这条回复会怎么处理。'
+            : 'ⓘ 还没有可预览的回复——主聊天里发一条后，这里会显示这条回复会怎么处理。' };
+        else if (!exists || !cc.useMechanic) v = fixCustomVerdictText({ template: cc.template, exists, useMechanic: cc.useMechanic, preview, keepCount: (fixCustomRawTable(latestC.text, cc.keepTags, cc.dropTags) || { keepBlocks: [] }).keepBlocks.length });
+        else {
+            const ac = resolveFixModeCfg(cfg, 'auto');
+            const dec = resolveFixPieces({ pieceMode: ac.pieceMode, scopeTag: ac.scopeTag, scopeManual: ac.scopeManual, pieceAsked: ac.pieceAsked, reply: latestC.text });
+            if (dec.action === 'ask' || dec.action === 'pending') { v = null; }   // 与校正同一句 + 确认按钮：跳到下面的自动分支渲染
+            else if (dec.action === 'run' && (dec.mode === 'wrapped' || dec.mode === 'bare')) {
+                const c2 = fixTableCounts(fixSegmentReply(latestC.text, dec.mode === 'wrapped' ? { mode: 'wrapped', tag: dec.tag, keepNames: fixKeepNameSet(cc.keepTags) } : { mode: 'bare' }));
+                v = fixCustomVerdictText({ template: cc.template, exists, useMechanic: true, preview, mode: dec.mode, tag: dec.tag, pieces: c2.pieces, prose: c2.prose, guards: c2.guards });
+            } else v = fixCustomVerdictText({ template: cc.template, exists, useMechanic: true, preview, mode: 'whole' });
+        }
+        if (v) { el.className = v.cls; el.textContent = v.text; return; }
+        // ask / pending：落到既有自动渲染（同一确认按钮）
+    }
     const latest = getLatestAiMessage();
     if (latest.idx < 0) {
         el.className = 'so-fix-verdict so-fix-verdict-neutral';
@@ -22846,34 +23421,45 @@ function renderFixConfigWarnings() {
     if (!win) return;
     const box = win.querySelector('#so-fix-warnings');
     if (!box) return;
+    // 📋 自定义面板有自己的两区 → 自己的警告盒；按字段前缀分流，两边不串（自定义面板的警告出现在自动面板里没人看得懂）。
+    const boxC = win.querySelector('#so-fixc-warnings');
     const cfg = getEffectiveFixCfg(getSettings(), getFixCfg());
     const latest = getLatestAiMessage();
     const warnings = fixConfigWarnings(cfg, latest.idx >= 0 ? latest.text : null);
-    box.innerHTML = '';
-    box.hidden = !warnings.length;
-    for (const w of warnings) {
-        const line = document.createElement('div');
-        line.className = 'so-fix-warnline';
-        line.textContent = '⚠ ' + w.message;
-        if (w.code === 'delimiterMismatch' && w.suggest) {
-            const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'so-fix-run-btn';
-            btn.textContent = '改成 ' + w.suggest;
-            btn.addEventListener('click', () => {
-                const sel = w.field === 'fixA_dropTags' ? '#so-fix-drop' : '#so-fix-keep';
-                const el2 = win.querySelector(sel);
-                if (!el2) return;
-                el2.value = el2.value + ((el2.value && !el2.value.endsWith('\n')) ? '\n' : '') + w.suggest;
-                setFixCfg({ [w.field]: el2.value });
-                renderFixConfigWarnings();
-                updateFixVerdict();
-            });
-            line.appendChild(document.createTextNode(' '));
-            line.appendChild(btn);
+    const isCustomField = (f) => String(f || '').startsWith('fixC_');
+    const listA = warnings.filter((w) => !isCustomField(w.field));
+    const listC = warnings.filter((w) => isCustomField(w.field));
+    const FIELD_INPUT = { fixA_dropTags: '#so-fix-drop', fixA_keepTags: '#so-fix-keep', fixC_dropTags: '#so-fixc-drop', fixC_keepTags: '#so-fixc-keep' };
+    const render = (target, list) => {
+        if (!target) return;
+        target.innerHTML = '';
+        target.hidden = !list.length;
+        for (const w of list) {
+            const line = document.createElement('div');
+            line.className = 'so-fix-warnline';
+            line.textContent = '⚠ ' + w.message;
+            if (w.code === 'delimiterMismatch' && w.suggest) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'so-fix-run-btn';
+                btn.textContent = '改成 ' + w.suggest;
+                btn.addEventListener('click', () => {
+                    const sel = FIELD_INPUT[w.field] || '#so-fix-keep';
+                    const el2 = win.querySelector(sel);
+                    if (!el2) return;
+                    el2.value = el2.value + ((el2.value && !el2.value.endsWith('\n')) ? '\n' : '') + w.suggest;
+                    setFixCfg({ [w.field]: el2.value });
+                    renderFixConfigWarnings();
+                    updateFixVerdict();
+                });
+                line.appendChild(document.createTextNode(' '));
+                line.appendChild(btn);
+            }
+            target.appendChild(line);
         }
-        box.appendChild(line);
-    }
+    };
+    render(box, listA);
+    render(boxC, listC);
 }
 
 // ✨ Phase 6（C）——扫描按钮：对最近几条 AI 回复跑 detectScopeTag + detectInnerBlocks，出「采纳标签 / 加入保留区」建议。
@@ -22957,6 +23543,7 @@ function applyScopeFromScan(tag) {
 
 // ✨ 校正模式「自动配置」Phase 7（M4）——把【本聊天】的自动校正设置一键还原成推荐值（作用域 content / 默认目标 /
 // 排除区清空 / 收紧开 / 自动关 / scopeManual 清掉）。只动自动那套（fixA_* + autoFixEnabled），手动 fixM_* 不碰。
+// 📋 自定义模板任务（1.77.0）起也一并归位：任务切回「校正」、清 fixC_*（模板选择 + 自带两区，沿用识别回默认开）。
 function resetFixCfg() {
     setFixCfg({
         fixA_scopeTag: 'content', fixA_scopeManual: false,
@@ -22964,6 +23551,8 @@ function resetFixCfg() {
         fixA_targetSlop: true, fixA_targetDialogue: true, fixA_targetPrecision: true, fixA_targetMagic: false, fixA_targetPacing: true,
         fixA_keepTags: '', fixA_dropTags: '', fixA_knowledgeBoundary: '', fixA_guardrails: '',
         fixA_tighten: true, autoFixEnabled: false,
+        // 📋 自定义模板任务：本聊天回到「校正」任务、清模板选择与自带两区、沿用识别回默认开。
+        fixA_task: 'fix', fixC_template: '', fixC_useMechanic: true, fixC_keepTags: '', fixC_dropTags: '',
     });
     seedFixControls();        // 回填控件（含 applyFixModeView → updateFixVerdict）
     updateFixButtonVisual();  // autoFixEnabled 归 false → ✨ 金色指示对齐
@@ -23027,6 +23616,31 @@ function seedFixControls() {
     set('#so-fixm-preset', 'checked', !!getSettings().fixM_usePreset);   // 全局开关（手动）；不在 cfg / FIX_CFG_KEYS 里
     set('#so-fixa-preset', 'checked', !!getSettings().fixA_usePreset);   // 全局开关（自动）
     set('#so-fix-wait-mvu', 'checked', !!getSettings().fixWaitForMvu);   // ✨ MVU「额外模型更新」抢写协调（全局 opt-in）
+    // 📋 自定义模板任务（fixC_* + 任务开关）。两个「自动」勾选按 task 分家 = 构造性互斥（spec §4.2）。
+    if (ENABLE_FIX_CUSTOM_TASK) {
+        const cc = resolveFixCustomCfg(cfg);
+        set('#so-fix-auto', 'checked', !!cfg.autoFixEnabled && cc.task === 'fix');    // 互斥显示（覆盖上面那行）
+        set('#so-fixc-auto', 'checked', !!cfg.autoFixEnabled && cc.task === 'custom');
+        populateFixTemplates();
+        // 📋 未保存的模板正文把面板【钉】在它的归属模板上，直到用户保存或亲手换一份（spec §4.3 防误覆盖）。
+        // seedFixControls 会被切聊天、加载套餐、两个自动勾选调到——脏着时若照常回填，轻则吃掉用户打的字，
+        // 重则把下拉挪到别的模板上（程序化写 value 不发 change，「未保存」确认根本不会弹），再按保存就写错人。
+        // 故脏着时下拉与文本框一起停在 fixTplDirtyFor 上；其余控件照常无条件回填。
+        if (fixTplDirty) {
+            set('#so-fixc-template', 'value', fixTplDirtyFor);
+        } else {
+            set('#so-fixc-template', 'value', cc.template);
+            const t = findFixTemplate(getSettings(), cc.template);
+            set('#so-fixc-prompt', 'value', t ? t.prompt : '');
+            fixTplDirtyFor = cc.template;   // 不变量：凡是【从模板回填 tplBox.value 的地方】都同时记下归属
+        }
+        updateFixTplDirtyMarker();   // 重种子后标记必须与旗一致（脏着回来时它得还在）
+        set('#so-fixc-mech', 'checked', cc.useMechanic);
+        set('#so-fixc-keep', 'value', cc.keepTags);
+        set('#so-fixc-drop', 'value', cc.dropTags);
+        set('#so-fixc-preset', 'checked', !!getSettings().fixC_usePreset);
+        set('#so-fixc-minchars', 'value', clampFixAutoMinChars(cfg.fixAutoMinChars));
+    }
     applyFixPresetLock();   // 预设模式下置灰「带角色卡 / 带世界书」（由预设标记提供）
     applyFixModeView();
     updateFixVerdict();          // ✨ 1.18.0：开窗 / 切聊天即刷新判定预览行（P8：per-chat 自动开着就该看得见）
@@ -23063,6 +23677,66 @@ function populateFixBundles() {
         // 尽量保留原选中项（存 / 删后列表变了仍停在合理位置）。
         if (prev && bundles.some((b) => b && b.name === prev)) sel.value = prev;
     }
+}
+
+// 📋 自定义模板任务：填充模板下拉（仿 populateFixBundles）。seedFixControls + 每次存 / 删后调用。
+// 排布 = 用户自己的 fixTemplates 在前，两份内置示例在【末尾的 optgroup】里（2026-09-05 产品负责人裁定：
+// 示例直接列进下拉、不再有「示例…」按钮）。选 optgroup 而不是 data-builtin 属性：原生 <select> 的分组
+// 是浏览器画的、ST 的 select 皮肤只管字色背景，用不着我们自己造「这是示例」的视觉。
+// 空占位只在【当前没选】时才给一条（用户库空着时下面还有两份示例可选，再说「暂无模板」就是假话）——
+// 没有这一条时 seedFixControls 那句 `set('#so-fixc-template','value','')` 会写不进去，下拉会停在第一项
+// 而配置说「没选」，两边当场分家。
+function populateFixTemplates() {
+    if (!win || !ENABLE_FIX_CUSTOM_TASK) return;
+    const sel = win.querySelector('#so-fixc-template');
+    if (!sel) return;
+    const prev = sel.value;
+    const templates = normalizeFixTemplates(getSettings().fixTemplates);
+    // 「当前没选」的口径取【两处的并集】：下拉此刻的值 + 本聊天配置里的名字。只看下拉会漏掉「切到一个
+    // 没配模板的聊天」——那一拍 seedFixControls 要把 value 写成 ''，没有这条占位就写不进去，下拉会停在
+    // 上一个聊天的模板上而配置说「没选」（正是删除按钮那段注释里防的那种分家）。
+    let cfgName = '';
+    try { cfgName = String(getEffectiveFixCfg(getSettings(), getFixCfg()).fixC_template || ''); } catch (e) { cfgName = ''; }
+    sel.innerHTML = '';
+    if (!prev || !cfgName) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = '（未选择模板）';
+        sel.appendChild(opt);
+    }
+    for (const t of templates) {
+        const opt = document.createElement('option');
+        opt.value = t.name;
+        opt.textContent = t.name;
+        sel.appendChild(opt);
+    }
+    // 同名时用户那一份赢（findFixTemplate 的口径）——老存档里若真躺着一份同名模板，示例这边就不再列，
+    // 否则下拉里两条一模一样的名字，选哪条都是用户那份，纯属误导。
+    const mine = new Set(templates.map((t) => t.name));
+    const builtins = FIX_SAMPLE_TEMPLATES.filter((t) => !mine.has(t.name));
+    if (builtins.length) {
+        const grp = document.createElement('optgroup');
+        grp.label = '内置示例';
+        for (const t of builtins) {
+            const opt = document.createElement('option');
+            opt.value = t.name;
+            opt.textContent = t.name;
+            grp.appendChild(opt);
+        }
+        sel.appendChild(grp);
+    }
+    // 尽量保留原选中项（存 / 删后列表变了仍停在合理位置）；内置示例也算「还在列表里」。
+    if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
+}
+
+// 📋 「未保存」标记与 fixTplDirty 同步。旗是这件事的唯一真相，标记只是它的投影——所以【每一处】
+// 置 / 清旗的后面都跟一次本函数（input / 换模板 / 新建 / 保存 / 删除后认领 / seedFixControls），
+// 而不是各自去 el.hidden = …；漏一处，用户就会看见一个与实际不符的「未保存」（或看不见该有的那个）。
+// 窗口没建 / 旗关 / 节点不在 → 静默无操作（与 populateFixTemplates 同一套防御）。
+function updateFixTplDirtyMarker() {
+    if (!win || !ENABLE_FIX_CUSTOM_TASK) return;
+    const el = win.querySelector('#so-fixc-dirty');
+    if (el) el.hidden = !fixTplDirty;
 }
 
 // 让选条目器 UI（两个开关 + 可见性 + 列表）与本聊天元数据对齐。进入诊断模式 / 切聊天时调用。
@@ -23696,17 +24370,32 @@ function buildFixPrompt(ctx, s) {
     const thoroughOverride = (s.fixThoroughSystemPrompt || '').trim();
     // 自动分支：精校（thorough）时用 resolveFixAutoPrompt 选侧重提示；轻校（light，默认）恒用收紧版
     // （1.18.3：✂️收紧 开关移除，非收紧基底 FIX_SYSTEM_PROMPT 已删）。
-    const base = fwd ? FIX_FORWARD_PROMPT : (override || (fixActiveMode === 'manual'
-        ? FIX_SYSTEM_PROMPT_MANUAL
-        : (fixAutoPromptVersion === 'thorough'
-            ? (thoroughOverride || resolveFixAutoPrompt({ promptVersion: fixAutoPromptVersion, promptFlavor: fixAutoPromptFlavor }))
-            : (lightOverride || FIX_SYSTEM_PROMPT_TIGHTEN))));
+    // 📋 自定义模板任务（ENABLE_FIX_CUSTOM_TASK）：模式先判——系统提示 = 用户模板 + 代码页脚，
+    // 【有意】压过 s.fixSystemPrompt 旧全局覆盖与轻校 / 精校覆盖（那些描述的是「校正」语义，
+    // 与「按模板做任意处理」直接矛盾；输出契约是机械的，不是口味问题——同 ⟦记号前推⟧ 的判断）。
+    // 📋 契约补丁：判据 =【这次的 join 表是不是 fixCustomRawTable 出的】（fixCustomJoin 非 null），**不是** .raw ——
+    // 该函数的 head/tail 只装首尾空白，包裹标签与结构块全在 core 里，raw:false（沿用识别但阶梯没建出分段表，
+    // 如 fixA_scopeTag 为空 → whole）那条退路一样把 <content> 原样交给模型 = 电池 §R2 量到的同一处信封丢失。
+    // raw:false 时 MVU 块已被 stripMechanismBlocks 剥掉，句里提 <UpdateVariable> 只是空转、无害。
+    // 沿用识别【有分段表】时 fixCustomJoin 恒 null ⇒ 不附：那条路的包裹与结构块由代码收进 head/tail 或保留区锚点，
+    // 模型根本碰不到，再叮嘱「原样保留结构块」会与「系统已经替你收走了」自相矛盾（同 ⟦记号前推⟧ 的判断）。
+    const custom = (ENABLE_FIX_CUSTOM_TASK && fixActiveMode === 'custom');
+    const customRawTable = !!(custom && fixCustomJoin);
+    const base = fwd ? FIX_FORWARD_PROMPT : (custom
+        ? (fixCustomTemplateText + '\n\n' + FIX_CUSTOM_FOOTER + (customRawTable ? '\n' + FIX_CUSTOM_RAW_NOTE : ''))
+        : (override || (fixActiveMode === 'manual'
+            ? FIX_SYSTEM_PROMPT_MANUAL
+            : (fixAutoPromptVersion === 'thorough'
+                ? (thoroughOverride || resolveFixAutoPrompt({ promptVersion: fixAutoPromptVersion, promptFlavor: fixAutoPromptFlavor }))
+                : (lightOverride || FIX_SYSTEM_PROMPT_TIGHTEN)))));
     let subst = (t) => t;
     if (ctx && typeof ctx.substituteParams === 'function') {
         subst = (t) => { try { return ctx.substituteParams(t); } catch (e) { return t; } };
     }
     const reply = (fwd ? fwd.display : fixTargetProse) || '（未捕获到待校正的回复——请确认主聊天里已有一条 AI 回复）';
-    const envelope = buildFixEnvelope({ card: fixCardBlock, world: fixWorldBlock, summary: fixSummaryBlock, context: fixContextBlock, reply });
+    const envelope = custom
+        ? buildFixEnvelope({ reply })   // 📋 自定义：本版只发正文（角色卡 / 世界书 / 概要 / 前文有意不带，spec §10）
+        : buildFixEnvelope({ card: fixCardBlock, world: fixWorldBlock, summary: fixSummaryBlock, context: fixContextBlock, reply });
     let prompt = subst(base) + '\n\n' + envelope;
     // 排除·保留区：正文里嵌了 ⟦SO_KEEP_n⟧ 占位锚点时，明确要求模型原样留在原位（弄丢了由 composeFixedReply 兜底接回）。
     if (Array.isArray(fixExtraKeep) && fixExtraKeep.length) {
@@ -25292,7 +25981,13 @@ async function captureFixContext(s, { mode = 'manual', targetId, wholeFloor = fa
     // 这样「按目标校正」/ 自动 / 选段校正 都不可能捡到上一次的画布（否则会用错契约解析）。
     if (ENABLE_FIX_FORWARD) fixFwdState = null;
     // 走【本聊天】生效值（per-chat 覆盖全局 s），再按 mode 归一成手动 / 自动各自的一套——绝不直读 fixM_/fixA_ 原始键。
-    const norm = resolveFixModeCfg(getEffectiveFixCfg(s, getFixCfg()), mode);
+    const cfgRaw = getEffectiveFixCfg(s, getFixCfg());
+    // 📋 自定义模板任务：沿用自动那套归一（作用域 / 阶梯 / 分段），只把两区换成自定义档自己的（两区同名 → 保留优先）。
+    const cc = (ENABLE_FIX_CUSTOM_TASK && mode === 'custom') ? resolveFixCustomCfg(cfgRaw) : null;
+    const norm = resolveFixModeCfg(cfgRaw, cc ? 'auto' : mode);
+    if (cc) { norm.keepTags = cc.keepTags; norm.dropTags = fixDropMinusKeep(cc.keepTags, cc.dropTags); }
+    fixCustomJoin = null;
+    const autoLike = mode === 'auto' || (cc && cc.useMechanic);   // 自定义·沿用识别 = 自动的捕获路径
     // 自动·事件驱动（runAutoFix 经 maybePostReply 传入触发消息 id）→ 钉住那条；手动 / 「按目标校正」按钮无 id → 仍取最近一条。
     const latest = (targetId != null) ? resolveAutoTargetMessage(ctx.chat, targetId) : getLatestAiMessage();
     fixTargetIdx = latest.idx;
@@ -25304,7 +25999,7 @@ async function captureFixContext(s, { mode = 'manual', targetId, wholeFloor = fa
     // 决定用哪个标签、要不要出提示；本函数只负责【决策 + 落状态】，不写配置也不发通知——那是 runAutoFix /
     // runFixByTargets（D+E 门）的事，这里保持 captureFixContext「只搭建上下文」的既有契约。手动模式没有作用域
     // （resolveFixModeCfg 早把 scopeTag 归一成 ''），fixScopeDecision 置空，行为与之前完全一致。
-    if (mode === 'auto' && ENABLE_FIX_PIECEWISE) {
+    if (autoLike && ENABLE_FIX_PIECEWISE) {
         // ✨ 分段校正（1.18.0）：决策阶梯（提议→确认一次→记住）取代 resolveFixScope（老路径完整保留在下面的
         // else-if，关开关即字节回退）。wrapped 干净单块走 bypass = 字面老路径（fixScope 单段作用域，逐字节
         // 不变）；多块 / 内嵌结构 / 已确认 bare 建分段表（fixPieceTable），由 runAutoFixPieces /
@@ -25316,8 +26011,8 @@ async function captureFixContext(s, { mode = 'manual', targetId, wholeFloor = fa
         fixScope = { active: false };
         if (dec.action === 'run' && dec.mode === 'wrapped') {
             const table = fixSegmentReply(latest.text, { mode: 'wrapped', tag: dec.tag, keepNames: fixKeepNameSet(norm.keepTags) });
-            if (table.bypass) {
-                fixScope = splitContentScope(latest.text, dec.tag);   // 干净单块：字面老路径
+            if (table.bypass && !cc) {
+                fixScope = splitContentScope(latest.text, dec.tag);   // 干净单块：字面老路径（📋 自定义留着单块表 → 恒有 join）
             } else if (!table.pieces.length) {
                 dec.action = 'skip'; dec.note = { code: 'noNarrative' };   // P7：包裹里全是结构 → 可读跳过
             } else {
@@ -25335,7 +26030,7 @@ async function captureFixContext(s, { mode = 'manual', targetId, wholeFloor = fa
             if (!dec.proposal.pieces) { dec.action = 'skip'; dec.note = { code: 'noNarrative' }; }   // 全结构：没什么可确认
         }
         fixPieceDecision = dec;
-    } else if (mode === 'auto') {
+    } else if (autoLike) {
         const dec = resolveFixScope({ cachedTag: norm.scopeTag, scopeManual: norm.scopeManual, reply: latest.text, replies: recentAiReplies(ctx.chat, 5) });
         fixScopeDecision = dec;
         fixPieceDecision = null;
@@ -25347,9 +26042,18 @@ async function captureFixContext(s, { mode = 'manual', targetId, wholeFloor = fa
         fixPieceTable = null;
         fixScope = { active: false };
     }
+    // 📋 自定义模板任务（spec §5.2）：「整条」= 跳过整套阶梯，原文 + 自带两区 → raw 表（不剥 MVU）。沿用识别但阶梯没建出表
+    // （whole：没包裹也没结构；或分段开关关着）→ 同一张表但 raw:false（仍剥 MVU、composeFixedReply 接回）。
+    if (cc && !cc.useMechanic) {
+        fixScopeDecision = null; fixPieceDecision = null; fixPieceTable = null; fixScope = { active: false };
+        fixCustomJoin = fixCustomRawTable(latest.text, cc.keepTags, cc.dropTags, { raw: true });
+    } else if (cc && !fixPieceTable && !(fixPieceDecision && ['ask', 'pending', 'suggest', 'skip'].includes(fixPieceDecision.action))) {
+        fixScope = { active: false };
+        fixCustomJoin = fixCustomRawTable(latest.text, cc.keepTags, cc.dropTags, { raw: false });
+    }
     // 分段表在场：baseText = 各段 core 拼接——只用于「有没有可校正正文」早退与 R2/预过滤语义；真正逐段的
     // 抠保留区 / 剥机制块 / 建提示在 fixPieceCall 里按【单段】重做。无表：老语义原样（作用域内层 / 整条）。
-    const baseText = fixPieceTable ? fixPieceTable.pieces.map((p) => p.core).join('\n\n') : (fixScope.active ? fixScope.inner : latest.text);
+    const baseText = fixCustomJoin ? fixCustomJoin.core : (fixPieceTable ? fixPieceTable.pieces.map((p) => p.core).join('\n\n') : (fixScope.active ? fixScope.inner : latest.text));
     fixOriginalReply = baseText;   // 机制块接回 + 看改动「before」基于作用域内层（作用域外的块在信封里、不参与校正与差异）
     // ✨ 思考块保护（W1 2026-08-16，§3.1 修复）：手动整篇校正把 REASONING_TAGS 家族思考块经【既有】保留区机械
     // （extractExcludedSections → ⟦SO_KEEP_n⟧ 原位锚 → composeFixedReply 原样接回）码侧收走——模型看不到 =
@@ -25362,8 +26066,10 @@ async function captureFixContext(s, { mode = 'manual', targetId, wholeFloor = fa
     //    看不到块，提示词例外条款够不着；要模型改思考块，先关保护。
     const thinkKeep = (wholeFloor && mode === 'manual' && !ENABLE_FIX_FORWARD)
         ? fixThinkKeepSpec(baseText, norm.protectThink) : '';
-    const ex = extractExcludedSections(baseText, thinkKeep || norm.keepTags, norm.dropTags);   // 排除区（自动=用户 keepTags；手动整篇=思考块保护）
-    fixTargetProse = stripMechanismBlocks(ex.prose);   // 仍自动剥离 MVU 机制块（<UpdateVariable>，composeFixedReply 会原样接回）
+    const ex = fixCustomJoin
+        ? { prose: fixCustomJoin.core, keepBlocks: fixCustomJoin.keepBlocks }   // 📋 raw 表已抠过两区，不再抠第二遍
+        : extractExcludedSections(baseText, thinkKeep || norm.keepTags, norm.dropTags);   // 排除区（自动=用户 keepTags；手动整篇=思考块保护）
+    fixTargetProse = (fixCustomJoin && fixCustomJoin.raw) ? ex.prose : stripMechanismBlocks(ex.prose);   // 仍自动剥离 MVU 机制块（<UpdateVariable>，composeFixedReply 会原样接回）；📋 整条 raw：不剥
     fixExtraKeep = ex.keepBlocks;   // 保留区块数组（composeFixedReply 按 ⟦SO_KEEP_n⟧ 位置还原，而非接到末尾）
     fixThinkProtected = thinkKeep ? ex.keepBlocks.length : 0;   // 回执计数（renderFixCard 消费；非保护路径恒 0）
     // ✨ Phase 4 目标完整性：抓下这次校正的【身份 + 目标快照】。应用前（尤其手动卡「应用」的延迟点击、以及自动
@@ -25886,6 +26592,9 @@ function refreshFixChatEntry() {
     try {
         document.querySelectorAll('.so-fixsel-chat-entry').forEach((b) => b.remove());
         if (!ENABLE_FIXSEL_CHAT_ENTRY || !ENABLE_REPLY_FIX || !ENABLE_FIX_SELECT) return;
+        // 1.77.0 用户请求：可藏起这颗 ✂️（opt-out `fixSelRowButton`，默认开）。门必须排在上面
+        // 「先拔光」【之后】——取消勾选才会当场生效；只认显式 false，老档缺键 = 照挂（迁移安全）。
+        if (getSettings().fixSelRowButton === false) return;
         const latest = getLatestAiMessage();
         if (!latest || latest.idx < 0) return;
         const mes = document.querySelector('#chat .mes[mesid="' + latest.idx + '"]');
@@ -26700,7 +27409,7 @@ async function runFixByTargetsPieces(s) {
                 contentEl.classList.add('so-streaming');
                 // ✨ 1.18.3：按钮路径流式直播草稿（尊重全局 流式 开关；锚点 / <FixedReply> 标签会原样闪过——
                 // 定稿后由下方卡片渲染替换，同弧线实时输出的契约）。
-                joinResult = await fixJoinCall(ctx, s, a, directive, join, abortCtl.signal,
+                joinResult = await fixJoinCall(ctx, s, directive, join, abortCtl.signal,
                     (full) => { contentEl.textContent = joinHead + '\n\n' + full; if (soFollowStream) scrollToBottom(); });
             } catch (e) {
                 if (isUserAbort(e)) { stopped = true; }
@@ -26810,10 +27519,14 @@ function showAutoFixGenerating() {
 // 纯副作用：在侧聊里留一条【持久】自动校正记录（仿 notifyAutoDiagnose 的记录部分）。status:
 // fixed / nochange / failed；problems = 「发现并修正」摘要（仅 fixed 有意义，可空）。窗口关着也留得下
 // （DOM 在 init 建好），随 per-chat 持久化、跨重载存活；是 note 条目、绝不回灌给模型（见 convoForPrompt）。
-function addAutoFixNote(status, problems, fix = null) {
+function addAutoFixNote(status, problems, fix = null, meta = null) {
     try {
         const stamp = (() => { try { return new Date().toLocaleTimeString(); } catch (e) { return ''; } })();
-        const entry = { id: ++cidSeq, role: 'note', content: autoFixNoteContent({ status, problems, stamp }) };
+        // 📋 meta = { task:'custom', template } → 记录换族（customTaskNoteContent）；meta 为空 = 校正一族，字节不动。
+        const content = (meta && meta.task === 'custom')
+            ? customTaskNoteContent({ status, problems, stamp, template: meta.template })
+            : autoFixNoteContent({ status, problems, stamp });
+        const entry = { id: ++cidSeq, role: 'note', content };
         // fix（仅 'fixed' 结果带）= { idx, before, after, fixSwipeId }，给记录挂「用原文 / 看改动」按钮。
         // 注意：和手动校正回复一样，按钮只在【本会话】可用——重载后记录是纯文本（fix 不进 persistConvo）。
         appendNoteToRoom('fix', entry, fix ? { fix } : null);   // 自动校正记录归入【校正房间】（不可见时直接落其元数据、不上屏）
@@ -26926,14 +27639,26 @@ async function fixPieceCall(ctx, s, a, directive, piece, signal, onDelta) {
 // fixExtraKeep = keepBlocks 让 buildFixPrompt 的既有【保留区锚点】提示自动生效（1.17.3 验证的那段话）。
 // 返回 PieceResult + anchorsMissing（模型弄丢的锚点数——compose 已兜底接回不丢内容，但要如实告知位置可能偏移）。
 // onDelta（可选，1.18.3）：流式回调，收【到目前为止的全文】——按钮路径传入（气泡直播）；自动路径不传 = 字节不变。
-async function fixJoinCall(ctx, s, a, directive, join, signal, onDelta) {
-    const pieceProse = stripMechanismBlocks(join.core);
+// （owed A3：原来还收一个 `a`（模式归一配置）——函数体一次都没读它，而自定义路传进来的是形状完全
+//   不同的 cc，留着只会误导下一个读代码的人。已从签名与全部调用点删去；行为逐字节不变。）
+async function fixJoinCall(ctx, s, directive, join, signal, onDelta) {
+    const pieceProse = (join && join.raw) ? join.core : stripMechanismBlocks(join.core);   // 📋 整条 raw 表：不剥 MVU
     if (!pieceProse.trim()) return { status: 'gated' };
     fixTargetProse = pieceProse;
     fixExtraKeep = join.keepBlocks;
-    const messages = (fixUsePresetFor(s, 'auto') && presetCurationActive(s))
+    // 📋 自定义模板任务：预设 / 破限走自定义档自己的开关（fixC_usePreset），提示词由 buildFixPrompt 的 custom 分支给。
+    const custom = (ENABLE_FIX_CUSTOM_TASK && fixActiveMode === 'custom');
+    // 📋 单块守卫（MVU 地雷 ②）的判据，本函数与 fixRunJoin 共用一份（owed-wave fix round 2）。
+    // **不能**用 join.raw：沿用识别但阶梯没建出分段表的 raw:false 退路同样是 fixCustomRawTable 出的表，
+    // 契约行又点名了 <UpdateVariable>，模型伪造 / 回声一个块时若走原实参，composeFixedReply 会把原块也接回
+    // = 一条消息两个更新区块。**也不能**去掉这层判据只留 fixOutputHasMvuBlock：那会把守卫装到校正路上，
+    // 破掉不变量 2（校正路径零行为变化）。判据 =「自定义任务 且 这次的表来自 fixCustomRawTable」；
+    // 校正 / 手动路 fixActiveMode 不是 'custom' ⇒ 恒假 ⇒ composeAgainst = join.core、skipBlock 恒 false。
+    const customRawTable = (ENABLE_FIX_CUSTOM_TASK && fixActiveMode === 'custom' && !!fixCustomJoin);
+    const jbMode = custom ? 'fixCustom' : 'fixAuto';
+    const messages = (fixUsePresetFor(s, custom ? 'custom' : 'auto') && presetCurationActive(s))
         ? buildFixPresetMessages(s, directive)
-        : maybeWrapJb([{ role: 'system', content: buildFixPrompt(ctx, s) }, { role: 'user', content: directive }], 'fixAuto', s);
+        : maybeWrapJb([{ role: 'system', content: buildFixPrompt(ctx, s) }, { role: 'user', content: directive }], jbMode, s);
     const effMaxTokens = fixEffMaxTokens(s);   // Tier 0 ③：可被 fixMaxTokens 顶高（长楼层）
     let finalText = '';
     if (s.mode === 'direct') {
@@ -26959,7 +27684,246 @@ async function fixJoinCall(ctx, s, a, directive, join, signal, onDelta) {
     if (fixOutputTruncated(parsed.fixed, finishHint, pieceProse).truncated) return { status: 'truncated' };
     if (fixEffectivelyUnchanged(pieceProse, parsed.fixed)) return { status: 'clean' };   // Tier 0 ①：近抄也算 clean（自动不落回抄稿）
     const anchorsMissing = join.keepBlocks.filter((b, i) => !parsed.fixed.includes(fixKeepPlaceholder(i))).length;
-    return { status: 'fixed', fixedCore: composeFixedReply(parsed.fixed, join.core, join.keepBlocks), problems: parsed.problems || '', before: pieceProse, after: parsed.fixed, anchorsMissing };
+    // 📋 raw 表专属的单块守卫（MVU 地雷 ②）：整条路把 <UpdateVariable> 一起交给了模型，模型改写它（翻译类模板
+    // 必然如此）之后 composeFixedReply 的【逐字包含】判据会认成「块丢了」→ 把原版也接到末尾 = 一条消息两个更新区块。
+    // 药方是【只换第二个实参】：喂 stripMechanismBlocks(join.core) 让它摘不到原块（不接），而
+    // <StatusPlaceHolderImpl/> 分支照旧生效（stripMechanismBlocks 不碰占位符）——模型若把占位符弄丢仍会补回。
+    // 模型【真的】把块弄丢时 fixOutputHasMvuBlock 为假 → 走原实参 → 原块照旧接回。校正 / 手动路 customRawTable
+    // 恒假 ⇒ 字节不变。判据为什么不是 join.raw 见上面 customRawTable 处（raw:false 退路一样要守）。
+    const composeAgainst = (customRawTable && fixOutputHasMvuBlock(parsed.fixed)) ? stripMechanismBlocks(join.core) : join.core;
+    // skipMvuTail = 同一个判据交给 fixRunJoin（那边还要对【拼好的成品】再测一次块），免得两处各算一遍、各漂一半。
+    return { status: 'fixed', fixedCore: composeFixedReply(parsed.fixed, composeAgainst, join.keepBlocks), problems: parsed.problems || '', before: pieceProse, after: parsed.fixed, anchorsMissing, skipMvuTail: customRawTable };
+}
+
+/* ------------------------------------------------------------------ *
+ * 📋 自定义模板任务的【流式直播】（1.77.0，Prince 点单 2026-09-04）。
+ * 模板任务常常是「整条翻译 / 整条改写」，一趟往返几十秒起步——非流式时用户只看得到一个不动的提示，
+ * 分不清「在跑」与「卡死」；而中转（navy 一类）对静默连接有 ~100s 的 CF 顶，流式还能把连接喂活。
+ * 直播落在【哪里】按房间可见性分流，两条路都绝不碰主聊天（写入仍只发生在 applyFixAsSwipe 那一刻）：
+ *   · 校正房正开着 → 临时气泡（与「按目标校正」的手动卡同一条 DOM 路：addMessage + so-streaming），
+ *     绝不进 convo / 不落盘，收尾必删（fixRunJoin 的 finally）。
+ *   · 房间不可见（窗口关着 / 在别的房） → 把进度挂到「正在校正…」提示上（字数计数器）。
+ * ------------------------------------------------------------------ */
+
+// 纯（可单测）：不可见时提示里的进度文案。n = 到目前为止收到的字数（码点）。
+// 「点此中断」半句必须留着——这个提示本身就是中断按钮（showAutoFixGenerating 的 onclick）。
+function fixStreamCounterText(n) {
+    return `正在用模板处理最新回复… 已收到 ${Math.max(0, Number(n) | 0)} 字（点此中断）`;
+}
+
+// toastr 的句柄是 jQuery 包装的 toast 元素；把它正文行的文本就地换掉。失败一律静默返回 false
+// ——进度显示是锦上添花，绝不能让它把一次真正的模板处理搞崩。
+function toastSetMessage(handle, text) {
+    try {
+        const el = (handle && handle.nodeType === 1) ? handle : ((handle && handle[0]) || null);
+        const msg = (el && el.querySelector) ? el.querySelector('.toast-message') : null;
+        if (!msg) return false;
+        msg.textContent = text;
+        return true;
+    } catch (e) { return false; }
+}
+
+// 直播装置的构造口。返回 { onDelta, end }：
+//   · onDelta === undefined ⇒ fixJoinCall 走非流式分支（校正路 / 关了流式 / 杀死开关关 = 字节不变）。
+//   · end() 幂等，由 fixRunJoin 的 finally 无条件调用 —— 任何出口都不许留下预览气泡。
+// 刻意【不】把气泡写进 convo：它不是一条对话，是一块进度显示；不进 convo ⇒ persistConvo 永远
+// 看不见它 ⇒ 不会落盘、不会在重载后复活（这是「不持久化」最省事也最难写错的一种做法）。
+function fixCustomPreviewStart(meta, toastHandle, s) {
+    const NOOP = { onDelta: undefined, end() {} };
+    try {
+        if (!(ENABLE_FIX_CUSTOM_TASK && meta && meta.task === 'custom' && s && s.stream)) return NOOP;
+        // ① 校正房正开着 → 临时气泡直播。
+        // 「开着」= 窗口真的在屏上（`win.style.display !== 'none'`，全仓判可见的同一式）【且】当前可见流
+        // 就是校正房。复审 minor #5：只看 convoStreamKey 会把「窗口关着但上次停在校正房」也判成可见，
+        // 于是气泡进了一个没人看得见的容器、计数器又因为走了气泡枝而不出 —— 自动轮那几十秒里用户
+        // 两样反馈都拿不到。窗口没建好 / 收起时一律落到 ② 的提示计数器。
+        if (win && win.style.display !== 'none' && convoStreamKey === 'fix' && messagesEl) {
+            const head = `📋 模板〔${meta.template || ''}〕 · 处理中…`;
+            const wrap = addMessage('assistant', '', null);   // 不传 entry ⇒ 不挂编辑/重生成/删除按钮，也永不进 convo
+            wrap.classList.add('so-fixc-preview');
+            const contentEl = wrap.querySelector('.so-content');
+            contentEl.classList.add('so-streaming');
+            contentEl.textContent = head;
+            let done = false;
+            return {
+                onDelta: (acc) => {
+                    if (done) return;
+                    contentEl.textContent = head + '\n\n' + String(acc == null ? '' : acc);
+                    if (soFollowStream) scrollToBottom();   // house law：在底部才自动滚（跟随位由滚动监听现测）
+                },
+                end() {
+                    if (done) return;
+                    done = true;
+                    try {
+                        contentEl.classList.remove('so-streaming');
+                        wrap.remove();
+                        // 房间被这只气泡清掉过空态卡：真的空了才补回（renderEmptyState 自带 convo/children 守卫）。
+                        if (messagesEl && !messagesEl.children.length) renderEmptyState();
+                    } catch (e) { /* 页面已换 / 节点已被重画掉 */ }
+                },
+            };
+        }
+        // ② 房间不可见 → 提示上的字数计数器（~500ms 一次，不给 toastr 制造重排风暴）。
+        let last = 0;
+        return {
+            onDelta: (acc) => {
+                const now = Date.now();
+                if (now - last < 500) return;
+                last = now;
+                toastSetMessage(toastHandle, fixStreamCounterText(Array.from(String(acc == null ? '' : acc)).length));
+            },
+            end() { /* 提示由 fixRunJoin 的 finally 统一 dismissToast */ },
+        };
+    } catch (e) { return NOOP; }
+}
+
+/* ------------------------------------------------------------------ *
+ * ✨/📋 切聊天不取消：暂存 → 回到原聊天落地（1.77.0）。存取两个纯口 + 落地/暂存三件套。
+ * 下面四个函数是【三条运行路 + 补落地】共用的唯一实现：整体校正 fixRunJoin、老单段 runAutoFix、
+ * 分段 runAutoFixPieces 各自的「陈旧守卫 → 落 swipe → 记录」尾巴都收敛到这里，两边绝不漂移。
+ * ------------------------------------------------------------------ */
+
+// 纯（唯一副作用是改【传进来的】map，可单测）：存一份暂存结果，同一聊天后来居上。返回是否真的存下。
+function fixParkPut(map, key, entry) {
+    if (!map || key == null || key === '' || !entry) return false;
+    map.set(String(key), entry);
+    return true;
+}
+
+// 纯（唯一副作用是改【传进来的】map，可单测）：清掉过期与超额的槽。复审 minor #8 —— 暂存是「等你回来」
+// 的短期承诺，不是无期限的存档：半小时前那条回复的处理结果再落地已经离用户的心智太远（他多半早就
+// 手动重掷 / 换 swipe 了），而 Map 不封顶就会随着「切了 N 个聊天」一路长。
+//   · 过期：`at` 早于 now - FIX_PARK_TTL_MS（30 分钟）的一律丢。
+//   · 封顶：留最新 FIX_PARK_MAX 个（按 `at` 排序，旧的先出）。
+// `at` 缺失（异常写入）按 0 处理 = 立刻过期，绝不让一条没有时间戳的成品赖在槽里。
+function fixParkSweep(map, now) {
+    if (!map || !map.size) return 0;
+    const t = Number(now) || 0;
+    let dropped = 0;
+    for (const [k, v] of [...map.entries()]) {
+        if (t - (Number(v && v.at) || 0) > FIX_PARK_TTL_MS) { map.delete(k); dropped += 1; }
+    }
+    if (map.size > FIX_PARK_MAX) {
+        const byAge = [...map.entries()].sort((a, b) => (Number(a[1] && a[1].at) || 0) - (Number(b[1] && b[1].at) || 0));
+        for (const [k] of byAge.slice(0, map.size - FIX_PARK_MAX)) { map.delete(k); dropped += 1; }
+    }
+    return dropped;
+}
+
+// 纯（同上）：取出并【立刻删除】。调用方必须先取后 await —— 连续两次 CHAT_CHANGED 才不会把同一份落两遍。
+function fixParkTake(map, key) {
+    if (!map || key == null) return null;
+    const k = String(key);
+    const entry = map.get(k) || null;
+    if (entry) map.delete(k);
+    return entry;
+}
+
+// 落地 = 写入 + 记录，两句【连体】。记录实参逐字节沿用各路原样（meta 为空 = 校正一族老字节；
+// 分段路的 problems 是对象，照传不动）。即时落地与暂存补落地共用这一份。
+async function fixLandResult(p) {
+    const ctx = getCtx();
+    await applyFixAsSwipe(p.targetIdx, p.joined);
+    // 抓【应用后】落点的 swipe_id（addSwipeToMessage 把新 swipe 设为当前），给记录的「用原文 ↔ 用校正稿」开关用。
+    const fixSwipeId = ((ctx && ctx.chat) || [])[p.targetIdx]?.swipe_id;
+    addAutoFixNote(p.status, p.problems, { idx: p.targetIdx, before: p.before, after: p.after, fixSwipeId }, p.meta || null);
+}
+
+// 落地闸：陈旧守卫的裁决 → 立刻落 / 暂存 / 记一条 stale。返回 'landed' | 'parked' | 'stale'（供测试与日志）。
+// 'chatSwitched' 是【唯一】可暂存的理由：其余（换 swipe / 正文被编辑 / 目标没了）说明这条回复本身已经
+// 不是当初那条，暂存只会在用户回来时写坏东西 —— 照旧记一条 stale（文案字节不变）。
+// 暂存时【绝不】往当前这个（别人的）聊天里写记录，只弹一句 toast。
+// ★ 判据只认 payload.captured / payload.targetIdx，【绝不】读模块级 fixCaptured / fixTargetIdx ★
+// （复审 Critical #1，1.77.0 fix round 1）：切聊天不再作废在途轮之后，「模型往返期间那两个全局被别人
+// 覆写」变成了**可达**路径 —— 用户切到聊天 B、在 B 里点「按目标给最新回复去 AI 味」（`runFixByTargets`
+// 只被 isGenerating 挡、不看 postReplyBusy）→ captureFixContext 把全局改成 B 的捕获 → 聊天 A 那一轮
+// 回来时读全局，会拿【B 的捕获】比【B 的现状】判「不陈旧」，于是把 A 的正文写进 B 的楼层 = 跨聊天串写。
+// 所以捕获快照必须在 captureFixContext 返回后【立刻】取下、一路传到这里（三条运行路各取一次）。
+async function fixLandOrPark(payload, opts) {
+    const cap = payload.captured || null;
+    const st = fixTargetStale(cap, fixCurrentSnapshot(payload.targetIdx), opts);
+    if (!st.stale) { await fixLandResult(payload); return 'landed'; }
+    if (st.reason === 'chatSwitched' && cap) {
+        fixParkPut(fixParked, cap.chatId, { ...payload, captured: cap, at: Date.now() });
+        try { window.toastr && window.toastr.info && window.toastr.info('结果已暂存，回到原聊天时自动落地', '故事神谕'); } catch (e) { /* ignore */ }
+        return 'parked';
+    }
+    addAutoFixNote('stale', st.reason, null, payload.meta || null);
+    return 'stale';
+}
+
+// 回到原聊天：把暂存的成品落地。onChatChanged 末尾 + drainPendingPostReply 里 fire-and-forget 调用
+// （与后者同一约定：事件监听不该被一趟 saveChat 拖住）。取出【先于】任何 await，重入不会落两遍。
+async function fixDrainParked() {
+    // 复审 minor #9：绝不与在飞的一轮交错落地（它随时会 applyFixAsSwipe / 写记录）。有轮在飞就让位，
+    // 由那一轮 finally 里的 drainPendingPostReply 再唤我们一次（锁那时已释放）。
+    if (postReplyBusy) return 'deferred';
+    // ★ 顺序是【先取本聊天这一份、再扫其余】★（G 轮复审）：反过来的话，槽里挤着 ≥9 个聊天、而本聊天恰是
+    // 其中最旧的那一个时，封顶淘汰会把「马上就要落地的这一份」当成最旧的踢掉——用户回到原聊天，已经
+    // 买单的成品凭空消失。取出后仍按同一把尺子判它【自己】的保质期，TTL 语义与扫描不变。
+    const now = Date.now();
+    const entry = fixParkTake(fixParked, fixChatKey());
+    fixParkSweep(fixParked, now);          // 本聊天这一份已经出槽，扫的是【别人】的过期 / 超额
+    if (!entry) return null;
+    if (now - (Number(entry.at) || 0) > FIX_PARK_TTL_MS) return null;   // 过期：与被扫掉时一样，静默不落地
+    // 回来后再核一次：暂存期间这条回复可能在别处被换过 swipe / 编辑过 / 删掉了。mvuTolerant 恒 false ——
+    // MVU 早在暂存前就写完了，容忍窗口没有意义，宁可判陈旧也不写坏。
+    const st = fixTargetStale(entry.captured, fixCurrentSnapshot(entry.targetIdx), { mvuTolerant: false });
+    if (st.stale) { addAutoFixNote('stale', st.reason, null, entry.meta || null); return 'stale'; }
+    await fixLandResult(entry);
+    return 'landed';
+}
+
+// 📋 按钮路（meta.manual）专属：fixRunJoin 里三处 `postReplyShouldStop()` 的静默出口补一句人话。
+// 有人正盯着屏幕等结果，「什么都没发生」是最坏的反馈（Prince 的实地报告就是这一幕）。自动路保持
+// 今天的静默——它每条回复都跑，中断是常态，刷屏比沉默更糟。用 addSystemNote（临时提示，不进侧聊
+// 持久记录）与按钮起飞前的各种拒绝同一族。
+function fixNoteRunStopped(meta) {
+    if (meta && meta.task === 'custom' && meta.manual === true) {
+        try { addSystemNote('📋 模板处理已中断（你点了中断，或期间发出了新消息）。'); } catch (e) { /* 窗口没建好 */ }
+    }
+}
+
+// ✨/📋 整体校正与自定义模板任务共用的「一次调用 → 闸门 → MVU 等待 → 陈旧守卫 → 落 swipe → 记录」尾巴。
+// meta = null（校正）| { task:'custom', template, manual }（自定义，记录换族）。校正一族的记录实参逐字节不动
+// （meta 为空时 nochange 恒不带理由 = 老字节；自定义才补「模型没有改动」）。
+async function fixRunJoin(ctx, s, directive, join, compatSession, meta) {
+    // ★ 必须是【第一句】★（复审 Critical #1）：把捕获快照从模块级全局取下来。调用方（runCustomTask /
+    // runAutoFixPieces）从 captureFixContext 返回到这里全程无 await，所以这一刻的 fixCaptured / fixTargetIdx
+    // 仍是本轮的；此后的几十秒里用户可能在别的聊天点「按目标给最新回复去 AI 味」把它们覆写掉。
+    const cap = fixCaptured, tIdx = fixTargetIdx;
+    const genToast2 = showAutoFixGenerating();
+    // 📋 只有自定义模板任务 + 全局流式开着时才拿得到 onDelta；校正路 preview.onDelta 恒 undefined
+    // ⇒ fixJoinCall 走的还是今天那条非流式分支（不变量 2：校正路径零行为变化）。
+    const preview = fixCustomPreviewStart(meta, genToast2, s);
+    let r;
+    const ctl2 = beginPostReplyCall(POST_REPLY_CALL_TIMEOUT_MS);
+    try {
+        r = await fixJoinCall(ctx, s, directive, join, ctl2.signal, preview.onDelta);
+    } catch (e) {
+        preview.end();   // catch 体跑在 finally 之【前】：先撤气泡，记录才落在一间干净的房里（end() 幂等）
+        if (!postReplyShouldStop()) addAutoFixNote('failed', '调用失败', null, meta);
+        else fixNoteRunStopped(meta);
+        return;
+    } finally { ctl2.end(); preview.end(); dismissToast(genToast2); }   // 预览气泡在【任何】出口都必须撤掉，且早于 addAutoFixNote 落记录
+    if (postReplyShouldStop()) { fixNoteRunStopped(meta); return; }
+    if (r.status === 'failed') { addAutoFixNote('failed', r.reason && r.reason !== 'ok' ? ({ refusal: '模型像是拒绝了这次校正，可试试勾『经自定义补全预设发送』破限', empty: '中转返回空回复', garbage: '模型回复异常' }[r.reason] || '') : '', null, meta); return; }
+    if (r.status === 'truncated') { addAutoFixNote('truncated', '', null, meta); return; }
+    if (r.status !== 'fixed') { addAutoFixNote('nochange', meta ? '模型没有改动' : undefined, null, meta); return; }
+    const boundary = await awaitFixMvuBoundary(s, compatSession, cap && cap.chatId);
+    if (!boundary.proceed) { if (boundary.status === 'cancelled') fixNoteRunStopped(meta); return; }   // 'timed-out' 只可能来自 MVU 兼容会话（按钮路 compatSession 恒 null），不是「被中断」
+    let joined = join.head + r.fixedCore + join.tail;
+    // 📋 raw 表路：成品若已带（被模型改写 / 伪造的）更新区块，补接会造出第二块（MVU 地雷 ②）→ 只跳过块、留占位符。
+    // 判据取 fixJoinCall 算好的 r.skipMvuTail（=「自定义任务 且 表来自 fixCustomRawTable」，两处一份，不再各自
+    // 从 join.raw 重算）；块的有无仍对【拼好的成品】测。校正 / 手动路 r.skipMvuTail 恒 false ⇒ opts.skipBlock 恒
+    // false ⇒ 与 1.76.0 逐字节同。
+    if (boundary.coordinated) joined = mergeMvuTail(joined, (ctx.chat || [])[tIdx]?.mes, { skipBlock: !!(r.skipMvuTail && fixOutputHasMvuBlock(joined)) });
+    const anchorNote = r.anchorsMissing ? `\n⚠ ${r.anchorsMissing} 个结构块的位置锚点被模型挪动 / 弄丢，内容已兜底接回正文末尾——位置若不对，左滑「用原文」即可还原。` : '';
+    // 陈旧守卫 → 落地 / 暂存 / stale（1.77.0 起「切聊天」不再丢弃，见 fixLandOrPark）。
+    await fixLandOrPark({
+        captured: cap, targetIdx: tIdx, joined, status: 'fixed',
+        problems: (r.problems || '') + anchorNote, before: r.before, after: r.after, meta,
+    }, { mvuTolerant: boundary.coordinated });
 }
 
 // 自动分段校正【运行步】：整体校正（fixA_pieceJoin，默认开）= 折成一次调用（锚点原位保留结构）；
@@ -26968,6 +27932,9 @@ async function fixJoinCall(ctx, s, a, directive, join, signal, onDelta) {
 // cancelPostReply）随时废弃整轮、不写任何东西（1.17.4「abort 在写入之前」不变量原样）。
 // fixWaitForMvu / 陈旧守卫（mvuTolerant）与老单段路径同一套、只跑一次。
 async function runAutoFixPieces(ctx, s, compatSession) {
+    // ★ 与 fixRunJoin 同一条纪律（复审 Critical #1）：捕获快照在这里取下（runAutoFix 从 captureFixContext
+    // 到这里全程无 await），此后一律用 cap / tIdx，绝不再读模块级 fixCaptured / fixTargetIdx。
+    const cap = fixCaptured, tIdx = fixTargetIdx;
     const table = fixPieceTable;
     if (!table || !table.pieces.length) return;
     const cfg = getEffectiveFixCfg(s, getFixCfg());
@@ -26980,29 +27947,7 @@ async function runAutoFixPieces(ctx, s, compatSession) {
         const join = fixJoinTable(table, a.dropTags);
         if (!join) { addAutoFixNote('nochange'); return; }
         if (!fixPreFilter(join.core, a.targets, constraints, clampFixAutoMinChars(cfg.fixAutoMinChars))) { addAutoFixNote('nochange'); return; }
-        const genToast2 = showAutoFixGenerating();
-        let r;
-        const ctl2 = beginPostReplyCall(POST_REPLY_CALL_TIMEOUT_MS);
-        try {
-            r = await fixJoinCall(ctx, s, a, directive, join, ctl2.signal);
-        } catch (e) {
-            if (!postReplyShouldStop()) addAutoFixNote('failed', '调用失败');
-            return;
-        } finally { ctl2.end(); dismissToast(genToast2); }
-        if (postReplyShouldStop()) return;
-        if (r.status === 'failed') { addAutoFixNote('failed', r.reason && r.reason !== 'ok' ? ({ refusal: '模型像是拒绝了这次校正，可试试勾『经自定义补全预设发送』破限', empty: '中转返回空回复', garbage: '模型回复异常' }[r.reason] || '') : ''); return; }
-        if (r.status === 'truncated') { addAutoFixNote('truncated'); return; }
-        if (r.status !== 'fixed') { addAutoFixNote('nochange'); return; }
-        const boundary = await awaitFixMvuBoundary(s, compatSession);
-        if (!boundary.proceed) return;
-        let joined = join.head + r.fixedCore + join.tail;
-        if (boundary.coordinated) joined = mergeMvuTail(joined, (ctx.chat || [])[fixTargetIdx]?.mes);
-        const st2 = fixTargetStale(fixCaptured, fixCurrentSnapshot(fixTargetIdx), { mvuTolerant: boundary.coordinated });
-        if (st2.stale) { addAutoFixNote('stale', st2.reason); return; }
-        await applyFixAsSwipe(fixTargetIdx, joined);
-        const swId = (ctx.chat[fixTargetIdx] || {}).swipe_id;
-        const anchorNote = r.anchorsMissing ? `\n⚠ ${r.anchorsMissing} 个结构块的位置锚点被模型挪动 / 弄丢，内容已兜底接回正文末尾——位置若不对，左滑「用原文」即可还原。` : '';
-        addAutoFixNote('fixed', (r.problems || '') + anchorNote, { idx: fixTargetIdx, before: r.before, after: r.after, fixSwipeId: swId });
+        await fixRunJoin(ctx, s, directive, join, compatSession, null);
         return;
     }
     const plan = fixPiecePlan(table.pieces, a.targets, constraints, clampFixAutoMinChars(cfg.fixAutoMinChars));
@@ -27028,17 +27973,16 @@ async function runAutoFixPieces(ctx, s, compatSession) {
             return;
         }
         // 写入前：等 MVU（opt-in）→ splice → 补接 MVU 尾块 → 陈旧守卫 → 单次落 swipe（与老路径同构）。
-        const boundary = await awaitFixMvuBoundary(s, compatSession);
+        const boundary = await awaitFixMvuBoundary(s, compatSession, cap && cap.chatId);
         if (!boundary.proceed) return;
         let finalText2 = fixSpliceTable(table, results);
-        if (boundary.coordinated) finalText2 = mergeMvuTail(finalText2, (ctx.chat || [])[fixTargetIdx]?.mes);
-        const st = fixTargetStale(fixCaptured, fixCurrentSnapshot(fixTargetIdx), { mvuTolerant: boundary.coordinated });
-        if (st.stale) { addAutoFixNote('stale', st.reason); return; }
-        await applyFixAsSwipe(fixTargetIdx, finalText2);
-        const fixSwipeId = (ctx.chat[fixTargetIdx] || {}).swipe_id;
-        addAutoFixNote('partial',
-            { headline: summary.headline, failLines: summary.failLines, problems: summary.problems, majority: summary.majority },
-            { idx: fixTargetIdx, before: summary.beforeJoined, after: summary.afterJoined, fixSwipeId });
+        if (boundary.coordinated) finalText2 = mergeMvuTail(finalText2, (ctx.chat || [])[tIdx]?.mes);
+        // 陈旧守卫 → 落地 / 暂存 / stale（1.77.0 起「切聊天」不再丢弃，见 fixLandOrPark）。
+        await fixLandOrPark({
+            captured: cap, targetIdx: tIdx, joined: finalText2, status: 'partial',
+            problems: { headline: summary.headline, failLines: summary.failLines, problems: summary.problems, majority: summary.majority },
+            before: summary.beforeJoined, after: summary.afterJoined, meta: null,
+        }, { mvuTolerant: boundary.coordinated });
     } finally {
         dismissToast(genToast);
     }
@@ -27116,6 +28060,131 @@ function replyExpectsMvu(text) {
     return s.includes(STATUS_PLACEHOLDER) || !!detectMvuBlockDialect(s);
 }
 
+// ✨/📋 自动 / 自定义共用：captureFixContext 决策的【落地】（采纳作用域 / 记忆 / 提示 / 决定跳过）。返回 {stop:true} = 本轮结束。
+// meta 同 addAutoFixNote 第四参（自定义记录换族；scope/ask 类记录两族共用同一句式）。
+//
+// ✨ Phase 5 D+E 门：captureFixContext 已经决策好这条回复该拿哪个作用域标签、要不要出提示（fixScopeDecision）；
+// 这里只负责【落地】——写配置 / 出提示 / 决定继续还是跳过。调用点刻意排在 R2 双重校正之后（那条已经
+// return 掉的情形不该再叠加一条作用域提示）、成本门 fixPreFilter 之前（省一次可能白花的 LLM 调用）。
+//   detected → 采纳新标签：写回 per-chat 配置（缓存，且 scopeManual 仍是 false——这不是用户手填的）+
+//     顺手同步一下设置面板里的 #so-fix-scope 输入框（如果窗口开着，用户正好能看见变化），继续往下走。
+//   suggest / skip → D 的静默兜底：只留一条侧聊记录，绝不整条回复瞎改，本轮直接结束。
+//   cache / fallbackWhole → 无需任何动作，直接往下走（fixScope 已经在 captureFixContext 里按决策设好了）。
+// 📋 自定义模板任务（沿用识别开）也走这里，因此模板任务会写 fixA_scopeTag / fixA_pieceMode / fixA_pieceAsked
+// ——这是【有意】的，不是串档：spec §5.2 把「沿用识别」定义成【逐字沿用自动的捕获路径】，正文形态的记忆
+// 本就是一张卡一份、两种任务共用（同一张卡的 <content> 不会因为换了任务就变），故不另开一套 fixC_ 形态键。
+function fixLandAutoDecisions(s, meta) {
+    const scopeDec = fixScopeDecision;
+    if (scopeDec && scopeDec.action === 'detected') {
+        setFixCfg({ fixA_scopeTag: scopeDec.tag, fixA_scopeManual: false });
+        const scopeEl = win && win.querySelector('#so-fix-scope');
+        if (scopeEl) scopeEl.value = scopeDec.tag;   // 单字段回填；el.value= 不触发 'input' 事件，scopeManual 不会被误置 true
+        addAutoFixNote('scope', scopeDec.note, null, meta);
+        if (typeof toastr !== 'undefined') toastr.success(fixScopeNoteText(scopeDec.note).body, '', { timeOut: 6000 });   // ✨ M4：一次性自动切标签——窗口关着也看得见（skip/suggest 每条都弹会烦，故只 detected 弹）
+    } else if (scopeDec && (scopeDec.action === 'suggest' || scopeDec.action === 'skip')) {
+        addAutoFixNote('scope', scopeDec.note, null, meta);
+        return { stop: true };   // D 静默兜底：跳过这条，绝不整条误改
+    }
+    // ✨ 分段校正（1.18.0）门：captureFixContext 已跑决策阶梯（fixPieceDecision）。这里只【落地】——
+    // 记忆（adopt 写回 per-chat）/ 提示 / 决定走哪条路。bypass / whole（无分段表）落到调用方的老单段路径，
+    // 行为逐字节不变；开关关时 fixPieceDecision 恒 null、整块蒸发。
+    if (ENABLE_FIX_PIECEWISE && fixPieceDecision) {
+        const pd = fixPieceDecision;
+        if (pd.adopt) {
+            const cur = getEffectiveFixCfg(s, getFixCfg());
+            if (cur.fixA_pieceMode !== 'wrapped' || cur.fixA_scopeTag !== pd.tag) {   // 只在有变化时写（免得每条回复都 saveChatMetadata）
+                setFixCfg({ fixA_pieceMode: 'wrapped', fixA_scopeTag: pd.tag, fixA_scopeManual: false });
+                const scopeEl = win && win.querySelector('#so-fix-scope');
+                if (scopeEl) scopeEl.value = pd.tag;
+                if (!pd.adopt.quiet) {
+                    addAutoFixNote('scope', pd.note, null, meta);
+                    if (typeof toastr !== 'undefined') toastr.success(fixScopeNoteText(pd.note).body, '', { timeOut: 6000 });   // 一次性：检测切换才弹（quiet 迁移不弹）
+                }
+            }
+        }
+        if (pd.action === 'ask') { emitPieceAsk(pd); return { stop: true }; }
+        if (pd.action === 'pending') { emitPiecePending(pd); return { stop: true }; }   // ✨ Option B：不再无声——重弹可点确认 toast + 刷新判定行（按钮保持琥珀 pending，见 updateFixButtonVisual）
+        if (pd.action === 'suggest' || pd.action === 'skip') { addAutoFixNote('scope', pd.note, null, meta); return { stop: true }; }
+    }
+    return { stop: false };
+}
+
+// 📋 自定义模板任务运行步（spec §5）：模板 → 捕获（沿用识别 = 自动路径；整条 = raw 表）→ 一次调用 → 共用尾巴。
+// 没有禁词门、没有 directive 门；只有最少字数 + 双重处理守卫。
+// manual（1.77.0）= 这一轮由「用模板处理最新回复」按钮发起。只影响【反馈】：有人正盯着屏幕，
+// 中断类的静默出口要补一句人话（fixRunJoin 读 meta.manual）；自动路保持今天的静默。
+async function runCustomTask(ctx, s, targetId, compatSession, manual = false) {
+    if (!ENABLE_FIX_CUSTOM_TASK) return;
+    if (s.mode === 'direct' && (!s.endpoint || !s.model)) return;
+    if (s.mode === 'profile' && !s.profileId) return;
+    const cfg = getEffectiveFixCfg(s, getFixCfg());
+    const cc = resolveFixCustomCfg(cfg);
+    const meta = { task: 'custom', template: cc.template, manual: manual === true };
+    const tpl = findFixTemplate(s, cc.template);
+    if (!tpl || !String(tpl.prompt || '').trim()) {
+        // 📋 记录【每聊天每模板只写一次】：这条路每来一条新回复都会走一遍，无条件写会把侧聊无界刷爆。
+        // 写不写与「跑不跑」无关——不写也照样 return，永远不发调用（判定 / 副作用分离）。
+        if (fixNoTemplateShouldNote(fixNoTemplateNoted, fixChatKey(), cc.template)) addAutoFixNote('notemplate', '', null, meta);
+        return;
+    }
+    fixCustomTemplateText = tpl.prompt;
+    await captureFixContext(s, { mode: 'custom', targetId });
+    // 楼号快照（G 轮复审的纪律条，与 runAutoFix 同式）：捕获之后本函数里的每一处楼号都读它，绝不再读
+    // 模块级 fixTargetIdx。落地那一份快照由 fixRunJoin 的第一句自己取（cap/tIdx 三处的既有钉）。
+    const tIdx = fixTargetIdx;
+    if (!fixTargetProse.trim()) return;
+    if (isFixSwipe((ctx.chat || [])[tIdx])) { addAutoFixNote('nochange', '这条已是一次处理结果', null, meta); return; }
+    if (cc.useMechanic && fixLandAutoDecisions(s, meta).stop) return;
+    const join = fixCustomJoin || (fixPieceTable ? fixJoinTable(fixPieceTable, fixDropMinusKeep(cc.keepTags, cc.dropTags)) : null);
+    if (!join) { addAutoFixNote('nochange', '没有可处理的正文', null, meta); return; }
+    if ([...join.core].length < clampFixAutoMinChars(cfg.fixAutoMinChars)) { addAutoFixNote('nochange', '太短', null, meta); return; }
+    await fixRunJoin(ctx, s, FIX_CUSTOM_LEAD, join, compatSession, meta);
+}
+
+// 📋 「用模板处理最新回复」按钮：一次性手动触发。起飞前的各种拒绝（连接没配 / 模板缺失 / 没有可处理的回复）
+// 走 addSystemNote —— 有人盯着屏幕，说一句就够，不必留持久记录；真跑起来之后交给 runCustomTask，
+// 它与自动路一样在侧聊留【持久记录】（addAutoFixNote）。
+// postReplyBusy 是 maybePostReply 持的那把共享锁：自动轮在飞时点这颗，会把 fixTargetIdx / fixCaptured
+// 覆写掉、并抢走在途的 AbortController（两轮互相踩），故直接挡住。
+async function runCustomTaskNow() {
+    if (isGenerating || !ENABLE_FIX_CUSTOM_TASK) return;
+    if (postReplyBusy) { addSystemNote('正在跑自动处理，稍后再点。'); return; }
+    const s = getSettings();
+    if (s.mode === 'direct' && (!s.endpoint || !s.model)) { addSystemNote('请先在设置里配置直连端点与模型。'); return; }
+    if (s.mode === 'profile' && !s.profileId) { addSystemNote('请先在设置里选择一个连接配置档。'); return; }
+    const cc = resolveFixCustomCfg(getEffectiveFixCfg(s, getFixCfg()));
+    const tpl = findFixTemplate(s, cc.template);
+    if (!tpl || !String(tpl.prompt || '').trim()) { addSystemNote(`模板〔${cc.template}〕不存在或正文为空——先在「自定义」面板里选一份模板。`); return; }
+    if (getLatestAiMessage().idx < 0) { addSystemNote('没找到可处理的 AI 回复（主聊天里要先有一条 AI 回复）。'); return; }
+    const ctx = getCtx();
+    const idx = getLatestAiMessage().idx;
+    const compatSession = null;
+    // 锁【也要拿】，不只是让路（评审 F2）：光有上面那道 `if (postReplyBusy) return` 只挡住了一个方向。
+    // 本函数自己跑的这几十秒里落一条新回复 → MESSAGE_RECEIVED → maybePostReply 的 `if (postReplyBusy)` /
+    // `if (isGenerating)` 全都放行 → 它重新 captureFixContext，把 fixTargetIdx / fixCaptured / 在途的
+    // AbortController 一起覆写，本轮按钮的产出就落到【新那条】消息上了。持锁 = 那一轮改为入队，
+    // 由下面的 drainPendingPostReply 在释放后补跑（与 maybePostReply 的 finally 同一份补跑步）。
+    // ★ 1.77.0 根因修复（调查报告 `.superpowers/sdd/2026-09-03-fix-custom-task/investigate-runnow-report.md`）★
+    // postReplyCancelled 是【一轮的】状态，规矩是「谁开新一轮，谁起手清零」——今天只有 maybePostReply 照做了。
+    // onChatChanged 每次切聊天/首次载入都调 cancelPostReply() 把它置真，而它【只】在 maybePostReply 里清零；
+    // 两个自动开关都关的用户，maybePostReply 在 `if (!plan.length) return;` 就早退 ⇒ 旗子永久为真 ⇒ 按钮
+    // 照发调用、模型照答、钱照花，回来撞上 fixRunJoin 的 `if (postReplyShouldStop()) return;` 静默丢弃（复现 4/4）。
+    // 起手 + 收尾各清一次，并注册自己的 run —— 与 maybePostReply 逐字同款，这样 MESSAGE_SENT 的
+    // supersedePostReply() 也能像作废自动轮一样作废按钮这一轮（此前按钮路从不注册 run，supersede 够不着）。
+    const run = { messageId: idx, superseded: false, step: 'custom' };   // step：切聊天时 onChatChanged 只作废 diag / trainer，模板轮跑完后暂存
+    postReplyBusy = true;
+    postReplyCancelled = false;
+    activePostReplyRun = run;
+    try {
+        await runCustomTask(ctx, s, idx, compatSession, true);
+    } finally {
+        if (activePostReplyRun === run) activePostReplyRun = null;
+        postReplyCancelled = false;
+        postReplyBusy = false;
+        drainPendingPostReply();
+    }
+}
+
 // 自动校正【运行步】（仿 runAutoDiagnose）：对最新一条主聊天 AI 回复用【勾选目标 + 约束】跑一次两段式校正，
 // 解析成功且确有改动则自动【作为新 swipe】应用（非破坏性，原文留在 swipe 0），每跑一轮在侧聊留一条记录。
 // 后台操作：自建上下文、不碰窗口共享态、不 setGenerating、不出问答气泡（与手动 runFixByTargets 的区别）。
@@ -27127,52 +28196,19 @@ async function runAutoFix(ctx, s, targetId, compatSession) {
     if (s.mode === 'profile' && !s.profileId) return;
 
     await captureFixContext(s, { mode: 'auto', targetId });     // 自动模式：双稿 / 目标 / 上下文按 fixA_*（收紧仍受 ✂️收紧 开关）；targetId 钉住触发消息
+    // ★ 捕获快照【立刻】取下（复审 Critical #1）：老单段路径在下面还要跑一整趟模型往返，期间用户可能在
+    // 别的聊天点「按目标给最新回复去 AI 味」把这两个全局覆写掉；落地判据只认这里取下的这一份。
+    const cap = fixCaptured, tIdx = fixTargetIdx;
     if (!fixTargetProse.trim()) return;                         // 没有可校正的 AI 回复正文
     // R2 双重校正（自动）：目标当前 swipe 已是一次校正结果 → 跳过 + 记一条 nochange（防止在校正稿上再叠一层、越改越偏）。
-    if (isFixSwipe((ctx.chat || [])[fixTargetIdx])) { addAutoFixNote('nochange'); return; }
+    // 楼号一律读 tIdx（G 轮复审的纪律条）：快照取下之后，本函数里再也不许出现模块级 fixTargetIdx / fixCaptured
+    // ——今天这一句与快照之间虽然没有 await（读到的是同一个值），但「只认快照」这条纪律留不得例外，
+    // 否则下一个人在中间插一句 await 时不会有任何东西提醒他。
+    if (isFixSwipe((ctx.chat || [])[tIdx])) { addAutoFixNote('nochange'); return; }
 
-    // ✨ Phase 5 D+E 门：captureFixContext 已经决策好这条回复该拿哪个作用域标签、要不要出提示（fixScopeDecision）；
-    // 这里只负责【落地】——写配置 / 出提示 / 决定继续还是跳过。位置刻意排在上面的 R2 双重校正之后（那条已经
-    // return 掉的情形不该再叠加一条作用域提示）、成本门 fixPreFilter 之前（省一次可能白花的 LLM 调用）。
-    //   detected → 采纳新标签：写回 per-chat 配置（缓存，且 scopeManual 仍是 false——这不是用户手填的）+
-    //     顺手同步一下设置面板里的 #so-fix-scope 输入框（如果窗口开着，用户正好能看见变化），继续往下走。
-    //   suggest / skip → D 的静默兜底：只留一条侧聊记录，绝不整条回复瞎改，本轮直接结束。
-    //   cache / fallbackWhole → 无需任何动作，直接往下走（fixScope 已经在 captureFixContext 里按决策设好了）。
-    const scopeDec = fixScopeDecision;
-    if (scopeDec && scopeDec.action === 'detected') {
-        setFixCfg({ fixA_scopeTag: scopeDec.tag, fixA_scopeManual: false });
-        const scopeEl = win && win.querySelector('#so-fix-scope');
-        if (scopeEl) scopeEl.value = scopeDec.tag;   // 单字段回填；el.value= 不触发 'input' 事件，scopeManual 不会被误置 true
-        addAutoFixNote('scope', scopeDec.note);
-        if (typeof toastr !== 'undefined') toastr.success(fixScopeNoteText(scopeDec.note).body, '', { timeOut: 6000 });   // ✨ M4：一次性自动切标签——窗口关着也看得见（skip/suggest 每条都弹会烦，故只 detected 弹）
-    } else if (scopeDec && (scopeDec.action === 'suggest' || scopeDec.action === 'skip')) {
-        addAutoFixNote('scope', scopeDec.note);
-        return;   // D 静默兜底：跳过这条，绝不整条误改
-    }
-
-    // ✨ 分段校正（1.18.0）门：captureFixContext 已跑决策阶梯（fixPieceDecision）。这里只【落地】——
-    // 记忆（adopt 写回 per-chat）/ 提示 / 决定走哪条路。bypass / whole（无分段表）落到下面的老单段路径，
-    // 行为逐字节不变；开关关时 fixPieceDecision 恒 null、整块蒸发。
-    if (ENABLE_FIX_PIECEWISE && fixPieceDecision) {
-        const pd = fixPieceDecision;
-        if (pd.adopt) {
-            const cur = getEffectiveFixCfg(s, getFixCfg());
-            if (cur.fixA_pieceMode !== 'wrapped' || cur.fixA_scopeTag !== pd.tag) {   // 只在有变化时写（免得每条回复都 saveChatMetadata）
-                setFixCfg({ fixA_pieceMode: 'wrapped', fixA_scopeTag: pd.tag, fixA_scopeManual: false });
-                const scopeEl = win && win.querySelector('#so-fix-scope');
-                if (scopeEl) scopeEl.value = pd.tag;
-                if (!pd.adopt.quiet) {
-                    addAutoFixNote('scope', pd.note);
-                    if (typeof toastr !== 'undefined') toastr.success(fixScopeNoteText(pd.note).body, '', { timeOut: 6000 });   // 一次性：检测切换才弹（quiet 迁移不弹）
-                }
-            }
-        }
-        if (pd.action === 'ask') { emitPieceAsk(pd); return; }
-        if (pd.action === 'pending') { emitPiecePending(pd); return; }   // ✨ Option B：不再无声——重弹可点确认 toast + 刷新判定行（按钮保持琥珀 pending，见 updateFixButtonVisual）
-        if (pd.action === 'suggest' || pd.action === 'skip') { addAutoFixNote('scope', pd.note); return; }
-        if (fixPieceTable) { await runAutoFixPieces(ctx, s, compatSession); return; }
-        // bypass / whole：继续走下面的老单段路径
-    }
+    if (fixLandAutoDecisions(s, null).stop) return;
+    if (ENABLE_FIX_PIECEWISE && fixPieceDecision && fixPieceTable) { await runAutoFixPieces(ctx, s, compatSession); return; }
+    // bypass / whole（无分段表）：继续走下面的老单段路径
 
     // 自动模式配置（per-chat 覆盖全局，再归一）；fixAutoMinChars = 成本门最小字符数（自动专属，不进归一）。
     const cfg = getEffectiveFixCfg(s, getFixCfg());
@@ -27232,23 +28268,23 @@ async function runAutoFix(ctx, s, targetId, compatSession) {
     // ✨ overlap（opt-in fixWaitForMvu）：校正的 LLM 已和 MVU 额外模型更新【并行】跑完；写 swipe 前【等 MVU 写完】，
     // 再把它事后注入的机制块（<UpdateVariable> + 占位符）从【当前】回复接到校正稿末尾（mergeMvuTail）。不开 / 无 MVU /
     // MVU 不忙 → awaitMvuIdle 即时返回、mergeMvuTail 无操作，行为字节不变。
-    const boundary = await awaitFixMvuBoundary(s, compatSession);
+    const boundary = await awaitFixMvuBoundary(s, compatSession, cap && cap.chatId);
     if (!boundary.proceed) return;   // 等 MVU 期间被中断 / supersede / 兼容超时 → 不写
     const innerFixed = composeFixedReply(parsed.fixed, fixOriginalReply, fixExtraKeep);
     let finalText2 = wrapContentScope(fixScope, innerFixed);   // ✨ 作用域：把校正后的内层回插信封原位（inactive 时为无操作）
-    if (boundary.coordinated) finalText2 = mergeMvuTail(finalText2, (ctx.chat || [])[fixTargetIdx]?.mes);   // MVU 事后注的机制块补接末尾
+    if (boundary.coordinated) finalText2 = mergeMvuTail(finalText2, (ctx.chat || [])[tIdx]?.mes);   // MVU 事后注的机制块补接末尾
     // P-CORRUPT 权威网：LLM 返回后聊天可能已切走 / 这条回复已换 swipe / 被编辑 / 被删——写入前再核对捕获快照，失效则不写、记一条
     // stale。overlap 模式（fixWaitForMvu）用 mvuTolerant：只比去机制块正文，容忍 MVU 刚注入的块，仍拦真编辑 / 换 swipe / 切聊天 / 目标没了。
-    const st = fixTargetStale(fixCaptured, fixCurrentSnapshot(fixTargetIdx), { mvuTolerant: boundary.coordinated });
-    if (st.stale) { addAutoFixNote('stale', st.reason); return; }
-    await applyFixAsSwipe(fixTargetIdx, finalText2);
-    // 抓【应用后】落点的 swipe_id（addSwipeToMessage 把新 swipe 设为当前），给记录的「用原文 ↔ 用校正稿」
-    // 开关用；原文留在 swipe 0。before = 去机制块的原文 prose（fixTargetProse）；after 必须也是【纯散文】
-    // parsed.fixed——不是 finalText2：finalText2 经 composeFixedReply 接回了 <UpdateVariable> + 状态栏占位符
-    // + 保留区，拿它做 after 会让 MVU 卡的整个状态块在差异里被误标成大段绿色新增。prose ↔ prose 才干净
-    //（与手动卡 stripMechanismBlocks(原文) vs parsed.fixed 一致）。swipe 目标仍是 finalText2 落点（不动）。
-    const fixSwipeId = (ctx.chat[fixTargetIdx] || {}).swipe_id;
-    addAutoFixNote('fixed', parsed.problems, { idx: fixTargetIdx, before: fixTargetProse, after: parsed.fixed, fixSwipeId });
+    // 陈旧守卫 → 落地 / 暂存 / stale（1.77.0 起「切聊天」不再丢弃，见 fixLandOrPark）。落地时抓【应用后】
+    // 落点的 swipe_id（fixLandResult 里），给记录的「用原文 ↔ 用校正稿」开关用；原文留在 swipe 0。
+    // before = 去机制块的原文 prose（fixTargetProse）；after 必须也是【纯散文】parsed.fixed——不是 finalText2：
+    // finalText2 经 composeFixedReply 接回了 <UpdateVariable> + 状态栏占位符 + 保留区，拿它做 after 会让 MVU 卡
+    // 的整个状态块在差异里被误标成大段绿色新增。prose ↔ prose 才干净（与手动卡 stripMechanismBlocks(原文)
+    // vs parsed.fixed 一致）。swipe 目标仍是 finalText2 落点（不动）。
+    await fixLandOrPark({
+        captured: cap, targetIdx: tIdx, joined: finalText2, status: 'fixed',
+        problems: parsed.problems, before: fixTargetProse, after: parsed.fixed, meta: null,
+    }, { mvuTolerant: boundary.coordinated });
 }
 
 function stopGeneration() {
