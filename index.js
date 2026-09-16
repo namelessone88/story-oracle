@@ -2432,6 +2432,9 @@ const defaults = {
     seqPulse: true,
     // 🧭 数据库联动（1.78.0，ENABLE_DB_BRIDGE）：默认关——只有装了 SP·数据库 且开着「剧情推进」的人才需要勾。
     dbBridge: false,
+    // Whether the bridge strips the guidance block back out before the main model sees the user message.
+    // true = original behavior (planner-only). false = keep the guidance in the message (markers removed).
+    dbBridgeStrip: true,
     // Whether advisor mode runs THROUGH the curated preset (directive layered on
     // top, RP markers skipped) — same opt-in pattern as lorebookUsePreset.
     advisorUsePreset: false,
@@ -7142,6 +7145,21 @@ function dbBridgeStrip(text) {
     return { text: t, removed, orphan };
 }
 
+// 保留模式（设置 dbBridgeStrip=false）：只摘开 / 闭标记，抬头与引导原样留在消息里给主模型看。
+// 摘掉标记后 dbBridgeSweep 不再认得它，不会被当成残留清掉。
+function dbBridgeUnmark(text) {
+    let t = String(text == null ? '' : text);
+    const removed = t.includes(DB_BRIDGE_MARK_OPEN) || t.includes(DB_BRIDGE_MARK_CLOSE);
+    if (removed) {
+        t = t.split(DB_BRIDGE_MARK_OPEN + '\n').join('').split(DB_BRIDGE_MARK_OPEN).join('');
+        t = t.split('\n' + DB_BRIDGE_MARK_CLOSE).join('').split(DB_BRIDGE_MARK_CLOSE).join('');
+    }
+    return { text: t, removed, orphan: false };
+}
+function dbBridgeStripEnabled() {
+    try { return getSettings().dbBridgeStrip !== false; } catch (e) { return true; }
+}
+
 function dbBridgeDbPresent() {
     try { return typeof window !== 'undefined' && !!window.AutoCardUpdaterAPI; } catch (e) { return false; }
 }
@@ -7199,7 +7217,8 @@ function dbBridgeAfterCommandsFirst(type, params, dryRun) {
         if (Array.isArray(chat) && chat.length) {
             const index = chat.length - 1;
             const msg = chat[index];
-            if (msg && msg.is_user && typeof msg.mes === 'string' && !msg.mes.includes(DB_BRIDGE_MARK_OPEN)) {
+            // 保留模式下上一趟留下的块已无标记——认抬头，避免玩家连发时同一条消息被叠附第二份。
+            if (msg && msg.is_user && typeof msg.mes === 'string' && !msg.mes.includes(DB_BRIDGE_MARK_OPEN) && !msg.mes.includes(DB_BRIDGE_PLANNER_HEAD)) {
                 msg.mes = msg.mes + block;
                 pend.index = index;
             }
@@ -7223,22 +7242,26 @@ function dbBridgeAfterCommandsLast() {
     dbBridgeRun.pending = null;
     try {
         const ctx = getCtx();
+        const strip = dbBridgeStripEnabled();
+        const peel = strip ? dbBridgeStrip : dbBridgeUnmark;
         let removed = false, orphan = false;
         // 输入框：不论当初附没附（数据库策略1 会把带块的「原文」回填输入框），含标记就剥。
         const ta = dbBridgeTextarea();
         if (ta && typeof ta.value === 'string' && ta.value.includes(DB_BRIDGE_MARK_OPEN)) {
-            const r = dbBridgeStrip(ta.value);
+            const r = peel(ta.value);
             if (r.removed) { ta.value = r.text; removed = true; orphan = orphan || r.orphan; }
         }
         const chat = ctx.chat;
         if (pend.index != null && Array.isArray(chat) && chat[pend.index] && typeof chat[pend.index].mes === 'string') {
             const msg = chat[pend.index];
-            const r = dbBridgeStrip(msg.mes);
+            const r = peel(msg.mes);
             if (r.removed) { msg.mes = r.text; removed = true; orphan = orphan || r.orphan; dbBridgeRerender(ctx, pend.index, msg); }
         }
         if (!removed) return false;
         if (orphan) console.warn('[Story Oracle] 数据库联动：闭标记不见了（数据库的模板动了我们的块尾？），已只摘开标记');
-        console.debug('[Story Oracle] 数据库联动：已剥回，出站玩家消息与只装数据库相同');
+        console.debug(strip
+            ? '[Story Oracle] 数据库联动：已剥回，出站玩家消息与只装数据库相同'
+            : '[Story Oracle] 数据库联动：保留模式，引导留在玩家消息里发给主模型（已摘标记）');
         return true;
     } catch (e) {
         console.warn('[Story Oracle] 数据库联动（剥）失败：', e);
@@ -7311,10 +7334,14 @@ function dbBridgeGetActive() {
 function dbBridgeRefreshHint() {
     if (!ENABLE_DB_BRIDGE || !win) return;
     const el = win.querySelector('#so-adv-dbbridge-hint');
+    const row = win.querySelector('#so-adv-dbbridge-strip-row');
+    if (row) row.style.display = getSettings().dbBridge ? '' : 'none';
     if (!el) return;
     if (!getSettings().dbBridge) { el.textContent = ''; return; }
     el.textContent = dbBridgeDbPresent()
-        ? '已检测到 SP·数据库：每次发送前把当前引导附给它的「剧情推进」规划器看一眼，发给主模型前再剥掉。'
+        ? (dbBridgeStripEnabled()
+            ? '已检测到 SP·数据库：每次发送前把当前引导附给它的「剧情推进」规划器看一眼，发给主模型前再剥掉。'
+            : '已检测到 SP·数据库：每次发送前把当前引导附给它的「剧情推进」规划器，并保留在玩家消息里一起发给主模型。')
         : '未检测到 SP·数据库——勾着也不会做任何事。';
 }
 
@@ -18970,7 +18997,7 @@ function buildWindow() {
                 <input id="so-adv-depth" type="number" step="1" min="0">
             </label>
             ${ENABLE_SEQ_PULSE ? '<label class="so-check so-adv-check"><input id="so-seq-pulse" type="checkbox"><span>落拍感应（自动提示当前拍可能已完成）</span></label>' : ''}
-            ${ENABLE_DB_BRIDGE ? '<label class="so-check so-adv-check"><input id="so-adv-dbbridge" type="checkbox"><span>数据库联动（实验）——装了 SP·数据库 且开着「剧情推进」时勾上，让它的规划也听当前引导</span></label><div class="so-hint" id="so-adv-dbbridge-hint"></div>' : ''}
+            ${ENABLE_DB_BRIDGE ? '<label class="so-check so-adv-check"><input id="so-adv-dbbridge" type="checkbox"><span>数据库联动（实验）——装了 SP·数据库 且开着「剧情推进」时勾上，让它的规划也听当前引导</span></label><div class="so-hint" id="so-adv-dbbridge-hint"></div><label class="so-check so-adv-check" id="so-adv-dbbridge-strip-row"><input id="so-adv-dbbridge-strip" type="checkbox"><span>发给主模型前剥掉引导块（取消勾选 = 引导留在玩家消息里，主模型也能看到）</span></label>' : ''}
             <button type="button" class="so-plan-mini" id="so-arc-new" title="实验性功能：把整条剧情弧线交给神谕做长程引导（仍在打磨）" style="display:none"><i class="fa-solid fa-route"></i> 新建弧线（手动·实验性）</button>
             <div id="so-arc-form" style="display:none">
                 <div class="so-hint so-arc-exp-warn">⚠ 弧线系统是实验性功能：长程引导（多拍 / 盲盒 / 自动起草骨架）仍在打磨，行为可能随版本调整。上面的单拍「开始引导」已稳定，不受影响。</div>
@@ -19622,6 +19649,8 @@ function bindControls() {
             applyPlanInjection();
             dbBridgeRefreshHint();
         });
+        bind('#so-adv-dbbridge-strip', 'dbBridgeStrip');
+        win.querySelector('#so-adv-dbbridge-strip').addEventListener('change', dbBridgeRefreshHint);
     }
     bind('#so-card', 'includeCard');
     bind('#so-stat', 'chatIncludeStat');
@@ -20067,7 +20096,11 @@ function loadSettingsIntoForm() {
     win.querySelector('#so-depth').value = s.contextDepth;
     win.querySelector('#so-adv-depth').value = s.advisorDepth;
     if (ENABLE_SEQ_PULSE) win.querySelector('#so-seq-pulse').checked = s.seqPulse !== false;
-    if (ENABLE_DB_BRIDGE) { win.querySelector('#so-adv-dbbridge').checked = !!s.dbBridge; dbBridgeRefreshHint(); }
+    if (ENABLE_DB_BRIDGE) {
+        win.querySelector('#so-adv-dbbridge').checked = !!s.dbBridge;
+        win.querySelector('#so-adv-dbbridge-strip').checked = s.dbBridgeStrip !== false;
+        dbBridgeRefreshHint();
+    }
     win.querySelector('#so-card').checked = !!s.includeCard;
     win.querySelector('#so-stat').checked = !!s.chatIncludeStat;
     win.querySelector('#so-world').checked = !!s.chatIncludeWorld;
