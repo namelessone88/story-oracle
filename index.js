@@ -1764,10 +1764,12 @@ const ENABLE_NEXT_BEAT = true;
 const ENABLE_FIX_CUSTOM_TASK = true;
 
 // 🌐 模板广场（1.86.0，spec docs/superpowers/specs/2026-09-24-fix-template-hub-design.md）：自定义模板的
-// 共享广场——从 GitHub（经 jsDelivr）读、经 Cloudflare Worker 投稿、Prince 审核后发布。关 = 两个按钮不渲染、
-// 从不联网、设置不动（defaults 里不出现 fixHubInstalled 键），与 1.85.3 逐字节相同。
-// 读点：defaults · 自定义面板模板行两个按钮 + 绑定 · fixHubWorkerUrl · fixHubLibraryUrlsDefault · openFixHub / openFixShare。
-const ENABLE_FIX_TEMPLATE_HUB = true;
+// 共享广场——从 GitHub（经 jsDelivr）读、下载。关 = 🌐 广场按钮不渲染、从不联网、设置不动（defaults 里不出现
+// fixHubInstalled 键）。读点：defaults · 🌐 广场按钮 + 绑定 · fixHubLibraryUrlsDefault · openFixHub。
+// 2026-09-28 暂关（Prince）：GitHub 账号被停用，疑与 Worker 用个人令牌代发 Issue 有关。
+// 2026-09-29「提交分享」（经 Worker 往 GitHub 开 Issue）整段移除（Prince）；📤 分享卡只剩「复制分享文本」（纯本地、
+// 不联网、不受本旗管）。加回投稿：docs/agent/removed/fix-hub-submit/README.md（含可反向套用的补丁）。
+const ENABLE_FIX_TEMPLATE_HUB = false;
 
 // 自动诊断总开关（用户功能请求；实验性——它是唯一会【自动写入 MVU 游戏状态】的功能，故配真正的杀死开关）。
 // === 出问题时的一键回退：把这一行改成 false ===（无需动其它代码）。关掉时：
@@ -6827,7 +6829,6 @@ function fixTagOverlap(keepTags, dropTags) {
  * 广场来的一切文字都是【不可信】的：本层只做解析与校验，渲染层一律 textContent。
  * ------------------------------------------------------------------ */
 const FIX_HUB_REPO = 'namelessone88/story-oracle-templates';
-const FIX_HUB_WORKER_URL = 'https://so-template-hub.namelessone88.workers.dev';   // 投稿 Worker（2026-09-25 开通）；空 = 「提交分享」不渲染，只留「复制分享文本」
 const FIX_HUB_MARKER = '<!-- SO-TEMPLATE v1 -->';
 const FIX_HUB_LIMITS = Object.freeze({ name: 40, prompt: 8000, description: 200, author: 30, model: 60, client: 20, tagsMin: 1, tagsMax: 3 });
 const FIX_HUB_ERR_TEXT = Object.freeze({
@@ -6847,7 +6848,6 @@ const FIX_HUB_ERR_TEXT = Object.freeze({
 });
 const fixHubIdRe = /^t\d{4,}$/;
 let fixHubSkipWarned = false;   // 坏条目只 console.warn 一次（spec §5）
-let fixHubTestWorkerUrl = null;   // 只给测试 / smoke 用（StoryOracleAPI.unsafe.eval 赋值）：null = 用正式地址；字符串（含空串 = 模拟未开通）= 覆盖
 
 // 清洗口径（与仓库 clean 逐条相同）：孤立代理 → U+FFFD、CRLF / CR → LF、去 C0/C1 控制字符（留 \t \n）。
 function fixHubClean(s) {
@@ -7013,13 +7013,6 @@ function fixHubLibraryUrls(repo) {
         `https://cdn.jsdelivr.net/gh/${repo}@main/dist/library.json`,
         `https://raw.githubusercontent.com/${repo}/main/dist/library.json`,
     ];
-}
-
-// 投稿地址：旗关恒空；测试覆盖优先；去尾斜杠。空 = 分享卡不渲染「提交分享」。
-function fixHubWorkerUrl() {
-    if (!ENABLE_FIX_TEMPLATE_HUB) return '';
-    const u = fixHubTestWorkerUrl !== null ? fixHubTestWorkerUrl : FIX_HUB_WORKER_URL;
-    return String(u || '').replace(/\/+$/, '');
 }
 
 // 广场卡读这一个；旗关 = 空表 = 永不联网。
@@ -7316,12 +7309,12 @@ function closeFixHub() {
 }
 
 /* ------------------------------------------------------------------ *
- * 📤 分享（1.86.0）——表单 / 提交（经 Worker）/ 复制分享文本（Discord 兜底）。
- * Worker 回执同样不可信：只按 error / field / code 查我们自己的文案表，回执里的文字一个字都不上屏。
+ * 📤 分享（1.86.0）——表单 / 复制分享文本（发到 Discord）。2026-09-29 起只剩复制：「提交分享」（经 Worker
+ * 往 GitHub 开 Issue）已移除，见 docs/agent/removed/fix-hub-submit/README.md。复制纯本地、不联网、不受
+ * ENABLE_FIX_TEMPLATE_HUB 管；旗开时开卡会顺带读广场（现行标签表 + 「更新」下拉），旗关只用内置标签表。
  * ------------------------------------------------------------------ */
 const FIX_HUB_AUTHOR_KEY = 'so-fixhub-author-v1';
 const FIX_HUB_TAGS_FALLBACK = ['去AI味', '润色文风', '翻译', '格式整理', '视角人称', '扩写补写', '精简', '其他'];
-const FIX_HUB_REASON_TEXT = Object.freeze({ network: '连不上分享服务', upstream: '分享服务暂时出错', too_large: '内容太大', bad_json: '内容格式不对', not_found: '分享服务地址不对', unknown: '未知原因' });
 let fixShareOpenSeq = 0;   // 每次开卡 +1：开卡时的异步拉取回来晚了（卡已关 / 已重开）就不再往卡上写
 
 // '' = 可以分享；否则 = 为什么不行（点 📤 时以 toast 说明）。
@@ -7336,40 +7329,8 @@ function fixHubShareBlockedReason(name, s, dirty) {
     return '';
 }
 
-// Worker 回执 → { ok, text }。只认 issue 为整数的成功；错误码按自家表查（own-key，撞原型属性名也落「未知原因」）。
-function fixHubSubmitResultText(status, body, networkError) {
-    const fail = (why) => ({ ok: false, text: `提交没成功（${why}）——可以点「复制分享文本」发到 Discord。` });
-    if (networkError) return fail(FIX_HUB_REASON_TEXT.network);
-    if (body && body.ok === true && Number.isInteger(body.issue)) return { ok: true, text: `已提交，审核通过后会出现在广场里（编号 #${body.issue}）` };
-    const code = body && typeof body.error === 'string' ? body.error : '';
-    if (code === 'rate') return { ok: false, text: '今天分享次数到上限了，明天再来' };
-    if (code === 'invalid' && Array.isArray(body.errors)) {
-        const lines = [...new Set(body.errors.map((e) => fixHubFieldMessage(String(e && e.field), String(e && e.code))))];
-        if (lines.length) return fail(lines.join('；'));
-    }
-    return fail(Object.prototype.hasOwnProperty.call(FIX_HUB_REASON_TEXT, code) ? FIX_HUB_REASON_TEXT[code] : FIX_HUB_REASON_TEXT.unknown);
-}
-
 function fixHubShareText(value) {
     return '把这段发到神谕 Discord 的模板分享频道\n' + fixHubBuildShareBlock(value);
-}
-
-// POST <worker>/submit，15 s 超时。地址为空（Worker 未开通）按「连不上」处理——正常 UI 下提交按钮本就不渲染。
-async function fixHubSubmit(value) {
-    const base = fixHubWorkerUrl();
-    if (!base) return fixHubSubmitResultText(0, null, true);
-    const ctl = new AbortController();
-    const timer = setTimeout(() => ctl.abort(), 15000);
-    try {
-        const res = await fetch(base + '/submit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value), signal: ctl.signal });
-        let body = null;
-        try { body = await res.json(); } catch (e) { body = null; }
-        return fixHubSubmitResultText(res.status, body, false);
-    } catch (e) {
-        return fixHubSubmitResultText(0, null, true);
-    } finally {
-        clearTimeout(timer);
-    }
 }
 
 function fixHubShareCollect(el, tags, knownIds) {
@@ -7395,7 +7356,7 @@ function fixHubShareErrorLines(errors) {
     return [...new Set(errors.map((x) => fixHubFieldMessage(x.field, x.code)))];
 }
 
-// 提交 / 复制前的整表检查：勾了「更新」却没选条目 → 拦下（不发、不复制）；否则走提交规则。
+// 复制前的整表检查：勾了「更新」却没选条目 → 拦下（不复制）；否则走提交规则（与仓库 lib 同一张夹具表）。
 // 返回 { ok:true, value } | { ok:false, lines }（lines = 行内报错文案）。
 function fixHubShareCheck(el) {
     if (el.querySelector('#so-fixshare-isupdate').checked && !el.querySelector('#so-fixshare-updateof').value) {
@@ -7473,13 +7434,12 @@ function buildFixShareCard() {
         '<label class="so-fixshare-label">测试过的模型<input id="so-fixshare-model" type="text"></label>' +
         '<label class="so-check so-lb-check" id="so-fixshare-isupdate-row"><input id="so-fixshare-isupdate" type="checkbox"><span>这是对已分享模板的更新</span></label>' +
         '<select id="so-fixshare-updateof" hidden></select>' +
-        '<div class="so-hint">分享后模板公开，任何人都能下载使用；审核通过后才会出现在广场里。</div>' +
+        '<div class="so-hint">点「复制分享文本」，把复制到的内容发到神谕 Discord 的模板分享频道。分享出去的模板是公开的，任何人都能拿去用。</div>' +
         '<div id="so-fixshare-errors" class="so-hint so-fixshare-errors" hidden></div>' +
         '<textarea id="so-fixshare-copybox" rows="4" readonly hidden></textarea>' +
         '</div>' +
         '<div id="so-fixshare-btns">' +
-        '<button type="button" id="so-fixshare-copy" class="so-fixhub-btn">复制分享文本</button>' +
-        '<button type="button" id="so-fixshare-submit" class="so-fixhub-btn so-fixshare-go">提交分享</button>' +
+        '<button type="button" id="so-fixshare-copy" class="so-fixhub-btn so-fixshare-go">复制分享文本</button>' +
         '</div></div>';
     win.appendChild(el);
     el.addEventListener('click', (e) => { if (e.target === el) closeFixShare(); });   // 点遮罩关闭
@@ -7496,24 +7456,13 @@ function buildFixShareCard() {
         fixHubShowErrors(el, []);
         await fixHubCopy(el, r.value);
     });
-    el.querySelector('#so-fixshare-submit').addEventListener('click', async (e) => {
-        const r = fixHubShareCheck(el);
-        if (!r.ok) { fixHubShowErrors(el, r.lines); return; }
-        const btn = e.currentTarget;
-        btn.disabled = true;
-        const res = await fixHubSubmit(r.value);
-        btn.disabled = false;
-        fixHubShowErrors(el, res.ok ? [] : [res.text]);
-        el.querySelector('#so-fixshare-copy').classList.toggle('so-fixshare-go', !res.ok);   // 失败 → 高亮兜底按钮
-        if (res.ok) { if (typeof toastr !== 'undefined') toastr.success(res.text); closeFixShare(); }
-    });
     return el;
 }
 
 // 开卡：不可分享 → toast 说明原因、不开；可分享 → 立刻用内置标签表开卡（不等网络），广场拉回来后换成现行
-// 标签表 + 填「更新」下拉；拉不到（且无缓存）→ 保留内置表、隐藏「更新」勾选（Worker 仍会按现行表复核）。
+// 标签表 + 填「更新」下拉；拉不到（旗关 = 从不联网；或无缓存）→ 保留内置表、隐藏「更新」勾选。
 async function openFixShare() {
-    if (!ENABLE_FIX_TEMPLATE_HUB || !win) return;
+    if (!win) return;
     const s = getSettings();
     const name = (win.querySelector('#so-fixc-template') || {}).value || '';
     const blocked = fixHubShareBlockedReason(name, s, fixTplDirty);
@@ -7529,9 +7478,7 @@ async function openFixShare() {
     el.querySelector('#so-fixshare-desc').value = '';
     el.querySelector('#so-fixshare-model').value = '';
     el.querySelector('#so-fixshare-copybox').hidden = true;
-    el.querySelector('#so-fixshare-copy').classList.remove('so-fixshare-go');
     fixHubShowErrors(el, []);
-    el.querySelector('#so-fixshare-submit').hidden = !fixHubWorkerUrl();
     el.querySelector('#so-fixshare-tags').textContent = '';
     el._soTags = FIX_HUB_TAGS_FALLBACK;
     el._soKnown = null;
@@ -21139,9 +21086,9 @@ function buildWindow() {
                     + '<button type="button" id="so-fixc-tpl-new" class="so-fix-run-btn">新建…</button>'
                     + '<button type="button" id="so-fixc-tpl-save" class="so-fix-run-btn">保存</button>'
                     + '<button type="button" id="so-fixc-tpl-del" class="so-fix-run-btn">删除</button>'
-                    // 🌐 模板广场（1.86.0）：旗关时这里是空串——DOM 与 1.85.3 逐字节相同。
+                    // 🌐 模板广场（1.86.0）：旗关时这里是空串。📤 分享（2026-09-29 起只剩复制分享文本、纯本地）不受旗管。
                     + (ENABLE_FIX_TEMPLATE_HUB ? '<button type="button" id="so-fixc-hub" class="so-fix-run-btn" title="浏览、下载大家分享的模板">🌐 广场</button>' : '')
-                    + (ENABLE_FIX_TEMPLATE_HUB ? '<button type="button" id="so-fixc-share" class="so-fix-run-btn" title="把当前模板分享到广场">📤 分享</button>' : '')
+                    + '<button type="button" id="so-fixc-share" class="so-fix-run-btn" title="复制分享文本，发到神谕 Discord 的模板分享频道">📤 分享</button>'
                     + '</div>'
                     // 「未保存」标记：fixTplDirty 的唯一可视化（updateFixTplDirtyMarker 是唯一写它的地方）。
                     // 默认 hidden——旗关时这一整段本就不渲染，旗开而不脏时它也不占视觉。
@@ -22233,11 +22180,11 @@ function bindControls() {
                 toastr.success(`已删除模板「${name}」`);
             }
         });
-        // 🌐 模板广场（1.86.0）：旗关时按钮根本没渲染，这里同门跳过。
+        // 🌐 模板广场（1.86.0）：旗关时按钮根本没渲染，这里同门跳过。📤 分享恒在。
         if (ENABLE_FIX_TEMPLATE_HUB) {
             win.querySelector('#so-fixc-hub').addEventListener('click', openFixHub);
-            win.querySelector('#so-fixc-share').addEventListener('click', () => { openFixShare(); });
         }
+        win.querySelector('#so-fixc-share').addEventListener('click', () => { openFixShare(); });
         win.querySelector('#so-fixc-mech').addEventListener('change', async (e) => {
             if (!e.target.checked && !getSettings().customFixWarned) {
                 const ok = await uiConfirm('关掉后，状态栏 / 变量块也会一起交给模板，模板输出会原样替换整条回复。原文仍留在 swipe 0。确定？');
