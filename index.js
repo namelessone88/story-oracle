@@ -18302,6 +18302,7 @@ function injectWandButton() {
 function recenterWindow() {
     toggleWindow(true);                       // 关着 / 在屏外都先确保开着
     if (!win) return;
+    setFullscreen(false);                     // 关着时 toggleWindow 会默认进全屏；归位要的是悬浮窗，先退出
     const c = centeredWindowBox(currentView());   // 无 opts → 默认 380×540（reset 语义：撤销被拖坏的尺寸）
     win.style.left = `${c.left}px`;
     win.style.top = `${c.top}px`;
@@ -21205,6 +21206,7 @@ function toggleWindow(show) {
         win.classList.remove('so-opening');
         void win.offsetWidth; // force reflow so the animation restarts
         win.classList.add('so-opening');
+        if (!visible) setFullscreen(true);   // 从关着到打开：默认进全屏（已开着时的 toggleWindow(true) 不动，免得把用户退出的全屏又拉回来）
         ensureWindowInView();   // 每次开窗都把窗口夹回可见区——卡在屏外的窗口下次打开即自愈
         // 触屏不自动聚焦（见 focusOracleInput）：弹软键盘会压缩视口、把标题栏挤出屏外；桌面保留自动聚焦。
         focusOracleInput();
