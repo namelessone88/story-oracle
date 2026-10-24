@@ -33087,7 +33087,10 @@ function ensureWindowInView() {
 function fitFullscreen() {
     const el = win || document.getElementById('so-window');
     if (!el) return;
-    const vv = window.visualViewport;
+    // TauriTavern 2.4+ 移动端由原生层把 WebView 缩到键盘上方，键盘已经扣掉了；再按 visualViewport 偏移
+    // 会把窗口往下推一个键盘高（iOS 实测）。这种宿主直接铺满布局视口。__TAURITAVERN_HOST__ 是 2.4 才有的宿主身份。
+    const hostKind = window.__TAURITAVERN_HOST__ && window.__TAURITAVERN_HOST__.kind;
+    const vv = hostKind === 'mobile' ? null : window.visualViewport;
     const box = fullscreenBox({
         w: (vv && vv.width) || window.innerWidth,
         h: (vv && vv.height) || window.innerHeight,
