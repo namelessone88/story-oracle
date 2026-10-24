@@ -33087,10 +33087,21 @@ function ensureWindowInView() {
 function fitFullscreen() {
     const el = win || document.getElementById('so-window');
     if (!el) return;
-    // TauriTavern 2.4+ 移动端由原生层把 WebView 缩到键盘上方，键盘已经扣掉了；再按 visualViewport 偏移
-    // 会把窗口往下推一个键盘高（iOS 实测）。这种宿主直接铺满布局视口。__TAURITAVERN_HOST__ 是 2.4 才有的宿主身份。
+    // TauriTavern 2.4+ 移动端由原生层把 WebView 缩到键盘上方，键盘已经扣掉了。这种宿主不用 JS 算几何，
+    // 交给 CSS 四边贴 0（.so-fs-native，与酒馆顶栏同样的 fixed 定位），清掉内联几何。
+    // __TAURITAVERN_HOST__ 是 2.4 才有的宿主身份。
     const hostKind = window.__TAURITAVERN_HOST__ && window.__TAURITAVERN_HOST__.kind;
-    const vv = hostKind === 'mobile' ? null : window.visualViewport;
+    if (hostKind === 'mobile') {
+        el.classList.add('so-fs-native');
+        el.style.left = '';
+        el.style.top = '';
+        el.style.width = '';
+        el.style.height = '';
+        el.style.right = '';
+        soFsDiag(hostKind);
+        return;
+    }
+    const vv = window.visualViewport;
     const box = fullscreenBox({
         w: (vv && vv.width) || window.innerWidth,
         h: (vv && vv.height) || window.innerHeight,
@@ -33102,6 +33113,29 @@ function fitFullscreen() {
     el.style.width = `${box.width}px`;
     el.style.height = `${box.height}px`;
     el.style.right = 'auto';
+}
+
+// 【临时诊断】TauriTavern 2.4 iOS 键盘把全屏窗口顶下去的问题：全屏时在标题后显示视口数值，定位后删除。
+function soFsDiag(hostKind) {
+    const title = document.getElementById('so-title');
+    if (!title || !win) return;
+    let tag = document.getElementById('so-fs-diag');
+    if (!tag) {
+        tag = document.createElement('span');
+        tag.id = 'so-fs-diag';
+        tag.style.cssText = 'font-size:10px;opacity:.7;margin-left:4px;white-space:nowrap;';
+        title.appendChild(tag);
+        const refresh = () => soFsDiag(hostKind);
+        if (window.visualViewport) window.visualViewport.addEventListener('scroll', refresh);
+        window.addEventListener('resize', refresh);
+    }
+    requestAnimationFrame(() => {
+        if (!win.classList.contains('so-fullscreen')) { tag.textContent = ''; return; }
+        const vv = window.visualViewport;
+        const r = win.getBoundingClientRect();
+        tag.textContent = `fs3 ${hostKind || '-'} ih${window.innerHeight} vh${vv ? Math.round(vv.height) : '-'}`
+            + ` vt${vv ? Math.round(vv.offsetTop) : '-'} sy${Math.round(window.scrollY)} t${Math.round(r.top)} h${Math.round(r.height)}`;
+    });
 }
 
 // 变形标题栏的全屏按钮：展开 ⇄ 收缩图标 + 中文标签 + aria-pressed。按 id 直取（id 唯一）。
@@ -33136,8 +33170,10 @@ function setFullscreen(on) {
         updateFullscreenBtn(true);
         fitFullscreen();                                       // 铺满可见视口
     } else {
-        el.classList.remove('so-fullscreen');
+        el.classList.remove('so-fullscreen', 'so-fs-native');
         updateFullscreenBtn(false);
+        const diagTag = document.getElementById('so-fs-diag');
+        if (diagTag) diagTag.textContent = '';
         if (_soPreFsGeom) {                                    // 逐字还原进入前的内联样式（含"无 left/top、纯 CSS 定位"的默认态）
             el.style.left = _soPreFsGeom.left;
             el.style.top = _soPreFsGeom.top;

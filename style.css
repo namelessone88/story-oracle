@@ -68,6 +68,17 @@
        酒馆；仍低于酒馆弹窗 / 菜单(29999) 与 toast(≈999999)——中断提示条、确认框照常在最上层。 */
     z-index: 20000;
 }
+/* TauriTavern 2.4+ 移动端：WebView 已由原生层缩到键盘上方，全屏直接四边贴 0，不用 JS 几何。 */
+#so-window.so-fullscreen.so-fs-native {
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: auto;
+    height: auto;
+    min-width: 0;
+    min-height: 0;   /* 键盘弹出后可用高度可能低于悬浮态的 340px 下限 */
+}
 #so-window.so-fullscreen #so-resize-grip { display: none; }   /* 全屏无从缩放 */
 #so-window.so-fullscreen #so-header { cursor: default; }       /* 全屏不可拖动 */
 
