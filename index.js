@@ -2209,6 +2209,9 @@ const defaults = {
     // 直连「地址原样使用」（1.22.0，原生化自二创「最终模式」）：裸地址不再自动补 /v1——请求打到
     // 地址/chat/completions、获取模型打到 地址/models。路径特殊的中转站用。默认关 = 旧行为字节不变。
     directRawUrl: false,
+    // 🔀 提示词后处理（opt-in，ST「提示词后处理」同款 merge/semi/strict）：'' = 未选择 = 出站字节不变。
+    // 起因：literouter gemini 只读第一条 system、其余 system 静默丢弃 → 普通聊天看不到前文（2026-10-13 实测）。
+    promptPostProcessing: '',
     // 附加参数（1.70.0，仿 ST「自定义（兼容 OpenAI）」源的同名面板；用户反馈：DS 类中转要传
     // enable_thinking: false 等关思维链参数，神谕请求体是写死的没处填）：三份原始文本（YAML 或 JSON），
     // 随每次请求附加 / 剔除主体参数、附加请求头。直连两条路全生效；profile 路仅「自定义（兼容 OpenAI）」
@@ -20485,8 +20488,10 @@ function injectWandButton() {
     menu.appendChild(soMarkEntryLive(rc));
 }
 
-// 手机「窗口归位」：把窗口复位到【居中 + 默认尺寸 380×540（夹进可见视口）】并存档。经魔棒菜单常驻项触发，故窗口
-// 即便被拖到屏外也救得回来（写绝对居中坐标、与当前位置无关；reset 用默认尺寸而非当前可能已拖坏的尺寸）。桌面项被
+// 手机「窗口归位」：把窗口复位到【居中 + 默认尺寸 380×540（夹进可见视口）】并存档；同时把「剧情引导」浮窗
+// （#so-plan-float）放回 CSS 默认的右上角（resetPlanFloatPosition）——用户报：浮窗被拖到右边缘后只露一条、拖不回来，
+// 而归位只救了主窗口（开着窗时浮窗是藏起来的，看不出问题；一关窗它又回到卡死的位置）。经魔棒菜单常驻项触发，故
+// 两者即便被拖到屏外也救得回来（写绝对坐标、与当前位置无关；reset 用默认尺寸而非当前可能已拖坏的尺寸）。桌面项被
 // CSS 隐藏、不会触发。
 function recenterWindow() {
     toggleWindow(true);                       // 关着 / 在屏外都先确保开着
@@ -20499,7 +20504,21 @@ function recenterWindow() {
     win.style.right = 'auto';
     const s = getSettings();                  // 存档：复位持久化（后续开窗不再回到坏位置 / 坏尺寸）
     s.winLeft = c.left; s.winTop = c.top; s.winWidth = c.width; s.winHeight = c.height;
+    resetPlanFloatPosition();                 // 一并复位引导浮窗；下面这一次 save() 同时落两份复位
     save();
+}
+
+// 把「剧情引导」浮窗的位置复位到 CSS 默认（top:64px; right:12px —— 恒在屏内）：清存档坐标 + 清内联几何。
+// 【不动】planFloatCollapsed：折叠成罗盘的仍是罗盘，只是回到够得着的地方。不 save()——由调用方统一存。
+function resetPlanFloatPosition() {
+    const s = getSettings();
+    s.planFloatLeft = null;
+    s.planFloatTop = null;
+    if (planFloat) {
+        planFloat.style.left = '';
+        planFloat.style.top = '';
+        planFloat.style.right = '';
+    }
 }
 
 // 用户功能请求：在 ST 聊天输入栏（#leftSendForm，紧挨 ☰ 菜单键）放一个一键开 / 关神谕侧窗的小按钮（🌙）。
@@ -20600,6 +20619,29 @@ function injectFixSelBarButton() {
     return true;
 }
 
+/* QR助手（uhhhh15/QR）兼容：它按【白名单】管 #qr--bar——用户没加白的容器 / 按钮一律挂 qrq-hidden-by-plugin
+   （display:none !important）、改由它自己的 🚀 菜单提供；我们的 ✂️ 落在某个快速回复集的容器里，那个集没加白就被
+   一起藏掉（用户报：勾了快捷按钮却看不见）。它公开了第三方登记表 window.qrAssistantExtensionApi（api.js
+   getThirdPartyRegistry，每次重建菜单 / 白名单都现读）：登记后 ✂️ 出现在 🚀 菜单「故事神谕」组下（点它 =
+   document.getElementById(dom_id).click()，元素 display:none 也照点 → 走我们原有的 click 处理），也能在它的
+   白名单里单独加白留在条上。没装 QR助手 = 没人读这个数组 = 行为逐字节不变。它每次都从数组重建，故关掉设置时
+   摘掉我们那条即可。按 dom_id 去重（init 与每次勾选都会调到这里）。 */
+function syncQrAssistantEntry(on) {
+    try {
+        const want = !!on && ENABLE_FIXSEL_CHAT_ENTRY && ENABLE_REPLY_FIX && ENABLE_FIX_SELECT;
+        let reg = window.qrAssistantExtensionApi;
+        if (!Array.isArray(reg)) {
+            if (!want) return;                         // 关着又没有登记表 → 什么都不造
+            reg = window.qrAssistantExtensionApi = [];
+        }
+        // 原地摘（别的扩展可能握着同一个数组引用）
+        for (let i = reg.length - 1; i >= 0; i--) {
+            if (reg[i] && reg[i].dom_id === FIXSEL_BAR_BTN_ID) reg.splice(i, 1);
+        }
+        if (want) reg.push({ dom_id: FIXSEL_BAR_BTN_ID, group_name: '故事神谕', button_name: '✂️ 选段校正' });
+    } catch (e) { /* 宿主异形 → 静默；登记失败只是少一个菜单入口 */ }
+}
+
 function removeFixSelBarButton() {
     const btn = document.getElementById(FIXSEL_BAR_BTN_ID);
     if (btn) btn.remove();
@@ -20629,7 +20671,8 @@ function stopFixSelBarObserver() {
 // 封顶 40 次（~20s）后放弃，绝不常驻空转。
 function syncFixSelBarButton() {
     if (fixSelBarTimer) { clearInterval(fixSelBarTimer); fixSelBarTimer = null; }
-    if (!getSettings().fixSelBarButton) { stopFixSelBarObserver(); removeFixSelBarButton(); return; }
+    if (!getSettings().fixSelBarButton) { stopFixSelBarObserver(); removeFixSelBarButton(); syncQrAssistantEntry(false); return; }
+    syncQrAssistantEntry(true);
     if (injectFixSelBarButton()) { startFixSelBarObserver(); return; }
     let attempts = 0;
     fixSelBarTimer = setInterval(() => {
@@ -20734,6 +20777,15 @@ function buildWindow() {
                             <option value="profile">连接配置文件</option>
                         </select>
                     </label>
+                    <label class="so-field"><span>提示词后处理</span>
+                        <select id="so-postproc">
+                            <option value="">未选择</option>
+                            <option value="merge">合并相同角色连续的发言</option>
+                            <option value="semi">半严格（强制对话角色交替）</option>
+                            <option value="strict">严格（强制对话角色交替、用户最先）</option>
+                        </select>
+                    </label>
+                    <div class="so-hint" id="so-postproc-hint">有些中转站只读第一段设定、把故事内容丢掉，AI 就会像没看过前文。遇到这种情况选「严格」。</div>
 
                     <div id="so-direct-fields">
                         <label class="so-field"><span>端点 URL</span>
@@ -21766,6 +21818,7 @@ function bindControls() {
     bind('#so-stream', 'stream');
     bind('#so-direct-backend', 'directViaBackend'); // 1.17.23：经酒馆后端转发（避免直连 CORS）
     bind('#so-raw-url', 'directRawUrl');            // 1.22.0：地址原样使用（不自动补 /v1，原生化自二创「最终模式」）
+    bind('#so-postproc', 'promptPostProcessing', (v) => (SO_PROMPT_POSTPROC_TYPES.includes(v) ? v : ''));   // 🔀 提示词后处理（opt-in）
     // A6：连接预设 保存 / 加载 / 删除（端点 + 密钥 + 模型的命名快照）。加载时对字段派发 input 事件，走既有 bind 落地持久化。
     renderConnPresets();
     win.querySelector('#so-conn-preset-save').addEventListener('click', () => {
@@ -22305,6 +22358,7 @@ function loadSettingsIntoForm() {
     win.querySelector('#so-stream').checked = !!s.stream;
     win.querySelector('#so-direct-backend').checked = !!s.directViaBackend; // 1.17.23：经酒馆后端转发
     win.querySelector('#so-raw-url').checked = !!s.directRawUrl;            // 1.22.0：地址原样使用
+    win.querySelector('#so-postproc').value = SO_PROMPT_POSTPROC_TYPES.includes(s.promptPostProcessing) ? s.promptPostProcessing : '';   // 🔀 提示词后处理
 
     win.querySelector('#so-temp').value = s.temperature;
     win.querySelector('#so-maxtok').value = s.maxTokens;
@@ -25180,6 +25234,7 @@ function placePlanBar() {
         if (planBarEl.parentElement !== planFloatSlot) planFloatSlot.appendChild(planBarEl);
         planFloat.style.display = 'flex';
         applyPlanFloatCollapsed(); // refresh pill tooltip (plan may have changed)
+        ensurePlanFloatInView();   // 显示之后才量得到尺寸（且要按折叠 / 展开后的真实大小量）
     } else {
         if (planFloat) planFloat.style.display = 'none';
         if (planBarEl.parentElement !== win) {
@@ -33394,14 +33449,57 @@ function mergeAdjacentSameRole(messages, sep = '\n\n') {
     return changed ? out : messages;
 }
 
-// FIX 1+2 出站咽喉：直连体（body.messages）与配置文件（messages 数组）各自的形状包装。先消毒（良构）再合并同角色。
+// 🔀 提示词后处理（opt-in）：照抄 ST src/prompt-converters.js mergeMessages 的 merge / semi / strict 三档
+// （prompt-postproc.test.mjs 直接 import ST 真身逐项对拍）。为什么要有：部分中转（literouter gemini 实测）
+// 只读【第一条】system，领头第二条 / 对话中间的 system 静默丢弃——内置破限把故事上下文放在第二条 system，
+// 预设路更是 system 穿插 → 模型「看不到前文」且不报错。
+//   merge  = 相邻同角色合并（含 system）
+//   semi   = merge + 除第一条外的 system 一律改成 user，再合并
+//   strict = semi + 「用户最先」：system 后面不是 user（或开头不是 system/user）时插 ST 默认占位 user
+// 刻意不做：ST 的 single（给每条加角色名前缀——神谕的 AI 不是角色卡）与 *_tools 变体（神谕不发工具）。
+// 非字符串 content（多模态数组）原样不并、不改。未知 / 空档 → 返回同一引用（出站字节不变）。纯函数、不改入参。
+const SO_PROMPT_POSTPROC_TYPES = ['merge', 'semi', 'strict'];
+const SO_PROMPT_PLACEHOLDER = "Let's get started.";   // ST config.yaml promptPlaceholder 的出厂默认
+function soPostProcessMessages(messages, type, placeholder = SO_PROMPT_PLACEHOLDER) {
+    if (!Array.isArray(messages) || !SO_PROMPT_POSTPROC_TYPES.includes(type)) return messages;
+    const squash = (list) => {
+        const out = [];
+        for (const m of list) {
+            const prev = out[out.length - 1];
+            if (prev && m && prev.role === m.role && typeof prev.content === 'string' && typeof m.content === 'string' && m.content) {
+                out[out.length - 1] = { ...prev, content: prev.content + '\n\n' + m.content };
+            } else {
+                out.push(m && typeof m === 'object' ? { ...m } : m);
+            }
+        }
+        if (out.length === 0) out.push({ role: 'user', content: placeholder });
+        return out;
+    };
+    let out = squash(messages);
+    if (type === 'merge') return out;
+    out = out.map((m, i) => (i > 0 && m && m.role === 'system') ? { ...m, role: 'user' } : m);
+    if (type === 'strict' && out.length) {
+        if (out[0].role === 'system' && (out.length === 1 || out[1].role !== 'user')) {
+            out.splice(1, 0, { role: 'user', content: placeholder });
+        } else if (out[0].role !== 'system' && out[0].role !== 'user') {
+            out.unshift({ role: 'user', content: placeholder });
+        }
+    }
+    return squash(out);
+}
+function soPromptPostProcType() {
+    try { return String(getSettings().promptPostProcessing || ''); } catch (e) { return ''; }
+}
+
+// FIX 1+2 出站咽喉：直连体（body.messages）与配置文件（messages 数组）各自的形状包装。先消毒（良构）→
+// 提示词后处理（opt-in，未选择 = 同一引用）→ 合并同角色。
 function normalizeOutgoingBody(body) {
     if (!body || !Array.isArray(body.messages)) return body;
-    const messages = mergeAdjacentSameRole(sanitizeMessages(body.messages));
+    const messages = mergeAdjacentSameRole(soPostProcessMessages(sanitizeMessages(body.messages), soPromptPostProcType()));
     return messages === body.messages ? body : { ...body, messages };
 }
 function normalizeOutgoingMessages(messages) {
-    return mergeAdjacentSameRole(sanitizeMessages(messages));
+    return mergeAdjacentSameRole(soPostProcessMessages(sanitizeMessages(messages), soPromptPostProcType()));
 }
 
 // FIX 3（cause C）：把一行 SSE 的 data 载荷分类。中转会在 HTTP 200 的流里中途插一个 error 块
@@ -35617,7 +35715,28 @@ let _ensureInViewPending = false;
 function scheduleEnsureInView() {
     if (_ensureInViewPending) return;
     _ensureInViewPending = true;
-    requestAnimationFrame(() => { _ensureInViewPending = false; ensureWindowInView(); });
+    requestAnimationFrame(() => { _ensureInViewPending = false; ensureWindowInView(); ensurePlanFloatInView(); });
+}
+
+// 「剧情引导」浮窗的自愈（与 ensureWindowInView 同一策略：只做显示级贴合、【不 save()】，存档坐标原样保留）。
+// 浮窗现在还够得着（boxIsReachable：留在屏内的一块 ≥ 140×48，或折叠药丸整颗在屏内）→ 一个字节都不动；
+// 够不着（拖到边缘只剩一条 / 旋屏 / 换了更窄的屏）→ 用拖动同款 clampDragPos 拉回来。
+// 不在 ensurePlanFloat 里收紧那条 60/40 恢复夹取：创建时浮窗是 display:none、量不到；一刀切的更严夹取
+// 还会把本来贴边贴得好好的折叠罗盘（~40px 宽）拽离边缘。
+function ensurePlanFloatInView() {
+    if (!planFloat || planFloat.style.display === 'none') return;
+    const r = planFloat.getBoundingClientRect();
+    const box = { left: r.left, top: r.top, width: r.width, height: r.height };
+    // 判与夹用同一个坐标系（clampDragPos 不认 visualViewport 偏移）：否则 iOS 键盘把页面顶上去时，
+    // 一颗好好的浮窗会被判「够不着」、再被写成同一位置的内联坐标（丢掉 CSS 默认的 right:12px 锚定）。
+    const cv = currentView();
+    const view = { w: cv.w, h: cv.h };
+    if (boxIsReachable(box, view)) return;
+    const p = clampDragPos(box, view);
+    if (p.left === box.left && p.top === box.top) return;   // 夹完没变 → 不碰 DOM
+    planFloat.style.left = `${p.left}px`;
+    planFloat.style.top = `${p.top}px`;
+    planFloat.style.right = 'auto';
 }
 
 // Drag the window by its header. Pointer events cover mouse + touch + pen in one

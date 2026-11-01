@@ -3189,3 +3189,35 @@ body.so-skin-light .so-cur-disabled {
 
 /* 🩺 1.89.0：从存档检查跳到某一格时闪 2 秒（复用脏行的左缘强调色，明暗两皮都可见；不钉颜色）。 */
 .so-mvued-flash { box-shadow: inset 3px 0 0 var(--SmartThemeQuoteColor), 0 0 0 2px var(--SmartThemeQuoteColor); border-radius: 4px; }
+
+/* ---------- 旧内核兜底：不支持 color-mix() 的浏览器 / App 内置 WebView ----------
+   用户报：在某些 App（柏宝阁，安卓）里打开酒馆，神谕窗口整块透明、主聊天直接透出来；切深色 / 浅色、清空自定义 CSS 都没用。
+   原因：color-mix() 要 Chromium 111+ / Safari 16.2+。声明里同时有 var() 时，旧内核解析阶段放行、到【计算值阶段】才判
+   color-mix 失效 → 整条 background 简写作废、所有分量回到 initial（透明底、无图）。#so-window 的底板就是这么没的；
+   派生强调色（--so-diag/fix/lb/adv/bld-accent）本身也是 color-mix，凡读它们的声明一并作废——白字按钮就成了白字压透明。
+   本块只在【不支持】color-mix 的浏览器里生效；新浏览器整块跳过，渲染逐值不变。放在文件末尾，同特异度靠源码顺序胜出。
+   只救「看不见 / 读不了」的那几处（底板 + 白字按钮 / 徽章）；其余约 70 处淡色点缀失效只是少了一层底色，不管。
+   #so-cur-card / #so-autowarn-card / #so-fixwarn-card 本来就是「实心 background-color + color-mix background-image」拆开写，天然安全。 */
+@supports not (color: color-mix(in srgb, red 50%, blue)) {
+    /* 派生强调色 → 各自的原色（原本是 45% 主题强调色 + 55% 这个原色，够认得出模式即可） */
+    #so-window, #so-plan-float, #so-live {
+        --so-diag-accent: #d9534f;
+        --so-fix-accent: #e3b341;
+        --so-lb-accent: #d8a657;
+        --so-adv-accent: #4fb0a5;
+        --so-bld-accent: #b07cc6;
+    }
+    /* 底板：只要纯色（皮肤只改变量，故三档配色照样生效） */
+    #so-window { background: var(--SmartThemeBlurTintColor, rgba(20, 20, 22, 0.94)); }
+    /* 白字按钮 / 徽章：给回实心底。#so-send.so-generating（1,1,0）特异度更高，停止键照旧是红的；
+       .so-z2-block .so-apply-btn（0,2,0）本就是纯色写法，照旧压过这里的 .so-apply-btn。 */
+    #so-send, .so-apply-btn { background: var(--so-accent); }
+    #so-diag-pill { background: var(--so-diag-accent); }
+    #so-lb-pill { background: var(--so-lb-accent); }
+    #so-adv-pill, .so-plan-label, .so-plan-int.active, .so-plan-card .so-apply-btn,
+    .so-bridge-chip, .so-arc-diff-badge, .so-arc-diff-badge[data-difficulty="normal"] { background: var(--so-adv-accent); }
+    .so-arc-diff-badge[data-difficulty="calm"] { background: #5fae8c; }
+    .so-arc-diff-badge[data-difficulty="stark"] { background: var(--crimson70a, #d96b6b); }
+    /* 选中但禁用的档位：原样是「淡强调底 + 主题正文色」，正文色压实心强调底会糊 → 改成普通底 + 强调色描边 */
+    .so-plan-int.active:disabled { background: var(--so-field); border-color: var(--so-adv-accent); }
+}
