@@ -2078,7 +2078,7 @@ const ENABLE_CUSTOM_PERSONAS = true;
 // —— 更新提醒（1.38.0）——
 // SO_VERSION 是代码内唯一版本号，必须与 manifest.json 的 version 完全一致——update-check.test.mjs
 // 有失配即红的漂移钉（发版清单：两处一起 bump）。
-const SO_VERSION = '2.0.0';
+const SO_VERSION = '2.0.1';
 // 更新提醒总开关。false → 设置面板不渲染「更新」组、开窗不检查、红点绘制器与一键更新 no-op、
 // 绑定/回填跳过——字节级零行为变化。运行期另有 opt-out 设置 updAutoCheck（默认开）。
 const ENABLE_UPDATE_CHECK = true;
@@ -2124,6 +2124,18 @@ const ENABLE_DISPLAY_NAMES = true;
 // —— 🎭 小剧场（theater，第 7 种模式；spec docs/superpowers/specs/2026-11-06-theater-mode-design.md）——平行线（IF）与小剧场场景，
 // 自有房间、不改主线。false = 无标题栏按钮、无设置行、命名聊天房间仍只有 main / advisor、getSettings 不加任何 theater 键（与无此功能的版本逐字节同）。
 const ENABLE_THEATER = true;
+// 🎬 小剧场 · IF = 迷你酒馆 第一阶段「回复保真」（spec docs/superpowers/specs/2026-11-08-theater-if-mini-st-design.md §5 Stage 1）：
+// IF 回复 / 玩家这句落盘时跑 ST 的「到达」正则；显示正则拿到这条在 IF 里的真实楼层深度；IF 回复气泡是 .mes_text（卡片 <style> / 对白 <q> 生效）。
+// 全部同时受 ENABLE_THEATER 与「应用正则」管。false = 与 2.0.1 逐字节相同。
+const ENABLE_THR_FIDELITY = true;
+// 🎬 小剧场 · IF = 迷你酒馆 第二阶段「长 IF」（同一 spec §5 Stage 2）：神谕路按模型上限裁旧楼、IF 输入框上方的长度条 + 提醒、
+// 📖 总结前文（大总结 → 知识库里这条 IF 自己的前情总结 → 保留最近楼层）、IF 行上的 ✏️ 改名 / 🗑 删除、小剧场里 ☰ 不显示「管理聊天记录」。
+// 全部同时受 ENABLE_THEATER 与各自的 TBW 旗（知识库 / 大总结 / 保留最近楼层 / 具名聊天）管。false = 与第一阶段逐字节相同。
+const ENABLE_THR_LONG_PLAY = true;
+// 🎬 小剧场 · IF = 迷你酒馆 第三阶段「面板」（同一 spec §5 Stage 3）：IF 回复里卡片的完整网页面板（命运抉择 / 状态栏 …）照酒馆助手的做法
+// 渲染成活的内嵌页面；面板的发送 = IF 的发送，读写变量 = 这条 IF 自己的变量本；有 MVU 变量的 IF 回复末尾照 MVU 补状态栏占位符。
+// 全部同时受 ENABLE_THEATER 管（面板另需 ENABLE_THR_FIDELITY、「应用正则」与酒馆助手）。false = 与第二阶段逐字节相同。
+const ENABLE_THR_PANELS = true;
 // 远端版本号来源（按序尝试，首个可解析者胜）：GitHub Raw 在中国大陆常被墙 → jsDelivr CDN 兜底
 // （其缓存可滞后 ~12h，红点可能晚亮，可接受）。只 GET 公开文件，不发送任何用户数据。
 // bust = 是否加时间戳绕缓存（Raw 要绕；jsDelivr 缓存本身就是它的意义，不绕）。
@@ -3343,7 +3355,7 @@ const SO_THEME_DIALOG_CLASSES = ['.so-local-dialog', '.so-owned-dialog', '.so-ch
     '.so-regex-editor', '.so-knowledge-dialog', '.so-big-summary-dialog', '.so-avatar-crop-dialog', '.so-background-crop-dialog'];
 
 // His library limits (hand import) + the 广场 per-theme cap (spec §12 Q1).
-const SO_THEME_LIMITS = { file: 1024 * 1024, count: 20, total: 8 * 1024 * 1024, hubFile: 500 * 1024 };
+const SO_THEME_LIMITS = { file: 1024 * 1024, count: 20, total: 8 * 1024 * 1024, hubFile: 800 * 1024 };
 
 // A character that continues a CSS identifier (so `#so-window-x` is not `#so-window`).
 function themeCompiler_identChar(c) {
@@ -4118,7 +4130,7 @@ function soImageMagic(bytes) {
 // Everything that comes from the 广场 or the Worker is UNTRUSTED: this layer only parses / checks, the renderer uses textContent,
 // and reply text is never shown — only our own tables below.
 
-const THEME_HUB_LIMITS = Object.freeze({ name: 40, author: 30, description: 200, tagsMin: 1, tagsMax: 3, css: 500 * 1024 });
+const THEME_HUB_LIMITS = Object.freeze({ name: 40, author: 30, description: 200, tagsMin: 1, tagsMax: 3, css: 800 * 1024 });
 // Seed tag list; the Worker holds the same list (the fixture's top-level `tags` pins both).
 const THEME_HUB_TAGS = Object.freeze(['蓝玻璃', '深色', '浅色', '手机', '古早GAL', '校园', '简约', '高对比']);
 const themeHubIdRe = /^th\d{4,}$/;
@@ -4139,7 +4151,7 @@ function themeHubStrictCheck(cssText) {
         else if (c >= 0xd800 && c <= 0xdbff && i + 1 < cssText.length && cssText.charCodeAt(i + 1) >= 0xdc00 && cssText.charCodeAt(i + 1) <= 0xdfff) { bytes += 4; i += 1; }
         else bytes += 3;
     }
-    if (bytes > 500 * 1024) return { ok: false, code: 'too_large' };
+    if (bytes > 800 * 1024) return { ok: false, code: 'too_large' };
     // Escapes can spell anything; `<` has no job in a theme and would break out of an HTML context (admin preview).
     if (/[\\<]/.test(cssText)) return { ok: false, code: 'unsafe' };
     if (/expression\(|(?:^|[^\w-])behavior\s*:|-moz-binding\s*:|attr\(|image-set\(|src\(|(?:^|[^\w-])image\(/i.test(cssText)) return { ok: false, code: 'unsafe' };
@@ -4303,7 +4315,7 @@ function themeHubInstallStatus(entry, items) {
 const THEME_HUB_REASON_TEXT = Object.freeze({
     network: '连不上分享服务',
     upstream: '分享服务暂时出错',
-    too_large: '主题太大（最多 500 KB）',
+    too_large: '主题太大（最多 800 KB）',
     bad_json: '内容格式不对',
     not_found: '分享服务地址不对',
     queue_full: '待审核的投稿太多了，过几天再试',
@@ -4320,7 +4332,7 @@ const THEME_HUB_ERR_TEXT = Object.freeze({
     tags: Object.freeze({ too_few_tags: '至少选 1 个标签', too_many_tags: '最多选 3 个标签', bad_tag: '标签不在列表里，刷新广场后再选', bad_type: '标签格式不对' }),
     css: Object.freeze({
         empty: '主题内容是空的',
-        too_large: '主题文件最大 500 KB',
+        too_large: '主题文件最大 800 KB',
         remote_url: '广场主题只能使用内嵌图片，不能引用外部链接',
         at_rule: '广场主题里只能用 @media 和 @supports，不能用别的 @ 规则',
         unsafe: '主题里有广场不允许的写法（反斜杠、尖括号、expression()、attr()、image-set() 之类）',
@@ -4461,6 +4473,8 @@ function soKbEntryNormalize(value, old, makeId, now) {
     return {
         ...(old || {}),
         ...(typeof v.sourceSummaryId === 'string' ? { sourceSummaryId: v.sourceSummaryId } : {}),
+        // 小剧场长 IF（SO 2.x）：这条是哪条平行线（IF）自己的前情总结——随导出 / 导入 / 编辑保留（同 sourceSummaryId）。
+        ...(typeof v.ifScope === 'string' ? { ifScope: v.ifScope } : {}),
         id: (old && old.id) || makeId(),
         uid,
         name,
@@ -4519,9 +4533,14 @@ function kbCore_hit(entry, lowered) {
 }
 
 // konosbz `activateMemory`, plus the reason each entry fired. Ordered by uid.
+// `opts.scoped` (SO's 小剧场 long IFs): an entry carrying a string `ifScope` belongs to one IF and is used only when
+// `opts.ifScope === entry.ifScope` — never in another IF, normal chat or 参谋 (they pass no ifScope). Without `opts.scoped`
+// every entry is treated alike, as before.
 function soKbActivate(file, turns, opts) {
     if (!file || file.enabled === false || !Array.isArray(file.entries)) return [];
-    const entries = file.entries.filter(e => e && e.enabled && typeof e.content === 'string' && e.content.trim());
+    const scoped = !!(opts && opts.scoped);
+    const entries = file.entries.filter(e => e && e.enabled && typeof e.content === 'string' && e.content.trim()
+        && (!scoped || typeof e.ifScope !== 'string' || e.ifScope === opts.ifScope));
     const depth = kbCore_depth(file, opts);
     const slice = (Array.isArray(turns) ? turns : [])
         .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
@@ -5252,6 +5271,7 @@ function soThrRefreshBar() {
     }
     soThrRefreshScenePanel();   // theater plan 3：场景列表跟着聊天 / 归属走
     soThrRefreshSettings();
+    if (soThrLongOn()) soThrRefreshMeter();   // 🎬 长 IF：长度条跟着 IF / 房间走
     // 缺 getContext().mainApi 的旧 ST：人在小剧场里、/script.js 还没取过 → 取一次再回显（只取一次：loadScriptCore 自己缓存 null/false）。
     if (theaterMode && (!ctx || ctx.mainApi === undefined || ctx.mainApi === null) && scriptCore === null) {
         loadScriptCore().then(() => { if (scriptCore) soThrRefreshBar(); }).catch(() => {});
@@ -5284,6 +5304,7 @@ function soThrBindBar() {
     });
     soThrBindScenePanel();   // theater plan 3 Task 4
     soThrBindSettings();     // theater plan 3 Task 6（#so-settings 里的小剧场组）
+    if (soThrLongOn()) soThrBindMeter();   // 🎬 长 IF：长度条提醒行的三个键
     soThrRefreshBar();
 }
 
@@ -5898,12 +5919,14 @@ async function soTheaterGenerate(opts) {
     try {
         let got = null;
         if (path === 'so') {
-            got = await soThrRunSoPath(o, ctx, controller, guard, emitDelta);
+            got = await soThrRunSoPath(o, ctx, controller, guard, emitDelta, sc);
         } else {
             got = await soThrRunPresetPath(o, ctx, { sc, oai, wi, rx, conn }, run, undo, guard, emitDelta, trace, (fn) => { settingsCleanup = fn; });
         }
         const g = (got && typeof got === 'object') ? got : { text: got };
         const extra = { reasoning: typeof g.reasoning === 'string' ? g.reasoning : '', finish: typeof g.finish === 'string' ? g.finish : '' };
+        // 🎬 长 IF：这一趟发出去的提示词有多长、有没有为放进上限裁掉旧楼（只在成功回来时带；旗关 = 没有这两个键）。
+        if (soThrLongOn() && typeof g.promptTokens === 'number' && Number.isFinite(g.promptTokens)) Object.assign(extra, { promptTokens: g.promptTokens, cut: g.cut === true });
         if (controller.signal.aborted) return out(Object.assign({ text: partial, aborted: true }, extra));
         return out(Object.assign({ text: typeof g.text === 'string' ? g.text : '' }, extra));
     } catch (e) {
@@ -6004,6 +6027,24 @@ async function soThrRunPresetPath(o, ctx, mods, run, undo, guard, emitDelta, tra
         for (const [k, entry] of own) { if (reg && reg[k] === entry) delete reg[k]; }
         trace('unregisterOwnWI');
     });
+    // 🎬 长 IF：这一趟的知识库 = 本趟自己的一格扩展提示词（IN_PROMPT / depth 0 / system / 不参与扫描）；与本趟的世界书登记同一套还原（最早在 settings-ready）。
+    // 只加不动：ST 自己把它放在 main 之后（openai.js getPromptPosition IN_PROMPT → 'end'），预设拼出来的东西一样都不挪、不删、不改。
+    if (soThrLongOn() && typeof o.kbText === 'string' && o.kbText && reg && typeof reg === 'object') {
+        const types = sc.extension_prompt_types || {};
+        const IN_PROMPT = types.IN_PROMPT !== undefined ? types.IN_PROMPT : 0;
+        const setExt = typeof sc.setExtensionPrompt === 'function' ? sc.setExtensionPrompt
+            : (typeof ctx.setExtensionPrompt === 'function' ? ctx.setExtensionPrompt : null);
+        const had = Object.hasOwn(reg, THEATER_KB_PROMPT_KEY) ? reg[THEATER_KB_PROMPT_KEY] : undefined;
+        if (setExt) setExt(THEATER_KB_PROMPT_KEY, o.kbText, IN_PROMPT, 0, false, 0);
+        else reg[THEATER_KB_PROMPT_KEY] = { value: String(o.kbText), position: IN_PROMPT, depth: 0, scan: false, role: 0, filter: null };
+        const mine = reg[THEATER_KB_PROMPT_KEY];
+        trace('registerKb');
+        undo.push(() => {
+            if (reg[THEATER_KB_PROMPT_KEY] !== mine) return;   // 这期间别人写过 = 他的值优先
+            if (had === undefined) delete reg[THEATER_KB_PROMPT_KEY]; else reg[THEATER_KB_PROMPT_KEY] = had;
+            trace('unregisterKb');
+        });
+    }
     const [prompt] = await guard(oai.prepareOpenAIMessages({
         name2,
         charDescription: card.description,
@@ -6024,6 +6065,11 @@ async function soThrRunPresetPath(o, ctx, mods, run, undo, guard, emitDelta, tra
     }, false));
     const generateData = { prompt };
     if (es && typeof es.emit === 'function') await guard(es.emit(et.GENERATE_AFTER_DATA || 'generate_after_data', generateData, false));
+    // 🎬 长 IF：要发出去的这份有多长；ST 按预算裁历史时，神谕交进去的最旧一楼会不见 = 「裁过」（spec B7；探不准就当没裁）。
+    let longMeta = null;
+    if (soThrLongOn()) {
+        longMeta = { promptTokens: await guard(soThrCountTokens(generateData.prompt)), cut: soThrPromptLost(generateData.prompt, (Array.isArray(o.history) && o.history.length) ? shaped[0] : null) };
+    }
     // 一次性、排最后、只认本趟发出之后的第一发 CHAT_COMPLETION_SETTINGS_READY：先跑 hooks.onSettingsReady（变量本还原 / 场景 AO），
     // 再【立刻】还原本趟改过的一切（复审 I1：删本趟世界书登记 → 还主线槽 → 还作者注释 → 还 max_tokens）——这时 ST 已经拼好 generate_data，
     // 不必等整段流式回复结束。finally / 中断仍是兜底（run.restore 幂等）。抓 finish / 思考的 fetch 包装照旧留到这一发结束。
@@ -6079,13 +6125,18 @@ async function soThrRunPresetPath(o, ctx, mods, run, undo, guard, emitDelta, tra
             finish = tapH.tap.finish;
             if (!reasoning) reasoning = tapH.tap.reasoning;
         }
-        return { text, reasoning, finish };
+        return longMeta ? { text, reasoning, finish, ...longMeta } : { text, reasoning, finish };
     }
     const text = typeof sc.extractMessageFromData === 'function' ? sc.extractMessageFromData(res, 'openai')
         : ((res && res.choices && res.choices[0] && res.choices[0].message && res.choices[0].message.content) || '');
     let reasoningMod = null;
     if (ENABLE_THEATER) { try { reasoningMod = await soThrModule('reasoning', soThrLoadReasoning); } catch (e) { reasoningMod = null; } }
-    return { text: typeof text === 'string' ? text : '', reasoning: soThrReasoningOf(res, reasoningMod, conn && conn.source), finish: soThrFinishOf(res) };
+    const out = { text: typeof text === 'string' ? text : '', reasoning: soThrReasoningOf(res, reasoningMod, conn && conn.source), finish: soThrFinishOf(res) };
+    if (longMeta) {   // 非流式回包带了真用量 → 用它（spec Stage 2 item 2）
+        const used = res && res.usage && Number(res.usage.prompt_tokens);
+        Object.assign(out, longMeta, (Number.isFinite(used) && used > 0) ? { promptTokens: used } : {});
+    }
+    return out;
 }
 
 /* —— 🎭 预设路的连接 = 神谕自己的连接（2026-11-07 Prince 裁）——
@@ -6312,27 +6363,39 @@ function soThrRegisterOwnWI(reg, wiRes, sc, ctx) {
 // SO 路（Task 5）：[system: systemText, ...历史, user: directive] → maybeWrapJb(…, 'theater') → soCallModel。
 // theater plan 2 Task 7：玩家在神谕里策展过预设（presetCurationActive）→ 用诊断那套预设信封（第三参恒 ''，绝不传 undefined——那会把
 // 神谕侧聊拼进去），历史 + 指令插在信封放系统提示词的那个位置之后（预设里 chatHistory 之后的块仍在最后）。
-async function soThrRunSoPath(o, ctx, controller, guard, emitDelta) {
+async function soThrRunSoPath(o, ctx, controller, guard, emitDelta, sc) {
     const s = getSettings();
-    const turns = [];
-    for (const h of (Array.isArray(o.history) ? o.history : [])) {
-        if (!h) continue;
-        const role = h.role === 'user' ? 'user' : (h.role === 'system' ? 'system' : 'assistant');   // system = IF 分隔线（theater plan 2）
-        turns.push({ role, content: typeof h.text === 'string' ? h.text : '' });
-    }
-    if (typeof o.directive === 'string' && o.directive) turns.push({ role: 'user', content: o.directive });
-    const sys = typeof o.systemText === 'string' ? o.systemText : '';
-    let messages;
-    if (ENABLE_THEATER && sys && presetCurationActive(s)) {
-        const build = (soThrMods && typeof soThrMods.presetMessages === 'function') ? soThrMods.presetMessages : buildDiagnosePresetMessages;
-        const env = build(s, sys, '') || [];
-        let at = env.findIndex((m) => m && m.role === 'system' && m.content === sys);
-        if (at < 0) at = env.length - 1;
-        messages = env.slice(0, at + 1).concat(turns, env.slice(at + 1));
-    } else {
-        messages = sys ? [{ role: 'system', content: sys }].concat(turns) : turns;
-    }
-    messages = maybeWrapJb(messages, 'theater', s);
+    const long = soThrLongOn();
+    const assemble = (hist) => {
+        const turns = [];
+        // 🎬 长 IF：知识库 = 一条 system，紧挨在历史前面（与普通聊天「在神谕各轮之前」同一规矩）。
+        if (long && typeof o.kbText === 'string' && o.kbText) turns.push({ role: 'system', content: o.kbText });
+        for (const h of hist) {
+            if (!h) continue;
+            const role = h.role === 'user' ? 'user' : (h.role === 'system' ? 'system' : 'assistant');   // system = IF 分隔线（theater plan 2）
+            turns.push({ role, content: typeof h.text === 'string' ? h.text : '' });
+        }
+        if (typeof o.directive === 'string' && o.directive) turns.push({ role: 'user', content: o.directive });
+        const sys = typeof o.systemText === 'string' ? o.systemText : '';
+        let msgs;
+        if (ENABLE_THEATER && sys && presetCurationActive(s)) {
+            const build = (soThrMods && typeof soThrMods.presetMessages === 'function') ? soThrMods.presetMessages : buildDiagnosePresetMessages;
+            const env = build(s, sys, '') || [];
+            let at = env.findIndex((m) => m && m.role === 'system' && m.content === sys);
+            if (at < 0) at = env.length - 1;
+            msgs = env.slice(0, at + 1).concat(turns, env.slice(at + 1));
+        } else {
+            msgs = sys ? [{ role: 'system', content: sys }].concat(turns) : turns;
+        }
+        return maybeWrapJb(msgs, 'theater', s);
+    };
+    let hist = Array.isArray(o.history) ? o.history : [];
+    let messages = assemble(hist);
+    // 🎬 长 IF：神谕自己的路【不自动裁】（Prince 2026-11-08：ST 的上下文滑块描述的是 ST 的连接、默认只有 4k，拿它裁会把 IF 悄悄压扁）——
+    // 只数这一趟的 token 给长度条；保护靠提醒线 + 📖 / 📥。cut 在这条路上恒为 false。
+    let promptTokens = null;
+    const cut = false;
+    if (long) promptTokens = await guard(soThrCountTokens(messages));
     const call = (soThrMods && typeof soThrMods.callModel === 'function') ? soThrMods.callModel : soCallModel;
     const mt = Number(o.maxTokens);
     if (ENABLE_THEATER) soLastFinishReason = '';   // Fix B：直连路写它（配置文件路读不到，恒空）
@@ -6342,7 +6405,9 @@ async function soThrRunSoPath(o, ctx, controller, guard, emitDelta) {
         onDelta: emitDelta,
     }));
     // SO 的传输函数不交出思考通道 → reasoning 恒 ''（找回只在预设路生效）。
-    return { text: typeof text === 'string' ? text : '', reasoning: '', finish: soThrNormFinish(soLastFinishReason) };
+    const done = { text: typeof text === 'string' ? text : '', reasoning: '', finish: soThrNormFinish(soLastFinishReason) };
+    if (long) Object.assign(done, { promptTokens, cut });
+    return done;
 }
 
 /* —— 最小发送路（theater plan 1 Task 6；Plan 2 换成真正的 IF 分支）——
@@ -6395,6 +6460,27 @@ function soThrPremiseBare(premise) {
 const THEATER_IF_NEW = '＋ 新平行线';
 const THEATER_IF_NEW_TITLE = '回到空白页：在下方输入框写下新的前提，就会开一条新的平行线';
 const THEATER_IF_SPLIT_LABEL = (split) => `从第 ${Number(split) || 0} 楼分出`;
+// 🎬 长 IF（ENABLE_THR_LONG_PLAY）的全部玩家可见文字——DRAFT（待 Prince 选；清单 docs/agent/theater-mini-st-wording.md）。
+const THEATER_LONG_RENAME_PROMPT = '给这条 IF 起个新名字';
+const THEATER_LONG_RENAME_TITLE = '改名';
+const THEATER_LONG_DELETE_TITLE = '删除这条 IF';
+const THEATER_LONG_DELETE_CONFIRM = (name) => `删除「${name}」？这条 IF 的记录、场景和它在知识库里的前情总结会一起删掉。`;
+const THEATER_LONG_KB_NAME = (n) => `【IF】${n}·前情总结`;
+const THEATER_LONG_KB_PILL = 'IF';
+const THEATER_LONG_KB_CLEAN_FAILED = '这条 IF 的前情总结没能从知识库里删掉，可以在知识库里手动删除';
+const THEATER_LONG_METER_SETTING = 'IF 长度提醒线（tokens）';
+const THEATER_LONG_METER_SETTING_HINT = '上次发送超过这条线（或模型上限的 90%）时变红并提醒';
+const THEATER_LONG_METER_LABEL = (n, line) => `上次发送 ${n}k / ${line}k`;
+const THEATER_LONG_HINT = '这条 IF 越来越长了，推荐：';   // Prince 自己的原话
+const THEATER_LONG_BTN_IMPORT = '📥 存成 ST 聊天继续玩';
+const THEATER_LONG_BTN_SUMMARY = '📖 总结前文';
+const THEATER_LONG_BTN_DISMISS = '知道了';
+const THEATER_LONG_SUMMARY_SOURCE = (n) => `IF：${n}`;
+const THEATER_LONG_SOURCE_BTN = '总结这条 IF';
+const THEATER_LONG_PREV_HEAD = '【之前的前情总结】';   // 给模型看的资料小标题（不是界面文字）
+const THEATER_LONG_NOTHING_NEW = '上次总结之后还没有新的楼层滑出，暂时不用再总结';
+const THEATER_LONG_SAVED = '已把这条 IF 的前情总结存进知识库，较早的楼层不再发送（还看得到）';
+const THEATER_LONG_COVERED_CHANGED = '这段已经总结过，总结不会自动更新；需要的话再点一次 📖';
 const THEATER_IF_UNSAFE_IDS = ['__proto__', 'constructor', 'prototype'];
 function soThrClone(v) {
     if (v == null) return v;
@@ -6449,6 +6535,7 @@ function soThrIfHistory(mainChat, record, roomTurns, opts) {
     let main = soThrHistoryFromMain({ chat: chat.slice(0, Math.min(sp, chat.length)) });
     const depth = Number(opts && opts.depth);
     if (Number.isFinite(depth) && depth > 0) main = main.slice(-depth);
+    if (soThrLongOn() && opts && opts.dropMain === true) main = [];   // 🎬 长 IF：这条 IF 已总结 → 主线那段由前情总结代替（spec P9）
     const premise = record && typeof record.premise === 'string' ? record.premise : '';
     return main.concat([{ role: 'system', name: '', text: THEATER_IF_DIVIDER(premise) }], Array.isArray(roomTurns) ? roomTurns : []);
 }
@@ -6487,6 +6574,163 @@ function soThrIfEnsure(fileId, premiseIfNew) {
     };
     if (!ephemeral) soThrIfPut(fileId, rec);
     return soThrClone(rec);
+}
+/* —— 🎬 长 IF（ENABLE_THR_LONG_PLAY；spec 2026-11-08 §5 Stage 2）——
+ * 每条 IF 的记录多几个可选字段（没有 = 默认；只由本阶段写）：meter = 上次发送 {tokens, cut, at} · hintDismissedAt =「知道了」那一刻的 tokens ·
+ * summaryCoveredThrough = 折进前情总结的最后一条 IF 记录的 id · summaryChanged = 总结过的楼后来被改 / 删 / 换版本了。
+ * 「这条 IF 已总结」从不存：每次按知识库里这条 IF 自己的那条总结在不在、开没开现算（soThrIfSummaryEntry）。 */
+function soThrLongOn() {
+    return ENABLE_THR_LONG_PLAY && ENABLE_THEATER;
+}
+// 浅合并进这条 IF 的记录（值为 undefined = 删掉那个键）；没有记录 = 什么都不建，回 false。
+function soThrIfPatch(fileId, partial) {
+    const cur = soThrIfGet(fileId);
+    if (!cur || !partial || typeof partial !== 'object') return false;
+    for (const [k, v] of Object.entries(partial)) {
+        if (THEATER_IF_UNSAFE_IDS.includes(k)) continue;
+        if (v === undefined) delete cur[k]; else cur[k] = v;
+    }
+    soThrIfPut(fileId, cur);   // 自带 saveChatMetadata()
+    return true;
+}
+// IF 行上的 ✏️：与「管理聊天记录」的改名同一套命名规则（soChatFileName）；弹窗期间换了聊天 = 作罢（同一句提示）。
+async function soThrIfRename(fileId) {
+    if (!soThrLongOn() || !ENABLE_CHAT_FILES || !soThrIfIdOk(fileId) || fileId === SO_CHAT_FILE_DEFAULT) return false;
+    const chatAt = fixChatKey();
+    const v = await uiPrompt(escapeHtml(THEATER_LONG_RENAME_PROMPT), soChatFileDisplayName('theater', fileId));
+    if (v == null || !String(v).trim()) return false;
+    if (soChatFilesChatMoved(chatAt)) return false;
+    const idx = soChatFilesIndex(true);
+    if (!idx || !soChatFileRename(idx, 'theater', fileId, soChatFileName(v))) return false;
+    saveChatMetadata();
+    soThrRefreshIfPanel();
+    return true;
+}
+// IF 行上的 🗑：确认（名字转义——ST 弹窗按 HTML 显示）→ soDeleteChatFile（它已经顺带删记录 / 场景 / 保留最近楼层设置）→ 知识库里这条 IF 的前情总结。
+async function soThrIfDelete(fileId) {
+    if (!soThrLongOn() || !ENABLE_CHAT_FILES || !soThrIfIdOk(fileId) || fileId === SO_CHAT_FILE_DEFAULT) return false;
+    const busyNow = () => fileId === soActiveFileId('theater') && soChatSwitchBusy();
+    if (busyNow()) { if (typeof toastr !== 'undefined') toastr.info(SO_CHAT_SWITCH_BUSY); return false; }
+    const chatAt = fixChatKey();
+    if (!(await uiConfirm(THEATER_LONG_DELETE_CONFIRM(escapeHtml(soChatFileDisplayName('theater', fileId)))))) return false;
+    if (soChatFilesChatMoved(chatAt)) return false;
+    if (!soDeleteChatFile('theater', fileId)) {
+        if (busyNow() && typeof toastr !== 'undefined') toastr.info(SO_CHAT_SWITCH_BUSY);
+        return false;
+    }
+    await soThrIfDropSummary(fileId);
+    return true;
+}
+// 删掉知识库里属于这条 IF 的前情总结（ifScope === fileId）。这个角色从没存过知识库 = 什么都不读不写。读 / 存失败 = 一句系统提示，绝不抛。
+async function soThrIfDropSummary(fileId) {
+    if (!soThrLongOn() || !ENABLE_KNOWLEDGE_BASE || !soThrIfIdOk(fileId)) return;
+    const key = soKbCharKeyNow();
+    if (!key || !soKbIndexGet(getSettings().kbIndex, key)) return;
+    let removed = false;
+    try {
+        const ok = await soKbMutate(key, (f) => {
+            const before = f.entries.length;
+            f.entries = f.entries.filter((e) => !(e && e.ifScope === fileId));
+            removed = f.entries.length !== before;
+            return removed ? undefined : false;
+        });
+        if (removed && ok !== true) addSystemNote(THEATER_LONG_KB_CLEAN_FAILED);   // 存不上（soKbSave 已经说了原因）
+    } catch (e) {
+        console.warn('[Story Oracle] 小剧场：删除 IF 的前情总结失败', e);
+        addSystemNote(THEATER_LONG_KB_CLEAN_FAILED);
+    }
+}
+// 这条 IF 在知识库里的前情总结（存在【且】开着才算——「已总结」就是从它现算的）；没有 = null。
+function soThrIfSummaryEntry(file, fileId) {
+    if (!file || !Array.isArray(file.entries) || typeof fileId !== 'string' || !fileId) return null;
+    return file.entries.find((e) => e && e.ifScope === fileId && e.enabled !== false && typeof e.content === 'string' && e.content.trim()) || null;
+}
+// 模型的提示词上限 = ST 自己的 getMaxPromptTokens()（与预设路的世界书扫描同一个来源；神谕没有自己的上下文长度设置）。拿不到 = null（不裁，只按提醒线变红）。
+function soThrBudget(sc) {
+    try {
+        if (sc && typeof sc.getMaxPromptTokens === 'function') {
+            const n = Number(sc.getMaxPromptTokens());
+            if (Number.isFinite(n) && n > 0) return Math.floor(n);
+        }
+    } catch (e) { /* 读不到 = 不裁 */ }
+    return null;
+}
+const THEATER_KB_PROMPT_KEY = MODULE + '_thrKb';   // 预设路上这一趟知识库的那一格（只活在一趟里）
+const THEATER_LONG_KEEP = 10;
+// 这条 IF 总结时不碰、总结后接着发的最新几楼：保留最近楼层已开且比 10 大 = 照玩家的数；否则 10。
+function soThrSummaryKeep(fileId) {
+    const cur = ENABLE_CONVO_HIDE ? soHideConfigFor('theater', fileId) : null;
+    return (cur && cur.enabled && Number.isInteger(cur.keep) && cur.keep > THEATER_LONG_KEEP) ? cur.keep : THEATER_LONG_KEEP;
+}   // 📖 之后「保留最近楼层」留几楼（spec B2），也是总结时不碰的最新几楼
+const THEATER_METER_LINE_DEFAULT = 80000;
+const THEATER_METER_LINE_MIN = 8000;
+const THEATER_METER_LINE_MAX = 2000000;
+// 设置里的提醒线（整数 8000–2000000；不合法 = 默认 80000）。
+function soThrMeterLineSetting(s) {
+    const raw = s && s.thrMeterLine;
+    const n = Number(raw);
+    if (raw === '' || raw == null || !Number.isInteger(n) || n < THEATER_METER_LINE_MIN || n > THEATER_METER_LINE_MAX) return THEATER_METER_LINE_DEFAULT;
+    return n;
+}
+// 实际的红线（spec B7）= min(提醒线, 模型上限的 90%)。
+function soThrMeterLine(s, budget) {
+    const b = Number(budget);
+    return Math.min(soThrMeterLineSetting(s), (Number.isFinite(b) && b > 0) ? Math.floor(b * 0.9) : Infinity);
+}
+// 一组消息的 token 数：ST 的分词器在就用它（拼起来数一次），否则 soEstimateTokens。
+async function soThrCountTokens(messages) {
+    const list = Array.isArray(messages) ? messages : [];
+    try {
+        const c = getCtx();
+        if (c && typeof c.getTokenCountAsync === 'function') {
+            const n = await c.getTokenCountAsync(list.map((m) => usage_text(m && m.content)).join('\n'));
+            if (typeof n === 'number' && Number.isFinite(n) && n >= 0) return n;
+        }
+    } catch (e) { /* 分词器不可用 → 估算 */ }
+    return soEstimateTokens(list);
+}
+// 一条 IF 这一趟要带的知识库：这条 IF 自己的前情总结（开着就恒带，知识库关着也带，spec B8）+ 角色的普通条目（知识库开着时，照常激活 + 预算；
+// 别的 IF 的条目永远不带）。→ { text（'' = 不带）, summary（那条总结 | null）}。没有知识库 / 没有角色 / 索引里没有 = 不发任何请求（同 soKbMessageFor）。
+// 读不到 = 不带 + 本次打开聊天里一次「知识库读取失败，本次未带上」。出意外 = 不带 + console.warn（绝不挡住这一趟）。
+async function soThrKbState(fileId, scanTurns) {
+    const none = { text: '', summary: null };
+    if (!soThrLongOn() || !ENABLE_KNOWLEDGE_BASE) return none;
+    try {
+        const key = soKbCharKeyNow();
+        if (!key || !soKbIndexGet(getSettings().kbIndex, key)) return none;
+        const prev = soKbCache.get(key);
+        const file = await soKbLoad(key, { refresh: true });
+        if (!file) {
+            const pf = prev && prev.file;
+            const mattered = !(pf && pf.enabled === false) || !!soThrIfSummaryEntry(pf, fileId);
+            if (mattered && !soKbNoted.has(key)) {
+                soKbNoted.add(key);
+                addSystemNote(SO_KB_READ_FAILED_NOTE);
+            }
+            return none;
+        }
+        const summary = soThrIfSummaryEntry(file, fileId);
+        let ordinary = [];
+        if (file.enabled !== false) {
+            const fill = await soKbFillFor(file, scanTurns, { ifScope: (typeof fileId === 'string' && fileId) ? fileId : undefined, omit: summary ? summary.id : undefined });
+            ordinary = fill ? fill.included.map((x) => x.entry) : [];
+        }
+        return { text: soKbMessage([summary, ...ordinary].filter(Boolean)), summary };
+    } catch (e) {
+        console.warn('[Story Oracle] 小剧场：知识库读取出错（这一轮不带知识库）', e);
+        return none;
+    }
+}
+// PURE：预设路的「裁过没有」——ST 拼好的提示词里还找不找得到神谕交进去的最旧那一楼（按它开头 / 结尾的一小段字找；ST 可能给它加名字前缀、
+// 并进相邻的 system）。找不到 = 被 ST 按预算裁掉了 → true。那一楼太短 / 带宏（GENERATE_AFTER_DATA 时会被展开，对不上）= 探不准 → false
+// （只按长度变红，spec B7 兜底）。
+function soThrPromptLost(prompt, oldest) {
+    const mes = oldest && typeof oldest.mes === 'string' ? oldest.mes.trim() : '';
+    if (Array.from(mes).length < 8 || mes.includes('{{') || mes.includes('}}')) return false;
+    const chars = Array.from(mes);
+    const probes = [chars.slice(0, 24).join(''), chars.slice(-24).join('')];
+    const texts = (Array.isArray(prompt) ? prompt : []).map((m) => usage_text(m && m.content));
+    return !probes.some((pr) => texts.some((t) => t.includes(pr)));
 }
 /* —— 🎭 平行线的变量本（theater plan 2 Task 4）——
  * 每条 IF 有自己的一份 MVU 数据：开 IF 时从主聊天最新一楼深拷贝（record.seed），之后每条 IF 回复用 Mvu.parseMessage 在【上一轮的】
@@ -6639,8 +6883,11 @@ async function soThrApplyInline(entry, convoList, record) {
     }
     if (list.indexOf(entry) < 0 || String(entry.content) !== text) return false;   // 等待期间换了聊天 / 这条被改过 → 不写
     soThrSetVars(entry, next);
+    const placed = soThrPanelsOn() && soThrPlaceholderLand(entry, next);   // 🎬 面板：照 MVU 补状态栏占位符（有 stat_data 才补）
     if (list === convo) persistConvo();
+    if (placed && list === convo) soThrRepaintContent(entry);
     if (failed) addSystemNote(THEATER_MVU_PARSE_FAILED);
+    if (soThrPanelsOn() && list === convo) soThrPanelsVarsChanged(entry, prev);   // 🎬 面板：这条 IF 的面板收到 VARIABLE_UPDATE_ENDED
     return !failed;
 }
 // ✏ 改过一条 IF 回复：这一版的变量从「这一轮之前」那份按新正文重算（之后各轮的变量不动——它们是按当时的正文算的）。
@@ -6655,6 +6902,1052 @@ async function soThrAfterReply(entry, record, token, chatKey) {
     await soThrApplyInline(entry, convo, record);
     if (soThrStaleRun(token, chatKey) || convo.indexOf(entry) === -1) return;
     if (getSettings().theaterMvuDerive) await soThrDeriveMvu(entry, convo, record);
+}
+
+/* —— 🎬 小剧场 · IF = 迷你酒馆 第三阶段「面板」（ENABLE_THR_PANELS；spec docs/superpowers/specs/2026-11-08-theater-if-mini-st-design.md §5 Stage 3，
+ * plan docs/superpowers/plans/2026-11-08-theater-mini-st-3-panels.md）——
+ * 卡片的完整网页面板（```html 里有 html> / <head> / <body 的代码块）在 IF 回复里照酒馆助手（TH 4.9.5）的做法渲染成内嵌页面：
+ * SO 自己建框（不加 sandbox、srcdoc 同源 = 与 TH 同等信任，Prince P2），框的文档 = SO 照抄的 TH 小件（头部模板 / vh 改写 /
+ * 视口高度 / 框高脚本 / 第三方库）+ TH predefine.js 的分叉版（只删了它的 SillyTavern 定义、末尾多一句 window.parent.__soThrBridge(window)）。
+ * 桥（soThrBridgeInstall）在框自己的 window 上装 IF 版：楼号 = 9000000 + IF 楼、读写变量 = 这条 IF 的变量本、发送 = IF 的发送、
+ * 改主聊天的一律拒绝。主聊天永不改动；绝不改 window.TavernHelper / window.Mvu / SillyTavern 本身（框里拿的都是浅拷贝）；绝不 emit
+ * GENERATION_* / MESSAGE_* / TH 的 message_iframe_render_*。TH 原文件的 sha256 钉在 theater-panels-th-pin.test.mjs（TH 一改就红）。 */
+function soThrPanelsOn() {
+    return ENABLE_THR_PANELS && ENABLE_THEATER;
+}
+
+/* ---- Task 1 · MVU 状态栏占位符（spec §5 Stage 3 item 6）----
+ * 主聊天里是 MVU（不是酒馆助手）给 AI 回复补 <StatusPlaceHolderImpl/>：处理完一条 AI 回复、这条消息的变量里有 stat_data →
+ * 正文里没有就补 '\n\n<StatusPlaceHolderImpl/>'，再删掉 <status_current_variable>…</status_current_variable>（MVU 打包件
+ * Card/output/prototypes/fabula-host-p5c/mvu-dependency/derived/mvu-pinned.module.js，上游 183d8ade，搜 StatusPlaceHolderImpl）。
+ * 发出去的提示词里 MVU 再剥掉 '\n<StatusPlaceHolderImpl/>'。这里对 IF 记录做同一件事（只改 IF 记录，主聊天不碰）。 */
+const THEATER_STATUS_PLACEHOLDER = '<StatusPlaceHolderImpl/>';
+// MVU 原样：n.replaceAll(/<(status_current_variable)>(?:(?!<\1>).)*<\/\1?>/gis,'')
+const THEATER_STATUS_CURRENT_RE = /<(status_current_variable)>(?:(?!<\1>).)*<\/\1?>/gis;
+// PURE：hasStat 为假 → 原样返回；否则照 MVU 的次序：先补占位符（已有就不补），再删 <status_current_variable> 块。
+function soThrMvuPlaceholder(text, hasStat) {
+    if (!hasStat) return text;
+    let n = String(text == null ? '' : text);
+    if (!n.includes(THEATER_STATUS_PLACEHOLDER)) n += '\n\n' + THEATER_STATUS_PLACEHOLDER;
+    if (n.includes('<status_current_variable>')) n = n.replaceAll(THEATER_STATUS_CURRENT_RE, '');
+    return n;
+}
+// PURE：SO 路发出去的 IF 各轮去掉占位符（MVU 剥的就是这一串：'\n<StatusPlaceHolderImpl/>'）。
+function soThrPromptNoPlaceholder(text) {
+    return String(text == null ? '' : text).split('\n' + THEATER_STATUS_PLACEHOLDER).join('');
+}
+function soThrHasStat(vars) {
+    return !!(vars && typeof vars === 'object' && vars.stat_data && typeof vars.stat_data === 'object');
+}
+// 这一轮的变量本里有 stat_data → 给这条 IF 回复补占位符（经唯一写入口 soSetEntryText：版本表 / 原文表 / 变量本跟着走）。回 true = 改了正文。
+function soThrPlaceholderLand(entry, vars) {
+    if (!entry || entry.role !== 'assistant' || !soThrHasStat(vars)) return false;
+    const cur = String(entry.content == null ? '' : entry.content);
+    const next = soThrMvuPlaceholder(cur, true);
+    if (next === cur) return false;
+    soSetEntryText(entry, next);
+    return true;
+}
+// 只重画这条回复的正文（与 soThrSend 定稿同一条画法；data-so-raw 跟着正文）。
+function soThrRepaintContent(entry) {
+    const c = entry && entry._el && typeof entry._el.querySelector === 'function' ? entry._el.querySelector('.so-content') : null;
+    if (!c || !messagesEl || !messagesEl.contains(c)) return false;
+    soThrPaint(c, entry.content, entry);
+    return true;
+}
+
+/* ---- Task 2 · IF 的「楼层」视图（PURE）----
+ * IF 房里的 user / assistant 各轮按序编号 k（0 起），对外的楼号 = 9000000 + k（spec B5：与 TH 的框名格式同形、与主聊天永不撞号）。 */
+const THEATER_PANEL_ID_BASE = 9000000;
+function soThrIfView(list, ctx) {
+    const l = Array.isArray(list) ? list : (Array.isArray(convo) ? convo : []);
+    const c = ctx || getCtx() || {};
+    const out = [];
+    for (const m of l) {
+        if (!m || (m.role !== 'user' && m.role !== 'assistant')) continue;
+        const k = out.length;
+        out.push({
+            k, id: THEATER_PANEL_ID_BASE + k, entry: m, role: m.role,
+            name: String((m.role === 'user' ? c.name1 : c.name2) || ''),
+            text: String(m.content == null ? '' : m.content),
+            vars: soThrVarsOk(m.thrVars) ? m.thrVars : null,
+            pruned: m.thrVarsPruned === true,
+        });
+    }
+    return out;
+}
+// 第 k 轮的变量：k 处或之前最近一条有变量的 IF 回复那份，按导入的口径补回 display_data / delta_data。先撞上被删过变量的一轮 → null（不可知）；
+// 都没有 → seed（这条 IF 的起点，可选）或 null。
+function soThrVarsAt(view, k, seed) {
+    const v = Array.isArray(view) ? view : [];
+    if (!Number.isInteger(k) || k < 0 || k >= v.length) return null;
+    for (let i = k; i >= 0; i--) {
+        const it = v[i];
+        if (!it || it.role !== 'assistant') continue;
+        if (it.vars) return soThrImportVars(it.vars);
+        if (it.pruned) return null;
+    }
+    return soThrVarsOk(seed) ? soThrImportVars(seed) : null;
+}
+// TH 的楼号 → IF 下标 k。≥ 9000000 = IF 楼号；负数 = 从末尾数（-1 = 最新）；0 … 8999999 = 主聊天楼号 → 抛 TH 自己的那句「超出了范围」，
+// 绝不夹到 IF 或主线上（TH 自己的 getChatMessages 会 _.clamp 到主聊天最后一楼，spec B5 的 astra 更正）。clamp = 越过 IF 两头时夹回（getChatMessages 口径）。
+function soThrIfK(view, id, clamp) {
+    const v = Array.isArray(view) ? view : [];
+    const len = v.length;
+    const n = (typeof id === 'string' && /^-?\d+$/.test(id.trim())) ? Number(id.trim()) : id;
+    // TH function/variables.ts：`提供的消息楼层号 '${option.message_id}' 超出了范围 [${-chat.length}, ${chat.length})`（范围换成 IF 的）
+    const bad = () => new Error(`提供的消息楼层号 '${id}' 超出了范围 [${THEATER_PANEL_ID_BASE}, ${THEATER_PANEL_ID_BASE + len})`);
+    if (typeof n !== 'number' || !Number.isInteger(n)) throw bad();
+    let k;
+    if (n < 0) k = len + n;
+    else if (n >= THEATER_PANEL_ID_BASE) k = n - THEATER_PANEL_ID_BASE;
+    else throw bad();
+    if (k < 0 || k >= len) {
+        if (!clamp || !len) throw bad();
+        k = Math.min(Math.max(k, 0), len - 1);
+    }
+    return k;
+}
+// TH getChatMessages（function/chat_message.ts）的返回形状，楼号是 IF 的。range：'n' / '-1' / 'a-b'（负数从末尾数），{{lastMessageId}} = 最新 IF 楼。
+// opts：role（'all' | 'system' | 'assistant' | 'user'）/ hide_state（IF 各轮从不是 ST 的隐藏楼）/ include_swipes（只有当前这一版：swipes = [text]）。
+function soThrChatMessages(view, range, opts, seed) {
+    const v = Array.isArray(view) ? view : [];
+    const o = opts || {};
+    const role = o.role || 'all';
+    const hide = o.hide_state || 'all';
+    const r = String(range == null ? '' : range).replace(/\{\{lastMessageId\}\}/gi, String(THEATER_PANEL_ID_BASE + v.length - 1)).trim();
+    let a;
+    let b;
+    let m = r.match(/^(-?\d+)$/);
+    if (m) { a = b = Number(m[1]); } else {
+        m = r.match(/^(-?\d+)-(-?\d+)$/);
+        if (!m) return [];
+        a = Number(m[1]);
+        b = Number(m[2]);
+        // 「整段聊天」惯用法 getChatMessages('0-' + getLastMessageId())：起点落在主聊天楼号（0…8999999）、终点是 IF 楼号 → 起点 = 这条 IF 的第一楼
+        if (a >= 0 && a < THEATER_PANEL_ID_BASE && (b >= THEATER_PANEL_ID_BASE || b < 0)) a = THEATER_PANEL_ID_BASE;
+    }
+    if (!v.length) return [];
+    let s = soThrIfK(v, a, true);
+    let e = soThrIfK(v, b, true);
+    if (s > e) [s, e] = [e, s];
+    const out = [];
+    for (let k = s; k <= e; k++) {
+        const it = v[k];
+        if (role !== 'all' && it.role !== role) continue;
+        if (hide === 'hidden') continue;
+        const data = soThrVarsAt(v, k, seed) || {};
+        if (o.include_swipes) {
+            out.push({ message_id: it.id, name: it.name, role: it.role, is_hidden: false, swipe_id: 0, swipes: [it.text], swipes_data: [data], swipes_info: [{}] });
+        } else {
+            out.push({ message_id: it.id, name: it.name, role: it.role, is_hidden: false, message: it.text, data, extra: {}, swipe_id: 0, swipes: [it.text], swipes_data: [data] });
+        }
+    }
+    return soThrClone(out);
+}
+// 框里 SillyTavern.getContext().chat 的那份：ST 消息的形状，variables[0] = 这一轮自己的变量（补回 display_data / delta_data）。
+function soThrStChat(view) {
+    return (Array.isArray(view) ? view : []).map((it) => ({
+        name: it.name, is_user: it.role === 'user', is_system: false, mes: it.text, send_date: '', extra: {},
+        swipe_id: 0, swipes: [it.text], variables: [soThrImportVars(it.vars) || {}],
+    }));
+}
+// 平行线的「聊天级变量」：主聊天聊天级 variables 的拷贝，MVU 那几个键换成平行线此刻那份（与预设路互换 soThrVarSwap 同一组键）。
+function soThrChatView(view, seed, ctx) {
+    const cm = ctx && ctx.chatMetadata && ctx.chatMetadata.variables;
+    const base = (cm && typeof cm === 'object') ? (soThrClone(cm) || {}) : {};
+    const v = Array.isArray(view) ? view : [];
+    const now = soThrVarsAt(v, v.length - 1, seed);
+    if (now) for (const key of ['stat_data', 'schema', 'display_data', 'delta_data']) if (now[key] !== undefined) base[key] = soThrClone(now[key]);
+    return base;
+}
+
+/* ---- Task 3 · 框的文档：SO 照抄的 TH 4.9.5 小件 + predefine 分叉 ----
+ * 下面四段是 TH 源文件的【原文】（public/scripts/extensions/third-party/JS-Slash-Runner/src/iframe/…），theater-panels-th-pin.test.mjs
+ * 逐字节对拍 + 钉 sha256。TH 用 blob 地址挂这几个脚本，这里改成内联 <script>（同一段文字）。 */
+// TH 4.9.5 src/iframe/predefine.js（原文，一字不改）
+const THEATER_TH_PREDEFINE = `window._ = window.parent._;
+const iframeId = window.frameElement?.id || window.name;
+if (iframeId) {
+  // Cache the iframe id in case frameElement disappears (e.g., Firefox removing srcdoc iframes on navigation)
+  // and also put it on window.name so it survives DOM removal.
+  window.__TH_IFRAME_ID = iframeId;
+  if (!window.name) {
+    window.name = iframeId;
+  }
+}
+let result = _(window);
+result = result.merge(_.pick(window.parent, ['EjsTemplate', 'TavernHelper', 'YAML', 'showdown', 'toastr', 'z']));
+result = result.merge(_.omit(_.get(window.parent, 'TavernHelper'), '_bind'));
+result = result.merge(
+  ...Object.entries(_.get(window.parent, 'TavernHelper')._bind).map(([key, value]) => ({
+    [key.replace('_', '')]: value.bind(window),
+  })),
+);
+result.value();
+
+// pinia 4.0.0+ 必须设置这个, 考虑到影响了非常多脚本/前端, 直接在这里统一设置
+_.set(window, '__VUE_PROD_DEVTOOLS__', true);  // 不使用 vue devtools 时不会有性能开销, 默认启用即可
+_.set(window, '__VUE_OPTIONS_API__', true);
+_.set(window, '__VUE_PROD_HYDRATION_MISMATCH_DETAILS__', false);
+
+Object.defineProperty(window, 'SillyTavern', {
+  get: () => {
+    const SillyTavern = _.get(window.parent, 'SillyTavern');
+    const getContext = () => {
+      return { ...SillyTavern.getContext(), writeExtensionField: _th_impl.writeExtensionField };
+    };
+    return { ...getContext(), getContext };
+  },
+});
+
+// 其实应该用 waitGlobalInitialized 来等待 Mvu 初始化完毕, 这里设置 window.Mvu 只是为了兼容性
+if (_.has(window.parent, 'Mvu')) {
+  Object.defineProperty(window, 'Mvu', {
+    get: () => _.get(window.parent, 'Mvu'),
+    // Mvu 脚本自己还会 \`_.set()\` 自己的变量, 所以这里设置一个空 set
+    set: () => {},
+    configurable: true,
+  });
+}
+
+$(window).on('pagehide', () => {
+  eventClearAll();
+});
+`;
+// TH 4.9.5 src/iframe/adjust_viewport.js（原文，一字不改）
+const THEATER_TH_ADJUST_VIEWPORT = `$('html').css('--TH-viewport-height', \`\${window.parent.innerHeight}px\`);
+window.addEventListener('message', function (event) {
+  if (event.data?.type === 'TH_UPDATE_VIEWPORT_HEIGHT') {
+    $('html').css('--TH-viewport-height', \`\${window.parent.innerHeight}px\`);
+  }
+});
+`;
+// TH 4.9.5 src/iframe/adjust_iframe_height.js（原文，一字不改）
+const THEATER_TH_ADJUST_HEIGHT = `(function () {
+  let scheduled = false;
+
+  function measureAndPost() {
+    scheduled = false;
+    try {
+      const doc = window.document;
+      const body = doc.body;
+      const html = doc.documentElement;
+      if (!body || !html) {
+        return;
+      }
+
+      let height = 0;
+      height = body.scrollHeight;
+
+      if (!Number.isFinite(height) || height <= 0) {
+        return;
+      }
+
+      frameElement.style.height = \`\${height}px\`;
+    } catch {
+      //
+    }
+  }
+  const throttledMeasureAndPost = _.throttle(measureAndPost, 500);
+
+  function postIframeHeight() {
+    if (scheduled) {
+      return;
+    }
+    scheduled = true;
+
+    if (typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(measureAndPost);
+    } else {
+      throttledMeasureAndPost();
+    }
+  }
+
+  function observeHeightChange() {
+    const body = document.body;
+    if (!body) {
+      return;
+    }
+
+    const resize_observer = new ResizeObserver(entries => {
+      postIframeHeight();
+    });
+    resize_observer.observe(body);
+  }
+
+  $(() => {
+    postIframeHeight();
+    observeHeightChange();
+  });
+})();
+`;
+// TH 4.9.5 src/iframe/third_party_message.html（原文，一字不改）
+const THEATER_TH_THIRD_PARTY = `<link rel="stylesheet" href="https://testingcf.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" />
+<script src="/scripts/extensions/third-party/JS-Slash-Runner/lib/tailwindcss.min.js"></script>
+<script src="https://testingcf.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script>
+<script src="https://testingcf.jsdelivr.net/npm/jquery-ui/dist/jquery-ui.min.js"></script>
+<link rel="stylesheet" href="https://testingcf.jsdelivr.net/npm/jquery-ui/themes/base/theme.min.css" />
+<script src="https://testingcf.jsdelivr.net/npm/jquery-ui-touch-punch"></script>
+<script src="https://testingcf.jsdelivr.net/npm/vue/dist/vue.runtime.global.prod.min.js"></script>
+<script src="https://testingcf.jsdelivr.net/npm/vue-router/dist/vue-router.global.prod.min.js"></script>
+`;
+// TH panel/render/iframe.ts 头部里的远程日志脚本（原样，不内联：TH 也是从 jsDelivr 拿）。
+const THEATER_TH_LOG_URL = 'https://testingcf.jsdelivr.net/gh/N0VI028/JS-Slash-Runner/src/iframe/node_modules/log.js';
+const THEATER_TH_ST_BLOCK_HEAD = "Object.defineProperty(window, 'SillyTavern', {";
+const THEATER_PANEL_BRIDGE_CALL = 'window.parent.__soThrBridge && window.parent.__soThrBridge(window);';
+// SO 的 predefine 分叉 = TH 原文只改两处：(a) 删掉它的 Object.defineProperty(window, 'SillyTavern', …) 整段（TH 那段不可重定义，
+// 桥要自己定义一个可重定义的）；(b) 紧跟其后一句桥调用（THEATER_PANEL_BRIDGE_CALL，单独一个 <script>：predefine 最后一句要 jQuery——
+// 第三方库从 CDN 没拿到时它会抛错，同一段脚本里排在它后面的桥调用就跑不到，框会直接用上 TH 读写主聊天的那套）。
+// 本函数只做 (a)；认不出那一段（TH 改了）→ null = 不挂面板（钉测试同时变红）。
+function soThrPredefineFork(src) {
+    const t = String(src == null ? THEATER_TH_PREDEFINE : src);
+    const a = t.indexOf(THEATER_TH_ST_BLOCK_HEAD);
+    if (a < 0) return null;
+    const endMark = '\n});\n';
+    const b = t.indexOf(endMark, a);
+    if (b < 0) return null;
+    let cut = b + endMark.length;
+    if (t[cut] === '\n') cut++;   // 那一段后面的空行
+    return t.slice(0, a) + t.slice(cut);
+}
+// TH panel/render/iframe.ts replaceVhInContent 的 JS 照抄（只去掉 TS 类型标注）：min-height 里的 vh → var(--TH-viewport-height)。
+function soThrReplaceVh(input) {
+    let content = String(input == null ? '' : input);
+    const has_css_min_vh = /min-height\s*:\s*[^;{}]*\d+(?:\.\d+)?vh/gi.test(content);
+    const has_inline_style_vh = /style\s*=\s*(["'])[\s\S]*?min-height\s*:\s*[^;]*?\d+(?:\.\d+)?vh[\s\S]*?\1/gi.test(
+        content,
+    );
+    const has_js_vh =
+        /(\.style\.minHeight\s*=\s*(["']))([\s\S]*?vh)(\2)/gi.test(content) ||
+        /(setProperty\s*\(\s*(["'])min-height\2\s*,\s*(["']))([\s\S]*?vh)(\3\s*\))/gi.test(content);
+    if (!has_css_min_vh && !has_inline_style_vh && !has_js_vh) {
+        return content;
+    }
+    const convertVhToVariable = (value) =>
+        value.replace(/(\d+(?:\.\d+)?)vh\b/gi, (match, v) => {
+            const parsed = parseFloat(v);
+            if (!isFinite(parsed)) {
+                return match;
+            }
+            const VARIABLE_EXPRESSION = 'var(--TH-viewport-height)';
+            if (parsed === 100) {
+                return VARIABLE_EXPRESSION;
+            }
+            return `calc(${VARIABLE_EXPRESSION} * ${parsed / 100})`;
+        });
+    content = content.replace(
+        /(min-height\s*:\s*)([^;{}]*?\d+(?:\.\d+)?vh)(?=\s*[;}])/gi,
+        (_m, prefix, value) => `${prefix}${convertVhToVariable(value)}`,
+    );
+    content = content.replace(
+        /(style\s*=\s*(["']))([^"'"]*?)(\2)/gi,
+        (match, prefix, _quote, styleContent, suffix) => {
+            if (!/min-height\s*:\s*[^;]*vh/i.test(styleContent)) return match;
+            const replaced = styleContent.replace(
+                /(min-height\s*:\s*)([^;]*?\d+(?:\.\d+)?vh)/gi,
+                (_m2, p1, p2) => `${p1}${convertVhToVariable(p2)}`,
+            );
+            return `${prefix}${replaced}${suffix}`;
+        },
+    );
+    content = content.replace(
+        /(\.style\.minHeight\s*=\s*(["']))([\s\S]*?)(\2)/gi,
+        (match, prefix, _q, val, suffix) => {
+            if (!/\b\d+(?:\.\d+)?vh\b/i.test(val)) return match;
+            return `${prefix}${convertVhToVariable(val)}${suffix}`;
+        },
+    );
+    content = content.replace(
+        /(setProperty\s*\(\s*(["'])min-height\2\s*,\s*(["']))([\s\S]*?)(\3\s*\))/gi,
+        (match, prefix, _q1, _q2, val, suffix) => {
+            if (!/\b\d+(?:\.\d+)?vh\b/i.test(val)) return match;
+            return `${prefix}${convertVhToVariable(val)}${suffix}`;
+        },
+    );
+    return content;
+}
+// TH util/is_frontend.ts isFrontend 照抄。
+function soThrIsFrontend(content) {
+    return ['html>', '<head>', '<body'].some((tag) => String(content == null ? '' : content).includes(tag));
+}
+// TH util/tavern.ts getUserAvatarPath / getCharAvatarPath 的同款路径（读不到 = 空文件名，与 TH 在没有头像时一样）。
+function soThrAvatarPaths() {
+    const ctx = getCtx() || {};
+    let user = '';
+    try { user = String((personasModule && personasModule.user_avatar) || ''); } catch (e) { user = ''; }
+    const list = Array.isArray(ctx.characters) ? ctx.characters : [];
+    const ch = (ctx.characterId != null && ctx.characterId !== '') ? list[Number(ctx.characterId)] : null;
+    const charFile = ch ? encodeURIComponent(String(ch.avatar || ch.name || '')) : '';
+    const safe = (p) => String(p).replace(/'/g, '%27').replace(/</g, '%3C');
+    return { user: safe(`./User Avatars/${user}`), char: safe('/characters/' + charFile) };
+}
+function soThrInlineScript(js) {
+    return '<script>' + String(js).replace(/<\/script/gi, '<\\/script') + '</script>';
+}
+// TH createSrcContent(content, use_blob_url = false) 的同一份文档：同样的头部次序（头像 CSS → 第三方库 → 脚本），脚本内联，
+// 第一个脚本换成 SO 的 predefine 分叉。name = 这一框的名字（文档里不出现：TH 也不写进去，桥按框的 window.name 认人）。
+function soThrFrameDoc(code, name) {
+    void name;
+    const fork = soThrPredefineFork();
+    if (fork == null) return null;
+    const av = soThrAvatarPaths();
+    return `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+*,*::before,*::after{box-sizing:border-box;}
+html,body{margin:0!important;padding:0;overflow:hidden!important;max-width:100%!important;}
+.user_avatar,.user-avatar{background-image:url('${av.user}')}
+.char_avatar,.char-avatar{background-image:url('${av.char}')}
+</style>
+${THEATER_TH_THIRD_PARTY}
+${soThrInlineScript(fork)}
+${soThrInlineScript(THEATER_PANEL_BRIDGE_CALL)}
+<script src="${THEATER_TH_LOG_URL}"></script>
+${soThrInlineScript(THEATER_TH_ADJUST_VIEWPORT)}
+${soThrInlineScript(THEATER_TH_ADJUST_HEIGHT)}
+</head>
+<body>
+${soThrReplaceVh(code)}
+</body>
+</html>
+`;
+}
+
+/* ---- Task 4 · 桥：框里的 IF 版函数 ----
+ * 框名 → fc（框的上下文）在挂载时登记（soThrFrames）；predefine 分叉的最后一句 window.parent.__soThrBridge(window) 按框的 window.name
+ * 找到 fc、装上 IF 版。每个 IF 版先查 fc.alive()（框还在页面上、眼前还是这条 IF）——死框的调用一律什么都不做（回 undefined）；
+ * 只有「移除监听」这一类永远照做（框被移走时 TH 的 pagehide → eventClearAll 要能清掉它挂在 ST 总线上的监听）。 */
+// DRAFT 文案（待 Prince 选；表 docs/agent/theater-mini-st-wording.md「Stage 3」）。
+const THEATER_PANEL_FOLDED = '较早的面板已收起';
+const THEATER_PANEL_REFUSED = '这个面板想改主聊天，小剧场里不执行（已忽略）';
+const THEATER_PANEL_SLASH_REFUSED = '这个面板发的指令小剧场里不支持，整条都没有执行';
+// MVU 自己的事件名表（上面那份打包件里的 ct 常量，原样）：真的 window.Mvu 没有 events 时才用它。
+const THEATER_PANEL_MVU_EVENTS = {
+    VARIABLE_INITIALIZED: 'mag_variable_initialized', VARIABLE_UPDATE_STARTED: 'mag_variable_update_started',
+    COMMAND_PARSED: 'mag_command_parsed', VARIABLE_UPDATE_ENDED: 'mag_variable_update_ended',
+    BEFORE_MESSAGE_UPDATE: 'mag_before_message_update', SINGLE_VARIABLE_UPDATED: 'mag_variable_updated',
+};
+// TH function/index.ts 里「拿楼号 / 默认楼号 / 读写主聊天楼」的那些（theater-panels.test.mjs 逐个核对都换成了 IF 版）。
+const THEATER_PANEL_ID_FNS = [
+    'getCurrentMessageId', 'getLastMessageId', 'getChatMessages', 'setChatMessages', 'setChatMessage', 'createChatMessages',
+    'deleteChatMessages', 'rotateChatMessages', 'formatAsDisplayedMessage', 'retrieveDisplayedMessage', 'refreshOneMessage',
+    'formatAsTavernRegexedString', 'getVariables', 'getAllVariables', 'replaceVariables', 'updateVariablesWith',
+    'insertOrAssignVariables', 'insertVariables', 'deleteVariable',
+];
+// B11：改主聊天 / 生成 → 拒绝（提示一次 + console.warn，回 undefined）。
+const THEATER_PANEL_REFUSE_FNS = ['createChatMessages', 'setChatMessages', 'setChatMessage', 'deleteChatMessages', 'rotateChatMessages', 'generate', 'generateRaw'];
+const THEATER_PANEL_SLASH_OK = ['/send', '/setinput', '/trigger', '/echo'];
+const soThrFrames = new Map();   // 框名 → fc
+function soThrMvuEvents() {
+    const m = soThrMvu();
+    return (m && m.events && typeof m.events === 'object') ? m.events : THEATER_PANEL_MVU_EVENTS;
+}
+function soThrFcAlive(fc) {
+    return !!(fc && fc.iframe && fc.iframe.isConnected) && soThrFrames.get(fc.name) === fc
+        && theaterMode && convoStreamKey === 'theater' && soActiveFileId('theater') === fc.fileId;
+}
+function soThrFcSeed(fc) {
+    const r = fc ? soThrIfGet(fc.fileId) : null;
+    return (r && soThrVarsOk(r.seed)) ? r.seed : null;
+}
+function soThrPanelRefuse(fc, name, msg, detail) {
+    console.warn(`[Story Oracle] 小剧场面板：${name} 在 IF 里不执行`, detail === undefined ? '' : detail);
+    const key = name + '|' + msg;
+    if (fc && fc.refusedSeen) {
+        if (fc.refusedSeen.has(key)) return;
+        fc.refusedSeen.add(key);
+    }
+    if (typeof toastr !== 'undefined' && toastr && typeof toastr.warning === 'function') toastr.warning(msg, '故事神谕');
+}
+// 读：message → 这一轮的 IF 变量；chat → 卡片把 MVU 镜像到聊天级时 = 平行线的聊天级视图，否则 TH 自己的；其余（character / global / preset /
+// script / extension）→ TH 自己的。
+function soThrBridgeRead(fc, orig, option) {
+    const o = (option && typeof option === 'object') ? option : { type: 'chat' };
+    if (o.type === 'message') {
+        const v = soThrIfView(convo);
+        const k = (o.message_id === undefined || o.message_id === 'latest') ? v.length - 1 : soThrIfK(v, o.message_id, false);
+        return soThrClone(soThrVarsAt(v, k, soThrFcSeed(fc)) || {});
+    }
+    if (o.type === 'chat' && soThrChatLevel(getCtx())) return soThrChatView(soThrIfView(convo), soThrFcSeed(fc), getCtx());
+    return typeof orig.getVariables === 'function' ? orig.getVariables(o) : {};
+}
+// 写的目标：message → 那一轮（是玩家那句 = 它之前最近的那条 IF 回复：读也读它）；chat（镜像卡）→ 最新一条 IF 回复。没有 → null。
+function soThrBridgeTarget(v, option) {
+    const o = option || {};
+    let k;
+    if (o.type === 'chat') k = v.length - 1;
+    else k = (o.message_id === undefined || o.message_id === 'latest') ? v.length - 1 : soThrIfK(v, o.message_id, false);
+    for (let i = k; i >= 0; i--) if (v[i] && v[i].role === 'assistant') return v[i];
+    return null;
+}
+// 写进 IF 的变量本（精简存：去掉 display_data / delta_data）。chat 写只收 MVU 的键（stat_data / schema），其余键不会落到主聊天，丢弃 + warn。
+function soThrBridgeStore(fc, option, value) {
+    const v = soThrIfView(convo);
+    const it = soThrBridgeTarget(v, option);
+    if (!it) { soThrPanelRefuse(fc, 'variables', THEATER_PANEL_REFUSED, option); return false; }
+    let next;
+    if (option && option.type === 'chat') {
+        next = Object.assign({}, soThrClone(it.vars || soThrFcSeed(fc) || {}));
+        const extra = [];
+        for (const key of Object.keys(value || {})) {
+            if (key === 'stat_data' || key === 'schema') next[key] = soThrClone(value[key]);
+            else if (key !== 'display_data' && key !== 'delta_data') extra.push(key);
+        }
+        if (extra.length) console.warn('[Story Oracle] 小剧场面板：聊天级变量只收 MVU 的键，其余没有写', extra);
+    } else {
+        next = soThrClone(value && typeof value === 'object' ? value : {});
+    }
+    const before = it.vars ? soThrClone(it.vars) : null;
+    soThrSetVars(it.entry, soThrLean(next));
+    persistConvo();
+    return { entry: it.entry, before };
+}
+// TH 的几个写函数共用：message / chat（镜像卡）→ IF；chat（不镜像）→ 拒绝；character / global / preset / script / extension → TH 自己的。
+function soThrBridgeUpdate(fc, orig, option, updater, pass) {
+    const o = (option && typeof option === 'object') ? option : { type: 'chat' };
+    const toIf = o.type === 'message' || (o.type === 'chat' && soThrChatLevel(getCtx()));
+    if (!toIf) {
+        if (o.type === 'chat') { soThrPanelRefuse(fc, 'chat variables', THEATER_PANEL_REFUSED, o); return undefined; }
+        return pass(o);
+    }
+    const old = soThrBridgeRead(fc, orig, o);
+    const res = updater(old);
+    const land = (r) => { if (fc.alive()) soThrBridgeStore(fc, o, r); return r; };
+    if (res && typeof res.then === 'function') return res.then(land);
+    return land(res);
+}
+function soThrLodash() {
+    const l = (typeof window !== 'undefined') ? window._ : null;
+    return (l && typeof l.mergeWith === 'function' && typeof l.unset === 'function') ? l : null;
+}
+// TH insertOrAssignVariables / insertVariables 的合并（_.mergeWith，数组整替）；没有 lodash → 同义的小实现。
+function soThrMergeVars(target, src) {
+    const l = soThrLodash();
+    if (l) return l.mergeWith(target, src, (_lhs, rhs) => (Array.isArray(rhs) ? rhs : undefined));
+    const isObj = (x) => x && typeof x === 'object' && !Array.isArray(x);
+    const merge = (t, s) => {
+        for (const key of Object.keys(s || {})) {
+            const sv = s[key];
+            if (isObj(sv) && isObj(t[key])) merge(t[key], sv);
+            else if (isObj(sv)) t[key] = merge({}, sv);
+            else if (sv !== undefined) t[key] = sv;
+        }
+        return t;
+    };
+    return merge(target, src);
+}
+function soThrUnsetPath(obj, path) {
+    const l = soThrLodash();
+    if (l) return l.unset(obj, path);
+    const parts = String(path).replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean);
+    let cur = obj;
+    for (let i = 0; i < parts.length - 1; i++) { if (!cur || typeof cur !== 'object') return true; cur = cur[parts[i]]; }
+    if (cur && typeof cur === 'object') delete cur[parts[parts.length - 1]];
+    return true;
+}
+// Mvu.replaceMvuData / replaceCurrentMvuData：写这一轮的变量本，然后告诉这条 IF 的面板（VARIABLE_UPDATE_ENDED，MVU 的载荷形状：新, 旧）。
+let soThrEmitDepth = 0;
+function soThrBridgeMvuReplace(fc, data, option) {
+    const o = (option && typeof option === 'object') ? option : { type: 'message' };
+    if (o.type !== 'message' && !(o.type === 'chat' && soThrChatLevel(getCtx()))) { soThrPanelRefuse(fc, 'Mvu.replaceMvuData', THEATER_PANEL_REFUSED, o); return undefined; }
+    const got = soThrBridgeStore(fc, o, data);
+    if (got && soThrEmitDepth === 0) {
+        const ev = soThrMvuEvents().VARIABLE_UPDATE_ENDED || THEATER_PANEL_MVU_EVENTS.VARIABLE_UPDATE_ENDED;
+        soThrFrameEmit(fc.fileId, ev, soThrImportVars(got.entry.thrVars) || {}, soThrImportVars(got.before) || {});
+    }
+    return undefined;
+}
+// 本地（每条 IF 一份）的 MVU 事件：存在 fc.listeners（事件名 → [{fn, once}]），只由 soThrFrameEmit 派发——绝不经 ST 的事件总线。
+function soThrLocalOn(fc, type, fn, how) {
+    const key = String(type);
+    if (!fc.listeners.has(key)) fc.listeners.set(key, []);
+    const arr = fc.listeners.get(key);
+    if (typeof fn === 'function' && !arr.some((l) => l.fn === fn)) {
+        const l = { fn, once: how === 'once' };
+        if (how === 'first') arr.unshift(l); else arr.push(l);
+    }
+    return { stop: () => soThrLocalOff(fc, key, fn) };
+}
+function soThrLocalOff(fc, type, fn) {
+    const arr = fc && fc.listeners ? fc.listeners.get(String(type)) : null;
+    if (!arr) return;
+    const i = arr.findIndex((l) => l.fn === fn);
+    if (i !== -1) arr.splice(i, 1);
+    if (!arr.length) fc.listeners.delete(String(type));
+}
+// 只派发给这条 IF【还活着】的框（每个框拿一份载荷拷贝）。回调到的监听个数。
+function soThrFrameEmit(fileId, type, ...args) {
+    let n = 0;
+    soThrEmitDepth++;
+    try {
+        for (const fc of Array.from(soThrFrames.values())) {
+            if (!fc || fc.fileId !== fileId || !fc.listeners || !fc.alive()) continue;
+            const arr = fc.listeners.get(String(type));
+            if (!arr || !arr.length) continue;
+            for (const l of arr.slice()) {
+                if (l.once) soThrLocalOff(fc, type, l.fn);
+                n++;
+                try {
+                    const r = l.fn(...soThrClone(args));
+                    if (r && typeof r.catch === 'function') r.catch((e) => console.warn('[Story Oracle] 小剧场面板：事件监听出错', e));
+                } catch (e) { console.warn('[Story Oracle] 小剧场面板：事件监听出错', e); }
+            }
+        }
+    } finally { soThrEmitDepth--; }
+    return n;
+}
+// 一条 IF 回复的变量变了（解析 / 改字 / 换版本）→ 这条 IF 的面板收到 VARIABLE_UPDATE_ENDED（新, 旧）。
+function soThrPanelsVarsChanged(entry, prev) {
+    if (!soThrPanelsOn() || !soThrFrames.size || !entry || !soThrVarsOk(entry.thrVars)) return 0;
+    const ev = soThrMvuEvents().VARIABLE_UPDATE_ENDED || THEATER_PANEL_MVU_EVENTS.VARIABLE_UPDATE_ENDED;
+    return soThrFrameEmit(soActiveFileId('theater'), ev, soThrImportVars(entry.thrVars) || {}, soThrImportVars(prev) || {});
+}
+// triggerSlash 的管道拆分：不在双引号里的 | 切段（\| = 字面的 |；ST SlashCommandParser 的简化版——不认 {: :} 闭包，含闭包整条拒绝）。
+function soThrSlashSplit(command) {
+    const s = String(command == null ? '' : command);
+    const segs = [];
+    let cur = '';
+    let quoted = false;
+    for (let i = 0; i < s.length; i++) {
+        const ch = s[i];
+        if (ch === '\\' && s[i + 1] === '|') { cur += '|'; i++; continue; }
+        if (ch === '"') quoted = !quoted;
+        if (ch === '|' && !quoted) { segs.push(cur); cur = ''; continue; }
+        cur += ch;
+    }
+    segs.push(cur);
+    return segs.map((x) => x.trim()).filter(Boolean).map((x) => {
+        const m = x.match(/^(\/\S+)\s*([\s\S]*)$/);
+        return m ? { cmd: m[1].toLowerCase(), arg: m[2] } : { cmd: x, arg: '' };
+    });
+}
+// /send 的文字：去掉 ST 的具名参数（compact= / at= / name= / return=，IF 里不起作用）、整段双引号去掉。
+function soThrSlashArg(arg) {
+    let t = String(arg == null ? '' : arg).trim();
+    for (;;) {
+        const m = t.match(/^(?:compact|at|name|return)=(?:"[^"]*"|\S+)\s*/i);
+        if (!m) break;
+        t = t.slice(m[0].length);
+    }
+    if (t.length >= 2 && t.startsWith('"') && t.endsWith('"')) t = t.slice(1, -1);
+    return t.trim();
+}
+function soThrPanelBusy() {
+    const busy = soThrSummaryBusyReason();
+    if (busy && typeof toastr !== 'undefined' && toastr && typeof toastr.info === 'function') toastr.info(busy, '故事神谕');
+    return !!busy;
+}
+// 「/send X」不带 /trigger：照 ST 的 /send（只添一句玩家消息、不生成）——这一句落进这条 IF、画出来、存盘。
+function soThrPanelAppendUser(fc, text) {
+    const t = soThrArrivalRegex(text, 'user');
+    const e = { id: ++cidSeq, role: 'user', content: t };
+    if (soRoomWrite('theater', e, soThrIfFilesOn() ? { fileId: fc.fileId } : {})) {
+        e._el = addMessage('user', t, e);
+        if (soFollowStream) scrollToBottom();
+    }
+    if (ENABLE_REPLY_VERSIONS) soSyncAllReplyTools();
+    return e;
+}
+// 「/send X|/trigger」：X 当成玩家在这条 IF 里的这一轮发出去（与打字按发送同一条路），输入框里玩家自己的草稿原样留着。
+async function soThrSendFromPanel(text) {
+    const t = String(text == null ? '' : text).trim();
+    if (!t || soThrPanelBusy()) return false;
+    const draft = inputEl ? inputEl.value : '';
+    await soThrSend(t, { keepInput: true });
+    if (inputEl && draft && inputEl.value !== draft) { inputEl.value = draft; autoGrowInput(); }
+    return true;
+}
+async function soThrBridgeSlash(fc, command) {
+    const segs = soThrSlashSplit(command);
+    if (!segs.length || String(command).includes('{:') || segs.some((g) => !THEATER_PANEL_SLASH_OK.includes(g.cmd))) {
+        soThrPanelRefuse(fc, 'triggerSlash', THEATER_PANEL_SLASH_REFUSED, command);
+        return undefined;
+    }
+    const sends = [];
+    let setinput = null;
+    let generate = false;
+    let triggerAlone = false;
+    for (const g of segs) {
+        if (g.cmd === '/send') sends.push(soThrSlashArg(g.arg));
+        else if (g.cmd === '/setinput') setinput = soThrSlashArg(g.arg);
+        else if (g.cmd === '/trigger') { if (sends.length) generate = true; else triggerAlone = true; }
+        else if (g.cmd === '/echo') { const t = soThrSlashArg(g.arg); if (t && typeof toastr !== 'undefined') toastr.info(t); }   // 面板的提示语：只弹一句，不碰任何聊天
+    }
+    if (setinput !== null && inputEl) { inputEl.value = setinput; autoGrowInput(); }
+    const texts = sends.filter((x) => x);
+    if (texts.length) {
+        if (soThrPanelBusy()) return '';
+        const last = generate ? texts.pop() : null;
+        for (const x of texts) soThrPanelAppendUser(fc, x);
+        if (last != null) await soThrSendFromPanel(last);
+    } else if (triggerAlone) {
+        const lastUser = convo.length && convo[convo.length - 1] && convo[convo.length - 1].role === 'user' ? convo[convo.length - 1] : null;
+        if (lastUser && !soThrPanelBusy()) await soThrSend(lastUser.content, { answer: lastUser });
+    }
+    return '';
+}
+// SO 窗口里看得见的那块高（面板的 100vh = 它；TH 的 adjust_viewport.js 读 window.parent.innerHeight）。
+function soThrPanelViewportHeight() {
+    const h = messagesEl && messagesEl.clientHeight;
+    return (h && h > 0) ? h : (typeof window !== 'undefined' ? window.innerHeight : 0);
+}
+// window.parent 的代理（照 TH cleanup_protector.js 的做法）：document 里 #send_textarea → SO 的输入框、#send_but → SO 的发送键
+// （哈利波特：原生 setter 写值 + input / change + click() → 一次普通的 IF 发送）；TavernHelper / Mvu / SillyTavern → 这一框的那份；
+// innerHeight → SO 窗口里看得见的高；其余 = 真的 window。
+function soThrParentProxy(fc) {
+    const real = window;
+    const doc = document;
+    const pick = (sel) => {
+        const s = String(sel == null ? '' : sel).trim();
+        if (/^(?:textarea)?#send_textarea$/i.test(s)) return inputEl || null;
+        if (/^(?:div)?#send_but$/i.test(s)) return sendBtn || null;
+        return null;
+    };
+    const docProxy = new Proxy(doc, {
+        get(t, p) {
+            if (p === 'querySelector') return (sel) => pick(sel) || t.querySelector(sel);
+            if (p === 'getElementById') return (id) => (id === 'send_textarea' ? inputEl : (id === 'send_but' ? sendBtn : t.getElementById(id)));
+            if (p === 'querySelectorAll') return (sel) => { const el = pick(sel); return el ? [el] : t.querySelectorAll(sel); };
+            const v = Reflect.get(t, p);
+            return (typeof v === 'function' && !Object.hasOwn(v, 'prototype')) ? v.bind(t) : v;
+        },
+    });
+    const jq = real.jQuery || real.$;
+    let jqProxy = null;
+    if (typeof jq === 'function') {
+        jqProxy = function (selector, context) {
+            const el = typeof selector === 'string' ? pick(selector) : null;
+            if (el) return jq(el);
+            return jq(selector, context === docProxy ? doc : context);
+        };
+        Object.setPrototypeOf(jqProxy, jq);
+        jqProxy.fn = jq.fn;
+    }
+    let self = null;
+    self = new Proxy(real, {
+        get(t, p) {
+            if (p === 'parent' || p === 'window' || p === 'self' || p === 'top' || p === 'globalThis') return self;
+            if (p === 'document') return docProxy;
+            if (p === '$' || p === 'jQuery') return jqProxy || Reflect.get(t, p);
+            if (p === 'TavernHelper') return fc.thCopy;
+            if (p === 'Mvu') return fc.mvu;
+            if (p === 'SillyTavern') return fc.st();
+            if (p === 'innerHeight') return soThrPanelViewportHeight();
+            const v = Reflect.get(t, p);
+            if (typeof v === 'function' && !Object.hasOwn(v, 'prototype')) {
+                const d = Object.getOwnPropertyDescriptor(t, p);
+                if (d && !d.writable && !d.configurable) return v;
+                return v.bind(t);
+            }
+            return v;
+        },
+        set(t, p, value) { return Reflect.set(t, p, value); },
+        has(t, p) { return Reflect.has(t, p); },
+    });
+    return self;
+}
+// 框里 SillyTavern.getContext()：ST 的上下文，chat = 这条 IF 的各轮（ST 消息形状），chatId = 'so-if-' + IF id（稳定），characterId 不变。
+function soThrFrameContext(fc, fw) {
+    const ctx = getCtx() || {};
+    const out = Object.assign({}, ctx, { chat: soThrStChat(soThrIfView(convo, ctx)), chatId: 'so-if-' + fc.fileId, characterId: ctx.characterId });
+    const impl = fw && fw._th_impl;
+    if (impl && typeof impl.writeExtensionField === 'function') out.writeExtensionField = impl.writeExtensionField;
+    return out;
+}
+// window.__soThrBridge(fw)：按框名找 fc；不认识的名字 = 什么都不做。
+function soThrBridgeEntry(fw) {
+    try {
+        const name = String((fw && fw.name) || '');
+        const fc = soThrFrames.get(name);
+        if (!fc) return false;
+        return soThrBridgeInstall(fw, fc);
+    } catch (e) {
+        console.warn('[Story Oracle] 小剧场面板：桥没装上', e);
+        return false;
+    }
+}
+function soThrBridgeInstall(fw, fc) {
+    if (!fw || !fc) return false;
+    fc.win = fw;
+    if (!(fc.listeners instanceof Map)) fc.listeners = new Map();
+    // predefine 的 pagehide → eventClearAll 靠框里的 jQuery；它没加载上（CDN 不通）→ 用原生监听补上，框被移走时照样清掉它挂在 ST 总线上的监听。
+    if (typeof fw.$ !== 'function' && typeof fw.addEventListener === 'function') fw.addEventListener('pagehide', () => { try { if (typeof fw.eventClearAll === 'function') fw.eventClearAll(); } catch (e) { /* ignore */ } });
+    if (!(fc.refusedSeen instanceof Set)) fc.refusedSeen = new Set();
+    if (typeof fc.alive !== 'function') fc.alive = () => soThrFcAlive(fc);
+    const names = new Set([...THEATER_PANEL_ID_FNS, ...THEATER_PANEL_REFUSE_FNS, 'triggerSlash', 'triggerSlashWithResult', 'waitGlobalInitialized',
+        'eventOn', 'eventOnce', 'eventMakeFirst', 'eventMakeLast', 'eventRemoveListener', 'eventClearEvent', 'eventClearListener', 'eventClearAll',
+        'eventEmit', 'eventEmitAndWait']);
+    const orig = {};
+    for (const n of names) orig[n] = fw[n];
+    // 死框时回一个 resolve(undefined) 的 Promise（调用方多半 await / .then 它们）；拒绝的那几个活着死着都回 undefined。
+    const isAsync = new Set(['refreshOneMessage', 'triggerSlash', 'triggerSlashWithResult', 'waitGlobalInitialized', 'eventEmit']);
+    const view = () => soThrIfView(convo);
+    const ov = {};
+    // 身份
+    ov.getCurrentMessageId = () => THEATER_PANEL_ID_BASE + fc.k;
+    ov.getLastMessageId = () => { const v = view(); return v.length ? THEATER_PANEL_ID_BASE + v.length - 1 : -1; };
+    // 读
+    ov.getChatMessages = (range, opts) => soThrChatMessages(view(), range, opts, soThrFcSeed(fc));
+    ov.getVariables = (option) => soThrBridgeRead(fc, orig, option);
+    ov.getAllVariables = () => {
+        const v = view();
+        const pass = (type) => (typeof orig.getVariables === 'function' ? (orig.getVariables({ type }) || {}) : {});
+        const out = Object.assign({}, pass('global'), pass('character'), soThrBridgeRead(fc, orig, { type: 'chat' }));
+        const seed = soThrFcSeed(fc);
+        if (seed) Object.assign(out, soThrImportVars(seed));
+        const upto = Math.min(fc.k, v.length - 1);
+        for (let i = 0; i <= upto; i++) {
+            const own = v[i] && v[i].vars ? soThrImportVars(v[i].vars) : null;
+            if (own) Object.assign(out, own);
+        }
+        return soThrClone(out);
+    };
+    ov.formatAsDisplayedMessage = (text, opt) => {
+        const v = view();
+        const id = (opt && opt.message_id !== undefined) ? opt.message_id : 'last';
+        let k;
+        if (id === 'last') k = v.length - 1;
+        else if (id === 'last_user' || id === 'last_char') {
+            const want = id === 'last_user' ? 'user' : 'assistant';
+            k = -1;
+            for (let i = v.length - 1; i >= 0; i--) if (v[i].role === want) { k = i; break; }
+            if (k < 0) throw new Error(`未找到任何 ${id === 'last_user' ? 'user' : 'char'} 消息楼层, 你提供的是: ${id}`);
+        } else k = soThrIfK(v, id, false);
+        return soThrRenderHtml(text, Math.max(0, v.length - 1 - k));
+    };
+    ov.retrieveDisplayedMessage = (id) => {
+        const v = view();
+        const it = v[soThrIfK(v, id, false)];
+        const c = it && it.entry && it.entry._el ? it.entry._el.querySelector('.so-content') : null;
+        const jq = (typeof window !== 'undefined') ? (window.jQuery || window.$) : null;
+        return typeof jq === 'function' ? jq(c ? [c] : []) : c;
+    };
+    ov.refreshOneMessage = async (id) => {
+        const v = view();
+        const it = v[soThrIfK(v, id, false)];
+        if (it && it.entry) soRepaintEntry(it.entry);
+    };
+    ov.formatAsTavernRegexedString = (text, source, destination, opt) => {
+        // IF 版：同一次正则 + 宏替换；TH 的「宏样」替换（{{get_message_variable::…}}）不做——它读的是主聊天（已知限制）。
+        const o = opt || {};
+        const rp = (regexEngine && regexEngine.regex_placement) || {};
+        const placement = ({ user_input: rp.USER_INPUT, ai_output: rp.AI_OUTPUT, slash_command: rp.SLASH_COMMAND, world_info: rp.WORLD_INFO, reasoning: rp.REASONING })[source];
+        let r = String(text == null ? '' : text);
+        if (regexEngine && typeof regexEngine.getRegexedString === 'function' && placement !== undefined) {
+            r = regexEngine.getRegexedString(r, placement, { characterOverride: o.character_name, isMarkdown: destination === 'display', isPrompt: destination === 'prompt', depth: o.depth });
+        }
+        const ctx = getCtx() || {};
+        return typeof ctx.substituteParams === 'function' ? ctx.substituteParams(r, undefined, o.character_name, undefined, undefined) : r;
+    };
+    // 写（B11）
+    const passWrite = (name, args) => (o) => (typeof orig[name] === 'function' ? orig[name](...args.slice(0, -1), o) : undefined);
+    ov.replaceVariables = (vars, option) => { soThrBridgeUpdate(fc, orig, option, () => vars, passWrite('replaceVariables', [vars, option])); return undefined; };
+    ov.updateVariablesWith = (updater, option) => soThrBridgeUpdate(fc, orig, option, (old) => updater(old), passWrite('updateVariablesWith', [updater, option]));
+    ov.insertOrAssignVariables = (vars, option) => soThrBridgeUpdate(fc, orig, option, (old) => soThrMergeVars(old, vars), passWrite('insertOrAssignVariables', [vars, option]));
+    ov.insertVariables = (vars, option) => soThrBridgeUpdate(fc, orig, option, (old) => soThrMergeVars(soThrMergeVars({}, vars), old), passWrite('insertVariables', [vars, option]));
+    ov.deleteVariable = (path, option) => {
+        let deleted = false;
+        const out = soThrBridgeUpdate(fc, orig, option, (old) => { deleted = !!soThrUnsetPath(old, path); return old; }, passWrite('deleteVariable', [path, option]));
+        if (out === undefined || (out && out.delete_occurred !== undefined)) return out;
+        return { variables: out, delete_occurred: deleted };
+    };
+    for (const n of THEATER_PANEL_REFUSE_FNS) ov[n] = (...args) => { soThrPanelRefuse(fc, n, THEATER_PANEL_REFUSED, args[0]); return undefined; };
+    // 发送（P1）
+    ov.triggerSlash = (cmd) => soThrBridgeSlash(fc, cmd);
+    ov.triggerSlashWithResult = ov.triggerSlash;
+    // 把框里的全局重新指回主页面的帮手：waitGlobalInitialized('Mvu') 在 TH 里会把 Mvu 改成指向主页面的 getter（function/global.ts）→ 这里不改、直接放行。
+    ov.waitGlobalInitialized = (name) => (String(name) === 'Mvu' ? Promise.resolve()
+        : (typeof orig.waitGlobalInitialized === 'function' ? orig.waitGlobalInitialized(name) : Promise.resolve()));
+    // 事件：MVU 的事件名 → 本 IF 的本地派发；其余照 TH（已知限制：听到的是主聊天）。
+    const isLocal = (type) => Object.values(soThrMvuEvents()).map(String).includes(String(type));
+    const onWith = (how, name) => (type, fn) => (isLocal(type) ? soThrLocalOn(fc, type, fn, how) : (typeof orig[name] === 'function' ? orig[name](type, fn) : undefined));
+    ov.eventOn = onWith('on', 'eventOn');
+    ov.eventOnce = onWith('once', 'eventOnce');
+    ov.eventMakeFirst = onWith('first', 'eventMakeFirst');
+    ov.eventMakeLast = onWith('last', 'eventMakeLast');
+    ov.eventEmit = async (type, ...args) => { if (isLocal(type)) { soThrFrameEmit(fc.fileId, type, ...args); return undefined; } return typeof orig.eventEmit === 'function' ? orig.eventEmit(type, ...args) : undefined; };
+    ov.eventEmitAndWait = (type, ...args) => { if (isLocal(type)) { soThrFrameEmit(fc.fileId, type, ...args); return undefined; } return typeof orig.eventEmitAndWait === 'function' ? orig.eventEmitAndWait(type, ...args) : undefined; };
+    // 移除类：死框也照做（pagehide 时框已不在页面上）。
+    const cleanup = {
+        eventRemoveListener: (type, fn) => { soThrLocalOff(fc, type, fn); return typeof orig.eventRemoveListener === 'function' ? orig.eventRemoveListener(type, fn) : undefined; },
+        eventClearEvent: (type) => { fc.listeners.delete(String(type)); return typeof orig.eventClearEvent === 'function' ? orig.eventClearEvent(type) : undefined; },
+        eventClearListener: (fn) => { for (const key of Array.from(fc.listeners.keys())) soThrLocalOff(fc, key, fn); return typeof orig.eventClearListener === 'function' ? orig.eventClearListener(fn) : undefined; },
+        eventClearAll: () => { fc.listeners.clear(); return typeof orig.eventClearAll === 'function' ? orig.eventClearAll() : undefined; },
+    };
+    const wrapped = {};
+    for (const [n, f] of Object.entries(ov)) {
+        wrapped[n] = isAsync.has(n)
+            ? (...a) => (fc.alive() ? f(...a) : Promise.resolve(undefined))
+            : (...a) => (fc.alive() ? f(...a) : undefined);
+    }
+    Object.assign(wrapped, cleanup);
+    // 框里的全局（predefine 拷过来的 TH 函数）换成 IF 版；TavernHelper = 浅拷贝（主页面那份一个键都不改）。
+    for (const [n, f] of Object.entries(wrapped)) fw[n] = f;
+    const thSrc = (fw.TavernHelper && typeof fw.TavernHelper === 'object') ? fw.TavernHelper : ((typeof window !== 'undefined' && window.TavernHelper) || {});
+    const thCopy = Object.assign({}, thSrc);
+    for (const [n, f] of Object.entries(wrapped)) if (Object.hasOwn(thSrc, n)) thCopy[n] = f;
+    if (thSrc._bind && typeof thSrc._bind === 'object') {
+        const b = Object.assign({}, thSrc._bind);
+        for (const [n, f] of Object.entries(wrapped)) if (Object.hasOwn(b, '_' + n)) b['_' + n] = function (...a) { return f(...a); };
+        thCopy._bind = b;
+    }
+    fc.thCopy = thCopy;
+    fw.TavernHelper = thCopy;
+    // 框自己的 Mvu：getMvuData / replaceMvuData / getCurrentMvuData / replaceCurrentMvuData 走 IF，events = MVU 自己的，其余照真 Mvu。
+    const mvuOv = {
+        getMvuData: (opts) => (fc.alive() ? soThrBridgeRead(fc, orig, opts || { type: 'message' }) : undefined),
+        replaceMvuData: (data, opts) => (fc.alive() ? soThrBridgeMvuReplace(fc, data, opts) : undefined),
+        getCurrentMvuData: () => (fc.alive() ? soThrBridgeRead(fc, orig, { type: 'message', message_id: THEATER_PANEL_ID_BASE + fc.k }) : undefined),
+        replaceCurrentMvuData: async (data) => (fc.alive() ? soThrBridgeMvuReplace(fc, data, { type: 'message', message_id: THEATER_PANEL_ID_BASE + fc.k }) : undefined),
+    };
+    fc.mvu = new Proxy(mvuOv, {
+        get(t, p) {
+            if (p === 'events') return soThrMvuEvents();
+            if (Object.hasOwn(t, p)) return t[p];
+            const real = soThrMvu();
+            const v = real ? real[p] : undefined;
+            return typeof v === 'function' ? v.bind(real) : v;
+        },
+        has(t, p) { const real = soThrMvu(); return p === 'events' || Object.hasOwn(t, p) || !!(real && p in real); },
+        set() { return true; },
+    });
+    Object.defineProperty(fw, 'Mvu', { get: () => fc.mvu, set: () => {}, configurable: true });
+    // SillyTavern：可重定义的 getter（TH 那段不可重定义的定义在分叉里删掉了）。
+    fc.st = () => {
+        if (!fc.alive()) return undefined;
+        const getContext = () => soThrFrameContext(fc, fw);
+        return { ...getContext(), getContext };
+    };
+    Object.defineProperty(fw, 'SillyTavern', { get: () => fc.st(), configurable: true });
+    // window.parent：代理（只换 IF 输入框 / 发送键 + 上面几个全局）。
+    try {
+        const proxy = soThrParentProxy(fc);
+        Object.defineProperty(fw, 'parent', { get: () => proxy, set: () => {}, configurable: true, enumerable: true });
+    } catch (e) { console.warn('[Story Oracle] 小剧场面板：window.parent 换不了（面板的发送键只能经 triggerSlash）', e); }
+    return true;
+}
+
+/* ---- Task 5 · 挂载 / 卸载 ----
+ * 每次画完一条 IF 回复（soThrPaint 定稿 / 整页重画 soDrawHistoryEntry / 单条重画 soRepaintEntry）→ soThrMountPanels；重画之前、换房 / 换 IF /
+ * 删楼 → soThrUnmountPanels（移除框，不是藏：框的 pagehide → TH 的 eventClearAll 只清这一个远号框名）。流式期间只画文字，定稿才挂框。 */
+function soThrThSettings() {
+    const es = (getCtx() || {}).extensionSettings;
+    const t = es && es.tavern_helper;
+    return (t && typeof t === 'object') ? t : null;
+}
+// 闸（Review Focus 5）：旗 + 回复保真 + 「应用正则」+ 正则引擎在场 + 酒馆助手在场 + 酒馆助手的「渲染前端界面」没关。
+function soThrPanelsReady() {
+    if (!soThrPanelsOn() || !ENABLE_THR_FIDELITY) return false;
+    if (!getSettings().applyRegex) return false;
+    if (!regexEngine || typeof regexEngine.getRegexedString !== 'function') return false;
+    const th = (typeof window !== 'undefined') ? window.TavernHelper : null;
+    if (!th || typeof th !== 'object' || !th._bind) return false;
+    const t = soThrThSettings();
+    if (t && t.render && t.render.enabled === false) return false;
+    return true;
+}
+function soThrPanelDrop(fc) {
+    if (!fc) return;
+    if (soThrFrames.get(fc.name) === fc) soThrFrames.delete(fc.name);
+    if (fc.listeners && typeof fc.listeners.clear === 'function') fc.listeners.clear();
+    try { if (fc.iframe && fc.iframe.isConnected) fc.iframe.remove(); } catch (e) { /* ignore */ }
+}
+// root 底下的框 + 已经离开页面的框：移除、注销、清本地监听。回移除的个数。
+function soThrUnmountPanels(root) {
+    let n = 0;
+    for (const fc of Array.from(soThrFrames.values())) {
+        const gone = !fc.iframe || !fc.iframe.isConnected;
+        let under = false;
+        try { under = !!(root && typeof root.contains === 'function' && root.contains(fc.iframe)); } catch (e) { under = false; }
+        if (gone || under) { soThrPanelDrop(fc); n++; }
+    }
+    return n;
+}
+// 只清已经离开页面的框（气泡被整颗换掉 / 删掉之后，登记表里留下的那几个）。
+function soThrPanelSweep() {
+    return soThrUnmountPanels(null);
+}
+let soThrPanelResizeOn = false;
+function soThrPanelResizeBind() {
+    if (soThrPanelResizeOn) return;
+    soThrPanelResizeOn = true;
+    const poke = () => {
+        for (const fc of soThrFrames.values()) {
+            try { if (fc.alive() && fc.iframe.contentWindow) fc.iframe.contentWindow.postMessage({ type: 'TH_UPDATE_VIEWPORT_HEIGHT' }, '*'); } catch (e) { /* ignore */ }
+        }
+    };
+    try { if (typeof ResizeObserver === 'function' && messagesEl) new ResizeObserver(poke).observe(messagesEl); } catch (e) { /* ignore */ }
+    try { window.addEventListener('resize', poke); } catch (e) { /* ignore */ }
+}
+// 画完的这条 IF 回复里，凡 TH 认作前端的 <pre>（isFrontend）→ div.TH-render > iframe（名字 B5、无 sandbox、srcdoc）；
+// 变量被删过的那几轮（只留最近 20 轮）→ 一行「较早的面板已收起」。TH 的渲染深度 render.depth（0 = 全部）按 IF 各轮数。回挂上的框数。
+function soThrMountPanels(contentEl, entry) {
+    if (!contentEl || !entry || entry.role !== 'assistant' || !soThrPanelsReady()) return 0;
+    if (!theaterMode || convoStreamKey !== 'theater') return 0;
+    soThrPanelSweep();   // 先清掉已离开页面的
+    const view = soThrIfView(convo);
+    const item = view.find((it) => it.entry === entry);
+    if (!item) return 0;
+    const t = soThrThSettings();
+    const depth = Number(t && t.render && t.render.depth) || 0;   // TH store/iframe_runtimes/message.ts calcToRender：depth 0 = 全部，否则最近 depth 楼
+    if (depth > 0 && item.k < view.length - depth) return 0;
+    const pres = Array.from(contentEl.querySelectorAll('pre')).filter((pre) => soThrIsFrontend(pre.textContent || ''));
+    if (!pres.length) return 0;
+    if (typeof window !== 'undefined') window.__soThrBridge = soThrBridgeEntry;
+    if (!personasModule) loadPersonasModule().catch(() => {});   // 头像 CSS 里的玩家头像文件名（之后挂的框就有了）
+    soThrPanelResizeBind();
+    const fileId = soActiveFileId('theater');
+    let n = 0;
+    pres.forEach((pre, i) => {
+        if (item.pruned) {
+            const d = document.createElement('div');
+            d.className = 'so-thr-panel-folded';
+            d.textContent = THEATER_PANEL_FOLDED;
+            pre.replaceWith(d);
+            return;
+        }
+        const codeEl = pre.querySelector('code');
+        const code = codeEl ? codeEl.textContent : pre.textContent;
+        const name = `TH-message--${item.id}--${i}`;
+        const doc = soThrFrameDoc(code, name);
+        if (doc == null) return;
+        const wrap = document.createElement('div');
+        wrap.className = 'TH-render so-thr-panel';
+        const ifr = document.createElement('iframe');
+        ifr.id = name;
+        ifr.name = name;
+        ifr.setAttribute('loading', 'lazy');
+        ifr.setAttribute('frameborder', '0');
+        ifr.className = 'so-thr-panel-frame';
+        wrap.appendChild(ifr);
+        pre.replaceWith(wrap);
+        const old = soThrFrames.get(name);
+        if (old) soThrPanelDrop(old);
+        const fc = { fileId, k: item.k, n: i, name, iframe: ifr, entryId: entry.id, win: null, listeners: new Map(), refusedSeen: new Set() };
+        fc.alive = () => soThrFcAlive(fc);
+        soThrFrames.set(name, fc);   // 先登记，再给文档
+        ifr.srcdoc = doc;
+        n++;
+    });
+    return n;
+}
+// 删了一轮之后，后面各轮的 IF 楼号变了 → 名字对不上的框所在的回复重画一次（新名字、新登记）。
+function soThrPanelsReindex() {
+    soThrPanelSweep();
+    if (!soThrFrames.size) return 0;
+    const view = soThrIfView(convo);
+    const redo = new Set();
+    for (const fc of soThrFrames.values()) {
+        const it = view.find((x) => x.entry && x.entry.id === fc.entryId);
+        if (it && it.k !== fc.k) redo.add(it.entry);
+    }
+    for (const e of redo) soRepaintEntry(e);
+    return redo.size;
 }
 
 /* —— 🎭 兼容「MVU 额外模型解析」（theater plan 2 Task 5）——
@@ -7246,11 +8539,227 @@ function soThrRefreshIfPanel() {
             imp.innerHTML = '<i class="fa-solid fa-file-import"></i>';
             imp.addEventListener('click', (ev) => { ev.stopPropagation(); soThrImportIf(f.id); });
             row.appendChild(imp);
+            if (soThrLongOn() && ENABLE_CHAT_FILES) {   // 🎬 长 IF：✏️ 改名 / 🗑 删除（只给有记录的 IF；「默认」不是 IF，没有这一行）
+                const mk = (cls, icon, title, fn) => {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    b.className = cls;
+                    b.title = title;
+                    b.setAttribute('aria-label', title);
+                    b.innerHTML = `<i class="fa-solid ${icon}"></i>`;
+                    b.addEventListener('click', (ev) => { ev.stopPropagation(); fn(f.id); });
+                    return b;
+                };
+                row.appendChild(mk('so-thr-if-rename', 'fa-pen', THEATER_LONG_RENAME_TITLE, soThrIfRename));
+                row.appendChild(mk('so-thr-if-delete', 'fa-trash-can', THEATER_LONG_DELETE_TITLE, soThrIfDelete));
+            }
         }
         row.addEventListener('click', () => soThrIfSwitch(f.id));
         list.appendChild(row);
     }
     soThrRefreshScenePanel();   // theater plan 3：场景的归属跟着眼前这条 IF 走
+}
+/* —— 🎬 长 IF · 长度条（spec P3 / B7）——IF 输入框上方一根 4 px 的条 +「上次发送 Nk / 80k」：灰 → 75% 起黄 → 到线（或那一趟裁过旧楼）变红；
+ * 变红时下面一行提醒「这条 IF 越来越长了，推荐：」📥 存成 ST 聊天继续玩 · 📖 总结前文 · 知道了。数字存在这条 IF 的记录上（换 IF / 重载都还在）。 */
+const THEATER_LONG_REHINT_TURNS = 10;   // 总结之后又有这么多楼「不发送」了 → 再提醒一次（spec P7）
+// PURE：条的样子。record.meter 没有 = 'none'（不显示）；line = soThrMeterLine 算出的实际红线；opts.reHint = soThrSummaryDue 的结果。
+// 提醒：红（或该再总结了）且没被「知道了」压住——「知道了」记下当时的 tokens，之后更长的一趟才再提醒。
+function soThrMeterState(record, line, opts) {
+    const m = record && record.meter;
+    const tokens = m ? Number(m.tokens) : NaN;
+    if (!m || !Number.isFinite(tokens) || tokens < 0) return { level: 'none', label: '', hint: false };
+    const L = Number(line) > 0 && Number.isFinite(Number(line)) ? Number(line) : THEATER_METER_LINE_DEFAULT;
+    const red = tokens >= L || m.cut === true;
+    const level = red ? 'red' : (tokens >= 0.75 * L ? 'amber' : 'grey');
+    const k = (n) => Math.round(n / 1000);
+    const dismissed = Number(record.hintDismissedAt);
+    const held = Number.isFinite(dismissed) && dismissed >= tokens;
+    // 📖 刚落地（summaryAt 晚于这次长度）= 这个数字是总结之前的那一趟，不再拿它提醒；下一趟的新数字照常。
+    const stale = Number.isFinite(Number(record.summaryAt)) && Number(record.summaryAt) >= Number(m.at);
+    return { level, label: THEATER_LONG_METER_LABEL(k(tokens), k(L)), hint: (red || !!(opts && opts.reHint)) && !held && !stale };
+}
+// PURE：该不该再总结一次（spec P7）——上次总结之后，又有 ≥ 10 楼被「保留最近楼层」挡在发送之外；或总结过的楼后来被改过。没总结过 = false。
+function soThrSummaryDue(turns, record) {
+    if (!record) return false;
+    if (record.summaryChanged === true) return true;
+    const c = Number(record.summaryCoveredThrough);
+    if (record.summaryCoveredThrough == null || !Number.isFinite(c)) return false;
+    let n = 0;
+    for (const m of (Array.isArray(turns) ? turns : [])) {
+        if (m && (m.role === 'user' || m.role === 'assistant') && m[SO_HIDE_KEY] === true && Number(m.id) > c) n++;
+    }
+    return n >= THEATER_LONG_REHINT_TURNS;
+}
+// 眼前这条 IF（在小剧场、看着的是一条有记录的 IF）的 fileId；否则 null。能开多条 IF 时「默认」不算。
+function soThrVisibleIf() {
+    if (!ENABLE_THEATER || !theaterMode || convoStreamKey !== 'theater') return null;
+    const fid = soActiveFileId('theater');
+    if (soThrIfFilesOn() && fid === SO_CHAT_FILE_DEFAULT) return null;
+    return soThrIfGet(fid) ? fid : null;
+}
+// 长度条（唯一写者）：回复之后、换 IF、换房 / 进出小剧场、保留最近楼层改了、总结落地、提醒线改了 都调。
+function soThrRefreshMeter() {
+    if (!soThrLongOn() || !win) return;
+    const el = win.querySelector('#so-thr-meter');
+    if (!el) return;
+    const fid = soThrVisibleIf();
+    const rec = fid ? soThrIfGet(fid) : null;
+    const sc = (soThrMods && soThrMods.script) || (scriptCore || null);
+    const line = soThrMeterLine(getSettings(), soThrUsePreset(getSettings(), getCtx()) ? soThrBudget(sc) : null);   // 神谕自己的路不按 ST 滑块（不自动裁）
+    const st = rec ? soThrMeterState(rec, line, { reHint: soThrSummaryDue(convo, rec) }) : { level: 'none', label: '', hint: false };
+    el.classList.remove('so-thr-meter-grey', 'so-thr-meter-amber', 'so-thr-meter-red');
+    if (st.level === 'none') { el.hidden = true; return; }
+    el.hidden = false;
+    el.classList.add('so-thr-meter-' + st.level);
+    const tokens = Number(rec.meter.tokens);
+    const bar = el.querySelector('.so-thr-meter-bar > i');
+    if (bar) bar.style.width = Math.max(0, Math.min(100, (tokens / line) * 100)).toFixed(1) + '%';
+    const label = el.querySelector('.so-thr-meter-label');
+    if (label) label.textContent = st.label;
+    const hint = el.querySelector('.so-thr-meter-hint');
+    if (!hint) return;
+    hint.hidden = !st.hint;
+    if (!st.hint) return;
+    hint.querySelector('.so-thr-meter-hint-text').textContent = THEATER_LONG_HINT;
+    const btn = (k) => hint.querySelector(`[data-thr-meter="${k}"]`);
+    btn('import').textContent = THEATER_LONG_BTN_IMPORT;
+    btn('summary').textContent = THEATER_LONG_BTN_SUMMARY;
+    btn('summary').hidden = !(ENABLE_BIG_SUMMARY && ENABLE_KNOWLEDGE_BASE && ENABLE_CONVO_HIDE);
+    btn('dismiss').textContent = THEATER_LONG_BTN_DISMISS;
+    hint.dataset.fileId = fid;
+    hint.dataset.tokens = String(tokens);
+}
+// 提醒行的三个键（建窗时绑一次；按的是提醒画出来时的那条 IF）。
+function soThrBindMeter() {
+    if (!soThrLongOn() || !win) return;
+    const hint = win.querySelector('#so-thr-meter .so-thr-meter-hint');
+    if (!hint) return;
+    hint.addEventListener('click', (ev) => {
+        const b = ev.target && ev.target.closest && ev.target.closest('[data-thr-meter]');
+        const fid = hint.dataset.fileId;
+        if (!b || !fid) return;
+        const what = b.dataset.thrMeter;
+        if (what === 'import') soThrImportIf(fid);
+        else if (what === 'summary') soThrSummarize(fid);
+        else if (what === 'dismiss') { soThrIfPatch(fid, { hintDismissedAt: Number(hint.dataset.tokens) || 0 }); soThrRefreshMeter(); }
+    });
+}
+/* —— 🎬 长 IF · 📖 总结前文（spec P4 / P7 / P9）——大总结把这条 IF 总结成一份档案 → 存成知识库里这条 IF【唯一】的一条前情总结（常驻、ifScope）→
+ * 这条 IF 开「保留最近楼层」10 楼（较早的楼不再发送、仍看得到）→ 之后主线那段也不再发（前情总结代替它）。大总结的引擎 / 提示词 / 分段一个字不动，
+ * 新的只有【交给它的那份资料】和【跑完之后落在哪】。每次只折新滑出去的楼；同一条 IF 永远只有一条前情总结（替换，不新增）。 */
+// PURE：交给大总结的资料。turns = 这条 IF 的记录（convo 形）；最新 keepN 楼不总结（它们照常发送，最新那楼还可能被重新生成）。
+// 第一次（opts.prev 没有）= 主线分出之前的楼（同 IF 提示词看到的：剥机制块、不含系统楼）+ 分隔线 + IF 各楼；之后 = 上一份前情总结 + 那之后新滑出去的 IF 楼。
+// 每楼一行「名字：正文」。→ { text, coveredThrough（折进去的最后一条 IF 楼的 id；第一次没有 IF 楼 = 0；什么新东西都没有 = null）}。
+function soThrSummaryDoc(mainChat, record, turns, keepN, opts) {
+    const o = opts || {};
+    const name1 = String(o.name1 || '');
+    const name2 = String(o.name2 || '');
+    const floors = (Array.isArray(turns) ? turns : []).filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string');
+    const k = Number.isInteger(keepN) && keepN >= 0 ? keepN : THEATER_LONG_KEEP;
+    const out = floors.slice(0, Math.max(0, floors.length - k));
+    const prev = o.prev && typeof o.prev.text === 'string' && o.prev.text.trim() && Number.isFinite(Number(o.prev.coveredThrough)) ? o.prev : null;
+    const fresh = prev ? out.filter((m) => Number(m.id) > Number(prev.coveredThrough)) : out;
+    const line = (name, text) => (name ? name + '：' : '') + text;
+    const ifLines = fresh.map((m) => line(m.role === 'user' ? name1 : name2, stripMechanismBlocks(m.content).trim())).filter((t) => t.trim());
+    const lastId = fresh.length ? Number(fresh[fresh.length - 1].id) : null;
+    if (prev) {
+        if (!fresh.length) return { text: '', coveredThrough: null };
+        return { text: THEATER_LONG_PREV_HEAD + '\n' + prev.text.trim() + '\n\n' + ifLines.join('\n\n'), coveredThrough: lastId };
+    }
+    const chat = Array.isArray(mainChat) ? mainChat : [];
+    const sp = record && Number.isInteger(record.split) && record.split >= 0 ? Math.min(record.split, chat.length) : chat.length;
+    const main = soThrHistoryFromMain({ chat: chat.slice(0, sp) }).map((h) => line(h.name, String(h.text || '').trim())).filter((t) => t.trim());
+    if (!main.length && !fresh.length) return { text: '', coveredThrough: null };
+    const premise = record && typeof record.premise === 'string' ? record.premise : '';
+    return { text: main.concat([THEATER_IF_DIVIDER(premise)], ifLines).join('\n\n'), coveredThrough: lastId == null ? 0 : lastId };
+}
+// 📖 能不能开跑：不能 → 现成的那句忙碌提示；能 → ''。
+function soThrSummaryBusyReason() {
+    if (liveSummary) return SO_BIGSUM_BUSY;
+    if (soThrRun !== null || isGenerating) return THEATER_START_REASONS.running;
+    if (postReplyBusy) return THEATER_START_REASONS.postReplyBusy;
+    if (document.body && document.body.dataset && document.body.dataset.generating) return THEATER_START_REASONS.generating;
+    return soReplyToolsBusy() ? THEATER_START_REASONS.running : '';
+}
+// 📖：给眼前这条 IF 开一轮大总结（进度 / 停止都是大总结自己的）。跑完落地见 soThrSummaryLand（soBigSumStart 里调）。
+async function soThrSummarize(fileId) {
+    if (!soThrLongOn() || !ENABLE_BIG_SUMMARY || !ENABLE_KNOWLEDGE_BASE || !ENABLE_CONVO_HIDE) return false;
+    const say = (msg) => { if (msg && typeof toastr !== 'undefined') toastr.info(msg, '故事神谕'); };
+    const busy = soThrSummaryBusyReason();
+    if (busy) { say(busy); return false; }
+    if (!fileId || soThrVisibleIf() !== fileId) return false;   // 按的是一颗过期的键（IF 已经换了）
+    const key = soKbCharKeyNow();
+    if (!key) { say(SO_KB_NO_CHAR); return false; }
+    const dlg = await soOpenBigSummaryDialog();   // 顺带把这个角色的知识库读进缓存
+    if (!dlg) return false;
+    const again = soThrSummaryBusyReason();
+    if (again) { say(again); return false; }
+    if (soThrVisibleIf() !== fileId || soKbCharKeyNow() !== key) return false;
+    const file = await soKbLoad(key);
+    const entry = soThrIfSummaryEntry(file, fileId);
+    const rec = soThrIfGet(fileId);
+    if (!rec) return false;
+    // 已有前情总结（开着）= 只折新滑出去的楼；没有（或关了 / 删了，或总结过的楼后来改过）= 从头来一次。
+    const prev = (entry && !rec.summaryChanged && rec.summaryCoveredThrough != null && Number.isFinite(Number(rec.summaryCoveredThrough)))
+        ? { text: entry.content, coveredThrough: Number(rec.summaryCoveredThrough) } : null;
+    const ctx = getCtx();
+    const keepN = soThrSummaryKeep(fileId);   // 玩家已经留得比 10 楼多 = 照他的数，总结也不碰这么多楼（不重复发）
+    const doc = soThrSummaryDoc(ctx && ctx.chat, rec, convo, keepN, { prev, name1: ctx && ctx.name1, name2: ctx && ctx.name2 });
+    if (doc.coveredThrough == null) { soBigSumStatus(THEATER_LONG_NOTHING_NEW, false); say(THEATER_LONG_NOTHING_NEW); return false; }
+    const name = soChatFileDisplayName('theater', fileId);
+    const ok = await soBigSumSetDoc(doc.text, THEATER_LONG_SUMMARY_SOURCE(name), 'chat');
+    if (!ok || soBigSumDlg !== dlg) return false;
+    dlg._thr = { fileId, chatKey: fixChatKey(), coveredThrough: doc.coveredThrough, keepN, name };
+    return soBigSumStart();
+}
+// 大总结跑完（结果已存进历史）之后：落到起跑时那条 IF（按 fileId，不管眼前是哪条）。依次：① 知识库里这条 IF 唯一的前情总结（第一次新建，之后只换
+// 正文 / 关键词 / 来源，名字 / 开关 / uid 不动）② 这条 IF 的「保留最近楼层」开着、至少 10 楼（眼前就是它才立刻重算，否则下次打开时算）
+// ③ 记录：折到哪一楼、改动记号清掉、这一刻（之前那次长度的提醒不再出现）④ 提示 ⑤ 长度条。换了聊天 = 什么都不落。→ 落成了没有。
+async function soThrSummaryLand(thr, res) {
+    if (!soThrLongOn() || !thr || !res || typeof res.content !== 'string' || !res.content.trim()) return false;
+    if (fixChatKey() !== thr.chatKey) return false;
+    if (!soThrIfGet(thr.fileId)) return false;   // 这期间 IF 被删了
+    const key = soKbCharKeyNow();
+    if (!key) return false;
+    const name = thr.name || soChatFileDisplayName('theater', thr.fileId);
+    let saved;
+    try {
+        saved = await soKbMutate(key, (f) => {
+            const old = f.entries.find((e) => e && e.ifScope === thr.fileId) || null;
+            const value = old
+                ? { ...old, content: res.content, keywords: res.keywords || [], sourceSummaryId: res.summaryId, enabled: true }
+                : { name: THEATER_LONG_KB_NAME(name), content: res.content, keywords: res.keywords || [], mode: 'blue', enabled: true,
+                    nonRecursive: true, preventFurther: true, ifScope: thr.fileId, sourceSummaryId: res.summaryId, uid: soKbNextUid(f) };
+            const e = soKbEntryNormalize(value, old, soKbMakeId, Date.now);
+            soKbUpsert(f, e);
+            f.entries = f.entries.filter((x) => !(x && x.ifScope === thr.fileId && x.id !== e.id));   // 一条 IF 至多一条
+        });
+    } catch (e) {
+        console.warn('[Story Oracle] 小剧场：前情总结没能存进知识库', e);
+        if (typeof toastr !== 'undefined') toastr.error(String((e && e.message) || e), '故事神谕');
+        return false;
+    }
+    if (saved !== true || fixChatKey() !== thr.chatKey) return false;   // 存不上（soKbSave 已经说了原因）
+    const cur = soHideConfigFor('theater', thr.fileId);
+    soHideConfigSave('theater', thr.fileId, { enabled: true, keep: Number.isInteger(thr.keepN) && thr.keepN > 0 ? thr.keepN : (cur.enabled ? Math.max(cur.keep, THEATER_LONG_KEEP) : THEATER_LONG_KEEP) });
+    const visible = soThrVisibleIf() === thr.fileId;
+    if (visible) soApplyHideNow();
+    soThrIfPatch(thr.fileId, { summaryCoveredThrough: thr.coveredThrough, summaryChanged: false, hintDismissedAt: undefined, summaryAt: Date.now() });
+    if (typeof toastr !== 'undefined') toastr.success(THEATER_LONG_SAVED, '故事神谕');
+    if (visible) addSystemNote(THEATER_LONG_SAVED);
+    soThrRefreshMeter();
+    return true;
+}
+// 总结过的楼（id ≤ summaryCoveredThrough）被改 / 删 / 换了版本：总结不跟着变（快照），记一笔 + 说一句（第一次）；再提醒会提供重新总结。
+function soThrCoveredChanged(entry) {
+    if (!soThrLongOn() || !entry) return;
+    const fid = soThrVisibleIf();
+    const rec = fid ? soThrIfGet(fid) : null;
+    if (!rec || rec.summaryCoveredThrough == null || !(Number(entry.id) <= Number(rec.summaryCoveredThrough))) return;
+    if (rec.summaryChanged === true) return;
+    soThrIfPatch(fid, { summaryChanged: true });
+    addSystemNote(THEATER_LONG_COVERED_CHANGED);
+    soThrRefreshMeter();
 }
 function soThrIfSwitch(fileId) {
     if (soChatSwitchBusy()) { if (typeof toastr !== 'undefined') toastr.info(SO_CHAT_SWITCH_BUSY); return false; }
@@ -7290,31 +8799,115 @@ function soThrIfDisplayText(text, keep) {
     }
     return s;
 }
+// 🎬 回复保真 · 到达正则（ENABLE_THR_FIDELITY）：IF 回复 / 玩家这句【落盘之前】跑一遍 ST 的「到达」正则（两个 only 都不勾的脚本），
+// 与 ST 自己的调用同形（cleanUpMessage / sendMessageAsUser：getRegexedString(text, AI_OUTPUT | USER_INPUT) 不带任何选项）。
+// 旗关 / 「应用正则」关 / 引擎没加载 = 原文原样。脚本抛错或回了非字符串 = 按原文存（回复绝不丢），console.warn 一句。
+function soThrArrivalRegex(text, who) {
+    if (!ENABLE_THR_FIDELITY || !ENABLE_THEATER || !getSettings().applyRegex || !regexEngine || typeof regexEngine.getRegexedString !== 'function') return text;
+    try {
+        const placement = who === 'user' ? THEATER_REGEX_PLACEMENT.USER_INPUT : THEATER_REGEX_PLACEMENT.AI_OUTPUT;
+        const out = regexEngine.getRegexedString(text, placement, {});
+        if (typeof out !== 'string') throw new Error('getRegexedString returned ' + typeof out);
+        return out;
+    } catch (e) {
+        console.warn('[Story Oracle] 小剧场：到达正则出错，按原文保存', e);
+        return text;
+    }
+}
 // 「应用正则」开着时：哪些标签被显示正则处理掉了（跑完显示正则后不再有它的开标签）。拿不到正则引擎 = 一个都不算。
-function soThrIfRegexHandled(t) {
+// depth（🎬 回复保真，可选）：给了数字 = 用这条在 IF 里的真实深度跑显示正则（soThrDisplayRegex）；不给 = 原来的 depth 0 那一路。
+function soThrIfRegexHandled(t, depth) {
     const keep = new Set();
     if (!regexEngine || !regexEngine.getRegexedString || !regexEngine.regex_placement) return keep;
-    const rx = String(applyOutputRegex(t, false));
+    const rx = String(typeof depth === 'number' ? soThrDisplayRegex(t, depth) : applyOutputRegex(t, false));
+    return soThrIfKeepFrom(t, rx, keep);
+}
+// PURE：t 里有、跑完显示正则的 rx 里没了的标签 = 交给正则。
+function soThrIfKeepFrom(t, rx, into) {
+    const keep = into || new Set();
     for (const tag of soThrIfPlanTags().concat(THEATER_IF_TIME_TAGS, THEATER_IF_WRAP_TAGS)) {
         const re = new RegExp(soThrIfTagRe(tag), 'i');
         if (re.test(t) && !re.test(rx)) keep.add(tag);
     }
     return keep;
 }
-function soThrRenderHtml(text) {
+/* —— 🎬 回复保真 · 显示（ENABLE_THR_FIDELITY）——
+ * ST 的 messageFormatting 只能按【主聊天楼号】算显示正则的深度；传 null 会被当成 0 楼（Number(null) === 0：借 0 楼的深度、对正文跑
+ * substituteParams，正文恰好等于 chat[0].mes 时还会改写它）。所以：显示正则由这里自己跑（带 IF 深度），格式化时传一个不对应任何楼的
+ * messageId（-1：messageId >= 0 为假 → depth undefined，chat 一个字不碰），并且在这一次同步调用期间把 'regex' 临时放进
+ * disabledExtensions，免得 ST 再跑一遍 markdownOnly 正则（ST 的 getRegexedString 第一件事就查它）。 */
+// PURE：list 里排在 entry 之后的 user / assistant 条数（0 = 最新）；entry 不在 list 里（新 IF 的第一轮还没进 convo）= 0。
+function soThrDepthOf(list, entry) {
+    if (!Array.isArray(list) || !entry) return 0;
+    const i = list.indexOf(entry);
+    if (i === -1) return 0;
+    let n = 0;
+    for (let j = i + 1; j < list.length; j++) {
+        const m = list[j];
+        if (m && (m.role === 'user' || m.role === 'assistant')) n++;
+    }
+    return n;
+}
+function soThrDisplayRegex(text, depth) {
+    if (!regexEngine || typeof regexEngine.getRegexedString !== 'function') return text;
+    try {
+        const out = regexEngine.getRegexedString(String(text == null ? '' : text), THEATER_REGEX_PLACEMENT.AI_OUTPUT,
+            { isMarkdown: true, isPrompt: false, depth, characterOverride: getCtx().name2 });
+        return typeof out === 'string' ? out : text;
+    } catch (e) {
+        console.warn('[Story Oracle] 小剧场：显示正则出错，按原文显示', e);
+        return text;
+    }
+}
+let soFormatNoRegexWarned = false;
+function soFormatNoRegex(text) {
+    const ctx = getCtx();
+    if (typeof ctx.messageFormatting !== 'function') return null;
+    const es = ctx.extensionSettings;
+    const ds = es && Array.isArray(es.disabledExtensions) ? es.disabledExtensions : null;
+    if (!ds && !soFormatNoRegexWarned) {
+        soFormatNoRegexWarned = true;
+        console.warn('[Story Oracle] 小剧场：拿不到 disabledExtensions，格式化时无法暂停 ST 的正则（显示正则可能跑两遍）');
+    }
+    const pushed = !!ds && !ds.includes('regex');
+    if (pushed) ds.push('regex');
+    try {
+        const html = ctx.messageFormatting(String(text || ''), ctx.name2 || '故事神谕', false, false, -1);
+        return (typeof html === 'string' && html) ? html : null;
+    } catch (e) {
+        console.warn('[Story Oracle] messageFormatting failed; showing raw text.', e);
+        return null;
+    } finally {
+        if (pushed) { const k = ds.lastIndexOf('regex'); if (k !== -1) ds.splice(k, 1); }
+    }
+}
+function soThrRenderHtml(text, depth) {
     const t0 = stripMechanismBlocks(String(text == null ? '' : text));
     const s = getSettings();
+    if (ENABLE_THR_FIDELITY && ENABLE_THEATER && s.applyRegex && typeof depth === 'number'
+        && regexEngine && typeof regexEngine.getRegexedString === 'function') {
+        // 显示正则对原文跑一次 → 据此定哪些标签交给正则 → 整理；整理没动任何字就沿用这一次的结果（不跑第二遍）。
+        const rx0 = soThrDisplayRegex(t0, depth);
+        const t = soThrIfDisplayText(t0, regexEngine.regex_placement ? soThrIfKeepFrom(t0, String(rx0)) : null);
+        const rx = t === t0 ? rx0 : soThrDisplayRegex(t, depth);
+        let html = soFormatNoRegex(rx);
+        if (html == null) html = renderMarkdownOnly(rx);
+        return html != null ? html : escapeHtml(t).replace(/\n/g, '<br>');
+    }
     const t = soThrIfDisplayText(t0, s.applyRegex ? soThrIfRegexHandled(t0) : null);
     let html = s.applyRegex ? renderReplyHtml(t) : null;
     if (html == null) html = renderMarkdownOnly(t);
     return html != null ? html : escapeHtml(t).replace(/\n/g, '<br>');
 }
-function soThrPaint(contentEl, content) {
+// entry（可选）：这条回复的记录对象 → 旗开时按它在 convo 里的位置算显示深度（画的那一刻算，与 ST 同：新回复到场不重画旧气泡）。
+function soThrPaint(contentEl, content, entry) {
     if (!contentEl) return;
-    contentEl.innerHTML = soThrRenderHtml(content);
+    if (soThrPanelsOn()) soThrUnmountPanels(contentEl);   // 🎬 面板：重画之前移走这条回复的旧框
+    contentEl.innerHTML = soThrRenderHtml(content, ENABLE_THR_FIDELITY ? soThrDepthOf(convo, entry) : undefined);
     contentEl.classList.add('so-rendered');
     contentEl.style.whiteSpace = 'normal';
     contentEl.dataset.soRaw = String(content == null ? '' : content);
+    if (soThrPanelsOn()) soThrMountPanels(contentEl, entry);   // 🎬 面板：定稿后挂框
 }
 // 小剧场的发送 / 重新生成 / 续写（theater plan 2 Task 3）。opts：
 //   无         = 玩家新的一句（在「默认」里 = 以它为前提开一条新 IF；回复成功之后才建，失败 / 中断 / 陈旧一律什么都不写）
@@ -7322,6 +8915,7 @@ function soThrPaint(contentEl, content) {
 //   {answer: userEntry} = 给记录末尾已有的那句补一条回复（generateReply 不带目标的老路）
 // 历史 = soThrIfHistory（主线冻结在分出楼 → 分隔线 → 本 IF 各轮）；IF 各轮在 SO 路剥机制块、预设路原样（预设 / 卡片正则自己处理）。
 // 存下的回复正文 = 剥思维链、【保留】MVU 块；显示 = soThrRenderHtml。
+let soThrKbReading = false;   // 🎬 长 IF：soThrSend 正在发送前读知识库
 async function soThrSend(text, opts) {
     const o = opts || {};
     const kind = (o.kind === 'regenerate' || o.kind === 'continue') ? o.kind : (o.answer ? 'answer' : 'new');
@@ -7331,6 +8925,8 @@ async function soThrSend(text, opts) {
     // 两条路都用神谕自己的连接（2026-11-07 Prince：「用 ST 当前预设」只管预设）→ 都先查（与 onSend 同一句提示）
     if (s.mode === 'direct' && (!s.endpoint || !s.model)) { addSystemNote('请先在设置（齿轮图标）中填写端点 URL 和模型。'); return; }
     if (s.mode === 'profile' && !s.profileId) { addSystemNote('请先在设置（齿轮图标）中选择一个连接配置文件。'); return; }
+    const keepInput = soThrPanelsOn() && o.keepInput === true;   // 🎬 面板：按钮发的这一句不碰输入框里玩家自己的草稿
+    if (ENABLE_THR_FIDELITY && s.applyRegex) await loadRegexEngine();   // 🎬 回复保真：到达正则要引擎在场（与 generateReply 同款；启动预热没完成时兜底）
     let rv = null;
     if (kind === 'regenerate' || kind === 'continue') {
         rv = soReplyRunStart({ kind, target: o.target });
@@ -7343,6 +8939,9 @@ async function soThrSend(text, opts) {
     const record = pendingNew
         ? { split: Array.isArray(ctx.chat) ? ctx.chat.length : 0, premise: String(text || '').trim(), seed: soThrSeedVars(), created: Date.now() }
         : soThrIfEnsure(fileId, text);
+    // 🎬 回复保真：玩家新的一句先过 ST 的到达正则（USER_INPUT），存下的 / 发出去的 / 气泡里的都是这份；前提（record.premise / 新 IF 名）与
+    // 失败时还回输入框的仍是原文。旗关 = 原样返回。
+    const sentText = kind === 'new' ? soThrArrivalRegex(text, 'user') : text;
     // 这一趟之前的各轮 + 这一趟要回应的那句。
     let prior, said;
     if (kind === 'regenerate') {
@@ -7362,16 +8961,27 @@ async function soThrSend(text, opts) {
         said = o.answer.content;
     } else {
         prior = pendingNew ? [] : convo;
-        said = text;
+        said = sentText;
     }
     let turnsForPrompt;
     try { turnsForPrompt = convoForPrompt(prior); } catch (e) { addSystemNote(String((e && e.message) || e)); return; }   // 神谕正则出错 = 不发
     const isFirst = !turnsForPrompt.some((m) => m && (m.role === 'user' || m.role === 'assistant'));
     let roomTurns = soThrRoomTurns(turnsForPrompt, ctx);
-    if (!usePreset) roomTurns = roomTurns.map((t) => Object.assign({}, t, { text: stripMechanismBlocks(t.text) }));
+    if (!usePreset) roomTurns = roomTurns.map((t) => Object.assign({}, t, { text: stripMechanismBlocks(soThrPanelsOn() ? soThrPromptNoPlaceholder(t.text) : t.text) }));   // 🎬 面板：与 MVU 一样把占位符从发出去的 IF 各轮里剥掉
+    // 🎬 长 IF：这一趟带的知识库（这条 IF 的前情总结 + 普通条目；扫描 = 这一趟要发的 IF 各轮）。有前情总结 = 主线那段不再发（spec P9）。
+    // 读知识库要等一下：这期间换了聊天 / 房 = 这一趟作罢（输入框里的字还在）。
+    let kb = null;
+    if (soThrLongOn()) {
+        if (soThrKbReading) return;   // 读知识库那一下里又按了一次发送：只算第一次
+        const kbAt = fixChatKey();
+        soThrKbReading = true;
+        try { kb = await soThrKbState(pendingNew ? null : fileId, turnsForPrompt); } finally { soThrKbReading = false; }
+        if (fixChatKey() !== kbAt || convoStreamKey !== room) return;
+    }
     // SO 路自己拼提示词、没有预设的预算裁剪：主线只取最近 contextDepth 楼（与普通聊天同一设置）；预设路交给 ST 自己按预算裁。
     const depth = Number(s.contextDepth);
-    const history = soThrIfHistory(ctx.chat, record, roomTurns, (!usePreset && Number.isFinite(depth) && depth > 0) ? { depth } : null);
+    const hopts = (!usePreset && Number.isFinite(depth) && depth > 0) ? { depth } : null;
+    const history = soThrIfHistory(ctx.chat, record, roomTurns, (kb && kb.summary) ? Object.assign({}, hopts, { dropMain: true }) : hopts);
     const directive = soThrDirective(kind, said, isFirst);
 
     const token = ++soThrSendSeq;
@@ -7380,10 +8990,9 @@ async function soThrSend(text, opts) {
         || soActiveFileId('theater') !== (pendingNew ? SO_CHAT_FILE_DEFAULT : fileId);
     let uEntry = kind === 'answer' ? o.answer : null;
     if (kind === 'new') {
-        inputEl.value = '';
-        autoGrowInput();
-        uEntry = { id: ++cidSeq, role: 'user', content: text };
-        uEntry._el = addMessage('user', text, uEntry);
+        if (!keepInput) { inputEl.value = ''; autoGrowInput(); }
+        uEntry = { id: ++cidSeq, role: 'user', content: sentText };
+        uEntry._el = addMessage('user', sentText, uEntry);
     }
     const aEntry = { id: ++cidSeq, role: 'assistant', content: '' };
     const aEl = addMessage('assistant', '', aEntry);
@@ -7412,6 +9021,7 @@ async function soThrSend(text, opts) {
             // Fix B：正文空 → 从思考区找回；还是空 / 被过滤 → 用同一份历史、同一句指令、同一套互换钩子自动重试一次。
             r = await soThrGenerateRecovered({
                 history, directive, systemText, usePreset, maxTokens: null, hooks,
+                ...(kb ? { kbText: kb.text } : {}),   // 🎬 长 IF：旗关 = 没有这个键
                 onDelta: (full) => {
                     if (stale()) return;
                     clearTyping();
@@ -7436,7 +9046,7 @@ async function soThrSend(text, opts) {
         if (stale()) {   // 换了聊天 / 房 / IF / 又发了一趟：结果作废，什么都不写
             if (kind === 'new' && uEntry._el && uEntry._el.parentNode) uEntry._el.remove();
             if (aEl.parentNode) aEl.remove();
-            if (kind === 'new' && !inputEl.value) { inputEl.value = text; autoGrowInput(); }   // 复审 M8：这一句没落盘，还回输入框
+            if (kind === 'new' && !keepInput && !inputEl.value) { inputEl.value = text; autoGrowInput(); }   // 复审 M8：这一句没落盘，还回输入框
             return;
         }
         r = r || { text: '', aborted: false, error: null };
@@ -7447,15 +9057,20 @@ async function soThrSend(text, opts) {
                 contentEl.textContent = '错误：' + explainProviderError(String(r.error));
                 contentEl.classList.add('so-error');
             }
-            if (kind === 'new' && !inputEl.value) { inputEl.value = text; autoGrowInput(); }   // 这一句没落盘：还回输入框，方便再发
+            if (kind === 'new' && !keepInput && !inputEl.value) { inputEl.value = text; autoGrowInput(); }   // 这一句没落盘：还回输入框，方便再发
             return;
         }
         let clean = stripReasoningTags(String(r.text || '')).trim();   // MVU 块留着（Task 4 解析它、导入后卡片自己用它）
+        const gotText = !!clean;   // 🎬 回复保真：占位句永不过到达正则
+        if (clean && kind !== 'continue') clean = soThrArrivalRegex(clean, 'ai');   // 到达正则在占位句之前；续写对拼好的整条跑（与 ST 同）
         if (!clean) clean = r.filtered ? THEATER_FILTERED_REPLY : THEATER_EMPTY_REPLY;   // Fix B：重试过还是空
         let entry = aEntry;
+        let landedFid = fileId;   // 🎬 长 IF：这一趟落进的那条 IF（新 IF = 建好之后的那个）
         if (rv) {
             if (soReplyRunStale(rv)) { aEl.remove(); addSystemNote(THEATER_IF_STALE_NOTE); return; }
-            const finalText = kind === 'continue' ? joinContinuation(rv.base, clean) : clean;
+            const finalText = kind === 'continue'
+                ? (gotText ? soThrArrivalRegex(joinContinuation(rv.base, clean), 'ai') : joinContinuation(rv.base, clean))
+                : clean;
             const vsnap = soThrVarsSnap(rv.target);   // 版本表会变（🔄 加一个 / 超上限删最旧的）→ 变量本跟着对齐；新版本那格空着等重算
             const rxRawMap = ENABLE_ORACLE_REGEX ? soRawMapOf(rv.target) : null;   // TBW B6 原文表同理（与 generateReply 同款）
             const adopted = soReplyRunAdopt(rv, aEl, finalText);
@@ -7463,7 +9078,7 @@ async function soThrSend(text, opts) {
             if (vsnap) soThrVarsApply(adopted, vsnap, { keep: kind === 'continue' });
             if (rxRawMap) soRawApply(adopted, rxRawMap);
             entry = adopted;
-            soThrPaint(contentEl, entry.content);
+            soThrPaint(contentEl, entry.content, entry);
             persistConvo();
             soRefreshActionRow(entry);
         } else if (pendingNew) {
@@ -7476,21 +9091,28 @@ async function soThrSend(text, opts) {
             if (!fid || soThrStaleRun(token, chatKey)) {
                 if (uEntry._el && uEntry._el.parentNode) uEntry._el.remove();
                 if (aEl.parentNode) aEl.remove();
-                if (!inputEl.value) { inputEl.value = text; autoGrowInput(); }
+                if (!keepInput && !inputEl.value) { inputEl.value = text; autoGrowInput(); }
                 return;
             }
             soRoomWrite(room, uEntry, { fileId: fid });
             soRoomWrite(room, aEntry, { fileId: fid });
+            landedFid = fid;
             loadConvoForChat();
             entry = convo.find((m) => m && m.id === aEntry.id) || null;   // 重画后记录是重新读回的那份对象
         } else {
             aEntry.content = clean;
-            soThrPaint(contentEl, clean);
+            soThrPaint(contentEl, clean, aEntry);
             const pin = soThrIfFilesOn() ? { fileId } : {};
             if (kind === 'new') soRoomWrite(room, uEntry, pin);
             soRoomWrite(room, aEntry, pin);
+            if (soThrPanelsOn() && convo.indexOf(aEntry) !== -1) soThrMountPanels(contentEl, aEntry);   // 🎬 面板：画的那一刻它还没进记录
         }
         if (ENABLE_REPLY_VERSIONS) soSyncAllReplyTools();
+        // 🎬 长 IF：这一趟的长度记在这条 IF 上 → 长度条 / 提醒（spec Stage 2 item 2–3）。
+        if (soThrLongOn() && landedFid && typeof r.promptTokens === 'number' && Number.isFinite(r.promptTokens)) {
+            soThrIfPatch(landedFid, { meter: { tokens: r.promptTokens, cut: r.cut === true, at: Date.now() } });
+            soThrRefreshMeter();
+        }
         if (entry) soThrTagBubble(entry._el, soThrReplyTags(r));   // Fix B：找回 / 重试的小注（只在气泡上，不落盘）
         if (soFollowStream) scrollToBottom();
         // 平行线变量本（Task 4）+ 兼容额外模型解析（Task 5）：生成态一直挂着，免得玩家在派生调用期间又发一句、读到旧变量。
@@ -10905,7 +12527,9 @@ function soThrSettingsHtml() {
                     <label class="so-check"><span>${THEATER_SET_MAXTOK}</span><input id="so-thr-set-maxtok" type="number" min="${THEATER_SCENE_MAX_TOKENS_MIN}" max="${THEATER_SCENE_MAX_TOKENS_MAX}" step="1024" style="width:7em"></label>
                     <div class="so-hint">${THEATER_SET_MAXTOK_HINT}</div>
                     <label class="so-check"><input id="so-thr-set-scripts" type="checkbox"><span>${THEATER_SET_SCRIPTS}</span></label>
-                    <div class="so-hint">${THEATER_SET_SCRIPTS_HINT}</div>
+                    <div class="so-hint">${THEATER_SET_SCRIPTS_HINT}</div>${soThrLongOn() ? `
+                    <label class="so-check" id="so-thr-set-meter-row"><span>${THEATER_LONG_METER_SETTING}</span><input id="so-thr-set-meter" type="number" min="${THEATER_METER_LINE_MIN}" max="${THEATER_METER_LINE_MAX}" step="1000" style="width:8em"></label>
+                    <div class="so-hint">${THEATER_LONG_METER_SETTING_HINT}</div>` : ''}
                     <label class="so-check" id="so-thr-set-derive-row" hidden><input id="so-thr-set-derive" type="checkbox"><span>${THEATER_MVU_DERIVE_LABEL}</span></label>
                     <div class="so-hint" id="so-thr-auto-head"><b>${THEATER_AUTO_TITLE}</b></div>
                     ${THEATER_SCENES.map((sc) => `<label class="so-check"><input type="checkbox" data-thr-auto="${sc}"><span>${THEATER_SCENE_ICONS[sc] || ''} ${THEATER_SCENE_NAMES[sc] || sc}</span></label>`).join('\n                    ')}
@@ -10923,6 +12547,8 @@ function soThrRefreshSettings() {
     if (mt) mt.value = String(soThrSceneMaxTokens(s));
     const sc = g.querySelector('#so-thr-set-scripts');
     if (sc) sc.checked = s.theaterAllowScripts !== false;
+    const ml = g.querySelector('#so-thr-set-meter');
+    if (ml) ml.value = String(soThrMeterLineSetting(s));
     const row = g.querySelector('#so-thr-set-derive-row');
     if (row) {
         row.hidden = !soThrMvu();
@@ -10944,6 +12570,13 @@ function soThrBindSettings() {
         save();
     });
     g.querySelector('#so-thr-set-scripts')?.addEventListener('change', (e) => { getSettings().theaterAllowScripts = !!e.target.checked; save(); });
+    g.querySelector('#so-thr-set-meter')?.addEventListener('change', (e) => {   // 🎬 长 IF：提醒线（不合法 = 回到默认）
+        const s = getSettings();
+        s.thrMeterLine = soThrMeterLineSetting({ thrMeterLine: String(e.target.value).trim() === '' ? '' : Number(e.target.value) });
+        e.target.value = String(s.thrMeterLine);
+        save();
+        soThrRefreshMeter();
+    });
     g.querySelector('#so-thr-set-derive')?.addEventListener('change', (e) => {
         getSettings().theaterMvuDerive = !!e.target.checked;
         save();
@@ -11313,6 +12946,7 @@ const defaults = {
     ...(ENABLE_DISPLAY_NAMES ? { userDisplayName: '', oracleDisplayName: '' } : {}),
     // 🎭 小剧场（ENABLE_THEATER）：「用 ST 当前预设」勾选框（只在 ST 走聊天补全时生效，见 soThrUsePreset）/ 小剧场栏当前页签。旗关时两个键不进 defaults。
     ...(ENABLE_THEATER ? { theaterUseStPreset: false, theaterTab: 'if', theaterMvuDerive: false, theaterSceneMaxTokens: 16384, theaterAllowScripts: true, theaterAutoScenes: [] } : {}),
+    ...(soThrLongOn() ? { thrMeterLine: THEATER_METER_LINE_DEFAULT } : {}),   // 🎬 长 IF：长度提醒线
     // Whether advisor mode runs THROUGH the curated preset (directive layered on
     // top, RP markers skipped) — same opt-in pattern as lorebookUsePreset.
     advisorUsePreset: false,
@@ -15517,6 +17151,7 @@ function soApplyHideNow() {
     if (!ENABLE_CONVO_HIDE) return [];
     const changed = soHideRefresh();
     persistConvo();
+    if (soThrLongOn()) soThrRefreshMeter();   // 🎬 长 IF：「不发送」的楼数变了 → 再提醒的判据跟着变
     return changed;
 }
 // 参谋「导入普通聊天的讨论」的来源：主房间当前那份聊天，跳过那里「不发送」的楼（桥的用处就是把它们发出去）。
@@ -33018,7 +34653,11 @@ ${ENABLE_THEATER ? `
         </div>
 
         <div id="so-messages"></div>
-
+${soThrLongOn() ? `        <div id="so-thr-meter" hidden>
+            <div class="so-thr-meter-line"><div class="so-thr-meter-bar"><i></i></div><span class="so-thr-meter-label"></span></div>
+            <div class="so-thr-meter-hint" hidden><span class="so-thr-meter-hint-text"></span><button type="button" data-thr-meter="import"></button><button type="button" data-thr-meter="summary"></button><button type="button" data-thr-meter="dismiss"></button></div>
+        </div>
+` : ''}
         <div id="so-footer">
             <textarea id="so-input" rows="2" placeholder="就当前剧情提问…（Enter 发送，Shift+Enter 换行）"></textarea>
             <div class="so-iconbtn" id="so-send" title="发送"><i class="fa-solid fa-paper-plane"></i></div>
@@ -46008,6 +47647,12 @@ function addMessage(role, content, entry) {
         `<div class="so-content"></div><span class="so-actions">${copyBtn}${actionBtns}${convIoBtns}</span></div>`;
     soPaintRoleLabel(wrap.querySelector('.so-role-label'), role);   // 🏷 名字标签：唯一查表 oracleDisplayName，textContent 写入
     const contentEl = wrap.querySelector('.so-content');
+    // 🎬 回复保真：IF 回复气泡的正文是 .mes_text（ST 把卡片 <style> 改写成 .mes_text 前缀、对白 <q> 的样式也挂在它上面）。
+    // 绝不加 .mes / mesid、绝不进 #chat：酒馆助手扫 #chat > .mes，ST 的 .mes 规则也不该落到神谕气泡上。
+    if (ENABLE_THR_FIDELITY && ENABLE_THEATER && convoStreamKey === 'theater' && role === 'assistant') {
+        wrap.classList.add('so-thr-fid');
+        contentEl.classList.add('mes_text');
+    }
     contentEl.textContent = content;
     if (ENABLE_CONVO_HIDE && entry) soPaintHiddenState(wrap, entry);   // TBW spec B · B1：「不发送」的楼变暗 + 小标签
     if (ENABLE_ORACLE_REGEX && entry && role === 'user') {   // TBW spec B · B6：用户发言的显示规则（今天的「渲染器」= 纯文本）
@@ -46096,6 +47741,8 @@ function deleteMessage(entry) {
     persistConvo();
     maybeRenderEmpty();
     if (ENABLE_REPLY_VERSIONS) soSyncAllReplyTools();   // TBW spec A：「最新一条」可能换人了 → ⏩🔄 跟着挪
+    if (soThrLongOn()) soThrCoveredChanged(entry);   // 🎬 长 IF：删的是总结过的楼 → 记一笔
+    if (soThrPanelsOn() && convoStreamKey === 'theater') soThrPanelsReindex();   // 🎬 面板：删掉的框注销；后面各轮楼号变了 → 重挂
 }
 
 // Regenerate an assistant reply: drop it (and everything after) and re-run from
@@ -46166,6 +47813,7 @@ function editUserMessage(entry) {
         contentEl.textContent = newText;
         convo.splice(i + 1);                                   // drop later turns
         persistConvo();
+        if (soThrLongOn()) soThrCoveredChanged(entry);         // 🎬 长 IF：改的是总结过的楼 → 记一笔
         close();
         while (el.nextSibling) el.nextSibling.remove();        // drop their DOM
         await generateReply();
@@ -46327,17 +47975,19 @@ function soRepaintEntry(entry) {
     const keepFollow = soFollowStream;
     let el = null;
     soBulkRender(() => { el = addMessage(entry.role, entry.content, entry); });
+    if (soThrPanelsOn()) soThrUnmountPanels(old);   // 🎬 面板：旧气泡里的框随它移走
     old.replaceWith(el);
     entry._el = el;
     const c = el.querySelector('.so-content');
     if (c) {
         c.dataset.soRaw = entry.content || '';
         const pj = ENABLE_ORACLE_REGEX && entry.role === 'assistant' ? soPaintReplyText(entry) : null;   // TBW spec B · B6：画面接缝
-        if (pj && pj.active) soApplyPaint(c, pj, (t) => repaintHtmlForRoom(convoStreamKey, t));
+        if (pj && pj.active) soApplyPaint(c, pj, (t) => repaintHtmlForRoom(convoStreamKey, t, entry));
         else {
-            const html = repaintHtmlForRoom(convoStreamKey, entry.content || '');
+            const html = repaintHtmlForRoom(convoStreamKey, entry.content || '', entry);
             if (html != null) { c.innerHTML = html; c.classList.add('so-rendered'); c.style.whiteSpace = 'normal'; }
         }
+        if (soThrPanelsOn() && convoStreamKey === 'theater') soThrMountPanels(c, entry);   // 🎬 面板
     }
     soBulkRender(() => {
         for (const p of repaintControlPlan(convoStreamKey, convo)) {
@@ -46361,9 +48011,12 @@ function soRepaintEntry(entry) {
 function soSwitchVariant(entry, delta) {
     if (soReplyToolsBusy() || convo.indexOf(entry) === -1) return;
     const { index } = variantsOf(entry);
+    const thrBefore = soThrPanelsOn() ? entry.thrVars : null;
     if (!soWithRaw(entry, () => variantSelect(entry, index + delta))) return;
     persistConvo();
     soRepaintEntry(entry);
+    if (soThrLongOn()) soThrCoveredChanged(entry);   // 🎬 长 IF：换的是总结过的楼的版本 → 记一笔
+    if (soThrPanelsOn() && convoStreamKey === 'theater' && entry.thrVars !== thrBefore) soThrPanelsVarsChanged(entry, thrBefore);   // 🎬 面板
 }
 // 页面居中的选择框（<dialog class="so-local-dialog so-owned-dialog">，样稿 A-04 / A-05）：点按钮 → 该值；✕ / Esc / 点背景 → null。
 // 框体自己滚动（矮屏上按钮不会被挤出屏外）。choices: [{value, label, danger?, primary?}]；超过两项竖排。
@@ -46503,7 +48156,8 @@ function editOracleReply(entry) {
         persistConvo();
         close();
         soRepaintEntry(entry);
-        if (ENABLE_THEATER && theaterMode && convoStreamKey === 'theater') soThrAfterEdit(entry);   // 🎭 改过的正文重算这一版的平行线变量
+        if (ENABLE_THEATER && theaterMode && convoStreamKey === 'theater') soThrAfterEdit(entry);
+        if (soThrLongOn()) soThrCoveredChanged(entry);   // 🎬 长 IF：改的是总结过的楼 → 记一笔   // 🎭 改过的正文重算这一版的平行线变量
     };
     saveBtn.addEventListener('click', commit);
     ta.addEventListener('keydown', (ev) => {
@@ -47578,13 +49232,13 @@ async function clearConversation() {
  * ------------------------------------------------------------------ */
 // PURE：按房间选与【定稿路径】同源的渲染器。null = 保持纯文本（诊断/世界书定稿本就不渲染，
 // <UpdateVariable>/<LorebookEdit> 要原样可读）；库缺失时各渲染器自己回退 null，调用方同样落纯文本。
-function repaintHtmlForRoom(streamKey, content) {
+function repaintHtmlForRoom(streamKey, content, entry) {
     const t = String(content || '');
     if (streamKey === 'advisor') return renderAdvisorReplyHtml(t);
     if (streamKey && String(streamKey).startsWith('bld_')) return renderBuilderReplyHtml(t);
     if (streamKey === 'diagnose' || streamKey === 'lorebook') return null;
     if (streamKey === 'fix') return renderFixResultHtml(t);
-    if (ENABLE_THEATER && streamKey === 'theater') return soThrRenderHtml(t);   // 🎭 IF 回复：剥机制块 + 跟「应用正则」
+    if (ENABLE_THEATER && streamKey === 'theater') return soThrRenderHtml(t, ENABLE_THR_FIDELITY ? soThrDepthOf(convo, entry) : undefined);   // 🎭 IF 回复：剥机制块 + 跟「应用正则」（🎬 + IF 深度）
     return renderMarkdownOnly(t);   // main / 注册插件模式房：1.20.0 F5 补渲行为不变
 }
 // PURE：按房间算重画后该重挂哪些动作卡。参谋采纳卡 / 世界书应用控件从【字符串】可完整导出 →
@@ -47636,11 +49290,12 @@ function soDrawHistoryEntry(m) {
         if (c && !c.classList.contains('so-rendered')) {
             c.dataset.soRaw = m.content || '';
             const pj = ENABLE_ORACLE_REGEX ? soPaintReplyText(m) : null;   // TBW spec B · B6：显示规则插在今天的渲染器前面
-            if (pj && pj.active) soApplyPaint(c, pj, (t) => repaintHtmlForRoom(convoStreamKey, t));
+            if (pj && pj.active) soApplyPaint(c, pj, (t) => repaintHtmlForRoom(convoStreamKey, t, m));
             else {
-                const html = repaintHtmlForRoom(convoStreamKey, m.content || '');
+                const html = repaintHtmlForRoom(convoStreamKey, m.content || '', m);
                 if (html != null) { c.innerHTML = html; c.classList.add('so-rendered'); c.style.whiteSpace = 'normal'; }
             }
+            if (soThrPanelsOn() && convoStreamKey === 'theater') soThrMountPanels(c, m);   // 🎬 面板
         }
     }
 }
@@ -47788,6 +49443,7 @@ const soFloorUi = { tab: 'keep', query: '', filter: 'all', page: 0 };
 let soFloorDlg = null;
 function soRoomLabel(room) {
     if (room && String(room).startsWith('bld_')) return '角色工坊';
+    if (room === 'theater' && soThrLongOn()) return THEATER_BAR_TITLE;   // 🎬 长 IF：☰ 工具在小剧场里的标题
     return { main: '普通聊天', advisor: '参谋', diagnose: '诊断', lorebook: '世界书', fix: '校正' }[room] || '普通聊天';
 }
 function soCloseFloorDialog() {
@@ -47979,6 +49635,7 @@ function loadConvoForChat() {
     // TBW spec B · B1：别处（锻造归位等）在这间房离开期间可能添了楼 → 读回后按本房设置重算一次，变了才落盘。
     if (ENABLE_CONVO_HIDE && soHideRefresh().length) persistConvo();
     cidSeq = convo.reduce((mx, m) => Math.max(mx, Number(m.id) || 0), cidSeq);
+    if (soThrPanelsOn()) soThrUnmountPanels(messagesEl);   // 🎬 面板：换房 / 换 IF / 换聊天 → 框全部移走
     messagesEl.innerHTML = '';
     // 房间头部提示线（每模式独立房间）：让「历史换了一批」读成「独立记录」而不是「记录丢了」。主流不显示。
     const cueText = streamCueLabel(convoStreamKey, getSettings());
@@ -48024,6 +49681,7 @@ function loadConvoForChat() {
         if (!convo.some((m) => m.role === 'assistant')) appendConvoImportEntry(messagesEl);
     });
     scrollToBottom();
+    if (soThrLongOn()) soThrRefreshMeter();   // 🎬 长 IF：换 IF / 换房 / 换聊天 → 长度条跟着眼前这一页
 }
 
 // 把可见侧聊切到当前模式应在的房间（每模式独立房间）：工坊 → 变体房间；诊断/世界书/参谋/校正 → 各自房间；
@@ -49076,7 +50734,8 @@ function soChatMenuSync() {
     const menu = soChatMenuEl();
     if (!menu) return;
     const files = menu.querySelector('[data-so-chat-menu="files"]');
-    if (files) files.style.display = soChatFilesApply(convoStreamKey) ? '' : 'none';
+    // 🎬 长 IF：小剧场里不给「管理聊天记录」（IF 行上自己有改名 / 删除）；导入 / 导出的闸不动。
+    if (files) files.style.display = (soChatFilesApply(convoStreamKey) && !(soThrLongOn() && convoStreamKey === 'theater')) ? '' : 'none';
     const addons = menu.querySelector('.so-chat-menu-addons');
     const sub = menu.querySelector('.so-chat-menu-sub');
     if (sub) sub.style.display = (addons && addons.children.length) ? '' : 'none';
@@ -49445,9 +51104,13 @@ async function soKbMessageFor(scanTurns) {
 // 激活 + 预算：发送和「预览会带上的条目」共用这一份（null = 关着 / 没条目 / 没命中）。
 // 表头（SO_KB_HEADER）算一次：先从预算里扣掉，剩下的才给条目；total = 条目 + 表头（一条都没带上 = 0）。预算 0 = 不限。
 // 扣完不够放任何东西 → 全部「未带上」（不能把 0 交给 soKbFill——那是「不限」）。
-async function soKbFillFor(file, scanTurns) {
+// 🎬 长 IF（ENABLE_THR_LONG_PLAY）：激活按 IF 隔离（opts.ifScope = 这一趟所在的那条 IF；普通聊天 / 参谋 / 预览不传 = 一条 IF 的条目都不带）；
+// opts.omit = 激活之后再拿掉的那一条（IF 自己的前情总结另外恒带，不占预算）。旗关 = 与以前同一个调用。
+async function soKbFillFor(file, scanTurns, opts) {
     if (!file || file.enabled === false || !Array.isArray(file.entries) || !file.entries.length) return null;
-    const act = soKbActivate(file, scanTurns, { depth: file.scanDepth });
+    const scope = soThrLongOn() ? { scoped: true, ifScope: (opts && typeof opts.ifScope === 'string') ? opts.ifScope : undefined } : {};
+    let act = soKbActivate(file, scanTurns, { depth: file.scanDepth, ...scope });
+    if (soThrLongOn() && opts && opts.omit) act = act.filter((a) => a.entry.id !== opts.omit);
     if (!act.length) return null;
     const counts = new Map();
     for (const a of act) counts.set(a.entry.id, await soKbTokens(soKbEntryText(a.entry)));
@@ -49758,6 +51421,14 @@ function soKbRender(opts = {}) {
         const pill = document.createElement('span');
         pill.className = 'so-kb-pill ' + (e.mode === 'blue' ? 'so-kb-pill-blue' : 'so-kb-pill-green');
         pill.textContent = e.mode === 'blue' ? '常驻' : '关键词';
+        // 🎬 长 IF：一条 IF 自己的前情总结——标「IF」，悬停看是哪条 IF（那条 IF 还在时）。
+        let ifPill = null;
+        if (soThrLongOn() && typeof e.ifScope === 'string') {
+            ifPill = document.createElement('span');
+            ifPill.className = 'so-kb-pill so-kb-if-pill';
+            ifPill.textContent = THEATER_LONG_KB_PILL;
+            try { if (soChatFileExists('theater', e.ifScope)) ifPill.title = soChatFileDisplayName('theater', e.ifScope); } catch (err) { /* 没有 IF 名 = 不给悬停 */ }
+        }
         const tok = document.createElement('span');
         tok.className = 'so-kb-tokens';
         tok.textContent = `约 ${soKbNum(soKbEstimateTokens(soKbEntryText(e)))}`;
@@ -49777,7 +51448,7 @@ function soKbRender(opts = {}) {
         rm.setAttribute('aria-label', '删除');
         rm.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
         rm.addEventListener('click', () => { soKbDeleteEntry(e.id); });
-        head.append(cb, uid, name, pill, tok, exp, rm);
+        head.append(cb, uid, name, pill, ...(ifPill ? [ifPill] : []), tok, exp, rm);
         row.appendChild(head);
         if (!editing && e.mode !== 'blue' && e.keywords && e.keywords.length) {   // 展开编辑时不重复显示（编辑框里就有关键词）
             const keys = document.createElement('div');
@@ -50049,6 +51720,8 @@ async function soOpenBigSummaryDialog() {
     const file = await soKbLoadForEdit(key);   // 历史记录住在本角色的知识库文件里
     if (!file || soKbCharKeyNow() !== key || soBigSumDlgLive()) return soBigSumDlg || null;
     const chatOk = convoExportAllowed(currentOracleMode());
+    // 🎬 长 IF：小剧场里看着一条 IF →「总结当前聊天」换成「总结这条 IF」（与 📖 同一条路）。
+    const thrIf = (soThrLongOn() && ENABLE_KNOWLEDGE_BASE && ENABLE_CONVO_HIDE) ? soThrVisibleIf() : null;
     const dlg = document.createElement('dialog');
     dlg.className = 'so-local-dialog so-owned-dialog so-big-summary-dialog';
     soMarkLocalUi(dlg);   // TBW spec C · C1
@@ -50061,6 +51734,8 @@ async function soOpenBigSummaryDialog() {
         + '<button type="button" class="so-local-btn so-bigsum-source so-bigsum-src-md"><span class="so-bigsum-src-title"><i class="fa-solid fa-file-arrow-up"></i> 导入 MD 文件</span>'
         + '<span class="so-bigsum-src-sub">神谕导出的 .md 或任何长文本</span></button>'
         + (chatOk ? '<button type="button" class="so-local-btn so-bigsum-source so-bigsum-src-chat"><span class="so-bigsum-src-title"><i class="fa-solid fa-comments"></i> 总结当前聊天</span>'
+            + '<span class="so-bigsum-src-sub"></span></button>' : '')
+        + (thrIf ? '<button type="button" class="so-local-btn so-bigsum-source so-bigsum-src-thr"><span class="so-bigsum-src-title"><i class="fa-solid fa-clapperboard"></i> <span class="so-bigsum-src-thr-label"></span></span>'
             + '<span class="so-bigsum-src-sub"></span></button>' : '')
         + '</div>'
         + '<div class="so-bigsum-info"></div>'
@@ -50105,6 +51780,11 @@ async function soOpenBigSummaryDialog() {
     dlg.addEventListener('click', (e) => { if (e.target === dlg && !liveSummary) close(); });   // 跑着的时候点背景不关（免得误触停掉）
     dlg.querySelector('.so-bigsum-src-md').addEventListener('click', () => soBigSumInput().click());
     dlg.querySelector('.so-bigsum-src-chat')?.addEventListener('click', () => { soBigSumFromChat(); });
+    if (thrIf) {
+        dlg.querySelector('.so-bigsum-src-thr-label').textContent = THEATER_LONG_SOURCE_BTN;
+        dlg.querySelector('.so-bigsum-src-thr .so-bigsum-src-sub').textContent = THEATER_LONG_SUMMARY_SOURCE(soChatFileDisplayName('theater', thrIf));
+        dlg.querySelector('.so-bigsum-src-thr').addEventListener('click', () => { soThrSummarize(thrIf); });
+    }
     dlg.querySelector('.so-bigsum-start').addEventListener('click', () => { soBigSumStart(); });
     dlg.querySelector('.so-bigsum-stop').addEventListener('click', () => { if (liveSummary) liveSummary.abort(); });
     dlg.querySelector('.so-bigsum-history-btn').addEventListener('click', () => soBigSumRenderHistory());
@@ -50156,6 +51836,7 @@ function soBigSumFromChat() {
 async function soBigSumSetDoc(raw, sourceName, kind) {
     const dlg = soBigSumDlg;
     if (!dlg || liveSummary) return false;
+    if (soThrLongOn()) dlg._thr = null;   // 🎬 长 IF：换了资料 = 这一轮不再落到 IF（soThrSummarize 在这之后才挂上它）
     let text;
     try { text = kind === 'chat' ? String(raw || '') : soSummaryDocFromMd(raw, parseConvoExportMd); }
     catch (e) { soBigSumStatus(String(e && e.message || e), true); return false; }
@@ -50220,6 +51901,9 @@ async function soBigSumStart() {
     if (s.mode === 'profile' && !s.profileId) { soBigSumStatus('请先在设置（齿轮图标）中选择一个连接配置文件。', true); return false; }
     const doc = dlg._doc;
     const run = { key: dlg.dataset.key, sourceName: doc.sourceName, summaryId: null, parts: [], savedParts: 0 };
+    // 🎬 长 IF：这一轮是不是 📖 总结前文（跑完要落到哪条 IF）；只认这一轮，停止 / 出错 = 丢掉，什么都不落。
+    const thr = soThrLongOn() && dlg._thr ? dlg._thr : null;
+    if (thr) dlg._thr = null;
     soBigSumLastFinish = '';
     dlg._run = run;
     const ctl = new AbortController();
@@ -50248,6 +51932,10 @@ async function soBigSumStart() {
         try { saved = await soBigSumWriteFinal(run.key, run.summaryId, { content: out.content, keywords: out.keywords, sourceName: run.sourceName }); }
         catch (e) { console.warn('[Story Oracle] 大总结结果没能自动存进历史：', e); saved = null; }
         if (saved) run.summaryId = saved.id;
+        if (thr && saved) {
+            try { await soThrSummaryLand(thr, { content: out.content, keywords: out.keywords, summaryId: saved.id }); }
+            catch (e) { console.warn('[Story Oracle] 小剧场：前情总结落地失败', e); }
+        }
         if (soBigSumDlg === dlg) {
             const warn = soBigSumShowResult({ summaryId: run.summaryId, name: saved ? saved.name : '', sourceName: doc.sourceName, content: out.content, keywords: out.keywords,
                 stats: { batches: out.batches, phases: out.phases, calls: out.calls }, finish: soBigSumLastFinish });

@@ -3033,6 +3033,32 @@ body.so-skin-light :is(.so-knowledge-dialog, .so-big-summary-dialog) .so-local-d
 #so-thr-scene-frame { flex: 1 1 auto; width: 100%; min-height: 0; border: 0; background: var(--so-cur-surface, #1b1d23); }
 #so-thr-scene-frame[hidden], #so-thr-scene-raw[hidden] { display: none; }
 #so-thr-scene-raw { flex: 1 1 auto; margin: 0; padding: 10px 12px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.6; }
+/* 🎬 回复保真（ENABLE_THR_FIDELITY）：IF 回复气泡的正文是 .mes_text。ST 只在 .mes 下面藏浏览器给 <q> 自动加的引号（public/style.css .mes q:before），
+   神谕气泡不是 .mes → 在这里补上，免得对白出现两层引号。 */
+#so-window .so-msg.so-thr-fid .so-content.mes_text q::before,
+#so-window .so-msg.so-thr-fid .so-content.mes_text q::after { content: none; }
+/* 🎬 长 IF（ENABLE_THR_LONG_PLAY）：IF 行上的 ✏️ / 🗑（同 📥 的样子）+ 输入框上方的长度条（一行 4 px 条 + 小字；提醒那一行可换行）。 */
+.so-thr-if-rename, .so-thr-if-delete { flex: 0 0 auto; min-width: 30px; min-height: 34px; border: 0; background: transparent; color: var(--so-control-ink, var(--SmartThemeBodyColor, #e6e6e6)); opacity: 0.55; cursor: pointer; }
+.so-thr-if-rename:hover { opacity: 1; color: var(--so-accent); }
+.so-thr-if-delete:hover { opacity: 1; color: var(--so-danger, var(--crimson70a, #e07c7c)); }
+.so-thr-if-rename:focus-visible, .so-thr-if-delete:focus-visible { outline: 2px solid var(--so-accent); outline-offset: -2px; }
+#so-thr-meter { flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; padding: 3px 12px 4px; font-size: 11px; line-height: 1.4; }
+#so-thr-meter[hidden], #so-window:not(.so-thr-on) #so-thr-meter, #so-window.so-settings-open #so-thr-meter { display: none; }
+.so-thr-meter-line { display: flex; align-items: center; gap: 8px; min-height: 16px; }
+.so-thr-meter-bar { flex: 1 1 auto; height: 4px; border-radius: 2px; background: rgba(var(--so-ink), 0.12); overflow: hidden; }
+.so-thr-meter-bar > i { display: block; height: 100%; width: 0; background: rgba(var(--so-ink), 0.4); }
+.so-thr-meter-amber .so-thr-meter-bar > i { background: var(--so-warn, #e0a23a); }
+.so-thr-meter-red .so-thr-meter-bar > i { background: var(--so-danger, var(--crimson70a, #e07c7c)); }
+.so-thr-meter-label { flex: 0 0 auto; opacity: 0.7; white-space: nowrap; }
+.so-thr-meter-red .so-thr-meter-label { opacity: 1; color: var(--so-danger, var(--crimson70a, #e07c7c)); }
+.so-thr-meter-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.so-thr-meter-hint[hidden] { display: none; }
+.so-thr-meter-hint button { flex: 0 0 auto; padding: 2px 8px; border: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,0.15)); border-radius: 10px; background: transparent; color: var(--so-control-ink, var(--SmartThemeBodyColor, #e6e6e6)); font-size: 11px; cursor: pointer; }
+.so-thr-meter-hint button:hover { border-color: var(--so-accent); color: var(--so-accent); }
+/* 🎬 小剧场 · IF 面板（ENABLE_THR_PANELS）：卡片的网页面板框（高度由框里 adjust_iframe_height.js 按 body.scrollHeight 写）+ 被收起的旧面板那一行 */
+#so-window .so-thr-panel { margin: 4px 0; max-width: 100%; }
+#so-window .so-thr-panel-frame { display: block; width: 100%; border: 0; background: transparent; }
+#so-window .so-thr-panel-folded { margin: 4px 0; padding: 4px 8px; border: 1px dashed rgba(var(--so-ink), 0.2); border-radius: 6px; font-size: 12px; opacity: 0.7; }
 
 /* ==================== 更新提醒（ENABLE_UPDATE_CHECK，1.38.0） ==================== */
 /* 红点：有新版时挂 ⋯ / ⚙ / 设置「更新」组标题。position:relative 只在亮点时上桩，平时零布局影响。 */
