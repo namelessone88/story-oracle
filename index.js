@@ -2078,7 +2078,7 @@ const ENABLE_CUSTOM_PERSONAS = true;
 // —— 更新提醒（1.38.0）——
 // SO_VERSION 是代码内唯一版本号，必须与 manifest.json 的 version 完全一致——update-check.test.mjs
 // 有失配即红的漂移钉（发版清单：两处一起 bump）。
-const SO_VERSION = '1.91.0';
+const SO_VERSION = '2.0.0';
 // 更新提醒总开关。false → 设置面板不渲染「更新」组、开窗不检查、红点绘制器与一键更新 no-op、
 // 绑定/回填跳过——字节级零行为变化。运行期另有 opt-out 设置 updAutoCheck（默认开）。
 const ENABLE_UPDATE_CHECK = true;
@@ -2121,6 +2121,9 @@ const ENABLE_BIG_SUMMARY = true;
 // —— 1.91.0 补 · konosbz 1.0.3 ——对话称呼（设置 → 界面）：窗口里「你」「神谕」两个名字标签可改成自定义称呼，只改显示。
 // false = 设置面板没有这一段、标签恒为「你」/「神谕」、getSettings 不加两个键；导出 / 提示词 / 角色 / 存储正文两档都不碰。
 const ENABLE_DISPLAY_NAMES = true;
+// —— 🎭 小剧场（theater，第 7 种模式；spec docs/superpowers/specs/2026-11-06-theater-mode-design.md）——平行线（IF）与小剧场场景，
+// 自有房间、不改主线。false = 无标题栏按钮、无设置行、命名聊天房间仍只有 main / advisor、getSettings 不加任何 theater 键（与无此功能的版本逐字节同）。
+const ENABLE_THEATER = true;
 // 远端版本号来源（按序尝试，首个可解析者胜）：GitHub Raw 在中国大陆常被墙 → jsDelivr CDN 兜底
 // （其缓存可滞后 ~12h，红点可能晚亮，可接受）。只 GET 公开文件，不发送任何用户数据。
 // bust = 是否加时间戳绕缓存（Raw 要绕；jsDelivr 缓存本身就是它的意义，不绕）。
@@ -5123,6 +5126,5843 @@ function soKbMigrationPlan(his, file, makeId, now) {
     return { entries, summaries, count: entries.length };
 }
 /* <</TBW-D:kb-store>> */
+/* ------------------------------------------------------------------ *
+ * 🎭 小剧场 · 外壳（ENABLE_THEATER；theater plan 1 Task 1–2）
+ * 第 7 种模式：自有侧聊房间 'theater'（命名聊天也开在这一房），群聊里禁用（spec §6.2c）。
+ * ------------------------------------------------------------------ */
+// 命名聊天的房间表在 TBW-B chat-files 原样拼入块里（块文件独立单测、不认识本旗），故不改块，在这里追加——旗关 = 表不动。
+if (ENABLE_THEATER) SO_CHAT_FILES_ROOMS.push('theater');
+// DRAFT 文案（待 Prince 选）：群聊里按钮的禁用原因。
+const THEATER_GROUP_REASON = '群聊暂不支持小剧场';
+// PURE：当前是不是群聊（ST getContext().groupId = 选中的群 id，单聊时 null / ''）。
+function soThrGroupBlocked(ctx) {
+    return !!(ctx && ctx.groupId);
+}
+// DRAFT 文案（待 Prince 选）：标题栏按钮的提示 / 进入提示。
+const THEATER_BTN_TITLE = '小剧场 —— 平行线（IF）与小剧场场景，不改主线';
+const THEATER_ENTRY_NOTE = '小剧场已开启。这里演的平行线和场景只存在小剧场里，主聊天的故事一字不动。';
+// 标题栏按钮的群聊态（唯一写者）：群聊 → 灰 + aria-disabled + title 换成原因；单聊 → 复原。建窗后、每次 CHAT_CHANGED 调。
+function soThrRefreshButton() {
+    if (!ENABLE_THEATER || !win) return;
+    const btn = win.querySelector('#so-theater-btn');
+    if (!btn) return;
+    let blocked = false;
+    try { blocked = soThrGroupBlocked(getCtx()); } catch (e) { blocked = false; }
+    btn.classList.toggle('so-thr-blocked', blocked);
+    if (blocked) btn.setAttribute('aria-disabled', 'true'); else btn.removeAttribute('aria-disabled');
+    const title = blocked ? `${THEATER_BTN_TITLE}（${THEATER_GROUP_REASON}）` : THEATER_BTN_TITLE;
+    btn.title = title;
+    if (btn.hasAttribute('aria-label')) btn.setAttribute('aria-label', title);
+}
+// CHAT_CHANGED：按钮态重算；人在小剧场里却换进了群聊 → 退回普通聊天（群聊里小剧场不可用，spec §6.2c）。
+function soThrOnChatChanged() {
+    if (!ENABLE_THEATER) return;
+    try { soThrRecoverSwap(getCtx()); } catch (e) { console.warn('[Story Oracle] 小剧场：变量切换日志检查失败', e); }   // plan 2 Task 6
+    if (!win) return;
+    // 复审 §4.5：换了聊天，查看层里那个场景属于上一个聊天——关掉（不然它的「更多」只会撞上「这个场景已经不在了」）。
+    if (soThrSceneView) soThrSceneClose();
+    soThrRefreshButton();
+    soThrRefreshBar();
+    let blocked = false;
+    try { blocked = soThrGroupBlocked(getCtx()); } catch (e) { blocked = false; }
+    if (theaterMode && blocked) {
+        priorOracleMode = 'chat';
+        setOracleMode('chat');
+    }
+}
+// 小剧场按钮：进入 / 退出（普通两态，与角色工坊同款）。群聊里拒绝并 toast 原因；旗关时 no-op。
+async function soThrToggle() {
+    if (!ENABLE_THEATER) return;
+    if (theaterMode) {
+        const back = priorOracleMode || 'chat';
+        if (!(await confirmModeSwitch(back))) return;
+        priorOracleMode = 'chat';
+        setOracleMode(back);
+        modeEntryNote(modeReturnNote(back));
+        focusOracleInput();
+        return;
+    }
+    if (soThrGroupBlocked(getCtx())) {
+        soThrRefreshButton();
+        if (typeof toastr !== 'undefined') toastr.info(THEATER_GROUP_REASON);
+        return;
+    }
+    if (!(await confirmModeSwitch('theater'))) return;
+    priorOracleMode = currentOracleMode();
+    setOracleMode('theater');
+    modeEntryNote(THEATER_ENTRY_NOTE);
+    focusOracleInput();
+}
+
+// —— 小剧场栏（#so-thr-bar）：IF / 小剧场场景两个页签 + 「用 ST 当前预设」勾选框 ——
+// DRAFT 文案（待 Prince 选）。
+const THEATER_BAR_TITLE = '小剧场';
+const THEATER_TAB_IF = '平行线（IF）';
+const THEATER_TAB_SCENES = '小场景';
+const THEATER_IF_HINT = '在下方输入框写下「如果……」，小剧场会按这条平行线接着演；主线不受影响。';
+const THEATER_PRESET_LABEL = '用 ST 当前预设';
+const THEATER_PRESET_HINT = '按你在主聊天里设置好的预设生成（含其正则与脚本）';
+const THEATER_PRESET_NEED_CC = '需要 ST 使用聊天补全（Chat Completion）接口';
+const THEATER_TABS = ['if', 'scenes'];
+
+// PURE-ish：「用 ST 当前预设」此刻能不能用 = ST 主接口是聊天补全（main_api === 'openai'）。
+// 读 getContext().mainApi（getContext 每次现取，是快照值）；缺这个键的旧 ST 才退到已加载的 /script.js 的 main_api 导出。
+function soThrPresetAvailable(ctx) {
+    let api = ctx ? ctx.mainApi : undefined;
+    if (api === undefined || api === null) {
+        if (scriptCore && typeof scriptCore.main_api === 'string') api = scriptCore.main_api;
+    }
+    return api === 'openai' ? { ok: true, reason: '' } : { ok: false, reason: THEATER_PRESET_NEED_CC };
+}
+// PURE：这一轮走不走 ST 预设路 = 勾了 且 此刻可用。存着「勾上」但 ST 不在聊天补全 → 一律走 SO 自己的路（绝不半截预设路）。
+function soThrUsePreset(s, ctx) {
+    return !!(s && s.theaterUseStPreset) && soThrPresetAvailable(ctx).ok;
+}
+function soThrTabOf(s) {
+    const t = s && s.theaterTab;
+    return THEATER_TABS.includes(t) ? t : 'if';
+}
+// 小剧场栏回显（唯一写者）：勾选框 checked / disabled / title + 页签选中态 + 面板显隐。建窗后、进模式、开窗、CHAT_CHANGED 调。
+function soThrRefreshBar() {
+    if (!ENABLE_THEATER || !win) return;
+    const bar = win.querySelector('#so-thr-bar');
+    if (!bar) return;
+    const s = getSettings();
+    let ctx = null;
+    try { ctx = getCtx(); } catch (e) { ctx = null; }
+    const avail = soThrPresetAvailable(ctx);
+    const chk = bar.querySelector('#so-thr-use-preset');
+    if (chk) {
+        chk.checked = !!s.theaterUseStPreset;
+        chk.disabled = !avail.ok;
+        chk.title = avail.ok ? '' : avail.reason;
+        const row = bar.querySelector('#so-thr-preset-row');
+        if (row) row.classList.toggle('so-thr-disabled', !avail.ok);
+    }
+    const tab = soThrTabOf(s);
+    bar.querySelectorAll('[data-thr-tab]').forEach((b) => b.setAttribute('aria-selected', b.dataset.thrTab === tab ? 'true' : 'false'));
+    bar.querySelectorAll('[data-thr-panel]').forEach((p) => { p.hidden = p.dataset.thrPanel !== tab; });
+    soThrRefreshIfPanel();   // theater plan 2：IF 列表跟着聊天 / 房间走
+    // theater plan 2 Task 5：兼容「MVU 额外模型解析」勾选框——只在这张卡挂着 MVU 时出现。
+    const drow = bar.querySelector('#so-thr-mvu-derive-row');
+    if (drow) {
+        drow.hidden = !soThrMvu();
+        const dchk = drow.querySelector('#so-thr-mvu-derive');
+        if (dchk) dchk.checked = !!s.theaterMvuDerive;
+    }
+    soThrRefreshScenePanel();   // theater plan 3：场景列表跟着聊天 / 归属走
+    soThrRefreshSettings();
+    // 缺 getContext().mainApi 的旧 ST：人在小剧场里、/script.js 还没取过 → 取一次再回显（只取一次：loadScriptCore 自己缓存 null/false）。
+    if (theaterMode && (!ctx || ctx.mainApi === undefined || ctx.mainApi === null) && scriptCore === null) {
+        loadScriptCore().then(() => { if (scriptCore) soThrRefreshBar(); }).catch(() => {});
+    }
+}
+// 小剧场栏的监听（建窗后挂一次）。
+function soThrBindBar() {
+    if (!ENABLE_THEATER || !win) return;
+    const bar = win.querySelector('#so-thr-bar');
+    if (!bar) return;
+    bar.querySelector('#so-thr-use-preset')?.addEventListener('change', (e) => {
+        getSettings().theaterUseStPreset = !!e.target.checked;
+        save();
+    });
+    bar.querySelectorAll('[data-thr-tab]').forEach((b) => b.addEventListener('click', () => {
+        const t = b.dataset.thrTab;
+        if (!THEATER_TABS.includes(t)) return;
+        getSettings().theaterTab = t;
+        save();
+        soThrRefreshBar();
+    }));
+    bar.querySelector('#so-thr-mvu-derive')?.addEventListener('change', (e) => {
+        getSettings().theaterMvuDerive = !!e.target.checked;
+        save();
+        soThrRefreshSettings();
+    });
+    // theater plan 2：「＋ 新平行线」= 回到小剧场房的「默认」（空白页）；在那里打字就开一条新的 IF。
+    bar.querySelector('#so-thr-if-new')?.addEventListener('click', () => {
+        if (soThrIfSwitch(SO_CHAT_FILE_DEFAULT)) focusOracleInput();
+    });
+    soThrBindScenePanel();   // theater plan 3 Task 4
+    soThrBindSettings();     // theater plan 3 Task 6（#so-settings 里的小剧场组）
+    soThrRefreshBar();
+}
+
+/* ------------------------------------------------------------------ *
+ * 🎭 小剧场 · 生成引擎（theater plan 1 Task 3：纯函数；编排器 soTheaterGenerate 在 Task 4）
+ * 预设路照 spec §6.1 用 ST 自己的零件拼请求：历史过 ST 正则引擎（深度从最新一条数起）、世界书只干跑、
+ * 主线时间线的扩展提示词在这一趟里暂时挪开（park），跑完只还自己挪走、且此刻仍空着的那些槽。
+ * ------------------------------------------------------------------ */
+// ST 正则引擎的 placement（public/scripts/extensions/regex/engine.js:281 regex_placement：USER_INPUT 1 / AI_OUTPUT 2）。
+const THEATER_REGEX_PLACEMENT = { USER_INPUT: 1, AI_OUTPUT: 2 };
+// PURE：把小剧场历史整形成 ST 聊天消息的形状，并按 ST 给真聊天拼提示词时的方式过正则
+// （public/script.js:4442–4447：USER_INPUT / AI_OUTPUT、isPrompt:true、depth = 距最新一条的楼数）。
+// msgs = [{role:'user'|'assistant'|'system', name, text}]（旧→新）；regexFn = ST 的 getRegexedString（缺 = 原文直通）。输出仍是旧→新。
+// role 'system'（theater plan 2：IF 分隔线）→ ST 的旁白消息形状 extra.type 'narrator'（openai.js setOpenAIMessages 把它当 system 发），不过正则。
+function soThrShapeHistory(msgs, regexFn) {
+    const list = Array.isArray(msgs) ? msgs : [];
+    const n = list.length;
+    return list.map((m, i) => {
+        const isUser = !!m && m.role === 'user';
+        const name = m && typeof m.name === 'string' ? m.name : '';
+        const text = m && typeof m.text === 'string' ? m.text : '';
+        if (m && m.role === 'system') return { is_user: false, is_system: false, name: '', mes: text, extra: { type: 'narrator' } };
+        let mes = text;
+        if (typeof regexFn === 'function') {
+            const placement = isUser ? THEATER_REGEX_PLACEMENT.USER_INPUT : THEATER_REGEX_PLACEMENT.AI_OUTPUT;
+            const out = regexFn(text, placement, { isPrompt: true, depth: n - 1 - i });
+            if (typeof out === 'string') mes = out;
+        }
+        return { is_user: isUser, is_system: false, name, mes, extra: {} };
+    });
+}
+// 小剧场这一趟要暂时挪开的【主线时间线】扩展提示词槽（照源码取，不凭记忆；行号 = 2026-11-06 本机文件）：
+//   · 'story_oracle_plan'            —— 本文件 ADVISOR_PROMPT_KEY（参谋引导槽；setExtensionPrompt 调用点见 applyPlanInjection）
+//   · 'storyOracle_seqPulse'         —— 本文件 SEQ_PULSE_PROMPT_KEY = MODULE + '_seqPulse'（落拍感应槽，同一函数）
+//   · '1_memory'                     —— public/scripts/extensions/memory/index.js:36 MODULE_NAME（写入 :965）
+//   · '3_vectors' / '4_vectors_data_bank' —— public/scripts/extensions/vectors/index.js:52–53 EXTENSION_PROMPT_TAG(_DB)（写入 :696 / :854）
+//   · 'chromadb'                     —— public/scripts/openai.js:1415（Smart Context 槽，prepareOpenAIMessages 直接读它）+ :1433
+//   · 'LittleWhiteBox_StorySummary'  —— 小白X public/scripts/extensions/third-party/LittleWhiteBox/modules/story-summary/story-summary.js:525
+//     EXT_PROMPT_KEY（写入 :4266；本文件 LWB_EXT_PROMPT_KEY 同值）。小白X 其余键不挪：'LWB_varevent_display'（varevent-editor.js:13）
+//     只会被写成 ''；'xb_tavern_runtime_depth_*'（tavern/host/native-prompt.js:353）是它自家沙箱、自己快照还原整张表。
+//   · 不挪 '2_floating_prompt'（public/scripts/authors-note.js:26，作者注属于这张卡）。
+// 另有前缀规则 THEATER_PARK_PREFIXES（主线这些槽是上一趟主聊天生成留下的世界书结果，小剧场这一趟要换成自己的）：
+//   · 'customDepthWI'   —— 世界书深度条目槽（public/scripts/constants.js:53 inject_ids.CUSTOM_WI_DEPTH；ST 写成
+//     customDepthWI_<depth>_<role>，public/script.js:4612；酒馆助手写成 customDepthWI-<depth>-<role>）；
+//   · 'customWIOutlet_' —— 世界书出口槽（public/scripts/constants.js:55 inject_ids.CUSTOM_WI_OUTLET；ST 写入 public/script.js:4617）。
+// 字面量而非引用常量：本段位于各常量声明之前（const 暂时性死区）；theater-engine.test.mjs 钉它们与 live 常量同值。
+const THEATER_PARK_KEYS = [
+    'story_oracle_plan', 'storyOracle_seqPulse',
+    '1_memory', '3_vectors', '4_vectors_data_bank', 'chromadb',
+    'LittleWhiteBox_StorySummary',
+];
+const THEATER_PARK_PREFIXES = ['customDepthWI', 'customWIOutlet_'];
+// 把 registry（ST 的 extension_prompts 对象）里命中 keys（精确）或 THEATER_PARK_PREFIXES（前缀）的
+// 【自有】键挪进私有暂存，返回 restore()：只放回【本次挪走的】且【此刻不存在】的键（别人这期间写进去的值优先），幂等。
+// keys 缺省（非数组）= THEATER_PARK_KEYS。
+function soThrParkPrompts(registry, keys) {
+    if (!registry || typeof registry !== 'object') return () => {};
+    const want = new Set(Array.isArray(keys) ? keys : THEATER_PARK_KEYS);
+    let stash = new Map();
+    for (const k of Object.keys(registry)) {
+        if (want.has(k) || THEATER_PARK_PREFIXES.some((p) => k.startsWith(p))) {
+            stash.set(k, registry[k]);
+            delete registry[k];
+        }
+    }
+    return function restore() {
+        if (!stash) return;
+        const s = stash;
+        stash = null;
+        for (const [k, v] of s) {
+            if (!Object.hasOwn(registry, k)) registry[k] = v;
+        }
+    };
+}
+// DRAFT 文案（待 Prince 选）：小剧场不开跑的原因，按判定顺序。
+const THEATER_START_REASONS = {
+    generating: '主聊天正在生成，等它结束再开小剧场',
+    sendPress: '主聊天正在发送，稍后再试',
+    mvuBusy: 'MVU 正在解析变量，稍后再试',
+    postReplyBusy: '神谕正在处理上一条回复（自动校正 / 诊断），稍后再试',
+    group: THEATER_GROUP_REASON,
+    running: '小剧场上一轮还在生成',
+};
+// PURE：能不能开跑。st = {generating, sendPress, mvuBusy, postReplyBusy, group, running}；按此顺序第一个为真者胜。
+function soThrCanStart(st) {
+    const o = st || {};
+    for (const k of ['generating', 'sendPress', 'mvuBusy', 'postReplyBusy', 'group', 'running']) {
+        if (o[k]) return { ok: false, reason: THEATER_START_REASONS[k] };
+    }
+    return { ok: true, reason: '' };
+}
+
+/* —— 编排器 soTheaterGenerate（theater plan 1 Task 4–5）——
+ * 预设路（spec §6.1，次序即规格，别重排）：能否开跑 → 置 soThrRun → hooks.beforeAssemble → 历史过 ST 正则 → setOpenAIMessages
+ * → getCharacterCardFields → 世界书【干跑】getWorldInfoPrompt(…, true, …) → 挪开主线槽（park）→ 登记本趟自己的深度条目 / 出口
+ * → prepareOpenAIMessages(…, false) → emit GENERATE_AFTER_DATA({prompt}, false) → soThrPresetSend('normal', …, 自己的 signal)
+ *   （2026-11-07 起连接 = 神谕自己的：ST 的参数拼装 + ST 的后端路由，连接字段换成神谕的；见「预设路的连接」一节）
+ * → finally：先删本趟自己的登记、再还主线槽、清 soThrRun、摘监听。
+ * 绝不调酒馆助手 generate/generateRaw；绝不 emit GENERATION_* / MESSAGE_*；绝不碰 setInContextMessages / #send_textarea / 停止键 / is_send_press。
+ * 主聊天永远优先（spec §6.2b）：跑着时 ST 发送（#send_but 点击 / #send_textarea 回车 / 非干跑 GENERATION_STARTED / CHAT_CHANGED）
+ * → soThrAbort('main') 【同步】还原，赶在 ST 拼它自己的提示词之前。SO 路（勾选框关 / ST 不在聊天补全）见 soThrRunSoPath。 */
+let soThrRun = null;          // null | { id, controller, restore, abortReason }
+let soThrRunSeq = 0;
+let soThrMods = null;         // 测试接缝（soThrModulesForTest）；生产恒 null
+let soThrOpenAI = null;       // '/scripts/openai.js'（null = 没取过，false = 取不到），与 loadWorldInfoModule 同款缓存
+// DRAFT 文案（待 Prince 选）。
+const THEATER_PRESET_UNAVAILABLE = '没能载入酒馆的预设组件，这一轮没有发出';
+const THEATER_MAXTOK_400_HINT = '（请求被拒了：可能是「场景输出上限」超过了这个模型的上限，试试在设置 → 🎭 小剧场里调低它）';
+const THEATER_ABORT_MESSAGE = '小剧场已中断';
+// 本趟自己的世界书登记键（ST 的命名：public/scripts/constants.js:54–55 CUSTOM_WI_DEPTH_ROLE / CUSTOM_WI_OUTLET）。
+function soThrWiDepthKey(depth, role) { return `customDepthWI_${depth}_${role}`; }
+function soThrWiOutletKey(name) { return `customWIOutlet_${name}`; }
+
+async function soThrLoadOpenAI() {
+    if (soThrOpenAI !== null) return soThrOpenAI;
+    try {
+        const mod = await import('/scripts/openai.js');
+        // 2026-11-07（Prince）：预设路的连接永远是神谕自己的——发送不再走 ST 的 sendOpenAIRequest（它用 ST 的连接），
+        // 改由 soThrPresetSend 用 ST 的 createGenerationParameters 拼参数、getStreamingReply 解流。缺任一导出 = 预设组件不可用。
+        soThrOpenAI = (mod && typeof mod.prepareOpenAIMessages === 'function' && typeof mod.createGenerationParameters === 'function'
+            && typeof mod.getStreamingReply === 'function' && typeof mod.setOpenAIMessages === 'function') ? mod : false;
+    } catch (e) {
+        console.warn('[Story Oracle] 小剧场：载入 /scripts/openai.js 失败', e);
+        soThrOpenAI = false;
+    }
+    return soThrOpenAI;
+}
+// 测试接缝：{ openai, script, worldInfo, regex, ctx?, callModel?, trace? }（键在场 = 用它，不在 = 生产载入）。传 null 复位。
+function soThrModulesForTest(mods) { soThrMods = mods || null; }
+function soThrModule(name, loader) {
+    if (soThrMods && Object.hasOwn(soThrMods, name)) return Promise.resolve(soThrMods[name]);
+    return loader();
+}
+function soThrAbortError() {
+    const e = new Error(THEATER_ABORT_MESSAGE);
+    e.name = 'AbortError';
+    return e;
+}
+// 同步中断：先掐请求，再立刻还原（删本趟登记 → 还主线槽 → 还 max_tokens），并清 soThrRun——主聊天自己的监听（贴合注入 /
+// 数据库联动）此刻起照常工作。没在跑 = no-op。
+function soThrAbort(reason) {
+    if (ENABLE_THEATER) soThrSwapEndLive();   // theater plan 2 Task 6：平行线变量本互换先同步还原（主聊天赢）
+    const run = soThrRun;
+    if (!run) return;
+    run.abortReason = reason || 'user';
+    soThrRun = null;
+    try { run.controller.abort(); } catch (e) { /* ignore */ }
+    try { run.restore(); } catch (e) { console.warn('[Story Oracle] 小剧场：中断还原失败', e); }
+    // 主聊天护栏（Fix A）：互换还原之后，把预设脚本这期间改过的主聊天楼【同步】改回；存盘 / 重画 / 提示留到下一拍
+    //（中断多半是主线发送：ST 接下来自己会拼提示词、存聊天）。换了聊天（'chat'）= 快照属于旧聊天，一律不还原。
+    if (ENABLE_THEATER && run.chatGuard) {
+        const g = run.chatGuard;
+        if (run.abortReason === 'chat') { soThrChatGuardClose(g); return; }
+        let res = null;
+        try { res = soThrChatGuardRestore(g); } catch (e) { console.warn('[Story Oracle] 小剧场：主聊天护栏还原失败', e); }
+        if (res && (res.restored.length || res.lengthChanged)) setTimeout(() => { soThrChatGuardCommit(g, res).catch(() => {}); }, 0);
+    }
+}
+// 这一趟的中断监听（只在本趟存活；回 disarm）。GENERATION_STARTED 用 makeFirst：排在所有别家监听之前同步还原。
+function soThrArmAbort(run, ctx) {
+    const fire = () => { if (soThrRun === run) soThrAbort('main'); };
+    const fireChat = () => { if (soThrRun === run) soThrAbort('chat'); };   // 换聊天：主聊天护栏不还原（Fix A）
+    const onStarted = (type, params, dryRun) => { if (dryRun) return; fire(); };
+    const onClick = (e) => {
+        const t = e && e.target;
+        if (t && typeof t.closest === 'function' && t.closest('#send_but')) fire();
+    };
+    const onKey = (e) => {
+        if (!e || !e.target || e.target.id !== 'send_textarea') return;
+        if (soEnterShouldSend(e, soReadSendOnEnter(), soIsMobileForEnter())) fire();
+    };
+    document.addEventListener('click', onClick, true);
+    document.addEventListener('keydown', onKey, true);
+    const es = ctx && ctx.eventSource;
+    const et = (ctx && (ctx.eventTypes || ctx.event_types)) || {};
+    const evStart = et.GENERATION_STARTED || 'generation_started';
+    const evChat = et.CHAT_CHANGED || 'chat_id_changed';
+    if (es) {
+        try {
+            if (typeof es.makeFirst === 'function') es.makeFirst(evStart, onStarted); else es.on(evStart, onStarted);
+            es.on(evChat, fireChat);
+        } catch (e) { console.warn('[Story Oracle] 小剧场：中断监听登记失败', e); }
+    }
+    return () => {
+        document.removeEventListener('click', onClick, true);
+        document.removeEventListener('keydown', onKey, true);
+        if (es && typeof es.removeListener === 'function') {
+            try { es.removeListener(evStart, onStarted); es.removeListener(evChat, fireChat); } catch (e) { /* ignore */ }
+        }
+    };
+}
+
+/* —— 🎭 主聊天护栏（theater plan 2 后续 · Fix A；2026-11-07 复审 C1 / I5 / M3 收窄）——
+ * 预设路这一趟里，预设自带的酒馆助手脚本可能把小剧场拼提示词时发出的事件当成「主线在生成」，直接改主聊天的楼（IF 电池实证：Izumi 1029
+ * 的泉此方悬浮窗在 27/36 格改了最后两楼的 mes / swipes 并加了 extra.izumi_advice）。跑之前给主聊天【最后 THEATER_GUARD_FLOORS 楼】各拍一张 JSON
+ *（预设脚本只动最近几楼；同时记住楼数），跑完、变量本互换还原【之后】逐楼比对：变了的就【原地】改回（还是同一个对象：快照里的键逐个覆盖、
+ * 快照里没有的键删掉；没变的键不碰，引用不换）→ 存一次 → 重画那几楼 → 提示。约 1.5 秒后再查一次（晚到的异步改写）。楼数变了 → 绝不 splice，只提示。
+ * 换了聊天 → 快照属于旧聊天，一律不还原。
+ * 【不归 Fix A 的】（复审 C1）：① variables / variables_initialized 永不比对、永不还原——那是变量本互换的地盘；② 这期间有人「正当」改过的楼
+ * 算有主、不还原：ST 的 MESSAGE_EDITED / SWIPED / UPDATED（玩家）、USER / CHARACTER_MESSAGE_RENDERED（酒馆助手改楼后的重画——MVU 额外模型解析、
+ * 卡的回合后引擎都走它）、MESSAGE_RECEIVED / MESSAGE_DELETED（带楼号），以及 MVU 的 mag_variable_update_started / ended（不带楼号 → 记最后一楼）。
+ * 只剩「不发任何事件、悄悄改 mes / extra」的写入会被改回。1.5 秒复查遇到主线真生成（非 dryRun 的 GENERATION_STARTED）/ 新回复 / 删楼 → 直接收手（M3）。
+ * 中断（soThrAbort）同步还原、存盘留到下一拍；主线发送引起的中断不做 1.5 秒复查。
+ * 【时序规则】（2026-11-07 Prince 裁，先实测后实现：真 Izumi 1029 在 :8003 上 6/6 趟都在它自己的 CHAT_COMPLETION_PROMPT_READY 监听器里改内存，
+ * 比请求发出早 42–78 ms；它的 saveChat（+345 ms 起）与 refreshOneMessage → RENDERED（+439…+1171 ms）都在发出之后——见
+ * tests/unit/_theater-tuning/izumi-timing/probe-results.json）：从开跑到「发出」（本趟一次性 makeLast CHAT_COMPLETION_SETTINGS_READY 监听器，
+ * 与 I1 的提前还原同一处）之间的改动 = 神谕拼提示词时触发的、预设脚本的手笔：在「发出」那一刻【一律】改回（哪怕点过上面那些有主事件），
+ * 之后的有主事件才算数（发出时清空有主名单）。发出之后，同一份改动又原样落回来（异步写入的回声）→ 照样改回，有主也改回。
+ * 从没「发出」过（发送前就失败 / 被中断）= 整趟都按发出前处理。 */
+const THEATER_CHAT_RECHECK_MS = 1500;
+const THEATER_GUARD_FLOORS = 6;   // 只护最后这几楼（预设脚本动手的地方）
+// Fix A 永不比对 / 永不还原的键（变量本互换管它们）。
+const THEATER_GUARD_SKIP_KEYS = ['variables', 'variables_initialized'];
+// 这期间点到某一楼（参数 = 楼号）就算那一楼有主（不还原）。[eventTypes 键, 回退串]。
+const THEATER_GUARD_OWN_EVENTS = [
+    ['MESSAGE_EDITED', 'message_edited'], ['MESSAGE_SWIPED', 'message_swiped'], ['MESSAGE_UPDATED', 'message_updated'],
+    ['CHARACTER_MESSAGE_RENDERED', 'character_message_rendered'], ['USER_MESSAGE_RENDERED', 'user_message_rendered'],
+    ['MESSAGE_RECEIVED', 'message_received'], ['MESSAGE_DELETED', 'message_deleted'],
+];
+// MVU 的生命周期事件（不带楼号 → 记最后一楼有主）。名字对着 MagVarUpdate 源码（同 mvuCompatLifecycleMark 的登记处）。
+const THEATER_GUARD_MVU_EVENTS = ['mag_variable_update_started', 'mag_variable_update_ended'];
+// DRAFT 文案（待 Prince 选）。
+const THEATER_CHAT_RESTORED = (n) => `已还原：预设脚本在小剧场生成期间改动了主聊天的 ${n} 条消息`;
+const THEATER_CHAT_LEN_CHANGED = '小剧场生成期间主聊天的楼层数变了，没有自动还原';
+let soThrChatGuardPending = null;   // 等着 1.5 秒复查的那一份（新的一趟开跑前先把它查完，免得新快照把脚本的改写当成原样）
+function soThrJson(v) {
+    try { return JSON.stringify(v); } catch (e) { return null; }
+}
+// 一楼的护栏指纹：去掉 THEATER_GUARD_SKIP_KEYS 再 JSON（键序照原样）。
+function soThrGuardJson(m) {
+    if (!m || typeof m !== 'object') return soThrJson(m);
+    const o = {};
+    for (const k of Object.keys(m)) if (!THEATER_GUARD_SKIP_KEYS.includes(k)) o[k] = m[k];
+    return soThrJson(o);
+}
+function soThrChatGuardStart(ctx) {
+    if (!ENABLE_THEATER) return null;
+    if (soThrChatGuardPending) soThrChatGuardRecheck(soThrChatGuardPending);
+    const chat = ctx && Array.isArray(ctx.chat) ? ctx.chat : null;
+    if (!chat) return null;
+    const len = chat.length;
+    const from = Math.max(0, len - THEATER_GUARD_FLOORS);
+    const json = new Array(len).fill(null);
+    for (let i = from; i < len; i++) json[i] = soThrGuardJson(chat[i]);
+    const g = { chat, from, json, len, chatKey: fixChatKey(), owned: new Set(),
+        sent: false, echo: {}, reported: new Set(),
+        warned: false, closed: false, finished: false, timer: null, offs: [] };
+    const es = ctx.eventSource;
+    const et = ctx.eventTypes || ctx.event_types || {};
+    if (es && typeof es.on === 'function') {
+        const listen = (ev, fn) => {
+            try {
+                es.on(ev, fn);
+                g.offs.push(() => { if (typeof es.removeListener === 'function') es.removeListener(ev, fn); });
+            } catch (e) { /* ignore */ }
+        };
+        const own = (id) => { const i = Number(id); if (Number.isInteger(i)) g.owned.add(i); };
+        for (const [k, fb] of THEATER_GUARD_OWN_EVENTS) {
+            const ev = et[k] || fb;
+            const closing = k === 'MESSAGE_RECEIVED' || k === 'MESSAGE_DELETED';
+            listen(ev, (id) => { own(id); if (closing && g.finished) soThrChatGuardClose(g); });
+        }
+        for (const ev of THEATER_GUARD_MVU_EVENTS) listen(ev, () => { own(g.chat.length - 1); });
+        // M3：复查窗口里主线真开始生成 → 收手（这时的改动属于主线自己）。dryRun（提示词管理器数 token）不算。
+        listen(et.GENERATION_STARTED || 'generation_started', (type, params, dryRun) => { if (!dryRun && g.finished) soThrChatGuardClose(g); });
+    }
+    return g;
+}
+// 时序规则：请求「发出」那一刻（本趟一次性 makeLast CHAT_COMPLETION_SETTINGS_READY 监听器里调，同步）。发出前的改动一律改回（有主也改回），
+// 记下改回前的样子（回声判据），清空有主名单（有主事件只认发出之后的）；存盘 / 重画 / 提示留到下一拍。只认第一次。→ 还原结果或 null。
+function soThrChatGuardSent(g) {
+    if (!g || g.closed || g.sent) return null;
+    let res = null;
+    try { res = soThrChatGuardRestore(g); } catch (e) { console.warn('[Story Oracle] 小剧场：发出时主聊天护栏还原失败', e); }
+    g.sent = true;
+    g.owned.clear();
+    if (res && (res.restored.length || res.lengthChanged)) setTimeout(() => { soThrChatGuardCommit(g, res).catch(() => {}); }, 0);
+    return res;
+}
+function soThrChatGuardClose(g) {
+    if (!g || g.closed) return;
+    g.closed = true;
+    if (g.timer) { try { clearTimeout(g.timer); } catch (e) { /* ignore */ } g.timer = null; }
+    for (const f of g.offs.splice(0)) { try { f(); } catch (e) { /* ignore */ } }
+    if (soThrChatGuardPending === g) soThrChatGuardPending = null;
+}
+// 一条消息原地改回快照：没变的键不碰（引用不换），变了的键按快照覆盖，快照里没有的键删掉。THEATER_GUARD_SKIP_KEYS 一律不碰。
+function soThrRestoreInPlace(m, snap) {
+    for (const k of Object.keys(m)) {
+        if (THEATER_GUARD_SKIP_KEYS.includes(k)) continue;
+        if (!Object.hasOwn(snap, k) && m[k] !== undefined && typeof m[k] !== 'function') delete m[k];
+    }
+    for (const k of Object.keys(snap)) {
+        if (THEATER_GUARD_SKIP_KEYS.includes(k)) continue;
+        if (soThrJson(m[k]) !== soThrJson(snap[k])) m[k] = snap[k];
+    }
+}
+// 同步比对 + 原地还原。→ { restored:number[], lengthChanged, skipped }。不存盘、不碰 DOM。
+function soThrChatGuardRestore(g) {
+    const out = { restored: [], lengthChanged: false, skipped: false };
+    if (!g || g.closed || fixChatKey() !== g.chatKey) { out.skipped = true; return out; }
+    const chat = g.chat;
+    if (chat.length !== g.len) { out.lengthChanged = true; return out; }
+    for (let i = g.from; i < g.len; i++) {
+        if (g.json[i] == null) continue;
+        const m = chat[i];
+        if (!m || typeof m !== 'object') continue;
+        const cur = soThrGuardJson(m);
+        if (cur === g.json[i]) continue;
+        // 发出前：一律改回（有主不算数）。发出后：有主的楼不还原——除非它就是发出时改回的那份改动原样又落回来（回声）。
+        if (g.sent && g.owned.has(i) && (g.echo || {})[i] !== cur) continue;
+        if (!g.sent && g.echo) g.echo[i] = cur;
+        let snap;
+        try { snap = JSON.parse(g.json[i]); } catch (e) { continue; }
+        if (!snap || typeof snap !== 'object') continue;
+        soThrRestoreInPlace(m, snap);
+        out.restored.push(i);
+    }
+    return out;
+}
+// 还原之后：楼数变了 → 提示一次；改回过 → 存一次 + 重画那几楼 + 提示。
+async function soThrChatGuardCommit(g, res, opts) {
+    if (!g || !res) return;
+    if (res.lengthChanged && !g.warned && !(opts && opts.quietLength)) {
+        g.warned = true;
+        console.warn('[Story Oracle] 小剧场：生成期间主聊天楼数变了（' + g.len + ' → ' + g.chat.length + '），没有自动还原');
+        if (typeof toastr !== 'undefined') toastr.warning(THEATER_CHAT_LEN_CHANGED);
+    }
+    if (!res.restored.length) return;
+    const ctx = getCtx();
+    try { if (ctx && typeof ctx.saveChat === 'function') await ctx.saveChat(); } catch (e) { console.warn('[Story Oracle] 小剧场：还原后存聊天失败', e); }
+    for (const i of res.restored) {
+        try { if (ctx && typeof ctx.updateMessageBlock === 'function') ctx.updateMessageBlock(i, g.chat[i]); } catch (e) { /* 那一楼不在屏上 */ }
+    }
+    // 同一楼只提示一次（发出时改回过、回声又改回一次 = 一条提示）。
+    const fresh = res.restored.filter((i) => !(g.reported && g.reported.has(i)));
+    if (g.reported) for (const i of fresh) g.reported.add(i);
+    if (fresh.length && typeof toastr !== 'undefined') toastr.info(THEATER_CHAT_RESTORED(fresh.length));
+}
+// 1.5 秒复查（只查一次，查完就收）。主聊天这时在生成 / 楼数变了 = 主线自己的事，静默收手。
+function soThrChatGuardRecheck(g) {
+    if (!g || g.closed) return;
+    const generating = !!(document.body && document.body.dataset && document.body.dataset.generating);
+    const res = generating ? null : soThrChatGuardRestore(g);
+    soThrChatGuardClose(g);
+    if (res && res.restored.length) soThrChatGuardCommit(g, res, { quietLength: true }).catch(() => {});
+}
+// 一趟结束（finally）：先比对还原，再排 1.5 秒复查。reason = run.abortReason（null = 正常结束）。
+function soThrChatGuardFinish(g, reason) {
+    if (!g || g.closed) return;
+    if (reason === 'chat') { soThrChatGuardClose(g); return; }
+    const res = soThrChatGuardRestore(g);
+    if (res.restored.length || res.lengthChanged) soThrChatGuardCommit(g, res).catch(() => {});
+    if (reason === 'main' || res.lengthChanged || res.skipped) { soThrChatGuardClose(g); return; }
+    if (soThrChatGuardPending && soThrChatGuardPending !== g) soThrChatGuardRecheck(soThrChatGuardPending);
+    g.finished = true;   // 进入复查窗口：主线真生成 / 新回复 / 删楼会直接收手（M3）
+    soThrChatGuardPending = g;
+    g.timer = setTimeout(() => soThrChatGuardRecheck(g), THEATER_CHAT_RECHECK_MS);
+}
+
+/* —— 🎭 空回复的两道补救（theater plan 2 后续 · Fix B）——
+ * IF 电池 180 条回复里 13 条是空的：DeepSeek × 创世 / 双人成行把整篇故事写进了【思考通道】（content 为空、finish=stop），
+ * 还有 Gemini 的 content_filter / length。① 正文是空的、思考区里有东西 → 正文改从思考区取（有 </thinking> / </think> 收尾就取最后一个
+ * 收尾之后那段），照常清洗；② 还是空的，或者结束原因是 content_filter → 原样（同一份冻结历史、同一句指令、同一套互换规则）自动重试
+ * 【一次】。场景（plan 3）也走这里。 */
+// DRAFT 文案（待 Prince 选）。
+const THEATER_REPLY_FROM_REASONING = '（正文是从模型的思考区里找回的）';
+const THEATER_REPLY_RETRIED = '（第一次没拿到正文，已自动重试一次——多用了一次调用）';
+const THEATER_FILTERED_REPLY = '被模型的内容过滤拦下了（已自动重试一次）';
+// 结束原因归一：各家的写法 → 'length' / 'content_filter' / 'stop' / 其他原样小写；没有 = ''。
+function soThrNormFinish(raw) {
+    if (raw == null || raw === '') return '';
+    const s = String(raw);
+    if (/^(?:length|max_?tokens|max_output_tokens)$/i.test(s)) return 'length';
+    if (/content_filter|safety|prohibited|blocklist|spii|recitation|refusal/i.test(s)) return 'content_filter';
+    if (/^(?:stop|end_turn|stop_sequence)$/i.test(s)) return 'stop';
+    return s.toLowerCase();
+}
+// 一份回包 / 一行流里的结束原因（OpenAI 形 choices[0].finish_reason · Gemini candidates[0].finishReason · Claude stop_reason）。
+function soThrFinishOf(data) {
+    if (!data || typeof data !== 'object') return '';
+    const c = Array.isArray(data.choices) ? data.choices[0] : null;
+    const g = Array.isArray(data.candidates) ? data.candidates[0] : null;
+    const raw = (c && c.finish_reason) || (g && g.finishReason) || (data.delta && data.delta.stop_reason) || data.stop_reason || '';
+    return soThrNormFinish(raw);
+}
+// 非流式回包里的思考：ST 自己的 extractReasoningFromData（ignoreShowThoughts）优先，取不到再读常见字段。
+// source（可选）= 这一发真正用的聊天补全源（神谕的连接）；不给 = ST 自己按 oai_settings 的源判。
+function soThrReasoningOf(data, reasoningMod, source) {
+    if (!data || typeof data !== 'object') return '';
+    try {
+        if (reasoningMod && typeof reasoningMod.extractReasoningFromData === 'function') {
+            const r = reasoningMod.extractReasoningFromData(data, source
+                ? { mainApi: 'openai', ignoreShowThoughts: true, chatCompletionSource: source } : { ignoreShowThoughts: true });
+            if (typeof r === 'string' && r) return r;
+        }
+    } catch (e) { /* 退到下面 */ }
+    const msg = Array.isArray(data.choices) && data.choices[0] && data.choices[0].message;
+    if (msg && typeof msg.reasoning_content === 'string' && msg.reasoning_content) return msg.reasoning_content;
+    if (msg && typeof msg.reasoning === 'string' && msg.reasoning) return msg.reasoning;
+    return '';
+}
+// 流式：ST 的 sendOpenAIRequest 不把 finish_reason 交出来（只给 text / state.reasoning，且 state.reasoning 只在「显示思考」开着时累计）。
+// 本趟发往 ST 聊天补全后端的那一发，回包 clone() 一份自己读（原包原样交还，不改请求、不改正文）。
+// 复审 M6：fetch 包装【整页只装一次】（第一次预设路发送时），平时原样放行；每一趟只是「上膛」/「退膛」，不再每趟包一层、拆一层（叠不起来）。
+// 复审 M4：也记下这一发的 HTTP 状态（ST 出错时抛的是「[object Object]」，看不出 400）。
+let soThrTapFn = null;      // 装上去的那个包装（null = 还没装）
+let soThrTapArmed = null;   // 这一趟的膛：{ run, tap, used }
+function soThrTapInstall() {
+    if (soThrTapFn) return true;
+    if (typeof window === 'undefined' || typeof window.fetch !== 'function') return false;
+    const prev = window.fetch;
+    const wrapped = function (input) {
+        const p = prev.apply(this, arguments);
+        const a = soThrTapArmed;
+        if (!ENABLE_THEATER || !a || a.used || soThrRun !== a.run) return p;
+        let url = '';
+        try { url = typeof input === 'string' ? input : String((input && input.url) || ''); } catch (e) { url = ''; }
+        if (url.indexOf('/api/backends/chat-completions/generate') === -1) return p;
+        a.used = true;
+        const tap = a.tap;
+        return Promise.resolve(p).then((res) => {
+            try {
+                if (res && Number.isInteger(res.status)) tap.status = res.status;
+                if (res && res.ok && typeof res.clone === 'function') tap.done = soThrReadTap(res.clone(), tap).catch(() => {});
+            } catch (e) { /* 读不了就算了 */ }
+            return res;
+        });
+    };
+    window.fetch = wrapped;
+    soThrTapFn = wrapped;
+    return true;
+}
+// 测试接缝：忘掉装过的包装（不碰 window.fetch）。生产不调。
+function soThrTapResetForTest() { soThrTapFn = null; soThrTapArmed = null; }
+function soThrFinishTap(run) {
+    const tap = { finish: '', reasoning: '', done: null, status: 0 };
+    if (!soThrTapInstall()) return { tap, remove() {} };
+    const armed = { run, tap, used: false };
+    soThrTapArmed = armed;
+    return { tap, remove() { if (soThrTapArmed === armed) soThrTapArmed = null; } };
+}
+async function soThrReadTap(res, tap) {
+    if (!res || !res.body || typeof res.body.getReader !== 'function' || typeof TextDecoder !== 'function') return;
+    let buf = '';
+    try {
+        const reader = res.body.getReader();
+        const dec = new TextDecoder();
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            buf += dec.decode(value, { stream: true });
+            const lines = buf.split('\n');
+            buf = lines.pop();
+            for (const l of lines) soThrTapLine(l, tap);
+        }
+        if (buf) soThrTapLine(buf, tap);
+    } catch (e) { /* 中断 / 断流 */ }
+}
+function soThrTapLine(line, tap) {
+    const t = String(line || '').trim();
+    if (!t.startsWith('data:')) return;
+    const payload = t.slice(5).trim();
+    if (!payload || payload === '[DONE]') return;
+    let j;
+    try { j = JSON.parse(payload); } catch (e) { return; }
+    const f = soThrFinishOf(j);
+    if (f) tap.finish = f;
+    const r = soThrTapReasoning(j);
+    if (r) tap.reasoning += r;
+}
+// 一行 SSE 里的思考片段（复审 M7；形状照 ST public/scripts/openai.js getStreamingReply）：OpenAI 兼容 choices[0].delta.reasoning_content /
+// reasoning · Claude 的 delta.thinking（content_block_delta / thinking_delta）· Gemini candidates[0].content.parts 里 thought:true 的 text。
+function soThrTapReasoning(j) {
+    if (!j || typeof j !== 'object') return '';
+    const d = Array.isArray(j.choices) && j.choices[0] && j.choices[0].delta;
+    if (d && typeof d === 'object') {
+        if (typeof d.reasoning_content === 'string' && d.reasoning_content) return d.reasoning_content;
+        if (typeof d.reasoning === 'string' && d.reasoning) return d.reasoning;
+    }
+    if (j.delta && typeof j.delta === 'object' && typeof j.delta.thinking === 'string') return j.delta.thinking;
+    const parts = Array.isArray(j.candidates) && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts;
+    if (Array.isArray(parts)) return parts.filter((x) => x && x.thought && typeof x.text === 'string').map((x) => x.text).join('');
+    return '';
+}
+// 清洗之后还有没有能显示的正文（剥思维链标签、剥机制块）。
+function soThrReplyUsable(t) {
+    return !!stripMechanismBlocks(stripReasoningTags(String(t == null ? '' : t))).trim();
+}
+// ① 从思考区找回正文。→ { text, fromReasoning }：text = 拿来当正文的【原文】（调用方照常剥思维链等清洗）。
+function soThrRecoverReply(r) {
+    const text = String((r && r.text) || '');
+    if (soThrReplyUsable(text)) return { text, fromReasoning: false };
+    const reasoning = String((r && r.reasoning) || '');
+    if (!reasoning.trim()) return { text, fromReasoning: false };
+    let src = reasoning;
+    let cut = -1;
+    for (const m of reasoning.matchAll(/<\/(?:thinking|think)\s*>/gi)) cut = m.index + m[0].length;
+    if (cut >= 0) src = reasoning.slice(cut);
+    if (!soThrReplyUsable(src)) return { text, fromReasoning: false };
+    return { text: src, fromReasoning: true };
+}
+// ① + ②：跑一趟引擎；正文空 / 被过滤 → 原样重试一次。ctl = { isStale?(), onRetry?(), cutOff?(text, finish) }。
+// ③（2026-11-07 实玩 Finding 2，只有场景首轮传 cutOff）：回复半路断了（cutOff 说是）→ 也走这同一次重试——每趟至多重试一次，三种原因共用。
+// → 引擎结果 + { text（找回 / 重试后的正文原文）, fromReasoning, retried, retryWhy（'empty' | 'filtered' | 'cut'，没重试 = ''）, emptyFinal, filtered }。
+// 中断 / 出错原样交回（不重试）。
+async function soThrGenerateRecovered(opts, ctl) {
+    const c = ctl || {};
+    const gen = soThrEngine();
+    const judge = (res) => {
+        const rec = soThrRecoverReply(res);
+        const empty = !soThrReplyUsable(rec.text);
+        let cut = false;
+        if (!empty && typeof c.cutOff === 'function') { try { cut = c.cutOff(rec.text, res ? res.finish : '') === true; } catch (e) { cut = false; } }
+        return { rec, empty, filtered: !!res && res.finish === 'content_filter', cut };
+    };
+    const first = (await gen(opts)) || { text: '', aborted: false, error: null };
+    if (first.aborted || first.error) return Object.assign({}, first, { fromReasoning: false, retried: false, retryWhy: '', emptyFinal: false, filtered: false });
+    let r = first;
+    let j = judge(first);
+    let retried = false;
+    let retryWhy = '';
+    let retryError = '';
+    if ((j.empty || j.filtered || j.cut) && !(typeof c.isStale === 'function' && c.isStale())) {
+        retried = true;
+        retryWhy = j.empty ? 'empty' : (j.filtered ? 'filtered' : 'cut');
+        if (typeof c.onRetry === 'function') { try { c.onRetry(); } catch (e) { /* ignore */ } }
+        const second = (await gen(opts)) || { text: '', aborted: false, error: null };
+        if (second.aborted) return Object.assign({}, second, { fromReasoning: false, retried, retryWhy, emptyFinal: false, filtered: false });
+        if (!second.error) { r = second; j = judge(second); }
+        else retryError = String(second.error);   // 复审 §4.7：重试出错 → 交回的是【第一份】（调用方据 stillCut 再判一次，别当成重试成功）
+    }
+    return Object.assign({}, r, {
+        text: j.rec.text, fromReasoning: j.rec.fromReasoning, retried, retryWhy,
+        emptyFinal: j.empty, filtered: j.empty && r.finish === 'content_filter',
+        // 交回的这一份本身还算不算「半路断了」（cutOff 的判定，针对最终用的那一份）；retryError = 重试那一趟的错误（没出错 = ''）。
+        stillCut: !j.empty && j.cut, retryError,
+    });
+}
+function soThrStartState(ctx, sc) {
+    let mvuBusy = false;
+    try { mvuBusy = !!(window.Mvu && typeof window.Mvu.isDuringExtraAnalysis === 'function' && window.Mvu.isDuringExtraAnalysis() === true); } catch (e) { mvuBusy = false; }
+    return {
+        generating: !!(document.body && document.body.dataset && document.body.dataset.generating),
+        sendPress: !!(sc && sc.is_send_press),
+        mvuBusy,
+        postReplyBusy: !!postReplyBusy,
+        group: soThrGroupBlocked(ctx),
+        running: soThrRun !== null,
+    };
+}
+
+// opts = { history:[{role,name,text}], directive, systemText, usePreset, maxTokens:number|null, onDelta?(full),
+//          hooks?:{ beforeAssemble?(), onSettingsReady?(generate_data) }, stripMvuRules?:boolean }
+// → { text, aborted, error:string|null, path:'preset'|'so', reasoning:string, finish:string }。绝不抛。
+// reasoning = 思考通道（预设路：流式取 ST 的 state.reasoning，「显示思考」关着时取自己读到的 reasoning_content；非流式取
+// extractReasoningFromData；SO 路恒 ''）；finish = 归一后的结束原因（'stop' / 'length' / 'content_filter' / …；读不到 = ''）。
+async function soTheaterGenerate(opts) {
+    const o = opts || {};
+    const ctx = (soThrMods && soThrMods.ctx) || getCtx();
+    const trace = (n) => { if (soThrMods && typeof soThrMods.trace === 'function') soThrMods.trace(n); };
+    const path = (o.usePreset && soThrPresetAvailable(ctx).ok) ? 'preset' : 'so';
+    const out = (extra) => Object.assign({ text: '', aborted: false, error: null, path, reasoning: '', finish: '' }, extra);
+    let sc = null, oai = null, wi = null, rx = null;
+    try {
+        sc = await soThrModule('script', loadScriptCore);
+        if (path === 'preset') {
+            [oai, wi, rx] = await Promise.all([soThrModule('openai', soThrLoadOpenAI), soThrModule('worldInfo', loadWorldInfoModule), soThrModule('regex', loadRegexEngine)]);
+        }
+    } catch (e) { /* 载入器自己吞错；落到下方「不可用」 */ }
+    const startState = soThrStartState(ctx, sc);
+    // plan 4：回复后编排自己的 'scenes' 步 = 共享锁就是它自己拿着的，不拦（其余闸照旧：主线在生成 / MVU 额外解析 / 已有一趟在跑）。
+    if (o.fromPostReply === true && activePostReplyRun && activePostReplyRun.step === 'scenes') startState.postReplyBusy = false;
+    const gate = soThrCanStart(startState);
+    if (!gate.ok) return out({ error: gate.reason });
+    if (path === 'preset' && (!oai || !sc || !wi || typeof wi.getWorldInfoPrompt !== 'function'
+        || typeof sc.getCharacterCardFields !== 'function')) {
+        return out({ error: THEATER_PRESET_UNAVAILABLE });
+    }
+    // 预设路的连接永远是神谕自己的（2026-11-07 Prince）：先把神谕的连接解析好；缺 / 不能用 = 神谕自己的提示，什么都不挪、不发。
+    let conn = null;
+    if (path === 'preset') {
+        conn = soThrPresetConn(getSettings(), ctx, oai);
+        if (conn.error) return out({ error: conn.error });
+    }
+
+    const controller = new AbortController();
+    const undo = [];   // 还原步骤，倒序执行
+    const run = { id: ++soThrRunSeq, controller, abortReason: null, restored: false, restore: null };
+    run.restore = () => {
+        if (run.restored) return;
+        run.restored = true;
+        while (undo.length) {
+            const f = undo.pop();
+            try { f(); } catch (e) { console.warn('[Story Oracle] 小剧场：还原一步失败', e); }
+        }
+    };
+    soThrRun = run;
+    const disarm = soThrArmAbort(run, ctx);
+    const abortP = new Promise((_, rej) => {
+        if (controller.signal.aborted) rej(soThrAbortError());
+        controller.signal.addEventListener('abort', () => rej(soThrAbortError()), { once: true });
+    });
+    abortP.catch(() => {});
+    const guard = (p) => Promise.race([Promise.resolve(p), abortP]);
+    let partial = '';
+    const emitDelta = (full) => {
+        partial = full;
+        if (typeof o.onDelta === 'function') { try { o.onDelta(full); } catch (e) { /* 回调出错不中断生成 */ } }
+    };
+    let settingsCleanup = null;
+    try {
+        let got = null;
+        if (path === 'so') {
+            got = await soThrRunSoPath(o, ctx, controller, guard, emitDelta);
+        } else {
+            got = await soThrRunPresetPath(o, ctx, { sc, oai, wi, rx, conn }, run, undo, guard, emitDelta, trace, (fn) => { settingsCleanup = fn; });
+        }
+        const g = (got && typeof got === 'object') ? got : { text: got };
+        const extra = { reasoning: typeof g.reasoning === 'string' ? g.reasoning : '', finish: typeof g.finish === 'string' ? g.finish : '' };
+        if (controller.signal.aborted) return out(Object.assign({ text: partial, aborted: true }, extra));
+        return out(Object.assign({ text: typeof g.text === 'string' ? g.text : '' }, extra));
+    } catch (e) {
+        if (controller.signal.aborted || isUserAbort(e)) return out({ text: partial, aborted: true });
+        let msg = errChainMessage(e) || String(e);
+        if (path === 'preset') msg = explainProviderError(msg);   // 神谕的连接报的错：与直连同一套人话提示
+        // 复审 M4：预设路改过输出上限、后端回 400 → 多半是「场景输出上限」超过了这个模型 / 中转的上限，提示玩家调低。
+        const status = run.tap && run.tap.tap ? run.tap.tap.status : 0;
+        if (path === 'preset' && run.maxOverride && (status === 400 || /\b400\b/.test(msg))) msg += '\n' + THEATER_MAXTOK_400_HINT;
+        return out({ text: partial, error: msg });
+    } finally {
+        if (run.tap) { try { run.tap.remove(); } catch (e) { /* ignore */ } }
+        run.restore();
+        // Fix A：变量本互换先还原（多半早在 settings-ready 时就还原过了，这里幂等），再比对主聊天、改回被预设脚本动过的楼。
+        if (run.chatGuard) {
+            try { soThrSwapEndLive(); } catch (e) { /* ignore */ }
+            try { soThrChatGuardFinish(run.chatGuard, run.abortReason); } catch (e) { console.warn('[Story Oracle] 小剧场：主聊天护栏出错', e); }
+        }
+        if (settingsCleanup) { try { settingsCleanup(); } catch (e) { /* ignore */ } }
+        disarm();
+        if (soThrRun === run) soThrRun = null;
+    }
+}
+
+async function soThrRunPresetPath(o, ctx, mods, run, undo, guard, emitDelta, trace, setSettingsCleanup) {
+    const { sc, oai, wi, rx } = mods;
+    const es = ctx.eventSource;
+    const et = ctx.eventTypes || ctx.event_types || {};
+    // max_tokens：只这一趟、只在给了值时改 oai_settings，还原时只在仍是我们写的值才写回（玩家这期间自己改了 = 他的值优先）。
+    const oset = oai.oai_settings;
+    const mt = Number(o.maxTokens);
+    if (o.maxTokens != null && Number.isFinite(mt) && mt > 0 && oset && typeof oset === 'object') {
+        const prev = oset.openai_max_tokens;
+        oset.openai_max_tokens = mt;
+        run.maxOverride = true;   // 复审 M4：这一趟改过输出上限（出 400 时提示玩家调低「场景输出上限」）
+        undo.push(() => { if (oset.openai_max_tokens === mt) oset.openai_max_tokens = prev; });
+    }
+    // Fix A：主聊天每楼的快照，拍在变量本互换（beforeAssemble）之前。
+    run.chatGuard = soThrChatGuardStart(ctx);
+    if (o.hooks && typeof o.hooks.beforeAssemble === 'function') await guard(o.hooks.beforeAssemble());
+    const name1 = (typeof sc.name1 === 'string' && sc.name1) ? sc.name1 : (ctx.name1 || '');
+    const name2 = (typeof sc.name2 === 'string' && sc.name2) ? sc.name2 : (ctx.name2 || '');
+    const hist = Array.isArray(o.history) ? o.history.slice() : [];
+    const directive = typeof o.directive === 'string' ? o.directive : '';
+    if (directive) hist.push({ role: 'user', name: name1, text: directive });
+    const regexFn = (rx && typeof rx.getRegexedString === 'function') ? rx.getRegexedString : null;
+    const shaped = soThrShapeHistory(hist, regexFn);
+    const messages = oai.setOpenAIMessages(shaped);
+    const card = sc.getCharacterCardFields() || {};
+    // 世界书：照 public/script.js Generate（chatForWI = 新→旧、按 world_info_include_names 带名字；globalScanData 同形），但【干跑】。
+    const includeNames = wi.world_info_include_names !== false;
+    const chatForWI = shaped.map((m) => ((includeNames && m.name) ? `${m.name}: ${m.mes}` : m.mes)).reverse();
+    const maxContext = typeof sc.getMaxPromptTokens === 'function' ? sc.getMaxPromptTokens()
+        : (typeof sc.getMaxContextSize === 'function' ? sc.getMaxContextSize() : undefined);
+    const globalScanData = {
+        personaDescription: card.persona, characterDescription: card.description, characterPersonality: card.personality,
+        characterDepthPrompt: card.charDepthPrompt, scenario: card.scenario, creatorNotes: card.creatorNotes, trigger: 'normal',
+    };
+    // 复审 M2：干跑世界书也会把作者注释（2_floating_prompt）改成「注释 + 本趟的世界书条目」（world-info.js 里 shouldWIAddPrompt 那段）。
+    // 本趟的请求要的就是这个样子（同 Generate），但主线的那一格必须还回去：跟本趟其余还原一起（最早在 settings-ready）。
+    const reg = (sc.extension_prompts && typeof sc.extension_prompts === 'object') ? sc.extension_prompts : ctx.extensionPrompts;
+    const AN_KEY = '2_floating_prompt';
+    const anHad = !!(reg && Object.hasOwn(reg, AN_KEY));
+    const anOrig = anHad ? reg[AN_KEY] : undefined;
+    const anJson = anHad ? soThrJson(anOrig) : null;
+    let wiRes = (await guard(wi.getWorldInfoPrompt(chatForWI, maxContext, true, globalScanData))) || {};
+    if (reg && typeof reg === 'object') {
+        const anNow = Object.hasOwn(reg, AN_KEY) ? reg[AN_KEY] : undefined;
+        if (anNow !== anOrig || (anHad && soThrJson(anNow) !== anJson)) {
+            const anOrigCopy = anHad ? JSON.parse(anJson) : undefined;
+            undo.push(() => {
+                if (reg[AN_KEY] !== anNow) return;   // 这期间别人又写过 = 他的值优先
+                if (!anHad) { delete reg[AN_KEY]; return; }
+                if (anNow === anOrig) Object.assign(anOrig, anOrigCopy); else reg[AN_KEY] = anOrig;
+            });
+        }
+    }
+    // theater plan 3 Task 5：场景不要 MVU 规则——ST 拼好的世界书字符串（宏已展开，stripMvuRuleContents 正好吃这种）逐段剔掉 [mvu_update] 规则正文。
+    if (o.stripMvuRules) wiRes = await guard(soThrStripMvuFromWi(wiRes, wi));
+    // 对话示例：卡片示例 + 世界书示例条目（同 Generate：before → 前、after → 后；power_user.strip_examples → 清空）。
+    const parse = (str) => (typeof sc.parseMesExamples === 'function' ? (sc.parseMesExamples(str, false) || []) : []);
+    let mesEx = parse(card.mesExamples).slice();
+    const beforePos = (wi.wi_anchor_position && wi.wi_anchor_position.before !== undefined) ? wi.wi_anchor_position.before : 0;
+    for (const ex of (Array.isArray(wiRes.worldInfoExamples) ? wiRes.worldInfoExamples : [])) {
+        if (!ex || typeof ex.content !== 'string' || !ex.content.length) continue;
+        const cleaned = parse(typeof sc.baseChatReplace === 'function' ? sc.baseChatReplace(ex.content) : ex.content);
+        if (ex.position === beforePos) mesEx.unshift(...cleaned); else mesEx.push(...cleaned);
+    }
+    if (ctx.powerUserSettings && ctx.powerUserSettings.strip_examples) mesEx = [];
+    const messageExamples = typeof oai.setOpenAIMessageExamples === 'function' ? oai.setOpenAIMessageExamples(mesEx) : [];
+    // 挪开主线槽 → 登记本趟自己的世界书深度条目 / 出口（ST 命名，同 public/script.js:4608–4618）。还原次序：先删自己的、再还主线的。
+    const restoreParked = soThrParkPrompts(reg, THEATER_PARK_KEYS);
+    trace('park');
+    undo.push(() => { restoreParked(); trace('restore'); });
+    const own = soThrRegisterOwnWI(reg, wiRes, sc, ctx);
+    trace('registerOwnWI');
+    undo.push(() => {
+        for (const [k, entry] of own) { if (reg && reg[k] === entry) delete reg[k]; }
+        trace('unregisterOwnWI');
+    });
+    const [prompt] = await guard(oai.prepareOpenAIMessages({
+        name2,
+        charDescription: card.description,
+        charPersonality: card.personality,
+        scenario: card.scenario,
+        worldInfoBefore: wiRes.worldInfoBefore,
+        worldInfoAfter: wiRes.worldInfoAfter,
+        extensionPrompts: reg,
+        bias: '',
+        type: 'normal',
+        quietPrompt: '',
+        quietImage: null,
+        cyclePrompt: '',
+        systemPromptOverride: card.system,
+        jailbreakPromptOverride: card.jailbreak,
+        messages,
+        messageExamples,
+    }, false));
+    const generateData = { prompt };
+    if (es && typeof es.emit === 'function') await guard(es.emit(et.GENERATE_AFTER_DATA || 'generate_after_data', generateData, false));
+    // 一次性、排最后、只认本趟发出之后的第一发 CHAT_COMPLETION_SETTINGS_READY：先跑 hooks.onSettingsReady（变量本还原 / 场景 AO），
+    // 再【立刻】还原本趟改过的一切（复审 I1：删本趟世界书登记 → 还主线槽 → 还作者注释 → 还 max_tokens）——这时 ST 已经拼好 generate_data，
+    // 不必等整段流式回复结束。finally / 中断仍是兜底（run.restore 幂等）。抓 finish / 思考的 fetch 包装照旧留到这一发结束。
+    let sending = false;
+    if (es) {
+        const evReady = et.CHAT_COMPLETION_SETTINGS_READY || 'chat_completion_settings_ready';
+        let fired = false;
+        const onReady = (data) => {
+            if (fired || !sending || soThrRun !== run) return;
+            fired = true;
+            if (o.hooks && typeof o.hooks.onSettingsReady === 'function') {
+                try { o.hooks.onSettingsReady(data); } catch (e) { console.warn('[Story Oracle] 小剧场：onSettingsReady 出错', e); }
+            }
+            try { run.restore(); } catch (e) { console.warn('[Story Oracle] 小剧场：发出前还原失败', e); }
+            trace('restoreAtSettingsReady');
+            // Fix A 时序规则：此刻 = 「发出」。拼提示词期间（开跑 → 现在）主聊天被改的楼，此刻一律改回；之后的有主事件才算数。
+            if (run.chatGuard) { soThrChatGuardSent(run.chatGuard); trace('chatGuardSent'); }
+        };
+        if (typeof es.makeLast === 'function') es.makeLast(evReady, onReady); else es.on(evReady, onReady);
+        setSettingsCleanup(() => { if (typeof es.removeListener === 'function') es.removeListener(evReady, onReady); });
+    }
+    sending = true;
+    // Fix B：流式回包的结束原因 / 思考只能自己读（见 soThrFinishTap）；只在这一发上膛，发完就退膛。
+    const tapH = ENABLE_THEATER ? soThrFinishTap(run) : null;
+    if (tapH) run.tap = tapH;   // 退膛不进还原栈（settings-ready 就还原了，那时这一发还没 fetch）；发完 / finally 退膛
+    // 发送（2026-11-07 Prince：连接永远是神谕自己的）：soThrPresetSend 与 ST 的 sendOpenAIRequest 同一契约（拼参数 → emit
+    // CHAT_COMPLETION_SETTINGS_READY → fetch ST 的 /api/backends/chat-completions/generate → 流式回「生成器函数」/ 非流式回 JSON），
+    // 只是连接字段换成神谕的、流按神谕连接的源来解。测试接缝 soThrMods.presetSend（同签名）。
+    const conn = mods.conn;
+    const send = (soThrMods && typeof soThrMods.presetSend === 'function') ? soThrMods.presetSend
+        : (type, msgs, signal) => soThrPresetSend(type, msgs, signal, { oai, sc, ctx, conn });
+    const res = await guard(send('normal', generateData.prompt, run.controller.signal));
+    if (tapH) tapH.remove();
+    if (typeof res === 'function') {
+        const it = res();
+        let text = '';
+        let reasoning = '';
+        try {
+            while (true) {
+                const step = await guard(it.next());
+                if (!step || step.done) break;
+                const v = step.value;
+                text = (v && typeof v.text === 'string') ? v.text : text;
+                if (v && v.state && typeof v.state.reasoning === 'string') reasoning = v.state.reasoning;   // ST 的字段名
+                emitDelta(text);
+            }
+        } finally {
+            if (run.controller.signal.aborted && it && typeof it.return === 'function') { try { Promise.resolve(it.return()).catch(() => {}); } catch (e) { /* ignore */ } }
+        }
+        let finish = '';
+        if (tapH) {
+            if (tapH.tap.done) await guard(Promise.race([tapH.tap.done, new Promise((r) => setTimeout(r, 1500))]));
+            finish = tapH.tap.finish;
+            if (!reasoning) reasoning = tapH.tap.reasoning;
+        }
+        return { text, reasoning, finish };
+    }
+    const text = typeof sc.extractMessageFromData === 'function' ? sc.extractMessageFromData(res, 'openai')
+        : ((res && res.choices && res.choices[0] && res.choices[0].message && res.choices[0].message.content) || '');
+    let reasoningMod = null;
+    if (ENABLE_THEATER) { try { reasoningMod = await soThrModule('reasoning', soThrLoadReasoning); } catch (e) { reasoningMod = null; } }
+    return { text: typeof text === 'string' ? text : '', reasoning: soThrReasoningOf(res, reasoningMod, conn && conn.source), finish: soThrFinishOf(res) };
+}
+
+/* —— 🎭 预设路的连接 = 神谕自己的连接（2026-11-07 Prince 裁）——
+ * 「用 ST 当前预设」只管【预设】（提示词拼装 / 采样参数 / 预填 / 后处理 / 正则 / 脚本）；API 连接永远是神谕设置里的那一套：
+ * 直连 = 神谕的端点 / 模型 / 密钥；配置文件 = 那份连接配置文件的接口 / 模型 / 地址 / 密钥。ST 自己的连接绝不收到这一发。
+ * 请求仍发往 ST 的后端路由 /api/backends/chat-completions/generate（预设在 fetch 层的把戏——创世的填充包装、v0.82 破甲、kunlun——
+ * 认的就是这个 URL），由 ST 后端转发到神谕的端点：直连 = 「经酒馆后端转发」同一形状（custom 源 + custom_url + 显式 Authorization 头，
+ * 密钥只随这一发请求体走、哪儿都不存）；配置文件 = ConnectionManagerRequestService 同一组字段（源 / 模型 / secret_id / api-url / 代理）。
+ * 参数用 ST 自己的 createGenerationParameters 在 oai_settings 的【浅拷贝】上拼（连接字段换成神谕的，oai_settings 一个字节不改）——
+ * 采样参数 / 预填 / 后处理 / 输出上限都照预设，源相关的字段按神谕连接的源取舍；流用 ST 的 getStreamingReply 按【神谕连接的源】解。 */
+// DRAFT 文案（待 Prince 选）。
+const THEATER_CONN_NOT_CC = '神谕选的连接配置文件不是聊天补全接口，不能配合「用 ST 当前预设」——请在设置（齿轮图标）中换一个聊天补全的连接配置文件。';
+const THEATER_ST_GENERATE_URL = '/api/backends/chat-completions/generate';
+// oai_settings 里属于【ST 自己连接】的字段（神谕的连接里没有对应物）：拷贝里一律清空，拼出来的请求就不会带上 ST 的地址 / 代理 / 账号。
+const THEATER_CONN_BLANK_KEYS = ['reverse_proxy', 'proxy_password', 'custom_url', 'custom_include_body', 'custom_exclude_body', 'custom_include_headers',
+    'azure_base_url', 'azure_deployment_name', 'azure_api_version', 'workers_ai_account_id', 'vertexai_express_project_id'];
+// 神谕的连接 → { source, model, settings（盖在 oai_settings 拷贝上的字段）, patch（拼好之后补进请求体的字段）, profileId } 或 { error }。绝不抛。
+function soThrPresetConn(s, ctx, oai) {
+    const set = s || {};
+    const blank = {};
+    for (const k of THEATER_CONN_BLANK_KEYS) blank[k] = undefined;
+    let extra;
+    try { extra = resolveExtraParams(set); } catch (e) { return { error: (e && e.message) || String(e) }; }
+    if (set.mode !== 'profile') {
+        if (!set.endpoint || !set.model) return { error: '请先在设置（齿轮图标）中填写端点 URL 和模型。' };
+        // 与「经酒馆后端转发」逐字同形（buildBackendForwardPayload）：custom 源、custom_url 剥掉 /chat/completions、密钥作显式 Authorization 头。
+        const fwd = buildBackendForwardPayload(resolveEndpointUrl(set), set.apiKey, {}, false, extra);
+        return {
+            source: 'custom', model: set.model, profileId: null,
+            settings: Object.assign(blank, {
+                chat_completion_source: 'custom', custom_model: set.model, custom_url: fwd.custom_url,
+                custom_include_headers: fwd.custom_include_headers, custom_include_body: fwd.custom_include_body, custom_exclude_body: fwd.custom_exclude_body,
+            }),
+            patch: {},
+        };
+    }
+    if (!set.profileId) return { error: '请先在设置（齿轮图标）中选择一个连接配置文件。' };
+    const es = ctx && ctx.extensionSettings;
+    if (es && Array.isArray(es.disabledExtensions) && es.disabledExtensions.includes('connection-manager')) return { error: 'Connection Manager is not available' };
+    const profiles = es && es.connectionManager && es.connectionManager.profiles;
+    const profile = Array.isArray(profiles) ? profiles.find((p) => p && p.id === set.profileId) : null;
+    if (!profile) return { error: `Profile not found (ID: ${set.profileId})` };
+    const apiMap = ctx && ctx.CONNECT_API_MAP ? ctx.CONNECT_API_MAP[profile.api] : null;
+    if (!apiMap || apiMap.selected !== 'openai' || !apiMap.source) return { error: THEATER_CONN_NOT_CC };
+    const url = profile['api-url'];
+    const proxies = (oai && Array.isArray(oai.proxies)) ? oai.proxies : [];
+    const proxy = profile.proxy ? proxies.find((p) => p && p.name === profile.proxy) : null;
+    const patch = {};
+    if (profile['secret-id']) patch.secret_id = profile['secret-id'];
+    if (proxy && proxy.url) { patch.reverse_proxy = proxy.url; patch.proxy_password = proxy.password; }
+    // 附加参数（1.70.0）：同 callProfile，只有 custom 源的配置档会被 ST 后端读取。
+    const xo = extraParamsOverride(extra);
+    return {
+        source: apiMap.source, model: profile.model, profileId: profile.id,
+        settings: Object.assign(blank, {
+            chat_completion_source: apiMap.source,
+            // 同 ConnectionManagerRequestService.sendRequest：api-url 同时是 custom_url / vertexai_region / zai / siliconflow / minimax 的端点。
+            custom_url: url, vertexai_region: url, zai_endpoint: url, siliconflow_endpoint: url, minimax_endpoint: url,
+            custom_include_body: xo.custom_include_body, custom_exclude_body: xo.custom_exclude_body, custom_include_headers: xo.custom_include_headers,
+        }),
+        patch,
+    };
+}
+// 拼这一发的请求体：ST 的 createGenerationParameters 跑在「oai_settings 浅拷贝 + 神谕连接字段」上（oai_settings 本身不动）。
+// → { generate_data, stream }。Vertex：拼完先删 ST 的认证模式 / 项目 id，再只按 soVertexAuthFill 补 'full'（绝不发 express / 项目 id）。
+async function soThrPresetBody(oai, conn, type, messages, ctx) {
+    const settings = Object.assign({}, (oai && oai.oai_settings) || {}, conn.settings);
+    const built = await oai.createGenerationParameters(settings, conn.model, type, messages);
+    const gd = (built && built.generate_data) || {};
+    for (const k of THEATER_CONN_BLANK_KEYS) if (gd[k] === undefined || gd[k] === '') delete gd[k];
+    if (gd.chat_completion_source === 'vertexai') {
+        delete gd.vertexai_auth_mode;
+        delete gd.vertexai_express_project_id;
+        if (conn.profileId) Object.assign(gd, soVertexAuthFill(conn.profileId, ctx));
+    }
+    Object.assign(gd, conn.patch || {});
+    return { generate_data: gd, stream: !!(built && built.stream) };
+}
+// 后端错误 → 「HTTP 状态 + 服务商给的那句话」（与直连同款；有 JSON 的 error.message / message 就取它）。
+function soThrHttpErrorText(status, statusText, bodyText) {
+    let detail = String(bodyText == null ? '' : bodyText);
+    try {
+        const j = JSON.parse(detail);
+        const m = j && ((j.error && (typeof j.error === 'string' ? j.error : j.error.message)) || j.message
+            || (j.detail && j.detail.error && j.detail.error.message));
+        if (typeof m === 'string' && m) detail = m;
+    } catch (e) { /* 不是 JSON：原文 */ }
+    return `HTTP ${status} ${statusText || ''} ${detail.slice(0, 300)}`.trim();
+}
+// 一行 SSE → null（不是 data 行）/ { done } / { delta }（这一行新增的正文）。服务商在流里报错 → 抛。
+// 解析照 ST 的 ChatCompletionService：getStreamingReply(…, { chatCompletionSource: 神谕连接的源, overrideShowThoughts: true })——
+// 思考一律累进 state.reasoning（Fix B 要用；只进引擎，不进显示）；第 2 个及以后的 choice（多 swipe）不算正文。
+function soThrSseStep(line, state, oai, source) {
+    const t = String(line || '').trim();
+    if (!t.startsWith('data:')) return null;
+    const payload = t.slice(5).trim();
+    if (payload === '[DONE]') return { done: true };
+    let j;
+    try { j = JSON.parse(payload); } catch (e) { return { delta: '' }; }
+    if (j && j.error) {
+        const m = typeof j.error === 'string' ? j.error : (j.error.message || JSON.stringify(j.error));
+        throw new Error(`中转报错：${m}`);
+    }
+    if (j && Array.isArray(j.choices) && j.choices[0] && j.choices[0].index > 0) return { delta: '' };
+    const d = oai.getStreamingReply(j, state, { chatCompletionSource: source, overrideShowThoughts: true });
+    return { delta: typeof d === 'string' ? d : '' };
+}
+// 流式回包 → 与 sendOpenAIRequest 同形的「生成器函数」（每步 { text: 累计正文, state }）。整段没有一行 data: = 中转无视了 stream，
+// 按普通补全 JSON 解（同 streamDirect 的回退；别丢掉正文）。
+function soThrStreamOf(response, oai, sc, source) {
+    return async function* streamData() {
+        const reader = response.body.getReader();
+        const dec = new TextDecoder();
+        const state = { reasoning: '', images: [], signature: '', toolSignatures: {} };
+        let buf = '', raw = '', text = '', sawData = false;
+        try {
+            let finished = false;
+            while (!finished) {
+                const { value, done } = await reader.read();
+                const chunk = done ? dec.decode() : dec.decode(value, { stream: true });
+                if (!sawData) raw += chunk;
+                buf += chunk;
+                const lines = buf.split('\n');
+                buf = done ? '' : lines.pop();
+                for (const l of lines) {
+                    const r = soThrSseStep(l, state, oai, source);
+                    if (!r) continue;
+                    if (r.done) { finished = true; break; }
+                    sawData = true;
+                    text += r.delta;
+                    yield { text, state };
+                }
+                if (done) break;
+            }
+            if (!sawData && raw.trim()) {
+                let data = null;
+                try { data = JSON.parse(raw); } catch (e) { data = null; }
+                if (data && data.error) throw new Error(soThrHttpErrorText(response.status, response.statusText, raw));
+                const content = data ? (typeof sc?.extractMessageFromData === 'function' ? sc.extractMessageFromData(data, 'openai')
+                    : (data.choices?.[0]?.message?.content || '')) : '';
+                if (typeof content === 'string' && content) { text = content; yield { text, state }; }
+            }
+        } finally {
+            try { reader.cancel().catch(() => {}); } catch (e) { /* ignore */ }
+        }
+    };
+}
+// 预设路的发送（取代 ST 的 sendOpenAIRequest，同一契约）：拼参数 → emit CHAT_COMPLETION_SETTINGS_READY（预设脚本 / 本趟一次性监听器照旧在这里改
+// generate_data）→ window.fetch ST 的后端路由（别家包 fetch 的把戏照常生效）→ 流式回生成器函数 / 非流式回 JSON。env = { oai, sc, ctx, conn }。
+async function soThrPresetSend(type, messages, signal, env) {
+    const { oai, sc, ctx, conn } = env;
+    const { generate_data: gd, stream } = await soThrPresetBody(oai, conn, type, messages, ctx);
+    const es = ctx && ctx.eventSource;
+    const et = (ctx && (ctx.eventTypes || ctx.event_types)) || {};
+    if (es && typeof es.emit === 'function') await es.emit(et.CHAT_COMPLETION_SETTINGS_READY || 'chat_completion_settings_ready', gd);
+    if (Array.isArray(gd.messages)) gd.messages = yzmShieldMessages(gd.messages);   // 柚月记忆兼容垫（1.77.1）：新传输路同一垫
+    const headers = (ctx && typeof ctx.getRequestHeaders === 'function') ? ctx.getRequestHeaders() : { 'Content-Type': 'application/json' };
+    const response = await window.fetch(THEATER_ST_GENERATE_URL, { method: 'POST', body: JSON.stringify(gd), headers, signal });
+    if (!response.ok) {
+        const t = await response.text().catch(() => '');
+        throw new Error(soThrHttpErrorText(response.status, response.statusText, t));
+    }
+    if (stream) return soThrStreamOf(response, oai, sc, gd.chat_completion_source);
+    const data = await response.json();
+    if (data && data.error) throw new Error(soThrHttpErrorText(response.status, response.statusText, JSON.stringify(data)));
+    return data;
+}
+// '/scripts/reasoning.js'（extractReasoningFromData）；null = 没取过，false = 取不到。
+let soThrReasoningModule = null;
+async function soThrLoadReasoning() {
+    if (soThrReasoningModule !== null) return soThrReasoningModule;
+    try {
+        const mod = await import('/scripts/reasoning.js');
+        soThrReasoningModule = (mod && typeof mod.extractReasoningFromData === 'function') ? mod : false;
+    } catch (e) { soThrReasoningModule = false; }
+    return soThrReasoningModule;
+}
+// theater plan 3 Task 5：ST 拼好的世界书结果里剔 MVU 规则正文（前 / 后 / 每个深度条目 / 出口；对象不改，回新的一份）。
+async function soThrStripMvuFromWi(wiRes, wiMod) {
+    const r = Object.assign({}, wiRes || {});
+    const strip = (t) => (typeof t === 'string' && t ? stripMvuRuleContents(t, wiMod) : Promise.resolve(t));
+    r.worldInfoBefore = await strip(r.worldInfoBefore);
+    r.worldInfoAfter = await strip(r.worldInfoAfter);
+    if (Array.isArray(r.worldInfoDepth)) {
+        r.worldInfoDepth = await Promise.all(r.worldInfoDepth.map(async (d) => (d && Array.isArray(d.entries)
+            ? Object.assign({}, d, { entries: (await Promise.all(d.entries.map(strip))).filter((x) => typeof x !== 'string' || x.trim()) }) : d)));
+    }
+    if (r.outletEntries && typeof r.outletEntries === 'object') {
+        const o = {};
+        for (const [k, v] of Object.entries(r.outletEntries)) o[k] = Array.isArray(v) ? (await Promise.all(v.map(strip))).filter((x) => typeof x !== 'string' || x.trim()) : v;
+        r.outletEntries = o;
+    }
+    return r;
+}
+// 登记本趟自己的世界书深度条目（IN_CHAT、scan:false，同 Generate）与出口（NONE、depth 0）。回 Map(key → 写进去的那个对象)。
+function soThrRegisterOwnWI(reg, wiRes, sc, ctx) {
+    const own = new Map();
+    if (!reg || typeof reg !== 'object' || !wiRes) return own;
+    const types = sc.extension_prompt_types || {};
+    const IN_CHAT = types.IN_CHAT !== undefined ? types.IN_CHAT : 1;
+    const NONE = types.NONE !== undefined ? types.NONE : -1;
+    const setExt = typeof sc.setExtensionPrompt === 'function' ? sc.setExtensionPrompt
+        : (ctx && typeof ctx.setExtensionPrompt === 'function' ? ctx.setExtensionPrompt : null);
+    const put = (key, value, position, depth, scan, role) => {
+        if (setExt) setExt(key, value, position, depth, scan, role);
+        else reg[key] = { value: String(value), position: Number(position), depth: Number(depth), scan: !!scan, role: Number(role || 0), filter: null };
+        own.set(key, reg[key]);
+    };
+    if (Array.isArray(wiRes.worldInfoDepth)) {
+        for (const e of wiRes.worldInfoDepth) {
+            if (!e || !Array.isArray(e.entries)) continue;
+            put(soThrWiDepthKey(e.depth, e.role), e.entries.join('\n'), IN_CHAT, e.depth, false, e.role);
+        }
+    }
+    const outlets = wiRes.outletEntries;
+    if (outlets && typeof outlets === 'object') {
+        for (const [name, value] of Object.entries(outlets)) {
+            if (!Array.isArray(value)) continue;
+            put(soThrWiOutletKey(name), value.join('\n'), NONE, 0, false, 0);
+        }
+    }
+    return own;
+}
+// SO 路（Task 5）：[system: systemText, ...历史, user: directive] → maybeWrapJb(…, 'theater') → soCallModel。
+// theater plan 2 Task 7：玩家在神谕里策展过预设（presetCurationActive）→ 用诊断那套预设信封（第三参恒 ''，绝不传 undefined——那会把
+// 神谕侧聊拼进去），历史 + 指令插在信封放系统提示词的那个位置之后（预设里 chatHistory 之后的块仍在最后）。
+async function soThrRunSoPath(o, ctx, controller, guard, emitDelta) {
+    const s = getSettings();
+    const turns = [];
+    for (const h of (Array.isArray(o.history) ? o.history : [])) {
+        if (!h) continue;
+        const role = h.role === 'user' ? 'user' : (h.role === 'system' ? 'system' : 'assistant');   // system = IF 分隔线（theater plan 2）
+        turns.push({ role, content: typeof h.text === 'string' ? h.text : '' });
+    }
+    if (typeof o.directive === 'string' && o.directive) turns.push({ role: 'user', content: o.directive });
+    const sys = typeof o.systemText === 'string' ? o.systemText : '';
+    let messages;
+    if (ENABLE_THEATER && sys && presetCurationActive(s)) {
+        const build = (soThrMods && typeof soThrMods.presetMessages === 'function') ? soThrMods.presetMessages : buildDiagnosePresetMessages;
+        const env = build(s, sys, '') || [];
+        let at = env.findIndex((m) => m && m.role === 'system' && m.content === sys);
+        if (at < 0) at = env.length - 1;
+        messages = env.slice(0, at + 1).concat(turns, env.slice(at + 1));
+    } else {
+        messages = sys ? [{ role: 'system', content: sys }].concat(turns) : turns;
+    }
+    messages = maybeWrapJb(messages, 'theater', s);
+    const call = (soThrMods && typeof soThrMods.callModel === 'function') ? soThrMods.callModel : soCallModel;
+    const mt = Number(o.maxTokens);
+    if (ENABLE_THEATER) soLastFinishReason = '';   // Fix B：直连路写它（配置文件路读不到，恒空）
+    const text = await guard(call(messages, {
+        maxTokens: (o.maxTokens != null && Number.isFinite(mt) && mt > 0) ? mt : undefined,
+        signal: controller.signal,
+        onDelta: emitDelta,
+    }));
+    // SO 的传输函数不交出思考通道 → reasoning 恒 ''（找回只在预设路生效）。
+    return { text: typeof text === 'string' ? text : '', reasoning: '', finish: soThrNormFinish(soLastFinishReason) };
+}
+
+/* —— 最小发送路（theater plan 1 Task 6；Plan 2 换成真正的 IF 分支）——
+ * 小剧场模式下按发送：历史 = 主聊天（非系统楼，剥机制块）+ 本房此前各轮；指令 = 框定句 + 玩家这一句；流进本房一颗气泡；
+ * 成功才经 soRoomWrite 把【两轮】一起落进小剧场房（失败 / 中断 / 陈旧一律不落）。陈旧判据 = 本趟令牌 + 聊天身份 + 可见房，每个 await 后复核。 */
+// FROZEN（theater plan 2 Task 9 电池，tests/unit/_theater-tuning/if-frame；改 = 重跑该电池；sha256 钉 theater-prompts-pin.test.mjs）：IF 框定句（spec §4.1 的意思：前提就当真、在那里开场；行动就接着写；照常写，不抢话、不一口气跑完）。
+const THEATER_IF_FRAME = '【平行线（IF）】玩家想探索一条与主线不同的平行线。下面这句话要么是这条线的新前提（事情换了个走向），要么是玩家的下一步行动：是前提，就从此当作事实、在那里开场；是行动，就从它接着写。照你平常的写法讲故事，不替玩家说话或行动，也别一口气跑完剧情。';
+// FROZEN（同上）：SO 路（勾选框关）的系统提示词——叙事者，不是分析师。
+const THEATER_NARRATOR_SYSTEM = '你是这段故事的叙事者。\n根据上文的故事与设定，用小说的笔法续写场景：描写环境、动作与其他角色的言行；只写玩家角色以外的部分，每次写到一个自然的停顿就停下，把选择留给玩家。';
+// DRAFT 文案（待 Prince 选）。
+const THEATER_ABORTED_NOTE = '（已中断）';
+const THEATER_EMPTY_REPLY = '（空回复——这一轮没有拿到正文）';
+let soThrSendSeq = 0;
+// PURE-ish：主聊天里可喂给叙事者的楼（非系统楼，旧→新），正文剥掉 MVU 等机制块。
+function soThrHistoryFromMain(ctx) {
+    const chat = (ctx && Array.isArray(ctx.chat)) ? ctx.chat : [];
+    return chat
+        .filter((m) => m && !m.is_system && typeof m.mes === 'string')
+        .map((m) => ({ role: m.is_user ? 'user' : 'assistant', name: typeof m.name === 'string' ? m.name : '', text: stripMechanismBlocks(m.mes) }));
+}
+// 本房此前的问答轮 → 引擎历史形（玩家 = name1，叙事 = name2）。
+function soThrRoomTurns(list, ctx) {
+    return (Array.isArray(list) ? list : [])
+        .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+        .map((m) => ({ role: m.role, name: m.role === 'user' ? String((ctx && ctx.name1) || '') : String((ctx && ctx.name2) || ''), text: m.content }));
+}
+function soThrEngine() {
+    return (soThrMods && typeof soThrMods.generate === 'function') ? soThrMods.generate : soTheaterGenerate;
+}
+
+/* —— 🎭 小剧场 · 平行线（IF）（theater plan 2 Tasks 1–2）——
+ * 一条 IF = 小剧场房里的一份具名聊天（1.91 chat-files）。每条 IF 的事实（从第几楼分出 / 前提 / 起点变量）存在本聊天元数据里
+ * 唯一一张表 THEATER_IF_META_KEY = { [fileId]: { split, premise, seed, created } }——没用过就没有这个键（懒建、删空即删键）。
+ * 叙事者看到的历史 = 主线前 min(split, 楼数) 楼（冻结在分出那一刻；之后主线再往前走与它无关）→ 分隔线 → 这条 IF 自己的各轮。
+ * 主聊天的消息 / variables / extra / 元数据里的别的键，这里一个字节都不碰。 */
+const THEATER_IF_META_KEY = MODULE + '_thrIf';
+// FROZEN（同上；钉的是固定前提下的输出）：分隔线（模型可见 + 显示用）。
+const THEATER_IF_DIVIDER = (premise) => `—— 平行线（IF）：${soThrPremiseBare(premise)} ——\n以下是另一条时间线。`;
+// 前提开头玩家自己打的「IF：」「IF:」「平行线：」（不分大小写、全角半角冒号）去掉——分隔线与导入文件名自己会加（2026-11-07 实玩 Finding 5）。
+function soThrPremiseBare(premise) {
+    let s = String(premise == null ? '' : premise).trim();
+    for (let i = 0; i < 4; i++) {
+        const n = s.replace(/^(?:IF|平行线)\s*[:：]\s*/i, '');
+        if (n === s) break;
+        s = n;
+    }
+    return s;
+}
+// DRAFT 文案（待 Prince 选）：IF 面板。
+const THEATER_IF_NEW = '＋ 新平行线';
+const THEATER_IF_NEW_TITLE = '回到空白页：在下方输入框写下新的前提，就会开一条新的平行线';
+const THEATER_IF_SPLIT_LABEL = (split) => `从第 ${Number(split) || 0} 楼分出`;
+const THEATER_IF_UNSAFE_IDS = ['__proto__', 'constructor', 'prototype'];
+function soThrClone(v) {
+    if (v == null) return v;
+    try { if (typeof structuredClone === 'function') return structuredClone(v); } catch (e) { /* 代理 / 不可克隆 → 退 JSON */ }
+    return JSON.parse(JSON.stringify(v));
+}
+function soThrIfIdOk(id) {
+    return typeof id === 'string' && id.length > 0 && id.length <= 160 && !THEATER_IF_UNSAFE_IDS.includes(id);
+}
+// 小剧场房能不能开多条 IF（具名聊天可用）。不能 → 整个小剧场房就是唯一一条 IF，记录挂在「默认」上。
+function soThrIfFilesOn() {
+    return soChatFilesApply('theater');
+}
+// 只读：本聊天的 IF 表（形状不对 / 没有 → null；绝不顺手建键）。
+function soThrIfMap() {
+    const md = getChatMetadataSafe();
+    const m = md ? md[THEATER_IF_META_KEY] : null;
+    return (m && typeof m === 'object' && !Array.isArray(m)) ? m : null;
+}
+// 一条 IF 的记录（深拷贝；没有 → null）。
+function soThrIfGet(fileId) {
+    if (!soThrIfIdOk(fileId)) return null;
+    const m = soThrIfMap();
+    const r = (m && Object.hasOwn(m, fileId)) ? m[fileId] : null;
+    return (r && typeof r === 'object') ? soThrClone(r) : null;
+}
+function soThrIfPut(fileId, record) {
+    if (!soThrIfIdOk(fileId) || !record || typeof record !== 'object') return;
+    const md = getChatMetadataSafe();
+    if (!md) return;
+    const cur = soThrIfMap();
+    const map = cur ? cur : {};
+    map[fileId] = soThrClone(record);
+    md[THEATER_IF_META_KEY] = map;
+    saveChatMetadata();
+}
+// 删一条 IF 的记录（表空了 = 删键，没用过这功能的聊天不留痕）。
+function soThrIfDrop(fileId) {
+    const md = getChatMetadataSafe();
+    const m = soThrIfMap();
+    if (!md || !m || !soThrIfIdOk(fileId) || !Object.hasOwn(m, fileId)) return;
+    delete m[fileId];
+    if (!Object.keys(m).length) delete md[THEATER_IF_META_KEY];
+    saveChatMetadata();
+    soThrScenesDropOwner(fileId);   // theater plan 3：这条 IF 名下的场景一起删
+}
+// PURE：叙事者看到的历史。mainChat = ST 主聊天数组（只读）；楼号越界（之后主线删了楼）= 夹到现有楼数，绝不抛。
+// opts.depth（SO 路）= 只裁【主线那段】、保留最新的；分隔线与 IF 各轮恒在。
+function soThrIfHistory(mainChat, record, roomTurns, opts) {
+    const chat = Array.isArray(mainChat) ? mainChat : [];
+    const sp = record && Number.isInteger(record.split) && record.split >= 0 ? record.split : chat.length;
+    let main = soThrHistoryFromMain({ chat: chat.slice(0, Math.min(sp, chat.length)) });
+    const depth = Number(opts && opts.depth);
+    if (Number.isFinite(depth) && depth > 0) main = main.slice(-depth);
+    const premise = record && typeof record.premise === 'string' ? record.premise : '';
+    return main.concat([{ role: 'system', name: '', text: THEATER_IF_DIVIDER(premise) }], Array.isArray(roomTurns) ? roomTurns : []);
+}
+// 开一条新的 IF：以前提命名 → 记下分出楼号 / 前提 / 起点变量 → 切过去。回 fileId，开不成 → null。
+// rec（可选）= 发送时已在内存里拍好的那份记录（soThrSend 在第一轮回复成功后才调本函数——分出楼号仍是【发送那一刻】的）。
+async function soThrIfStart(premise, rec) {
+    const text = String(premise == null ? '' : premise).trim();
+    const ctx = getCtx();
+    const split = Array.isArray(ctx && ctx.chat) ? ctx.chat.length : 0;
+    const record = (rec && typeof rec === 'object') ? rec : { split, premise: text, seed: soThrSeedVars(), created: Date.now() };
+    if (!soThrIfFilesOn()) {   // 只有一份记录的小剧场房：整房 = 这一条 IF
+        soThrIfPut(SO_CHAT_FILE_DEFAULT, record);
+        return SO_CHAT_FILE_DEFAULT;
+    }
+    let file = null;
+    try { file = soCreateChatFile('theater', soChatFileName(text)); } catch (e) { addSystemNote(String((e && e.message) || e)); return null; }
+    if (!file) return null;
+    soThrIfPut(file.id, record);
+    if (!soSwitchChatFile('theater', file.id)) { addSystemNote(SO_CHAT_SWITCH_BUSY); return null; }
+    soThrRefreshIfPanel();
+    return file.id;
+}
+// 这条 IF 的记录；缺（具名聊天是从「管理聊天记录」里新建 / 导入的，不是从小剧场开的）→ 按「此刻」补一份。
+// 小剧场房能开多条 IF 时，「默认」不是 IF：给它的（Plan 1 留下的旧轮次上的 🔄 / ⏩）只拍一份临时记录，绝不落盘。
+function soThrIfEnsure(fileId, premiseIfNew) {
+    const got = soThrIfGet(fileId);
+    if (got) return got;
+    const ephemeral = fileId === SO_CHAT_FILE_DEFAULT && soThrIfFilesOn();
+    const ctx = getCtx();
+    const hasTurns = convo.some((m) => m && (m.role === 'user' || m.role === 'assistant'));
+    const rec = {
+        split: Array.isArray(ctx && ctx.chat) ? ctx.chat.length : 0,
+        premise: hasTurns ? soChatFileDisplayName('theater', fileId) : String(premiseIfNew || '').trim(),
+        seed: soThrSeedVars(),
+        created: Date.now(),
+    };
+    if (!ephemeral) soThrIfPut(fileId, rec);
+    return soThrClone(rec);
+}
+/* —— 🎭 平行线的变量本（theater plan 2 Task 4）——
+ * 每条 IF 有自己的一份 MVU 数据：开 IF 时从主聊天最新一楼深拷贝（record.seed），之后每条 IF 回复用 Mvu.parseMessage 在【上一轮的】
+ * 那份之上跑一遍（与诊断同一个入口），结果挂在这条回复上：thrVars = 当前显示版本之后的数据；有 ≥2 个版本时 thrVarsByVariant 与
+ * variants 平行。重新生成 / 续写 = 从「这一轮之前」那份重算，绝不叠加；切版本 = 换成那个版本的那份。主聊天的 variables 只读一次（种子），
+ * 从不写。没有 MVU / 种子为空 = 纯故事 IF（不种、不解析、不派生）。 */
+// DRAFT 文案（待 Prince 选）。
+const THEATER_MVU_PARSE_FAILED = '这条回复的变量更新没能解析，平行线的变量保持原样';
+function soThrMvu() {
+    const m = (typeof window !== 'undefined') ? window.Mvu : null;
+    return (m && typeof m === 'object') ? m : null;
+}
+// 起点变量 = 主聊天最新一楼 MvuData 的深拷贝；无 MVU / 空 / 读失败 → null。
+function soThrSeedVars() {
+    const Mvu = soThrMvu();
+    if (!Mvu || typeof Mvu.getMvuData !== 'function') return null;
+    let d = null;
+    try { d = Mvu.getMvuData(mvuMsgOpts()); } catch (e) { return null; }
+    if (mvuFloorDataEmpty(d)) return null;
+    try { return soThrLean(soThrClone(d)); } catch (e) { return null; }
+}
+function soThrVarsOk(v) {
+    return !!(v && typeof v === 'object' && !Array.isArray(v));
+}
+// 这条回复【之前】最近一条有变量的 IF 回复的那份；没有 → 记录里的种子；都没有 → null。不拷贝（调用方自己拷）。
+function soThrBranchVarsBefore(convoList, entryIndex, record) {
+    const list = Array.isArray(convoList) ? convoList : [];
+    const from = Number.isInteger(entryIndex) ? Math.min(entryIndex, list.length) : list.length;
+    for (let i = from - 1; i >= 0; i--) {
+        const m = list[i];
+        if (m && m.role === 'assistant' && soThrVarsOk(m.thrVars)) return m.thrVars;
+        if (m && m.role === 'assistant' && m.thrVarsPruned === true) return null;   // 复审 I5：那一轮的变量已按上限删掉 → 之前的状态不可知（绝不退回种子）
+    }
+    return (record && soThrVarsOk(record.seed)) ? record.seed : null;
+}
+function soThrBranchVarsNow(convoList, record) {
+    return soThrBranchVarsBefore(convoList, Array.isArray(convoList) ? convoList.length : 0, record);
+}
+// 存进变量本的是精简版：去掉 MVU 每次更新都从 stat_data 重算的 display_data / delta_data（MagVarUpdate update_variables.ts
+// updateVariables：开头按 klona(variables) 起算、末尾整份重写这两个键——解析不需要它们；diagCmpKey 也不拿 display_data 当状态）。
+// stat_data / schema 等其余键原样。互换（soThrSwapValue）与导入（soThrImportVars）时再补回。
+function soThrLean(v) {
+    if (!soThrVarsOk(v)) return v;
+    const out = Object.assign({}, v);
+    delete out.display_data;
+    delete out.delta_data;
+    return out;
+}
+// 把一份变量挂到这条回复【当前显示的版本】上（精简后）。
+function soThrSetVars(entry, vars) {
+    if (!entry) return;
+    vars = soThrLean(vars);
+    if (Array.isArray(entry.variants) && entry.variants.length >= 2) {
+        const n = entry.variants.length;
+        const arr = (Array.isArray(entry.thrVarsByVariant) && entry.thrVarsByVariant.length === n) ? entry.thrVarsByVariant.slice() : new Array(n).fill(null);
+        arr[entry.variantIndex] = vars;
+        entry.thrVarsByVariant = arr;
+    } else {
+        delete entry.thrVarsByVariant;
+    }
+    entry.thrVars = vars;
+    delete entry.thrVarsPruned;
+}
+// 改版本 / 改字之前拍一张「版本文字 → 变量」表（同 soRawMapOf 的口径：增删换序都不会对错号）。一条变量都没有 → null（不插手）。
+function soThrVarsSnap(entry) {
+    if (!entry || entry.role !== 'assistant') return null;
+    const map = new Map();
+    if (Array.isArray(entry.variants) && Array.isArray(entry.thrVarsByVariant)) {
+        entry.variants.forEach((v, i) => { const x = entry.thrVarsByVariant[i]; if (soThrVarsOk(x)) map.set(v, x); });
+    }
+    if (soThrVarsOk(entry.thrVars) && typeof entry.content === 'string' && !map.has(entry.content)) map.set(entry.content, entry.thrVars);
+    if (!map.size) return null;
+    const texts = new Set(Array.isArray(entry.variants) ? entry.variants : [entry.content]);
+    return { map, texts, cur: soThrVarsOk(entry.thrVars) ? entry.thrVars : null };
+}
+// 按改动之后的版本表写回。当前版本的文字是【新】的（✏ 改字 / ⏩ 续写）且 keep 允许 → 沿用改之前那份（随后由调用方重算）；
+// 新出的版本（🔄）keep:false → 空着，等 soThrApplyInline 填。
+function soThrVarsApply(entry, snap, opts) {
+    if (!entry || !snap) return;
+    const keep = !(opts && opts.keep === false) && !snap.texts.has(entry.content) ? snap.cur : null;
+    if (Array.isArray(entry.variants) && entry.variants.length >= 2) {
+        const arr = entry.variants.map((v) => (snap.map.has(v) ? snap.map.get(v) : null));
+        if (!arr[entry.variantIndex] && keep) arr[entry.variantIndex] = keep;
+        if (arr.some(Boolean)) entry.thrVarsByVariant = arr; else delete entry.thrVarsByVariant;
+        const cur = arr[entry.variantIndex];
+        if (cur) entry.thrVars = cur; else delete entry.thrVars;
+    } else {
+        delete entry.thrVarsByVariant;
+        const cur = snap.map.get(entry.content) || keep;
+        if (cur) entry.thrVars = cur; else delete entry.thrVars;
+    }
+}
+// 读回后再验一遍：thrVarsByVariant 必须与 variants 等长，thrVars 跟着当前版本；形状不对 → 丢掉那张表（无害：退回 thrVars）。
+function soThrVarsLoad(m) {
+    if (!m || m.role !== 'assistant') return;
+    if (m.thrVars != null && !soThrVarsOk(m.thrVars)) delete m.thrVars;
+    if (Array.isArray(m.variants) && m.variants.length >= 2 && Array.isArray(m.thrVarsByVariant) && m.thrVarsByVariant.length === m.variants.length) {
+        const cur = m.thrVarsByVariant[m.variantIndex];
+        if (soThrVarsOk(cur)) m.thrVars = cur; else delete m.thrVars;
+    } else {
+        delete m.thrVarsByVariant;
+    }
+}
+// 复审 I5：平行线变量本按轮整份存（每份 = 整个 stat_data）。只留最近 THEATER_VARS_KEEP 条 AI 回复的那份（含它的各版本），更早的删掉、
+// 记 thrVarsPruned（之前的状态从此「不可知」：soThrBranchVarsBefore 遇到它回 null，不会错退回种子）。重新生成 / 续写只发生在最新一条，
+// ✏ 改字改到被删过的那几轮 = 不重算变量（它们本来也不显示变量）。——复审给的另一案「每 10 轮一个检查点、其余靠 Mvu.parseMessage 重放」没做：
+// 重放依赖卡与 MVU 版本不变、改早先一轮会连带改掉之后各轮，风险大（feature-flags.md 记着）。
+const THEATER_VARS_KEEP = 20;
+function soThrPruneVars(out) {
+    if (!ENABLE_THEATER || !Array.isArray(out)) return out;
+    let seen = 0;
+    for (let i = out.length - 1; i >= 0; i--) {
+        const m = out[i];
+        if (!m || m.role !== 'assistant' || !(soThrVarsOk(m.thrVars) || Array.isArray(m.thrVarsByVariant))) continue;
+        seen++;
+        if (seen <= THEATER_VARS_KEEP) continue;
+        delete m.thrVars;
+        delete m.thrVarsByVariant;
+        m.thrVarsPruned = true;
+    }
+    return out;
+}
+// serializeConvo 的字段包装（同 soWithReplyVersionFields）：只在有的时候加 thrVars / thrVarsByVariant；旗关 = 原样返回。
+function soWithTheaterFields(m, o) {
+    if (!ENABLE_THEATER || !m || m.role !== 'assistant') return o;
+    if (soThrVarsOk(m.thrVars)) o.thrVars = m.thrVars;
+    else if (m.thrVarsPruned === true) o.thrVarsPruned = true;
+    if (Array.isArray(o.variants) && Array.isArray(m.thrVarsByVariant) && m.thrVarsByVariant.length === o.variants.length) o.thrVarsByVariant = m.thrVarsByVariant.slice();
+    return o;
+}
+// 用这条回复的正文（含 MVU 块）推进平行线的变量本：从「这一轮之前」那份深拷贝出发跑 Mvu.parseMessage。回 true = 写了新值。
+// 解析抛错 → 这一轮沿用之前那份 + 一句说明；没有 MVU / 没有起点 → 什么都不做。
+async function soThrApplyInline(entry, convoList, record) {
+    const Mvu = soThrMvu();
+    if (!Mvu || typeof Mvu.parseMessage !== 'function') return false;
+    const list = Array.isArray(convoList) ? convoList : [];
+    const idx = list.indexOf(entry);
+    if (idx < 0) return false;
+    const prev = soThrBranchVarsBefore(list, idx, record);
+    if (!prev) return false;
+    const text = String(entry.content == null ? '' : entry.content);
+    let next = null, failed = false;
+    try {
+        const got = await Mvu.parseMessage(text, soThrClone(prev));
+        next = soThrVarsOk(got) ? soThrClone(got) : soThrClone(prev);
+    } catch (e) {
+        console.warn('[Story Oracle] 小剧场：平行线变量解析失败（沿用上一轮的值）', e);
+        failed = true;
+        next = soThrClone(prev);
+    }
+    if (list.indexOf(entry) < 0 || String(entry.content) !== text) return false;   // 等待期间换了聊天 / 这条被改过 → 不写
+    soThrSetVars(entry, next);
+    if (list === convo) persistConvo();
+    if (failed) addSystemNote(THEATER_MVU_PARSE_FAILED);
+    return !failed;
+}
+// ✏ 改过一条 IF 回复：这一版的变量从「这一轮之前」那份按新正文重算（之后各轮的变量不动——它们是按当时的正文算的）。
+async function soThrAfterEdit(entry) {
+    if (!soThrMvu() || !entry || entry.role !== 'assistant') return false;
+    const rec = soThrIfGet(soActiveFileId('theater'));
+    try { return await soThrApplyInline(entry, convo, rec); } catch (e) { return false; }
+}
+// 一条 IF 回复定稿之后：先按正文里的块推进变量本，再（勾了兼容框、正文里没有块时）派生一个块。
+async function soThrAfterReply(entry, record, token, chatKey) {
+    if (!soThrMvu()) return;
+    await soThrApplyInline(entry, convo, record);
+    if (soThrStaleRun(token, chatKey) || convo.indexOf(entry) === -1) return;
+    if (getSettings().theaterMvuDerive) await soThrDeriveMvu(entry, convo, record);
+}
+
+/* —— 🎭 兼容「MVU 额外模型解析」（theater plan 2 Task 5）——
+ * MVU 只处理酒馆里真正的消息，IF 回复它看不见；用额外模型解析的玩家，叙事者本来就不写块。勾上兼容框 → 每条正文里没有块的 IF
+ * 回复，神谕用诊断那套【冻结的】提示词构造器（buildDiagnosePromptFrom，乙·推导）按【平行线自己的】变量推一个块，走同一条修复流水线
+ * （normalizeDiagPatchPaths → repairDiagPatch → diagPreflightPatch，对着平行线的数据），落不了地的指令丢掉，剩下的按卡片的方言
+ * 写进这条回复（一条消息里绝不出现第二个块——正文里有任何块的痕迹就不派生），再 soThrApplyInline。一轮多一次调用，走神谕自己的连接。 */
+// 与自动诊断「乙·推导」那句用户消息【逐字相同】（theater-mvu.test 钉它就在 runAutoDiagnose 的源码里）——不是新文案。
+const THEATER_DERIVE_USER = '【自动诊断】最新一条 AI 回复的正文里【没有】变量更新区块。请充当变量更新引擎：通读这条回复，依本卡 MVU 规则与当前状态，推导出本回合应当发生的全部变量更新，输出一个 <UpdateVariable> 区块把状态更新到位；若这条回复确实不涉及任何变量变化，则在 <JSONPatch> 里输出空数组（[]）。';
+// 预检判成「落不了地」的指令（对着平行线的数据）——派生时丢掉，不写进正文。
+const THEATER_DERIVE_DROP = ['poison', 'unknown-verb', 'bad-path', 'missing-path', 'bad-container', 'bad-delta', 'vwd-shape',
+    'move-unsupported', 'schema-blocked', 'not-extensible', 'delta-target-not-number'];
+// DRAFT 文案（待 Prince 选）。
+const THEATER_MVU_DERIVE_LABEL = '兼容 MVU 额外模型解析（每轮多一次调用，走神谕自己的连接）';
+const THEATER_DERIVE_FAILED = '平行线的变量没能自动补上：';
+// 卡片写块用的方言：主线冻结那段里最近一条带块的楼用哪种包装就用哪种；看不出 → 标准 <UpdateVariable>。
+function soThrCardDialect(mainChat, record) {
+    const chat = Array.isArray(mainChat) ? mainChat : [];
+    const sp = record && Number.isInteger(record.split) ? Math.min(record.split, chat.length) : chat.length;
+    for (let i = sp - 1; i >= 0; i--) {
+        const m = chat[i];
+        if (!m || m.is_user || typeof m.mes !== 'string') continue;
+        const d = detectMvuBlockDialect(m.mes);
+        if (d) return d;
+    }
+    return 'UpdateVariable';
+}
+function soThrWrapBlock(wrapper, ops) {
+    const body = JSON.stringify(ops);
+    return wrapper === 'update'
+        ? `<update>\n<json_patch>\n${body}\n</json_patch>\n</update>`
+        : `<UpdateVariable>\n<JSONPatch>\n${body}\n</JSONPatch>\n</UpdateVariable>`;
+}
+// 诊断提示词里的「故事对话记录」= 主线冻结那段 + 这条 IF 到这条回复为止（不是主线此刻的楼）。
+function soThrDeriveChat(mainChat, record, ifTurns, ctx) {
+    const chat = Array.isArray(mainChat) ? mainChat : [];
+    const sp = record && Number.isInteger(record.split) ? Math.min(record.split, chat.length) : chat.length;
+    const out = chat.slice(0, sp);
+    for (const t of (Array.isArray(ifTurns) ? ifTurns : [])) {
+        if (!t || (t.role !== 'user' && t.role !== 'assistant') || typeof t.content !== 'string') continue;
+        out.push({ is_user: t.role === 'user', is_system: false, name: t.role === 'user' ? String((ctx && ctx.name1) || '') : String((ctx && ctx.name2) || ''), mes: t.content });
+    }
+    return out;
+}
+// → { applied, reason }。reason：has-block / dead-block / no-mvu / no-vars / gone / stale / aborted / error / unparsed / preflight-* / empty / ok。
+async function soThrDeriveMvu(entry, convoList, record) {
+    const s = getSettings();
+    const list = Array.isArray(convoList) ? convoList : [];
+    const idx = list.indexOf(entry);
+    if (idx < 0) return { applied: false, reason: 'gone' };
+    const content = String(entry.content == null ? '' : entry.content);
+    if (extractUpdateBlock(content)) return { applied: false, reason: 'has-block' };
+    if (detectMvuBlockDialect(content)) return { applied: false, reason: 'dead-block' };   // 有坏块的痕迹：再写一个就是同楼两块（mvu-facts ②）
+    if (!soThrMvu()) return { applied: false, reason: 'no-mvu' };
+    const prev = soThrBranchVarsBefore(list, idx, record);
+    if (!prev) return { applied: false, reason: 'no-vars' };
+    const stat = diagStatOf(prev);
+    const ctx = getCtx();
+    const latestReply = stripMechanismBlocks(content);
+    // 世界书：与自动诊断同口径（世界书设置 + 补回 [mvu_update] 规则），绿灯额外扫这条 IF 回复。
+    let wiBlock = '';
+    try {
+        wiBlock = (await buildWorldInfo(wiContextMode(s), latestReply)) || '';
+        const rules = await collectMvuUpdateRules(wiBlock);
+        if (rules && rules.length) wiBlock = [wiBlock, ...rules].filter(Boolean).join('\n\n');
+    } catch (e) { console.warn('[Story Oracle] 小剧场：派生用的世界书读取失败', e); }
+    const dctx = Object.assign({}, ctx, { chat: soThrDeriveChat(ctx.chat, record, list.slice(0, idx + 1), ctx) });
+    const prompt = buildDiagnosePromptFrom(dctx, s, {
+        wiBlock, statStr: JSON.stringify(stat, null, 2), latestBlock: '', latestReply, auto: true, derive: true, deadBlock: false,
+    });
+    const messages = maybeWrapJb([{ role: 'system', content: prompt }, { role: 'user', content: THEATER_DERIVE_USER }], 'diagnose', s);
+    const call = (soThrMods && typeof soThrMods.callModel === 'function') ? soThrMods.callModel : soCallModel;
+    const ctl = new AbortController();
+    const prevCtl = abortCtl;
+    abortCtl = ctl;   // 停止键掐这次派生
+    let reply = '';
+    try {
+        reply = await call(messages, { maxTokens: Math.max(4096, Number(s.maxTokens) || 0), signal: ctl.signal, stream: false });
+    } catch (e) {
+        if (ctl.signal.aborted || isUserAbort(e)) return { applied: false, reason: 'aborted' };
+        addSystemNote(THEATER_DERIVE_FAILED + explainProviderError(errChainMessage(e)));
+        return { applied: false, reason: 'error' };
+    } finally {
+        if (abortCtl === ctl) abortCtl = prevCtl;
+    }
+    if (ctl.signal.aborted) return { applied: false, reason: 'aborted' };
+    if (list.indexOf(entry) < 0 || String(entry.content) !== content) return { applied: false, reason: 'stale' };
+    const block = extractUpdateBlock(String(reply == null ? '' : reply));
+    if (!block) return { applied: false, reason: 'unparsed' };
+    let text = normalizeDiagPatchPaths(block, stat).text;
+    text = repairDiagPatch(text, stat).text;
+    const pf = diagPreflightPatch(text, stat, prev.schema);
+    if (pf.code !== 'ok') return { applied: false, reason: 'preflight-' + pf.code };
+    const got = diagPatchOpsOf(text);
+    const ops = (got && Array.isArray(got.ops)) ? got.ops : [];
+    const keep = ops.filter((op, i) => { const v = pf.ops[i]; return !(v && THEATER_DERIVE_DROP.includes(v.verdict)); });
+    if (!keep.length) return { applied: false, reason: 'empty' };
+    const newBlock = soThrWrapBlock(soThrCardDialect(ctx.chat, record), keep);
+    soSetEntryText(entry, content.trimEnd() + '\n\n' + newBlock);
+    await soThrApplyInline(entry, list, record);
+    if (list === convo) persistConvo();
+    if (entry._el) {
+        const c = entry._el.querySelector('.so-content');
+        if (c) c.dataset.soRaw = String(entry.content);
+    }
+    return { applied: true, reason: 'ok' };
+}
+
+/* —— 🎭 变量本互换 + 序列化护盾（theater plan 2 Task 6，spec §6.3a，Opus「A′」+ Fable 的日志）——
+ * 勾「用 ST 当前预设」时，卡片自己的变量读法（酒馆助手宏 / getvar / ST-Prompt-Template / Mvu.getMvuData）只认主聊天的楼层数据。
+ * 拼这一轮 IF 提示词的那一小段时间里，把那几楼的 variables 换成【平行线】那份（按对象引用，不按下标），每个替身都带一个不可枚举的
+ * toJSON → 返回原值：期间谁存聊天（saveChat 用 JSON.stringify），落盘的都是主线原值。ST 发 CHAT_COMPLETION_SETTINGS_READY（发请求前最后
+ * 一个读点）时还原；finally / 30 秒看门狗 / soThrAbort（同步）兜底。换之前先写一份 localStorage 日志，还原后删掉；页面在换着的时候被刷新 /
+ * 崩掉 → 下次载入或 CHAT_CHANGED 时按日志把原值写回（只在那一格的内容恰是平行线那份时）。SO 路从不互换（它自己把变量写进提示词）。 */
+const THEATER_SWAP_JOURNAL = 'so_thr_swap_journal';   // 前缀；真键 = 前缀:本页 id:chatKey（复审 M10：一页清不掉另一页正在用的那份）
+const THEATER_SWAP_WATCHDOG_MS = 30000;
+const THEATER_SWAP_JOURNAL_MAX_AGE = 7 * 24 * 3600 * 1000;   // 别的聊天留下的日志：一周没被认领就丢
+// DRAFT 文案（待 Prince 选）。
+const THEATER_SWAP_RECOVERED = '上次小剧场生成到一半被打断了，主聊天的变量已经恢复原样';
+const THEATER_SWAP_CONFLICT = '小剧场生成时，别的脚本改了主聊天的变量：已经按主线原来的值改回去，这一轮停下了';
+let soThrSwapLive = null;       // null | { handle, timer }
+let soThrSwapConflict = false;  // 这一趟的还原撞上了别人的写入（soThrSend 读了就复位）
+// 互换时读者看到的那份：平行线变量本存的是精简版（无 display_data / delta_data），卡片的状态栏 / EJS 可能读它们——按 MVU 一次「无改动」
+// 更新的结果补回：display_data = stat_data 的拷贝，delta_data = {}。
+function soThrSwapValue(branch) {
+    const v = soThrClone(branch) || {};
+    if (v.display_data === undefined) v.display_data = soThrClone(v.stat_data !== undefined ? v.stat_data : {});
+    if (v.delta_data === undefined) v.delta_data = {};
+    return v;
+}
+function soThrDefToJSON(obj, original) {
+    Object.defineProperty(obj, 'toJSON', { value: () => original, enumerable: false, configurable: true, writable: true });
+    return obj;
+}
+// 平行线那份的新拷贝 + 不可枚举 toJSON → 原值（原值缺席 → undefined，键随之从 JSON 里消失）。
+function soThrShield(original, branchValue) {
+    const copy = soThrClone(branchValue);
+    if (!copy || typeof copy !== 'object') return copy;
+    return soThrDefToJSON(copy, original);
+}
+// 不经 toJSON 的 JSON（护盾对象的【真】内容；日志的哈希用它）。
+function soThrRawJson(v) {
+    if (v && typeof v === 'object' && !Array.isArray(v)) return JSON.stringify(Object.assign({}, v));
+    return JSON.stringify(v === undefined ? null : v);
+}
+function soThrHash(str) {
+    let h = 5381;
+    const s = String(str);
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    return (h >>> 0).toString(16) + ':' + s.length;
+}
+function soThrSwipeOf(msg) {
+    return (msg && Number.isInteger(msg.swipe_id) && msg.swipe_id >= 0) ? msg.swipe_id : 0;
+}
+// 要换的楼（按对象引用去重）：最后一条非系统楼（酒馆助手 'latest'）、最后一条有变量的楼（酒馆助手宏）、倒数第一（ST-Prompt-Template，系统楼也算）、
+// 倒数第二（STPT 原地标记过期时读它）。
+function soThrSwapTargets(chat) {
+    const list = Array.isArray(chat) ? chat : [];
+    const out = [];
+    const seen = new Set();
+    const add = (msg) => {
+        if (!msg || typeof msg !== 'object' || seen.has(msg)) return;
+        seen.add(msg);
+        out.push({ msg, swipe: soThrSwipeOf(msg) });
+    };
+    for (let i = list.length - 1; i >= 0; i--) { if (list[i] && !list[i].is_system) { add(list[i]); break; } }
+    for (let i = list.length - 1; i >= 0; i--) {
+        const m = list[i];
+        if (m && Array.isArray(m.variables) && m.variables[soThrSwipeOf(m)] && typeof m.variables[soThrSwipeOf(m)] === 'object') { add(m); break; }
+    }
+    add(list[list.length - 1]);
+    add(list[list.length - 2]);
+    return out;
+}
+// 卡片开了 MVU「更新到聊天变量」：聊天级 variables 里带着 stat_data（MVU 读不到自家设置，按痕迹判）。
+function soThrChatLevel(ctx) {
+    const v = ctx && ctx.chatMetadata && ctx.chatMetadata.variables;
+    return !!(v && typeof v === 'object' && v.stat_data && typeof v.stat_data === 'object');
+}
+// 本页 id：存在 sessionStorage 里（同一个标签页刷新后还是它 → 刷新能立刻认领自己上次的日志；别的标签页的日志要等它过了看门狗时限才认领）。
+let soThrTabIdCache = null;
+function soThrTabId() {
+    if (soThrTabIdCache) return soThrTabIdCache;
+    let id = '';
+    try { id = String(sessionStorage.getItem('so_thr_tab') || ''); } catch (e) { id = ''; }
+    if (!/^[a-z0-9]{6,24}$/.test(id)) {
+        id = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+        try { sessionStorage.setItem('so_thr_tab', id); } catch (e) { /* 只在这一页内存里有效 */ }
+    }
+    soThrTabIdCache = id;
+    return id;
+}
+function soThrJournalKey(chatKey) {
+    return THEATER_SWAP_JOURNAL + ':' + soThrTabId() + ':' + String(chatKey == null ? '' : chatKey);
+}
+function soThrJournalWrite(j, key) {
+    try { localStorage.setItem(key || soThrJournalKey(j && j.chatKey), JSON.stringify(j)); return true; }
+    catch (e) { console.warn('[Story Oracle] 小剧场：变量切换日志写不进 localStorage（继续，但崩溃后无法自动还原）', e); return false; }
+}
+function soThrJournalClear(key) {
+    try { localStorage.removeItem(key || soThrJournalKey(fixChatKey())); } catch (e) { /* ignore */ }
+}
+function soThrPlainCopy(v) {
+    return v === undefined ? null : JSON.parse(JSON.stringify(v));
+}
+// 换。回 { restore() → {conflict}, active() }。同步、不 await。
+function soThrVarSwap({ chat, chatMeta, branch, chatLevel }) {
+    const list = Array.isArray(chat) ? chat : [];
+    const value = soThrSwapValue(branch);
+    const recs = soThrSwapTargets(list).map(({ msg, swipe }) => ({
+        msg, swipe, index: list.indexOf(msg),
+        hadVars: Object.hasOwn(msg, 'variables'), origArr: msg.variables,
+        origSlot: Array.isArray(msg.variables) ? msg.variables[swipe] : undefined,
+        hadInit: Object.hasOwn(msg, 'variables_initialized'), origInit: msg.variables_initialized,
+    }));
+    const cmOn = !!(chatLevel && chatMeta && typeof chatMeta === 'object');
+    const cm = cmOn ? { had: Object.hasOwn(chatMeta, 'variables'), orig: chatMeta.variables } : null;
+    let cmShadow = null;
+    if (cm) {
+        cmShadow = Object.assign({}, soThrClone(cm.orig) || {});
+        for (const k of ['stat_data', 'schema', 'display_data', 'delta_data']) if (value[k] !== undefined) cmShadow[k] = soThrClone(value[k]);
+        soThrDefToJSON(cmShadow, cm.orig);
+    }
+    // 日志先于第一次改动落盘。
+    const jKey = soThrJournalKey(fixChatKey());
+    soThrJournalWrite({
+        chatKey: fixChatKey(), at: Date.now(), tab: soThrTabId(),
+        targets: recs.map((r) => ({ index: r.index, swipe: r.swipe })),
+        originals: recs.map((r) => ({ hadVars: r.hadVars, vars: r.hadVars ? soThrPlainCopy(r.origArr) : null, hadInit: r.hadInit, init: r.hadInit ? soThrPlainCopy(r.origInit) : null })),
+        branchHash: soThrHash(soThrRawJson(value)),
+        chatMeta: cm ? { had: cm.had, vars: cm.had ? soThrPlainCopy(cm.orig) : null, hash: soThrHash(soThrRawJson(cmShadow)) } : null,
+    }, jKey);
+    for (const r of recs) {
+        const arr = Array.isArray(r.origArr) ? r.origArr.slice() : [];
+        arr[r.swipe] = soThrShield(r.origSlot, value);
+        soThrDefToJSON(arr, r.origArr);
+        r.shadow = arr;
+        r.slot = arr[r.swipe];
+        r.msg.variables = arr;
+        const init = Array.isArray(r.origInit) ? r.origInit.slice() : [];
+        init[r.swipe] = true;
+        soThrDefToJSON(init, r.origInit);
+        r.shadowInit = init;
+        r.msg.variables_initialized = init;
+    }
+    if (cm) chatMeta.variables = cmShadow;
+    let done = false;
+    return {
+        active: () => !done,
+        restore() {
+            if (done) return { conflict: false };
+            done = true;
+            let conflict = false;
+            for (const r of recs) {
+                const m = r.msg;
+                if (m.variables === r.shadow && r.shadow[r.swipe] === r.slot) {
+                    if (r.hadVars) m.variables = r.origArr; else delete m.variables;
+                } else {
+                    conflict = true;   // 换着的时候有人改写 / 换掉了这一格：主线原值写回到【现在那个】对象上
+                    if (m.variables === r.shadow) {
+                        if (r.hadVars) m.variables = r.origArr; else delete m.variables;
+                    } else if (Array.isArray(m.variables)) {
+                        if (r.origSlot === undefined) delete m.variables[r.swipe]; else m.variables[r.swipe] = r.origSlot;
+                    } else if (r.hadVars) {
+                        m.variables = r.origArr;
+                    }
+                }
+                if (m.variables_initialized !== r.shadowInit) conflict = true;
+                if (r.hadInit) m.variables_initialized = r.origInit; else delete m.variables_initialized;
+            }
+            if (cm) {
+                if (chatMeta.variables !== cmShadow) {
+                    conflict = true;
+                    const cur = chatMeta.variables;
+                    if (cur && typeof cur === 'object' && cm.orig && typeof cm.orig === 'object') {
+                        for (const k of ['stat_data', 'schema', 'display_data', 'delta_data']) {
+                            if (Object.hasOwn(cm.orig, k)) cur[k] = cm.orig[k]; else delete cur[k];
+                        }
+                    } else if (cm.had) chatMeta.variables = cm.orig;
+                } else if (cm.had) chatMeta.variables = cm.orig; else delete chatMeta.variables;
+            }
+            soThrJournalClear(jKey);
+            return { conflict };
+        },
+    };
+}
+// soThrSend 的两个钩子 + 兜底：开 / 收（模块级，soThrAbort 同步调收）。
+function soThrSwapStart(branch) {
+    soThrSwapEndLive();
+    const c = getCtx();
+    const handle = soThrVarSwap({ chat: c.chat, chatMeta: c.chatMetadata, branch, chatLevel: soThrChatLevel(c) });
+    soThrSwapLive = { handle, timer: setTimeout(() => soThrSwapEndLive(), THEATER_SWAP_WATCHDOG_MS) };
+}
+function soThrSwapEndLive() {
+    const live = soThrSwapLive;
+    if (!live) return null;
+    soThrSwapLive = null;
+    try { clearTimeout(live.timer); } catch (e) { /* ignore */ }
+    const r = live.handle.restore();
+    if (r.conflict) {
+        console.warn('[Story Oracle] 小剧场：变量切换期间主聊天变量被改动过，已按主线原值还原并中断这一轮');
+        soThrSwapConflict = true;
+        soThrAbort('conflict');
+    }
+    return r;
+}
+// 载入 / 换聊天时：上次换着的时候被打断（刷新 / 崩溃）→ 那一格仍是平行线那份 → 把主线原值写回、存一次。回 true = 动过。
+// 日志按「前缀:页 id:chatKey」分键（复审 M10）：本页自己的（刷新前留下的）立刻认领；别的页 / 旧版单键的，过了看门狗时限 + 5 秒才认领
+//（那一页要是还活着，它自己早还原、清掉了）；别的聊天的留着，一周没人认领就丢。槽里的哈希对不上平行线那份 = 早还原过了，只清日志。
+function soThrRecoverSwap(ctx) {
+    if (!ENABLE_THEATER || soThrSwapLive) return false;
+    const c = ctx || getCtx();
+    const key = String((c && c.groupId) || '') + '::' + String((c && c.chatId) || '');
+    const mine = THEATER_SWAP_JOURNAL + ':' + soThrTabId() + ':';
+    let keys = [];
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k === THEATER_SWAP_JOURNAL || (k && k.startsWith(THEATER_SWAP_JOURNAL + ':'))) keys.push(k); } } catch (e) { keys = []; }
+    let changed = false;
+    for (const lk of keys) {
+        let j = null;
+        try { j = JSON.parse(localStorage.getItem(lk) || 'null'); } catch (e) { j = null; }
+        const drop = () => { try { localStorage.removeItem(lk); } catch (e) { /* ignore */ } };
+        if (!j || typeof j !== 'object' || !Array.isArray(j.targets) || !Array.isArray(j.originals)) { drop(); continue; }
+        if (j.chatKey !== key) {
+            if (!(Number(j.at) > Date.now() - THEATER_SWAP_JOURNAL_MAX_AGE)) drop();
+            continue;
+        }
+        if (!lk.startsWith(mine) && !(Number(j.at) < Date.now() - THEATER_SWAP_WATCHDOG_MS - 5000)) continue;   // 别的页、可能还活着：不碰
+        if (soThrRecoverOne(c, j)) changed = true;
+        drop();
+    }
+    if (changed) {
+        try { const p = (c.saveChat || (() => {}))(); if (p && typeof p.catch === 'function') p.catch(() => {}); } catch (e) { /* ignore */ }
+        if (typeof toastr !== 'undefined') toastr.info(THEATER_SWAP_RECOVERED);
+    }
+    return changed;
+}
+function soThrRecoverOne(c, j) {
+    const chat = Array.isArray(c.chat) ? c.chat : [];
+    let changed = false;
+    j.targets.forEach((t, i) => {
+        const m = chat[t && t.index];
+        const o = j.originals[i];
+        if (!m || !o || typeof m !== 'object') return;
+        const slot = Array.isArray(m.variables) ? m.variables[t.swipe] : undefined;
+        if (!slot || typeof slot !== 'object' || soThrHash(soThrRawJson(slot)) !== j.branchHash) return;
+        if (o.hadVars) m.variables = o.vars; else delete m.variables;
+        if (o.hadInit) m.variables_initialized = o.init; else delete m.variables_initialized;
+        changed = true;
+    });
+    const md = c.chatMetadata;
+    if (j.chatMeta && md && md.variables && typeof md.variables === 'object' && soThrHash(soThrRawJson(md.variables)) === j.chatMeta.hash) {
+        if (j.chatMeta.had) md.variables = j.chatMeta.vars; else delete md.variables;
+        changed = true;
+    }
+    return changed;
+}
+
+/* —— 🎭 把一条 IF 存成酒馆里的新聊天（theater plan 2 Task 8，spec §4.4）——
+ * 新文件 = 主线前 min(split, 楼数) 楼（深拷贝）→ 分隔线（旁白消息）→ 这条 IF 的各轮；AI 轮带上平行线自己的变量（variables[0]），所以新聊天里
+ * 状态栏显示的是平行线的数。自己拼好整份聊天 POST /api/chats/save——绝不调 ST 的 createBranch（它会往主聊天最后一楼写 extra.branches）/
+ * saveChat，主聊天与它的元数据一个字节都不碰。 */
+// DRAFT 文案（待 Prince 选）。
+const THEATER_IF_IMPORT_TITLE = '存为酒馆聊天（新文件，主聊天不变）';
+const THEATER_IF_IMPORTED = (name) => `已存为酒馆聊天：${name}`;
+const THEATER_IF_IMPORT_OPEN = '（点这里打开）';
+const THEATER_IF_IMPORT_FAILED = '存为酒馆聊天失败：';
+const THEATER_IF_IMPORT_NO_RECORD = '这份聊天不是从小剧场开的平行线，没法存成酒馆聊天';
+const THEATER_IF_IMPORT_NO_CHAR = '需要先在酒馆里打开这个角色的单人聊天';
+const THEATER_IF_IMPORT_LIST_FAILED = '读不到这个角色已有的聊天列表，为免覆盖已有的聊天，这次没有保存';
+const THEATER_IMPORT_PREMISE_MAX = 24;
+const THEATER_IMPORT_NAME_MAX_BYTES = 200;   // 文件名按 UTF-8 字节封顶（中文一字 3 字节；常见文件系统单个文件名 255 字节，留出 .jsonl 与余量）
+let soThrImporting = false;
+function soThrSendDate() {
+    try { if (scriptCore && typeof scriptCore.getMessageTimeStamp === 'function') return String(scriptCore.getMessageTimeStamp()); } catch (e) { /* fall through */ }
+    return new Date().toISOString();
+}
+// 导入用的变量：补回 display_data / delta_data（同互换时读者看到的那份）。
+function soThrImportVars(v) {
+    return soThrVarsOk(v) ? soThrSwapValue(soThrPlainCopy(v)) : null;
+}
+/* 卡的状态栏占位记号（2026-11-07 实玩 Finding 3：哈利波特卡每条 AI 回复末尾都有 <StatusPlaceHolderImpl/>——44 楼里 40 楼——卡的正则把它
+ * 换成状态栏、又从提示词里藏掉它，所以 IF 回复里没有它，导入的聊天最后一楼就没有状态栏）。通用规则：主聊天最近 20 个 AI 楼（隐藏的也算，
+ * 旁白不算；先去掉我们自己的自动场景快照）里，≥ 75 % 的楼【最后一行】是同一个自闭合标签（<X/>、<X a="b" />）或一对空标签（<X></X>），
+ * 且整行不长 → 就是它。孤立的闭标签（</UpdateVariable>）、开标签、普通文字一律不算；AI 楼不到 3 个 = 证据太少，不算。
+ * 只读主聊天，只用在导入的新文件上。 */
+const THEATER_STATUS_MARKER_SCAN = 20;
+const THEATER_STATUS_MARKER_SHARE = 0.75;
+const THEATER_STATUS_MARKER_MIN = 3;
+const THEATER_STATUS_MARKER_MAX_LEN = 120;
+const THEATER_STATUS_MARKER_RE = /^<([A-Za-z][\w:.-]*)(?:\s[^<>]*?)?\s*\/>$|^<([A-Za-z][\w:.-]*)(?:\s[^<>]*)?>\s*<\/\2\s*>$/;
+function soThrStatusMarker(mainChat) {
+    const chat = Array.isArray(mainChat) ? mainChat : [];
+    const ai = chat.filter((m) => m && !m.is_user && !(m.extra && m.extra.type === 'narrator') && typeof m.mes === 'string').slice(-THEATER_STATUS_MARKER_SCAN);
+    if (ai.length < THEATER_STATUS_MARKER_MIN) return null;
+    const count = new Map();
+    for (const m of ai) {
+        const lines = m.mes.replace(THEATER_SNAPSHOT_STRIP_RE, '').replace(/\s+$/, '').split(/\r?\n/);
+        const last = String(lines[lines.length - 1] || '').trim();
+        if (!last || last.length > THEATER_STATUS_MARKER_MAX_LEN || !THEATER_STATUS_MARKER_RE.test(last)) continue;
+        count.set(last, (count.get(last) || 0) + 1);
+    }
+    for (const [mark, n] of count) if (n >= Math.ceil(ai.length * THEATER_STATUS_MARKER_SHARE)) return mark;
+    return null;
+}
+// PURE-ish：拼新聊天。mainChat / ctx 只读；turns = 这条 IF 存下的记录（note 等非问答条目跳过）。
+// IF 的 AI 楼末尾补上卡的状态栏占位记号（soThrStatusMarker；已经有了就不补）——只改新文件里的那份，存下的 IF 记录与主聊天不动。
+function soThrBuildImportChat(mainChat, record, turns, ctx) {
+    const chat = Array.isArray(mainChat) ? mainChat : [];
+    const sp = record && Number.isInteger(record.split) && record.split >= 0 ? Math.min(record.split, chat.length) : chat.length;
+    const now = soThrSendDate();
+    const messages = soThrPlainCopy(chat.slice(0, sp)) || [];
+    messages.push({ name: '', is_user: false, is_system: false, send_date: now, mes: THEATER_IF_DIVIDER(record ? record.premise : ''), extra: { type: 'narrator' } });
+    let lastVars = null;
+    const mark = soThrStatusMarker(chat);
+    for (const t of (Array.isArray(turns) ? turns : [])) {
+        if (!t || (t.role !== 'user' && t.role !== 'assistant') || typeof t.content !== 'string') continue;
+        const isUser = t.role === 'user';
+        const mes = (!isUser && mark && !t.content.includes(mark)) ? t.content.replace(/\s+$/, '') + '\n\n' + mark : t.content;
+        const m = { name: isUser ? String((ctx && ctx.name1) || '') : String((ctx && ctx.name2) || ''), is_user: isUser, is_system: false,
+            send_date: now, mes, swipes: [mes], swipe_id: 0, extra: {} };
+        if (!isUser) {
+            const v = soThrImportVars(t.thrVars);
+            if (v) { m.variables = [v]; lastVars = v; }
+        }
+        messages.push(m);
+    }
+    const meta = soThrPlainCopy((ctx && ctx.chatMetadata) || {}) || {};
+    delete meta[THEATER_IF_META_KEY];
+    delete meta[THEATER_SCENES_META_KEY];   // theater plan 3：场景留在神谕里，导入的聊天文件不带它们
+    const roomBase = convoMetaKeyFor('theater');
+    for (const k of Object.keys(meta)) if (k === roomBase || k.startsWith(roomBase + '__f')) delete meta[k];
+    const idx = meta[CHAT_FILES_META_KEY];
+    if (idx && typeof idx === 'object' && idx.rooms && typeof idx.rooms === 'object') delete idx.rooms.theater;
+    // MVU「更新到聊天变量」的卡：聊天级那份也换成平行线最后的状态。
+    if (lastVars && meta.variables && typeof meta.variables === 'object' && meta.variables.stat_data && typeof meta.variables.stat_data === 'object') {
+        for (const k of ['stat_data', 'schema', 'display_data', 'delta_data']) if (lastVars[k] !== undefined) meta.variables[k] = soThrPlainCopy(lastVars[k]);
+    }
+    let mainName = '';
+    try { mainName = ctx && typeof ctx.getCurrentChatId === 'function' ? String(ctx.getCurrentChatId() || '') : String((ctx && ctx.chatId) || ''); } catch (e) { mainName = ''; }
+    meta.main_chat = mainName;
+    // 复审 I2：新文件自己的 integrity（绝不沿用主聊天那枚）——万一与已有文件撞名，ST 的存盘完整性检查回 400，而不是盖掉它。
+    meta.integrity = soThrUuid();
+    return { header: { chat_metadata: meta, user_name: 'unused', character_name: 'unused' }, messages };
+}
+function soThrUuid() {
+    try { if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID(); } catch (e) { /* fall through */ }
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => { const r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16); });
+}
+// 一段字符串的 UTF-8 字节数（不靠 TextEncoder）。
+function soThrUtf8Len(s) {
+    let n = 0;
+    for (const ch of String(s == null ? '' : s)) { const c = ch.codePointAt(0); n += c < 0x80 ? 1 : (c < 0x800 ? 2 : (c < 0x10000 ? 3 : 4)); }
+    return n;
+}
+function soThrNameClean(s) {
+    return String(s == null ? '' : s).replace(/\s+/g, ' ').replace(/[\/\\:*?"<>|\x00-\x1f\x7f]/g, '').replace(/ {2,}/g, ' ').trim();   // 换行 / 制表 → 空格，再去掉其余控制字符
+}
+// 新文件名：`${主聊天名} - IF：${前提}`（去掉文件名不许的字符与控制字符、空白收成一个、前提取前 24 个字），与已有聊天重名（不分大小写——
+// Windows / macOS 的文件名不分）就加 (2) (3)…；整体按 UTF-8 不超过 THEATER_IMPORT_NAME_MAX_BYTES 字节（只截主聊天名那段，按整字截）。
+function soThrImportName(mainName, premise, existing) {
+    const have = new Set(Array.isArray(existing) ? existing.map((x) => String(x).toLowerCase()) : []);
+    const p = Array.from(soThrNameClean(soThrPremiseBare(premise))).slice(0, THEATER_IMPORT_PREMISE_MAX).join('').trim() || 'IF';
+    const build = (suffix) => {
+        const tail = ` - IF：${p}${suffix}`;
+        const room = Math.max(1, THEATER_IMPORT_NAME_MAX_BYTES - soThrUtf8Len(tail));
+        let head = '';
+        let used = 0;
+        for (const ch of soThrNameClean(mainName)) {
+            const b = soThrUtf8Len(ch);
+            if (used + b > room) break;
+            head += ch;
+            used += b;
+        }
+        return head.trim() + tail;
+    };
+    let name = build('');
+    for (let i = 2; have.has(name.toLowerCase()) && i < 1000; i++) name = build(` (${i})`);
+    return name;
+}
+// 这份 IF 存下的记录（眼前这一页 = 内存里那份；否则读元数据）。
+function soThrIfTurns(fileId) {
+    if (convoStreamKey === 'theater' && soActiveFileId('theater') === fileId) return serializeConvo(convo);
+    const md = getChatMetadataSafe();
+    const arr = md ? md[soRoomKeyFor('theater', fileId)] : null;
+    return Array.isArray(arr) ? serializeConvo(arr) : [];
+}
+// → { ok, fileName, error }。
+async function soThrImportIf(fileId) {
+    const ctx = getCtx();
+    if (soThrImporting) return { ok: false, fileName: '', error: 'busy' };
+    const ch = (ctx && Array.isArray(ctx.characters) && ctx.characterId != null) ? ctx.characters[ctx.characterId] : null;
+    if (!ch || soThrGroupBlocked(ctx)) return { ok: false, fileName: '', error: THEATER_IF_IMPORT_NO_CHAR };
+    const record = soThrIfGet(fileId);
+    if (!record) return { ok: false, fileName: '', error: THEATER_IF_IMPORT_NO_RECORD };
+    soThrImporting = true;
+    try {
+        const headers = typeof ctx.getRequestHeaders === 'function' ? ctx.getRequestHeaders() : { 'Content-Type': 'application/json' };
+        // 复审 I2：已有聊天的名单读不到 = 不知道会不会撞名 → 不存（宁可不存，也不冒盖掉别的聊天的险）。
+        let existing = null;
+        try {
+            const res = await fetch('/api/characters/chats', { method: 'POST', headers, body: JSON.stringify({ avatar_url: ch.avatar, simple: true }) });
+            if (res.ok) {
+                const j = await res.json();
+                if (j && typeof j === 'object') existing = Object.values(j).map((x) => String((x && x.file_name) || '').replace(/\.jsonl$/i, ''));
+            }
+        } catch (e) { existing = null; }
+        if (!existing) {
+            if (typeof toastr !== 'undefined') toastr.error(escapeHtml(THEATER_IF_IMPORT_FAILED + THEATER_IF_IMPORT_LIST_FAILED), '故事神谕');
+            return { ok: false, fileName: '', error: THEATER_IF_IMPORT_LIST_FAILED };
+        }
+        let mainName = '';
+        try { mainName = typeof ctx.getCurrentChatId === 'function' ? String(ctx.getCurrentChatId() || '') : String(ctx.chatId || ''); } catch (e) { mainName = ''; }
+        const fileName = soThrImportName(mainName, record.premise, existing);
+        const { header, messages } = soThrBuildImportChat(ctx.chat, record, soThrIfTurns(fileId), ctx);
+        const res = await fetch('/api/chats/save', {
+            method: 'POST', headers,
+            body: JSON.stringify({ ch_name: ch.name, file_name: fileName, chat: [header, ...messages], avatar_url: ch.avatar, force: false }),
+        });
+        if (!res.ok) {
+            let why = 'HTTP ' + res.status;
+            try { const j = await res.json(); if (j && j.error) why += '（' + String(j.error) + '）'; } catch (e) { /* ignore */ }
+            if (typeof toastr !== 'undefined') toastr.error(escapeHtml(THEATER_IF_IMPORT_FAILED + why), '故事神谕');
+            return { ok: false, fileName, error: why };
+        }
+        if (typeof toastr !== 'undefined') {
+            toastr.success(escapeHtml(THEATER_IF_IMPORTED(fileName)) + escapeHtml(THEATER_IF_IMPORT_OPEN), '故事神谕', {
+                timeOut: 10000,
+                onclick: () => { try { const p = ctx.openCharacterChat(fileName); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ } },
+            });
+        }
+        return { ok: true, fileName, error: null };
+    } catch (e) {
+        const why = errChainMessage(e) || String(e);
+        if (typeof toastr !== 'undefined') toastr.error(escapeHtml(THEATER_IF_IMPORT_FAILED + why), '故事神谕');
+        return { ok: false, fileName: '', error: why };
+    } finally {
+        soThrImporting = false;
+    }
+}
+// IF 面板（唯一写者）：每条 IF 一行（名字 / 前提预览 / 从第 N 楼分出），点 = 切过去；当前那条高亮。文字一律 textContent。
+function soThrRefreshIfPanel() {
+    if (!ENABLE_THEATER || !win) return;
+    const panel = win.querySelector('[data-thr-panel="if"]');
+    const list = win.querySelector('#so-thr-if-list');
+    const btn = win.querySelector('#so-thr-if-new');
+    if (!panel || !list) return;
+    const on = soThrIfFilesOn();
+    if (btn) btn.hidden = !on;
+    list.hidden = !on;
+    list.textContent = '';
+    if (!on) return;
+    const rec = soChatFilesRoomRead('theater');
+    const files = rec ? rec.files.filter((f) => f && typeof f.id === 'string') : [];
+    const active = soActiveFileId('theater');
+    for (const f of files.slice().reverse()) {   // 新的在上
+        const r = soThrIfGet(f.id);
+        // 一行 = 切换键（名字 / 分出楼号 / 前提）+ 📥 存为酒馆聊天（Task 8，只给有记录的 IF）。点行任何地方 = 切过去，📥 不冒泡。
+        const row = document.createElement('div');
+        row.className = 'so-thr-if-row' + (f.id === active ? ' so-thr-if-active' : '');
+        row.dataset.thrIf = f.id;
+        const main = document.createElement('button');
+        main.type = 'button';
+        main.className = 'so-thr-if-main';
+        if (f.id === active) main.setAttribute('aria-current', 'true');
+        const name = document.createElement('span');
+        name.className = 'so-thr-if-name';
+        name.textContent = String(f.name || '未命名');
+        main.appendChild(name);
+        if (r) {
+            const sp = document.createElement('span');
+            sp.className = 'so-thr-if-split';
+            sp.textContent = THEATER_IF_SPLIT_LABEL(r.split);
+            main.appendChild(sp);
+            if (r.premise && r.premise !== f.name) {
+                const pv = document.createElement('span');
+                pv.className = 'so-thr-if-premise';
+                pv.textContent = Array.from(r.premise.replace(/\s+/g, ' ')).slice(0, 80).join('');
+                main.appendChild(pv);
+            }
+        }
+        row.appendChild(main);
+        if (r) {
+            const imp = document.createElement('button');
+            imp.type = 'button';
+            imp.className = 'so-thr-if-import';
+            imp.dataset.thrIfImport = f.id;
+            imp.title = THEATER_IF_IMPORT_TITLE;
+            imp.setAttribute('aria-label', THEATER_IF_IMPORT_TITLE);
+            imp.innerHTML = '<i class="fa-solid fa-file-import"></i>';
+            imp.addEventListener('click', (ev) => { ev.stopPropagation(); soThrImportIf(f.id); });
+            row.appendChild(imp);
+        }
+        row.addEventListener('click', () => soThrIfSwitch(f.id));
+        list.appendChild(row);
+    }
+    soThrRefreshScenePanel();   // theater plan 3：场景的归属跟着眼前这条 IF 走
+}
+function soThrIfSwitch(fileId) {
+    if (soChatSwitchBusy()) { if (typeof toastr !== 'undefined') toastr.info(SO_CHAT_SWITCH_BUSY); return false; }
+    const ok = soSwitchChatFile('theater', fileId);
+    soThrRefreshIfPanel();
+    return ok;
+}
+// theater plan 2 Task 3：框定句只在 IF 的【第一轮】发（Task 9 电池可能改成每轮；改它 = 改这一个开关）。
+const THEATER_FRAME_EVERY_TURN = false;
+// DRAFT 文案（待 Prince 选）。
+const THEATER_IF_STALE_NOTE = '聊天或回复已经变了，这次的结果没有保存。';
+// IF 回复的显示：剥掉 MVU 等机制块（存的正文里留着，导入酒馆后由卡片自己的管线处理），再按「应用正则」走 ST 格式化 / 仅 Markdown。
+// 永不回 null（历史重画先画的是原文，回 null 会把机制块露出来）。
+/* IF 回复在 SO 面板里的显示（2026-11-07 实玩 Finding 4：创世的 <draft>…</draft>、<scene_time>、<now_plot> 原样摊在气泡里——只有那套预设的
+ * 显示正则开着时才好看）。【只管显示】：存下的回复与导入的聊天一个字不动（预设 / 卡的正则要靠它们）。
+ * 「应用正则」开着、而且显示正则（AI_OUTPUT · isMarkdown）把某个标签处理掉了（跑完之后不再有它的开标签）→ 那个标签交给正则，不碰；
+ * 其余：规划块（思考 / 草稿：草稿名 + REASONING_TAGS + SEQ_PULSE_PLAN_TAGS——都是已有实证的名字）只剥【闭合】的整块；纯包裹元素只去掉标签、
+ * 留下里面的字；<scene_time> 换成一行小字。不认识的标签一律原样显示（保守）。 */
+const THEATER_IF_DRAFT_TAGS = ['draft'];
+const THEATER_IF_WRAP_TAGS = ['now_plot', 'content', 'gametxt'];
+const THEATER_IF_TIME_TAGS = ['scene_time'];
+// REASONING_TAGS / SEQ_PULSE_PLAN_TAGS 在文件后面才定义：调用时再拼（顶层拼会撞 TDZ）。
+function soThrIfPlanTags() { return THEATER_IF_DRAFT_TAGS.concat(REASONING_TAGS, SEQ_PULSE_PLAN_TAGS); }
+const soThrIfTagRe = (tag) => '<' + tag + '(?=[\\s/>])';   // 「<content」不吃「<content-box」「<content_x」
+// keep = 交给正则、不碰的标签名（有 .has 即可）；缺省 = 全按上面的规则整理。
+function soThrIfDisplayText(text, keep) {
+    const k = (keep && typeof keep.has === 'function') ? keep : { has: () => false };
+    let s = String(text == null ? '' : text);
+    for (const tag of soThrIfPlanTags()) {
+        if (!k.has(tag)) s = s.replace(new RegExp(soThrIfTagRe(tag) + '[^>]*>[\\s\\S]*?<\\/' + tag + '\\s*>[ \\t]*\\n?', 'gi'), '');
+    }
+    for (const tag of THEATER_IF_TIME_TAGS) {
+        if (!k.has(tag)) s = s.replace(new RegExp(soThrIfTagRe(tag) + '[^>]*>([\\s\\S]*?)<\\/' + tag + '\\s*>', 'gi'), (m, inner) => (String(inner).trim() ? '<small>' + String(inner).trim() + '</small>' : ''));
+    }
+    for (const tag of THEATER_IF_WRAP_TAGS) {
+        if (!k.has(tag)) s = s.replace(new RegExp('<\\/?' + tag + '(?=[\\s/>])[^>]*>', 'gi'), '');
+    }
+    return s;
+}
+// 「应用正则」开着时：哪些标签被显示正则处理掉了（跑完显示正则后不再有它的开标签）。拿不到正则引擎 = 一个都不算。
+function soThrIfRegexHandled(t) {
+    const keep = new Set();
+    if (!regexEngine || !regexEngine.getRegexedString || !regexEngine.regex_placement) return keep;
+    const rx = String(applyOutputRegex(t, false));
+    for (const tag of soThrIfPlanTags().concat(THEATER_IF_TIME_TAGS, THEATER_IF_WRAP_TAGS)) {
+        const re = new RegExp(soThrIfTagRe(tag), 'i');
+        if (re.test(t) && !re.test(rx)) keep.add(tag);
+    }
+    return keep;
+}
+function soThrRenderHtml(text) {
+    const t0 = stripMechanismBlocks(String(text == null ? '' : text));
+    const s = getSettings();
+    const t = soThrIfDisplayText(t0, s.applyRegex ? soThrIfRegexHandled(t0) : null);
+    let html = s.applyRegex ? renderReplyHtml(t) : null;
+    if (html == null) html = renderMarkdownOnly(t);
+    return html != null ? html : escapeHtml(t).replace(/\n/g, '<br>');
+}
+function soThrPaint(contentEl, content) {
+    if (!contentEl) return;
+    contentEl.innerHTML = soThrRenderHtml(content);
+    contentEl.classList.add('so-rendered');
+    contentEl.style.whiteSpace = 'normal';
+    contentEl.dataset.soRaw = String(content == null ? '' : content);
+}
+// 小剧场的发送 / 重新生成 / 续写（theater plan 2 Task 3）。opts：
+//   无         = 玩家新的一句（在「默认」里 = 以它为前提开一条新 IF；回复成功之后才建，失败 / 中断 / 陈旧一律什么都不写）
+//   {kind:'regenerate'|'continue', target} = 对一条 IF 回复出新版本 / 接着写（TBW A2 语义：soReplyRunStart / soReplyRunAdopt）
+//   {answer: userEntry} = 给记录末尾已有的那句补一条回复（generateReply 不带目标的老路）
+// 历史 = soThrIfHistory（主线冻结在分出楼 → 分隔线 → 本 IF 各轮）；IF 各轮在 SO 路剥机制块、预设路原样（预设 / 卡片正则自己处理）。
+// 存下的回复正文 = 剥思维链、【保留】MVU 块；显示 = soThrRenderHtml。
+async function soThrSend(text, opts) {
+    const o = opts || {};
+    const kind = (o.kind === 'regenerate' || o.kind === 'continue') ? o.kind : (o.answer ? 'answer' : 'new');
+    const s = getSettings();
+    const ctx = getCtx();
+    const usePreset = soThrUsePreset(s, ctx);
+    // 两条路都用神谕自己的连接（2026-11-07 Prince：「用 ST 当前预设」只管预设）→ 都先查（与 onSend 同一句提示）
+    if (s.mode === 'direct' && (!s.endpoint || !s.model)) { addSystemNote('请先在设置（齿轮图标）中填写端点 URL 和模型。'); return; }
+    if (s.mode === 'profile' && !s.profileId) { addSystemNote('请先在设置（齿轮图标）中选择一个连接配置文件。'); return; }
+    let rv = null;
+    if (kind === 'regenerate' || kind === 'continue') {
+        rv = soReplyRunStart({ kind, target: o.target });
+        if (!rv) return;
+    }
+    // 在「默认」里打字 = 新 IF：记录先只在内存里（分出楼号 = 此刻的楼数），回复成功之后才建聊天 / 落记录 / 切过去。
+    const room = convoStreamKey;
+    const pendingNew = kind === 'new' && soThrIfFilesOn() && soActiveFileId('theater') === SO_CHAT_FILE_DEFAULT;
+    const fileId = pendingNew ? null : soActiveFileId('theater');
+    const record = pendingNew
+        ? { split: Array.isArray(ctx.chat) ? ctx.chat.length : 0, premise: String(text || '').trim(), seed: soThrSeedVars(), created: Date.now() }
+        : soThrIfEnsure(fileId, text);
+    // 这一趟之前的各轮 + 这一趟要回应的那句。
+    let prior, said;
+    if (kind === 'regenerate') {
+        const h = rv.history;
+        let at = -1;
+        for (let i = h.length - 1; i >= 0; i--) { if (h[i] && (h[i].role === 'user' || h[i].role === 'assistant')) { at = i; break; } }
+        if (at < 0 || h[at].role !== 'user') { addSystemNote('这条回复前面没有提问，无法重新生成。'); return; }
+        prior = h.slice(0, at);
+        said = h[at].content;
+    } else if (kind === 'continue') {
+        prior = rv.scan;
+        said = SO_CONTINUE_INSTRUCTION;
+    } else if (kind === 'answer') {
+        const i = convo.indexOf(o.answer);
+        if (i === -1) return;
+        prior = convo.slice(0, i);
+        said = o.answer.content;
+    } else {
+        prior = pendingNew ? [] : convo;
+        said = text;
+    }
+    let turnsForPrompt;
+    try { turnsForPrompt = convoForPrompt(prior); } catch (e) { addSystemNote(String((e && e.message) || e)); return; }   // 神谕正则出错 = 不发
+    const isFirst = !turnsForPrompt.some((m) => m && (m.role === 'user' || m.role === 'assistant'));
+    let roomTurns = soThrRoomTurns(turnsForPrompt, ctx);
+    if (!usePreset) roomTurns = roomTurns.map((t) => Object.assign({}, t, { text: stripMechanismBlocks(t.text) }));
+    // SO 路自己拼提示词、没有预设的预算裁剪：主线只取最近 contextDepth 楼（与普通聊天同一设置）；预设路交给 ST 自己按预算裁。
+    const depth = Number(s.contextDepth);
+    const history = soThrIfHistory(ctx.chat, record, roomTurns, (!usePreset && Number.isFinite(depth) && depth > 0) ? { depth } : null);
+    const directive = soThrDirective(kind, said, isFirst);
+
+    const token = ++soThrSendSeq;
+    const chatKey = fixChatKey();
+    const stale = () => soThrStaleRun(token, chatKey) || convoStreamKey !== room
+        || soActiveFileId('theater') !== (pendingNew ? SO_CHAT_FILE_DEFAULT : fileId);
+    let uEntry = kind === 'answer' ? o.answer : null;
+    if (kind === 'new') {
+        inputEl.value = '';
+        autoGrowInput();
+        uEntry = { id: ++cidSeq, role: 'user', content: text };
+        uEntry._el = addMessage('user', text, uEntry);
+    }
+    const aEntry = { id: ++cidSeq, role: 'assistant', content: '' };
+    const aEl = addMessage('assistant', '', aEntry);
+    aEntry._el = aEl;
+    if (rv && rv.target._el && rv.target._el.parentNode === messagesEl) {   // 新版本 / 续写流进目标后面的临时气泡，旧版本一直看得见
+        rv.target._el.after(aEl);
+        scrollBubbleToTop(aEl);
+    }
+    const contentEl = aEl.querySelector('.so-content');
+    const clearTyping = showTyping(contentEl);
+    setGenerating(true);
+    abortCtl = { abort: () => soThrAbort('user') };   // 停止键 / 切聊天（onChatChanged）都经它掐小剧场这一趟
+    try {
+        // Task 6：预设路 + 平行线有变量 → 拼提示词那一段把主聊天几楼的 variables 换成平行线那份（续写 = 目标那条之后的状态，
+        // 重新生成 = 目标之前的状态：两者都是 prior 里最近的那份）。SO 路自己写变量进提示词（Task 7），从不互换。
+        const swapBranch = usePreset ? soThrBranchVarsNow(prior, record) : null;
+        const hooks = swapBranch ? {
+            beforeAssemble: () => soThrSwapStart(swapBranch),
+            onSettingsReady: () => { soThrSwapEndLive(); },
+        } : undefined;
+        // Task 7：SO 路的叙事者系统提示词（卡 / 用户人设 / 世界书 / 平行线变量）。
+        const systemText = usePreset ? THEATER_NARRATOR_SYSTEM : await soThrBuildSoSystem(ctx, s, record, prior, said);
+        soThrSwapConflict = false;
+        let r = null;
+        try {
+            // Fix B：正文空 → 从思考区找回；还是空 / 被过滤 → 用同一份历史、同一句指令、同一套互换钩子自动重试一次。
+            r = await soThrGenerateRecovered({
+                history, directive, systemText, usePreset, maxTokens: null, hooks,
+                onDelta: (full) => {
+                    if (stale()) return;
+                    clearTyping();
+                    contentEl.textContent = full;
+                    if (soFollowStream) scrollToBottom();
+                },
+            }, {
+                isStale: () => stale() || soThrSwapConflict,
+                onRetry: () => { soThrSwapEndLive(); if (!stale()) contentEl.textContent = ''; },
+            });
+        } catch (e) {
+            r = { text: '', aborted: false, error: errChainMessage(e), path: usePreset ? 'preset' : 'so' };
+        } finally {
+            soThrSwapEndLive();   // 没走到 settings-ready（出错 / 中断）也一定还原
+            clearTyping();
+        }
+        if (soThrSwapConflict) {
+            soThrSwapConflict = false;
+            addSystemNote(THEATER_SWAP_CONFLICT);
+            if (r && !r.error) r.aborted = true;
+        }
+        if (stale()) {   // 换了聊天 / 房 / IF / 又发了一趟：结果作废，什么都不写
+            if (kind === 'new' && uEntry._el && uEntry._el.parentNode) uEntry._el.remove();
+            if (aEl.parentNode) aEl.remove();
+            if (kind === 'new' && !inputEl.value) { inputEl.value = text; autoGrowInput(); }   // 复审 M8：这一句没落盘，还回输入框
+            return;
+        }
+        r = r || { text: '', aborted: false, error: null };
+        if (r.aborted || r.error) {
+            if (r.aborted) {
+                contentEl.textContent = (r.text ? r.text + '\n\n' : '') + THEATER_ABORTED_NOTE;
+            } else {
+                contentEl.textContent = '错误：' + explainProviderError(String(r.error));
+                contentEl.classList.add('so-error');
+            }
+            if (kind === 'new' && !inputEl.value) { inputEl.value = text; autoGrowInput(); }   // 这一句没落盘：还回输入框，方便再发
+            return;
+        }
+        let clean = stripReasoningTags(String(r.text || '')).trim();   // MVU 块留着（Task 4 解析它、导入后卡片自己用它）
+        if (!clean) clean = r.filtered ? THEATER_FILTERED_REPLY : THEATER_EMPTY_REPLY;   // Fix B：重试过还是空
+        let entry = aEntry;
+        if (rv) {
+            if (soReplyRunStale(rv)) { aEl.remove(); addSystemNote(THEATER_IF_STALE_NOTE); return; }
+            const finalText = kind === 'continue' ? joinContinuation(rv.base, clean) : clean;
+            const vsnap = soThrVarsSnap(rv.target);   // 版本表会变（🔄 加一个 / 超上限删最旧的）→ 变量本跟着对齐；新版本那格空着等重算
+            const rxRawMap = ENABLE_ORACLE_REGEX ? soRawMapOf(rv.target) : null;   // TBW B6 原文表同理（与 generateReply 同款）
+            const adopted = soReplyRunAdopt(rv, aEl, finalText);
+            if (!adopted) { contentEl.textContent = THEATER_EMPTY_REPLY; contentEl.classList.add('so-error'); return; }
+            if (vsnap) soThrVarsApply(adopted, vsnap, { keep: kind === 'continue' });
+            if (rxRawMap) soRawApply(adopted, rxRawMap);
+            entry = adopted;
+            soThrPaint(contentEl, entry.content);
+            persistConvo();
+            soRefreshActionRow(entry);
+        } else if (pendingNew) {
+            // 新 IF：这时才建聊天、落记录、切过去（切换会整页重画），再把两轮写进它并重画一次。
+            aEntry.content = clean;
+            setGenerating(false);   // 切聊天在「生成中」被拒（soChatSwitchBusy）；这一趟的模型调用已经结束
+            abortCtl = null;
+            const fid = await soThrIfStart(text, record);
+            setGenerating(true);
+            if (!fid || soThrStaleRun(token, chatKey)) {
+                if (uEntry._el && uEntry._el.parentNode) uEntry._el.remove();
+                if (aEl.parentNode) aEl.remove();
+                if (!inputEl.value) { inputEl.value = text; autoGrowInput(); }
+                return;
+            }
+            soRoomWrite(room, uEntry, { fileId: fid });
+            soRoomWrite(room, aEntry, { fileId: fid });
+            loadConvoForChat();
+            entry = convo.find((m) => m && m.id === aEntry.id) || null;   // 重画后记录是重新读回的那份对象
+        } else {
+            aEntry.content = clean;
+            soThrPaint(contentEl, clean);
+            const pin = soThrIfFilesOn() ? { fileId } : {};
+            if (kind === 'new') soRoomWrite(room, uEntry, pin);
+            soRoomWrite(room, aEntry, pin);
+        }
+        if (ENABLE_REPLY_VERSIONS) soSyncAllReplyTools();
+        if (entry) soThrTagBubble(entry._el, soThrReplyTags(r));   // Fix B：找回 / 重试的小注（只在气泡上，不落盘）
+        if (soFollowStream) scrollToBottom();
+        // 平行线变量本（Task 4）+ 兼容额外模型解析（Task 5）：生成态一直挂着，免得玩家在派生调用期间又发一句、读到旧变量。
+        if (entry && convo.indexOf(entry) !== -1 && !soThrStaleRun(token, chatKey)) await soThrAfterReply(entry, record, token, chatKey);
+    } finally {
+        setGenerating(false);
+        abortCtl = null;
+    }
+}
+/* —— 🎭 SO 路叙事者的系统提示词（theater plan 2 Task 7，spec §6.2）——
+ * 次序：叙事者提示词 → 角色卡（含用户人设 Persona）→ 世界书（跟神谕的世界书设置；绿灯额外扫主线冻结那段的最后几楼 + 本 IF 最近两轮 +
+ * 玩家这一句）→ 平行线自己的变量（有才有）。SO 路自己拼提示词，所以平行线的变量直接写进来，不需要互换（§6.3a 只管预设路）。 */
+// FROZEN（同上）。
+const THEATER_IF_VARS_HEAD = '【当前变量状态（这条平行线）】';
+const THEATER_WI_SCAN_FLOORS = 4;   // 世界书额外扫描：主线冻结那段取最后几楼
+async function soThrBuildSoSystem(ctx, s, record, convoList, userText) {
+    const parts = [THEATER_NARRATOR_SYSTEM];
+    const card = buildCardSection(ctx);
+    if (card) parts.push(card);
+    const chat = Array.isArray(ctx && ctx.chat) ? ctx.chat : [];
+    const sp = record && Number.isInteger(record.split) ? Math.min(record.split, chat.length) : chat.length;
+    const frozenTail = soThrHistoryFromMain({ chat: chat.slice(0, sp) }).slice(-THEATER_WI_SCAN_FLOORS).map((h) => h.text);
+    const ifTail = (Array.isArray(convoList) ? convoList : [])
+        .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+        .slice(-2).map((m) => stripMechanismBlocks(m.content));
+    const extra = frozenTail.concat(ifTail, [String(userText || '')]).filter((t) => t && t.trim()).join('\n');
+    let wi = '';
+    try {
+        const bw = (soThrMods && typeof soThrMods.buildWorldInfo === 'function') ? soThrMods.buildWorldInfo : buildWorldInfo;
+        wi = (await bw(undefined, extra)) || '';   // undefined = 跟神谕自己的世界书设置（含「关」）
+    } catch (e) { console.warn('[Story Oracle] 小剧场：世界书读取失败（这一轮不带世界书）', e); }
+    if (wi) parts.push('=== 世界书 / 设定 ===\n' + wi);
+    const vars = soThrBranchVarsNow(convoList, record);
+    if (vars) parts.push(THEATER_IF_VARS_HEAD + '\n' + JSON.stringify(diagStatOf(vars), null, 2));
+    return parts.join('\n\n');
+}
+// 这一轮发给叙事者的指令：续写 = 续写指令原样；否则框定句只在 IF 第一轮（或 THEATER_FRAME_EVERY_TURN）加在玩家这句前面。
+// 电池测试缝（theater plan 2 Task 9，惰性）：window.__soThrFrameArm 只有被【定义成】'A' | 'B' | 'C' 时才读——
+// A = 不加框定句、B = 出厂行为、C = 每轮都加；未定义 / 其他值 = 出厂行为，一个字节都不变。产品代码从不写它。
+function soThrFrameArm() {
+    let v;
+    try { v = (typeof window !== 'undefined') ? window.__soThrFrameArm : undefined; } catch (e) { v = undefined; }
+    return (v === 'A' || v === 'B' || v === 'C') ? v : null;
+}
+function soThrDirective(kind, said, isFirst) {
+    if (kind === 'continue') return said;
+    const arm = soThrFrameArm();
+    const frame = arm === 'A' ? false : (arm === 'C' ? true : (THEATER_FRAME_EVERY_TURN || isFirst));
+    return frame ? THEATER_IF_FRAME + '\n\n' + said : said;
+}
+// Fix B：气泡上的小注（正文从思考区找回 / 自动重试过一次）。只画在气泡上，不进正文、不落盘。
+function soThrReplyTags(r) {
+    const out = [];
+    if (r && r.fromReasoning) out.push(THEATER_REPLY_FROM_REASONING);
+    if (r && r.retried && !(r.emptyFinal && r.filtered)) out.push(THEATER_REPLY_RETRIED);   // 过滤那句自己就说了重试过
+    return out;
+}
+function soThrTagBubble(el, tags) {
+    if (!el || typeof el.querySelector !== 'function') return;
+    el.querySelectorAll('.so-thr-reply-tag').forEach((x) => x.remove());
+    if (!tags || !tags.length) return;
+    const d = document.createElement('div');
+    d.className = 'so-thr-reply-tag';
+    d.textContent = tags.join(' ');
+    const c = el.querySelector('.so-content');
+    if (c) c.after(d); else el.appendChild(d);
+}
+// 这一趟作废了没有（令牌 / 聊天 / 模式；可见房 / IF 另由调用方判）。
+function soThrStaleRun(token, chatKey) {
+    return token !== soThrSendSeq || fixChatKey() !== chatKey || !theaterMode;
+}
+/* ------------------------------------------------------------------ *
+ * 🎭 小剧场 · 场景（theater plan 3 Tasks 1–6；spec §5）
+ * 四个可以到处点的小 App：论坛 / 朋友圈 / 日记 / 弹幕直播（短剧 v1 不做）。SO 的代码管骨架（有哪些屏、什么能点、点了去哪、返回、滚动、
+ * 「翻到底再写一批」）；AI 管内容、整套外观（只能对着 THEATER_SCENE_CONTRACT 公开的类名 / 变量写 CSS）、世界里的叫法，以及可以带脚本的
+ * 装饰小部件。存在本聊天元数据里（只存原文，打开时重新解析），每个归属（主线 / 某一条 IF）最多 30 个非收藏场景，最旧的先让位。
+ * ------------------------------------------------------------------ */
+const THEATER_SCENES = ['forum', 'feed', 'diary', 'live'];
+// DRAFT 文案（待 Prince 选）：场景名（App 里的默认叫法另见 THEATER_SCENE_DEFAULT_LEX）。
+const THEATER_SCENE_NAMES = { forum: '论坛', feed: '朋友圈', diary: '日记', live: '弹幕直播' };
+const THEATER_SCENE_ICONS = { forum: '💬', feed: '📷', diary: '📖', live: '📺' };
+// 公开的样式契约（同 Hook-API 锚点：改名 = 存下来的 AI 皮肤失效）。classes = AI 皮肤可以写的类（带「.」的是状态组合），
+// vars = 变量，slots = 每个场景的装饰插槽，controls = 贴图检查（soThrGuardCheck）要求「看得见、点得到」的 SO 控件。
+// theater-scenes.test.mjs 逐字钉它。
+const THEATER_SCENE_CONTRACT = {
+    classes: [
+        'thx', 'thx-bar', 'thx-back', 'thx-back.show', 'thx-title', 'thx-decor', 'thx-screen', 'thx-tabs', 'thx-tab', 'thx-tab.on',
+        'thx-card', 'thx-avatar', 'thx-avatar.sm', 'thx-avatar.lg', 'thx-name', 'thx-meta', 'thx-text', 'thx-ttl', 'thx-btn', 'thx-btn.on',
+        'thx-btn.gen', 'thx-banner', 'thx-banner-t', 'thx-banner-s', 'thx-prof', 'thx-bio', 'thx-stats', 'thx-stat', 'thx-list-item',
+        'thx-sheet', 'thx-loading', 'thx-loading-ico', 'thx-loading-txt', 'thx-loading-bar', 'thx-skel', 'thx-end',
+        'thx-tags', 'thx-tag', 'thx-badge', 'thx-quote', 'thx-floor-no', 'thx-acts',
+        'thx-pic', 'thx-pic-cap', 'thx-likes', 'thx-cmts', 'thx-cmt', 'thx-grid', 'thx-tile', 'thx-tile.pic', 'thx-input',
+        'thx-diary', 'thx-diary-nav', 'thx-diary-date', 'thx-book', 'thx-page', 'thx-page-head', 'thx-page-date', 'thx-stamps', 'thx-stamp',
+        'thx-page-body', 'thx-sign', 'thx-letter', 'thx-letter-env', 'thx-letter-seal', 'thx-letter-paper', 'thx-cal', 'thx-cal-m',
+        'thx-cal-grid', 'thx-day', 'thx-day.has', 'thx-day.cur',
+        'thx-stage', 'thx-live-top', 'thx-live-badge', 'thx-live-n', 'thx-dmlayer', 'thx-dm', 'thx-caption', 'thx-heart', 'thx-live-info',
+        'thx-chat', 'thx-chat-ln', 'thx-lv', 'thx-said',
+        'thx-x', 'thx-x-top', 'thx-x-ambient', 'thx-x-in', 'thx-x-book', 'thx-x-stage',
+    ],
+    vars: ['--thx-bg', '--thx-bar', '--thx-ink', '--thx-sub', '--thx-card', '--thx-line', '--thx-accent', '--thx-accent-ink', '--thx-radius', '--thx-font'],
+    slots: { forum: ['top', 'ambient', 'board'], feed: ['top', 'ambient', 'feed'], diary: ['top', 'ambient', 'diary'], live: ['top', 'ambient', 'live'] },
+    controls: ['#thx-back.show', '.thx-tab', '[data-so-ctl]'],
+};
+const THEATER_SCENES_META_KEY = MODULE + '_thrScenes';
+const THEATER_SCENE_CAP = 30;   // 每个归属最多这么多个非收藏场景（首轮约 1–2 万字，聊天元数据每次存盘整份重写）
+const THEATER_SCENE_MAX_TOKENS_MIN = 4096;
+const THEATER_SCENE_MAX_TOKENS_MAX = 65536;
+
+/* —— 存储（Task 1）—— */
+// 只读：本聊天的场景表（{items:[]}；没有 / 形状不对 → null；create = 没有就建）。
+function soThrScenesStore(create) {
+    const md = getChatMetadataSafe();
+    if (!md) return null;
+    const v = md[THEATER_SCENES_META_KEY];
+    if (v && typeof v === 'object' && Array.isArray(v.items)) return v;
+    if (!create) return null;
+    md[THEATER_SCENES_META_KEY] = { items: [] };
+    return md[THEATER_SCENES_META_KEY];
+}
+function soThrSceneItemOk(x) {
+    return !!(x && typeof x === 'object' && typeof x.id === 'string' && THEATER_SCENES.includes(x.scene) && x.raw && typeof x.raw.first === 'string');
+}
+// 归属的身份：主线 = 'main'；IF = 'if:<fileId>'（floor 不算身份——同一条 IF 的场景都列在一起）。
+function soThrOwnerKey(owner) {
+    return (owner && owner.kind === 'if') ? 'if:' + String(owner.fileId || '') : 'main';
+}
+// 这个归属的场景，新的在前。owner 缺省 = 全部。
+function soThrScenesList(owner) {
+    const st = soThrScenesStore(false);
+    const items = st ? st.items.filter(soThrSceneItemOk) : [];
+    const key = owner ? soThrOwnerKey(owner) : null;
+    return items.map((x, i) => ({ x, i }))
+        .filter(({ x }) => key === null || soThrOwnerKey(x.owner) === key)
+        .sort((a, b) => (Number(b.x.created) || 0) - (Number(a.x.created) || 0) || b.i - a.i)
+        .map(({ x }) => soThrClone(x));
+}
+function soThrSceneGet(id) {
+    const st = soThrScenesStore(false);
+    const x = st ? st.items.find((it) => it && it.id === id) : null;
+    return soThrSceneItemOk(x) ? soThrClone(x) : null;
+}
+// 存 / 改一个场景（按 id 覆盖），再按归属封顶：非收藏的超过 30 个 → 最旧的先删；收藏的不算、不删。
+function soThrSceneSave(item) {
+    if (!soThrSceneItemOk(item)) return;
+    const st = soThrScenesStore(true);
+    if (!st) return;
+    const copy = soThrClone(item);
+    const at = st.items.findIndex((x) => x && x.id === copy.id);
+    if (at >= 0) st.items[at] = copy; else st.items.push(copy);
+    const key = soThrOwnerKey(copy.owner);
+    const mine = st.items.filter((x) => soThrSceneItemOk(x) && soThrOwnerKey(x.owner) === key && !x.fav)
+        .sort((a, b) => (Number(a.created) || 0) - (Number(b.created) || 0));
+    while (mine.length > THEATER_SCENE_CAP) {
+        const old = mine.shift();
+        const i = st.items.indexOf(old);
+        if (i >= 0) st.items.splice(i, 1);
+    }
+    saveChatMetadata();
+}
+function soThrSceneDelete(id) {
+    const md = getChatMetadataSafe();
+    const st = soThrScenesStore(false);
+    if (!md || !st) return false;
+    const i = st.items.findIndex((x) => x && x.id === id);
+    if (i < 0) return false;
+    st.items.splice(i, 1);
+    if (!st.items.length) delete md[THEATER_SCENES_META_KEY];
+    saveChatMetadata();
+    return true;
+}
+function soThrSceneToggleFav(id) {
+    const st = soThrScenesStore(false);
+    const x = st ? st.items.find((it) => it && it.id === id) : null;
+    if (!x) return null;
+    x.fav = !x.fav;
+    saveChatMetadata();
+    return x.fav;
+}
+// 删掉一条 IF 时，它名下的场景一起走（不然成了永远看不见的孤儿）。
+function soThrScenesDropOwner(fileId) {
+    const md = getChatMetadataSafe();
+    const st = soThrScenesStore(false);
+    if (!md || !st) return;
+    const key = 'if:' + String(fileId || '');
+    const before = st.items.length;
+    st.items = st.items.filter((x) => !(x && soThrOwnerKey(x.owner) === key));
+    if (st.items.length === before) return;
+    if (!st.items.length) delete md[THEATER_SCENES_META_KEY];
+    saveChatMetadata();
+}
+function soThrSceneNewId() {
+    return 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+/* —— 格式解析（Task 2，scene-feel/parse.mjs 的移植：行为照旧，去掉短剧，补上手感测试里见过的走样）——
+ * 宽容：永不丢内容。认不出的行原样留着、计数；整份都认不出 → content:null（调用方留原文、给「纯文字」）。绝不抛。 */
+// DRAFT 文案（待 Prince 选）：App 里各处的默认叫法（AI 的「叫法」段没写到的键用它）。
+const THEATER_SCENE_DEFAULT_LEX = {
+    forumTitle: '论坛', thread: '帖子', replies: '回复', heat: '热度', op: '楼主', floor: '#{n}', like: '赞', liked: '已赞', comment: '评论', reply: '回复',
+    follow: '关注', followed: '已关注', friends: '好友', posts: '动态', feedTitle: '朋友圈', diaryTitle: '日记', index: '目录', earlier: '更早', later: '之后',
+    liveTitle: '直播', liveBadge: 'LIVE', capLabel: '画面', viewers: '人在看', block: '屏蔽',
+    loading: ['正在生成…', '正在写下一段…'], end: '没有更多了', back: '‹', send: '发送', inputPh: '说点什么…', newest: '最新', hottest: '最热', topics: '发帖', replied: '回帖',
+    dayNames: null, sign: '—— ', more: '加载更多', letterHint: '（点开）', saidHere: '在本场说过的话',
+};
+const THEATER_SC_LEX_KEYS = Object.keys(THEATER_SCENE_DEFAULT_LEX).filter((k) => k !== 'dayNames');
+const THEATER_SC_LEX_LC = new Map(THEATER_SC_LEX_KEYS.map((k) => [k.toLowerCase(), k]));
+const THEATER_SC_HEAD_RE = /^\s*(?:#{1,6}\s*)?(?:\*\*)?\s*={2,}\s*(内容|叫法|皮肤|装饰)\s*(?:[·・:：\-—_\s]+\s*([A-Za-z][\w-]*))?\s*={2,}\s*(?:\*\*)?\s*$/;
+const THEATER_SC_FENCE_RE = /^\s*(`{3,}|~{3,})/;
+// 记录头。'动作' 是手感测试里 Claude 把【动态】写走样的样子（朋友圈里当【动态】收）。
+const THEATER_SC_KINDS = '版面|人物|帖子|主页|好友|动态|动作|旧动态|日记主人|一页|封存|当前页|直播间|观众|画面';
+const THEATER_SC_REC_RE = new RegExp(`^\\s*[【\\[]\\s*(${THEATER_SC_KINDS})\\s*[】\\]]\\s*[:：]?\\s*(.*)$`);
+const THEATER_SC_KIND_SET = new Set(THEATER_SC_KINDS.split('|'));
+const THEATER_SC_SEP = /\s*[｜|]\s*/;
+const THEATER_SC_LIST_SEP = /\s*[、，,；;／/]\s*/;
+const THEATER_SC_FLOOR_RE = /^\s*[-－—•·*]\s*([^：:\s][^：:]{0,24}?)\s*(?:回复\s*[@＠]?\s*([^：:]{1,24}?))?\s*[:：]\s*(.*)$/;
+const THEATER_SC_NAME_COLON_RE = /^\s*([^：:\s][^：:]{0,15}?)\s*(?:回复\s*[@＠]?\s*([^：:]{1,16}?))?\s*[:：]\s*(.+)$/;
+const THEATER_SC_SUB_SLOT_RE = /^\s*(?:[\[【(（]\s*|-{2,}\s*|<!--\s*|#+\s*)(top|ambient|board|feed|diary|live)\s*(?:[\]】)）]|\s*-{2,}|\s*-->)?\s*[:：]?\s*$/i;
+const THEATER_SC_CN_NUM = { 〇: 0, 零: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+
+function soThrScSplit(text) {
+    const lines = String(text || '').split(/\r?\n|[\u2028\u2029]/);   // U+2028 / U+2029 也断行（不断的话 (.*)$ 一碰到它就整行失配）
+    const secs = [];
+    const pre = [];
+    let cur = null;
+    for (const l of lines) {
+        const m = l.match(THEATER_SC_HEAD_RE);
+        if (m) { cur = { kind: m[1], slot: (m[2] || '').toLowerCase(), lines: [] }; secs.push(cur); continue; }
+        (cur ? cur.lines : pre).push(l);
+    }
+    return { secs, pre };
+}
+// 预设包裹的尾巴（场景电池 REPORT §4 / §6 第 2 条）：预设路上模型常把整份场景写在预设自己的包裹元素里（命定之诗 <gametxt>、
+// 创世 <now_plot>、双人成行 <content>），包裹在第一个段头之前开、在最后一段里才闭，闭标签后面还跟着预设的变量更新块和摘要——
+// 这些全落进最后那个装饰插槽。这里只认【第一个段头之前开了、到段头时还没闭】的非 HTML 元素；它的闭标签出现在最后一段里时，
+// 最后一段就到闭标签为止（同一行闭标签前的字留下，之后的整行全丢）。闭标签在更早的段里 / 没有这样的包裹 → 一个字不动。
+const THEATER_SC_HTML_TAGS = new Set(('a abbr article aside audio b bdi bdo big blockquote br button canvas caption center cite code col colgroup data dd del details '
+    + 'dfn dialog div dl dt em fieldset figcaption figure font footer form h1 h2 h3 h4 h5 h6 header hgroup hr i img input ins kbd label legend li main mark '
+    + 'marquee meter nav ol optgroup option output p picture pre progress q rp rt ruby s samp section select slot small source span strike strong style sub '
+    + 'summary sup svg table tbody td template textarea tfoot th thead time tr track tt u ul var video wbr script link meta').split(' '));
+function soThrScPreWrappers(pre) {
+    const open = [];
+    const re = /<(\/?)([A-Za-z][\w:-]*)\b[^>]*?(\/?)>/g;
+    for (const l of (pre || [])) {
+        re.lastIndex = 0;
+        let m;
+        while ((m = re.exec(String(l)))) {
+            const name = m[2].toLowerCase();
+            if (m[3] || THEATER_SC_HTML_TAGS.has(name)) continue;
+            if (m[1]) { const k = open.lastIndexOf(name); if (k >= 0) open.splice(k, 1); } else open.push(name);
+        }
+    }
+    return [...new Set(open)];
+}
+// 原地改 secs 的最后一段。→ { tag, dropped（闭标签那行之后丢掉的整行数）} 或 null（没动）。
+function soThrScTailCut(secs, pre) {
+    if (!Array.isArray(secs) || !secs.length) return null;
+    const wraps = soThrScPreWrappers(pre);
+    if (!wraps.length) return null;
+    const res = wraps.map((w) => [w, new RegExp('</' + w + '\\s*>', 'i')]);
+    const last = secs[secs.length - 1];
+    for (let i = 0; i < last.lines.length; i++) {
+        const l = String(last.lines[i]);
+        let at = -1, tag = '';
+        for (const [w, re] of res) { const m = l.match(re); if (m && (at < 0 || m.index < at)) { at = m.index; tag = w; } }
+        if (at < 0) continue;
+        const head = l.slice(0, at);
+        const dropped = last.lines.length - i - 1;
+        last.lines = last.lines.slice(0, i).concat(head.trim() ? [head] : []);
+        return { tag, dropped };
+    }
+    return null;
+}
+/* 「更多」一批进解析之前的清洗（2026-11-07 Prince 实玩：半截的「更多」把 </content>、<UpdateVariable>… 粘进了最后一楼）。只用于 mode 'more'
+ * （首轮的解析一个字节都不变——corpus 计数钉着）。① 剥机制块（stripMechanismBlocks：MVU 更新块，闭合的或截断到结尾的）；② 剥末尾的
+ * 机制块 / <summary>（soThrScExtrasTail，同装饰插槽）；③ 遇到一个【这一批里没开过】的非 HTML 元素的闭标签（预设包裹 </content> / </now_plot>
+ * / </gametxt>）→ 这一批到它为止（同一行闭标签前的字留下）；④ 整行只有一个标签的行（<content>、</div>…）丢掉——记录行从来不是那样。 */
+const THEATER_SC_TAG_LINE_RE = /^\s*<\/?[A-Za-z][\w:-]*\b[^>]*>\s*$/;
+function soThrScMoreClean(text) {
+    let s = soThrScExtrasTail(stripMechanismBlocks(String(text == null ? '' : text)));
+    const lines = s.split(/\r?\n|[\u2028\u2029]/);
+    const open = new Set();
+    const re = /<(\/?)([A-Za-z][\w:-]*)\b[^>]*?(\/?)>/g;
+    const out = [];
+    for (const l of lines) {
+        re.lastIndex = 0;
+        let m;
+        let cut = -1;
+        while ((m = re.exec(l))) {
+            const name = m[2].toLowerCase();
+            if (m[3] || THEATER_SC_HTML_TAGS.has(name)) continue;
+            if (!m[1]) { open.add(name); continue; }
+            if (open.has(name)) { open.delete(name); continue; }
+            cut = m.index; break;
+        }
+        if (cut >= 0) { const head = l.slice(0, cut); if (head.trim()) out.push(head); break; }
+        if (THEATER_SC_TAG_LINE_RE.test(l)) continue;
+        out.push(l);
+    }
+    return out.join('\n');
+}
+// 装饰插槽正文末尾的预设机制块：变量更新块（MVU_BLOCK_DIALECTS，闭合的或被截断到结尾的）和 <summary>…</summary>，只剥【末尾】的、
+// 反复剥到末尾不是它们为止。<details><summary> 是 HTML 的正经用法：前面紧挨着开着的 <details> 时不剥。
+function soThrScExtrasTail(body) {
+    let s = String(body || '').replace(/\s+$/, '');
+    for (let guard = 0; guard < 32; guard++) {
+        let cut = -1;
+        for (const d of MVU_BLOCK_DIALECTS) {
+            const opens = [...s.matchAll(new RegExp('<' + d.wrapper + '\\b[^>]*>', 'gi'))];
+            if (!opens.length) continue;
+            const at = opens[opens.length - 1].index;
+            const tail = s.slice(at);
+            const closed = new RegExp('^<' + d.wrapper + '\\b[^>]*>[\\s\\S]*?<\\/' + d.wrapper + '\\s*>$', 'i').test(tail);
+            const unclosed = !new RegExp('<\\/' + d.wrapper + '\\s*>', 'i').test(tail);
+            if ((closed || unclosed) && mvuDialectInnerOk(tail, d)) { cut = at; break; }
+        }
+        if (cut < 0) {
+            const sm = [...s.matchAll(/<summary\b[^>]*>/gi)];
+            if (sm.length) {
+                const at = sm[sm.length - 1].index;
+                const tail = s.slice(at);
+                const before = s.slice(0, at).replace(/\s+$/, '');
+                if ((/^<summary\b[^>]*>[\s\S]*?<\/summary\s*>$/i.test(tail) || !/<\/summary\s*>/i.test(tail)) && !/<details\b[^>]*>$/i.test(before)) cut = at;
+            }
+        }
+        if (cut < 0) break;
+        s = s.slice(0, cut).replace(/\s+$/, '');
+    }
+    return s;
+}
+// 段里的代码块内容（lang 匹配优先，其次任意代码块，最后整段去掉围栏行）。
+function soThrScFenced(lines, langRe) {
+    const blocks = [];
+    let open = null;
+    for (const l of lines) {
+        const m = l.match(THEATER_SC_FENCE_RE);
+        if (m) {
+            if (!open) { open = { lang: l.replace(THEATER_SC_FENCE_RE, '').trim().toLowerCase(), body: [] }; continue; }
+            blocks.push(open); open = null; continue;
+        }
+        if (open) open.body.push(l);
+    }
+    if (open) { open.unclosed = true; blocks.push(open); }
+    const hit = blocks.find((b) => langRe.test(b.lang)) || blocks[0];
+    if (hit) return { body: hit.body.join('\n').trim(), fenced: true, unclosed: !!hit.unclosed };
+    return { body: lines.filter((l) => !THEATER_SC_FENCE_RE.test(l)).join('\n').trim(), fenced: false, unclosed: false };
+}
+function soThrScParseLex(lines) {
+    const lex = {};
+    let unknown = 0;
+    for (const l0 of lines) {
+        const l = l0.replace(/\*\*/g, '').trim();
+        if (!l || THEATER_SC_FENCE_RE.test(l)) continue;
+        for (const p of l.split(/\s{2,}|　+/).filter(Boolean)) {   // 一行里可能塞了好几对（照着提示里的「　」分隔抄）
+            const m = p.match(/^[-*•]?\s*`?([A-Za-z]+)`?\s*[=＝:：]\s*(.+)$/);
+            if (!m) { unknown++; continue; }
+            const key = THEATER_SC_LEX_LC.get(m[1].toLowerCase());
+            if (!key) { unknown++; continue; }
+            let v = m[2].trim().replace(/^[「"']|[」"']$/g, '');
+            if (key === 'loading') { const arr = v.split(/[／/｜|]/).map((s) => s.trim()).filter(Boolean); if (arr.length) lex.loading = arr; continue; }
+            if (key === 'floor' && !v.includes('{n}')) v = v.includes('楼') ? v.replace(/楼/, '{n}楼') : `${v}{n}`;
+            if (v) lex[key] = v;
+        }
+    }
+    return { lex, count: Object.keys(lex).length, unknown };
+}
+function soThrScParseSkin(lines, wholeText) {
+    let { body, fenced, unclosed } = lines ? soThrScFenced(lines, /^css/) : { body: '', fenced: false, unclosed: false };
+    let loose = false;
+    if (!body && wholeText) {   // 没有皮肤段：在全文里找 ```css
+        const m = String(wholeText).match(/```\s*css\s*\n([\s\S]*?)(```|$)/i);
+        if (m) { body = m[1].trim(); loose = true; fenced = true; unclosed = !m[2]; }
+    }
+    const rules = (body.match(/\{/g) || []).length;
+    const thxRefs = (body.match(/\.thx[\w-]*|--thx-[\w-]+/g) || []).length;
+    const ok = rules > 0 && thxRefs > 0;
+    return { css: ok ? body : '', raw: body, ok, rules, thxRefs, fenced, unclosed, loose, chars: body.length };
+}
+function soThrScParseExtras(secs, scene) {
+    const allowed = THEATER_SCENE_CONTRACT.slots[scene] || [];
+    const slots = {};
+    const offSlot = [];
+    let rawAll = '';
+    const put = (slot, lines) => {
+        const body = soThrScExtrasTail(soThrScFenced(lines, /^html/).body);
+        rawAll += `【${slot || '?'}】\n${lines.join('\n')}\n`;
+        if (!body) return;
+        if (allowed.includes(slot)) slots[slot] = (slots[slot] ? slots[slot] + '\n' : '') + body;
+        else offSlot.push({ slot: slot || '(无名)', chars: body.length });
+    };
+    for (const s of secs.filter((x) => x.kind === '装饰')) {
+        if (s.slot) { put(s.slot, s.lines); continue; }
+        let cur = null;
+        let buf = [];
+        for (const l of s.lines) {   // 一段里用小标题分了好几个插槽
+            const m = l.match(THEATER_SC_SUB_SLOT_RE);
+            if (m) { if (buf.length) put(cur, buf); cur = m[1].toLowerCase(); buf = []; continue; }
+            buf.push(l);
+        }
+        if (buf.length) put(cur, buf);
+    }
+    const names = Object.keys(slots);
+    return { slots, ok: names.length > 0, names, offSlot, raw: rawAll.trim() };
+}
+function soThrScClean(l) {
+    l = String(l).replace(/\r/g, '').replace(/\*\*/g, '').replace(/^\s*(?:#{1,6}\s+|>\s+)/, '').trimEnd();
+    const m = l.match(/^\s*【([^】]{1,24})】\s*(.*)$/);
+    // 「【沈砚秋】沈砚秋｜秋｜…」= 人物行换了个头；「【观众名】12｜特点」= 观众行换了个头
+    if (m && !THEATER_SC_KIND_SET.has(m[1]) && m[2].startsWith(m[1]) && /[｜|]/.test(m[2])) l = '【人物】' + m[2];
+    else if (m && !THEATER_SC_KIND_SET.has(m[1]) && /^\d+\s*[｜|]/.test(m[2])) l = '【观众】' + m[1] + '｜' + m[2];
+    return l;
+}
+function soThrScName(n) {
+    return String(n || '').replace(/[（(][^）)]*[）)]\s*$/, '').replace(/[@＠「」『』【】*]/g, '').trim();
+}
+function soThrScPerson(rest) {
+    const p = rest.split(THEATER_SC_SEP).map((s) => s.trim());
+    const name = soThrScName(p[0]);
+    let glyph = p[1] || '';
+    let title = p[2] || '';
+    let bio = p.slice(3).join('｜');
+    if ([...glyph].length > 2) { bio = [title, ...p.slice(3)].filter(Boolean).join('｜'); title = glyph; glyph = ''; }
+    return { name, glyph, title, bio };
+}
+function soThrScCnDay(s) {
+    s = String(s || '').trim();
+    const d = s.match(/\d{1,2}/);
+    if (d) return +d[0];
+    const m = s.replace(/^初/, '').replace(/[日号號]$/, '');
+    if (!m) return null;
+    let v = 0;
+    let ok = false;
+    const t = m.replace(/^廿/, '二十').replace(/^卅/, '三十');
+    if (/^十/.test(t)) { v = 10 + (THEATER_SC_CN_NUM[t[1]] || 0); ok = true; }
+    else if (/^[一二三]十/.test(t)) { v = THEATER_SC_CN_NUM[t[0]] * 10 + (THEATER_SC_CN_NUM[t[2]] || 0); ok = true; }
+    else if (t.length === 1 && THEATER_SC_CN_NUM[t] != null) { v = THEATER_SC_CN_NUM[t]; ok = true; }
+    return ok && v >= 1 && v <= 31 ? v : null;
+}
+function soThrScHeat(s) {
+    const m = String(s || '').match(/(\d+(?:\.\d+)?)\s*(万|w|W|k|K|千)?/);
+    if (!m) return null;
+    const mul = { 万: 10000, w: 10000, W: 10000, k: 1000, K: 1000, 千: 1000 }[m[2]] || 1;
+    return Math.round(+m[1] * mul);
+}
+// 月份 → 1–12（「三月」「正月」「腊月」「11」「11月」）；认不出 → null。
+function soThrScMonthNo(s) {
+    const t = String(s || '').trim();
+    let m = t.match(/^(\d{1,2})\s*月?$/);
+    if (m) return (+m[1] >= 1 && +m[1] <= 12) ? +m[1] : null;
+    m = t.match(/^([正一二三四五六七八九十冬腊]{1,3})月$/);
+    if (!m) return null;
+    const c = m[1];
+    if (c === '正') return 1;
+    if (c === '冬') return 11;
+    if (c === '腊') return 12;
+    if (c === '十') return 10;
+    if (c === '十一') return 11;
+    if (c === '十二') return 12;
+    return THEATER_SC_CN_NUM[c] || null;
+}
+// 从日期写法里认出月份 / 几号（「2089-04-16」「2089.11.04 清晨」「三月廿三」「4月2日」）。认不出 → {month:'', day:null}。
+function soThrScDateOf(label) {
+    const s = String(label || '');
+    let m = s.match(/(\d{3,4})\s*[-./年]\s*(\d{1,2})\s*[-./月]\s*(\d{1,2})/);
+    if (m && +m[2] >= 1 && +m[2] <= 12 && +m[3] >= 1 && +m[3] <= 31) return { month: `${+m[2]}月`, day: +m[3], year: +m[1] };
+    m = s.match(/(\d{1,2})\s*月\s*(\d{1,2})/);
+    if (m && +m[1] >= 1 && +m[1] <= 12) return { month: `${+m[1]}月`, day: soThrScCnDay(m[2]) };
+    m = s.match(/([正一二三四五六七八九十冬腊]{1,3}月)\s*(初?[一二三四五六七八九十廿卅〇零两]{1,3}[日号]?)?/);
+    if (m) return { month: m[1], day: m[2] ? soThrScCnDay(m[2]) : null };
+    return { month: '', day: null };
+}
+function soThrScBase() { return { people: [], unrec: [], lines: 0 }; }
+function soThrScAddPerson(out, rest) { const p = soThrScPerson(rest); if (p.name) out.people.push(p); return p; }
+
+function soThrScParseForum(lines, mode, known) {
+    const out = Object.assign(soThrScBase(), { board: '', intro: '', threads: [], drift: 0 });
+    const virtual = { title: '', authorName: '', tags: [], heat: null, time: '', op: '', floors: [], virtual: true };
+    let cur = mode === 'more' ? virtual : null;
+    let last = null;
+    const names = () => new Set([...(known || []), ...out.people.map((p) => p.name)]);
+    for (const l0 of lines) {
+        let l = soThrScClean(l0);
+        if (!l.trim() || THEATER_SC_FENCE_RE.test(l)) continue;
+        out.lines++;
+        // 宽容：照抄上下文里的「#N 名字：」或写成「【名字】#N …」——转成楼层行，另计 drift
+        let dm = l.match(/^\s*【([^】]{1,24})】\s*#\d+\s*(.*)$/);
+        if (dm && !THEATER_SC_REC_RE.test(l)) { l = `- ${dm[1]}${/^回复/.test(dm[2]) ? ' ' : '：'}${dm[2]}`; out.drift++; }
+        else if ((dm = l.match(/^\s*#\d+\s+(\S.*)$/))) { l = `- ${dm[1]}`; out.drift++; }
+        const r = l.match(THEATER_SC_REC_RE);
+        if (r) {
+            const [, k, rest] = r;
+            if (k === '版面') { const p = rest.split(THEATER_SC_SEP); out.board = p[0] || ''; out.intro = p.slice(1).join('｜'); last = null; }
+            else if (k === '人物') { soThrScAddPerson(out, rest); last = null; }
+            else if (k === '帖子') {
+                const p = rest.split(THEATER_SC_SEP).map((s) => s.trim());
+                cur = { title: p[0] || '', authorName: soThrScName(p[1]), tags: (p[2] || '').split(THEATER_SC_LIST_SEP).filter(Boolean), heat: soThrScHeat(p[3]), time: p[4] || '', op: '', floors: [] };
+                out.threads.push(cur); last = null;
+            } else { out.unrec.push(l); }
+            continue;
+        }
+        let m = l.match(/^\s*楼主\s*(?:[（(]([^）)]*)[）)])?\s*[:：]\s*(.*)$/);
+        if (m && cur) { cur.op = m[2]; if (!cur.authorName && m[1]) cur.authorName = soThrScName(m[1]); last = { o: cur, k: 'op' }; continue; }
+        m = l.match(THEATER_SC_FLOOR_RE);
+        if (!m && cur) { const m2 = l.match(THEATER_SC_NAME_COLON_RE); if (m2 && names().has(soThrScName(m2[1]))) m = m2; }
+        if (m && cur) { const f = { name: soThrScName(m[1]), replyTo: m[2] ? soThrScName(m[2]) : '', text: m[3] || '' }; cur.floors.push(f); last = { o: f, k: 'text' }; continue; }
+        if (last) { last.o[last.k] = (last.o[last.k] ? last.o[last.k] + '\n' : '') + l.trim(); continue; }
+        out.unrec.push(l);
+    }
+    if (mode === 'more') out.newFloors = virtual.floors.concat(...out.threads.map((t) => t.floors));
+    return out;
+}
+function soThrScParseFeed(lines, mode, known) {
+    const out = Object.assign(soThrScBase(), { motto: '', friends: [], posts: [], drift: 0 });
+    let cur = null;
+    let last = null;
+    const names = () => new Set([...(known || []), ...out.people.map((p) => p.name)]);
+    for (const l0 of lines) {
+        const l = soThrScClean(l0);
+        if (!l.trim() || THEATER_SC_FENCE_RE.test(l)) continue;
+        out.lines++;
+        const r = l.match(THEATER_SC_REC_RE);
+        if (r) {
+            const [, k, rest] = r;
+            if (k === '主页') { out.motto = rest.trim(); last = null; }
+            else if (k === '人物') { soThrScAddPerson(out, rest); last = null; }
+            else if (k === '好友') {
+                const m = rest.match(/^([^：:｜|]+)[：:｜|]\s*(.*)$/);
+                if (m) out.friends.push({ name: soThrScName(m[1]), list: m[2].split(THEATER_SC_LIST_SEP).map(soThrScName).filter(Boolean) });
+                else out.unrec.push(l);
+                last = null;
+            } else if (k === '动态' || k === '旧动态' || k === '动作') {
+                if (k === '动作') out.drift++;
+                const p = rest.split(THEATER_SC_SEP).map((s) => s.trim());
+                cur = { authorName: soThrScName(p[0]), time: p[1] || '', place: p[2] || '', text: '', pic: '', likes: [], cmts: [], old: k === '旧动态' };
+                out.posts.push(cur); last = { o: cur, k: 'text' };
+            } else out.unrec.push(l);
+            continue;
+        }
+        if (cur) {
+            let m = l.match(/^\s*配图\s*[:：]\s*(.*)$/);
+            if (m) { cur.pic = m[1]; last = { o: cur, k: 'pic' }; continue; }
+            m = l.match(/^\s*(?:[♥❤️👍]\s*)?(?:赞|点赞)\s*[:：]\s*(.*)$/u);
+            if (m) { cur.likes = m[1].split(THEATER_SC_LIST_SEP).map(soThrScName).filter(Boolean); last = null; continue; }
+            m = l.match(/^\s*(?:评论|[-－—•·*])\s*([^：:\s][^：:]{0,24}?)\s*(?:回复\s*[@＠]?\s*([^：:]{1,24}?))?\s*[:：]\s*(.*)$/);
+            if (!m) { const m2 = l.match(THEATER_SC_NAME_COLON_RE); if (m2 && names().has(soThrScName(m2[1]))) m = m2; }
+            if (m) { const c = { name: soThrScName(m[1]), to: m[2] ? soThrScName(m[2]) : '', t: m[3] || '' }; cur.cmts.push(c); last = { o: c, k: 't' }; continue; }
+        }
+        if (last) { last.o[last.k] = (last.o[last.k] ? last.o[last.k] + '\n' : '') + l.trim(); continue; }
+        out.unrec.push(l);
+    }
+    return out;
+}
+// 一页的头：标准 = 日期写法｜月份｜几号｜天气｜心情；手感测试里还见过省掉月份 / 几号的「日期写法｜天气｜心情」——月份 / 几号从日期写法里认。
+function soThrScDiaryHead(rest) {
+    const p = rest.split(THEATER_SC_SEP).map((s) => s.trim());
+    const label = p[0] || '';
+    if (p.length >= 3 && soThrScMonthNo(p[1]) != null && soThrScCnDay(p[2]) != null && !/^\d{3,4}$/.test(p[2])) {
+        const mn = soThrScMonthNo(p[1]);
+        const month = /^\d/.test(p[1]) ? `${mn}月` : p[1];
+        return { label, month, day: soThrScCnDay(p[2]), weather: p[3] || '', mood: p[4] || '', short: false };
+    }
+    const d = soThrScDateOf(label);
+    return { label, month: d.month, day: d.day, weather: p[1] || '', mood: p[2] || '', short: true, year: d.year };
+}
+function soThrScParseDiary(lines) {
+    const out = Object.assign(soThrScBase(), { owner: null, entries: [], currentLabel: '', drift: 0 });
+    let cur = null;
+    let last = null;
+    for (const l0 of lines) {
+        const l = soThrScClean(l0);
+        if (!l.trim() || THEATER_SC_FENCE_RE.test(l)) continue;
+        out.lines++;
+        const r = l.match(THEATER_SC_REC_RE);
+        if (r) {
+            const [, k, rest] = r;
+            if (k === '日记主人' || k === '人物') { const p = soThrScAddPerson(out, rest); if (k === '日记主人' || !out.owner) out.owner = p.name; last = null; }
+            else if (k === '一页') {
+                const h = soThrScDiaryHead(rest);
+                if (h.short) out.drift++;
+                cur = { label: h.label, month: h.month, day: h.day, weather: h.weather, mood: h.mood, paras: [], letter: null };
+                if (h.year) cur.year = h.year;
+                out.entries.push(cur); last = { o: cur, k: 'paras' };
+            } else if (k === '封存') {
+                const p = rest.split(THEATER_SC_SEP).map((s) => s.trim());
+                if (!cur) { cur = { label: '', month: '', day: null, weather: '', mood: '', paras: [], letter: null }; out.entries.push(cur); }
+                cur.letter = { seal: p[0] || '', from: p[1] || '', body: '' }; last = { o: cur.letter, k: 'body' };
+            } else if (k === '当前页') { out.currentLabel = rest.trim(); last = null; }
+            else out.unrec.push(l);
+            continue;
+        }
+        if (last && last.k === 'paras') { last.o.paras.push(l.trim()); continue; }
+        if (last) { last.o[last.k] = (last.o[last.k] ? last.o[last.k] + '\n' : '') + l.trim(); continue; }
+        out.unrec.push(l);
+    }
+    // 手感测试里有一本是新的在前：日期认得出、而且整体是倒着排的 → 翻成旧→新（「上一页」永远往更早翻）。
+    const keyOf = (e) => { const mn = soThrScMonthNo(e.month); return (mn == null || e.day == null) ? null : ((e.year || 0) * 10000 + mn * 100 + e.day); };
+    const ks = out.entries.map(keyOf).filter((k) => k != null);
+    if (ks.length >= 2 && ks.every((k, i) => i === 0 || k <= ks[i - 1]) && ks[0] > ks[ks.length - 1]) { out.entries.reverse(); out.drift++; }
+    return out;
+}
+function soThrScParseLive(lines, mode, known) {
+    const out = Object.assign(soThrScBase(), { title: '', host: '', hostGlyph: '', viewersN: null, viewers: [], beats: [], dms: [] });
+    let last = null;
+    const names = () => new Set([...(known || []), ...out.viewers.map((v) => v.name)]);
+    let afterDm = false;   // 手感测试：一串弹幕里夹着一句没介绍过的人「名字：……」（故事里的角色也来发弹幕）——紧跟在弹幕后面就照样当弹幕收
+    for (const l0 of lines) {
+        const l = soThrScClean(l0);
+        if (!l.trim() || THEATER_SC_FENCE_RE.test(l)) continue;
+        out.lines++;
+        const r = l.match(THEATER_SC_REC_RE);
+        if (r) {
+            afterDm = false;
+            const [, k, rest] = r;
+            const p = rest.split(THEATER_SC_SEP).map((s) => s.trim());
+            if (k === '直播间') { out.title = p[0] || ''; out.host = p[1] || ''; out.hostGlyph = p[2] || ''; out.viewersN = soThrScHeat(p[3]); last = null; }
+            else if (k === '观众' || k === '人物') { out.viewers.push({ name: soThrScName(p[0]), lv: parseInt(p[1], 10) || null, bio: p.slice(2).join('｜') }); last = null; }
+            else if (k === '画面') { out.beats.push(rest.trim()); last = { arr: out.beats }; }
+            else out.unrec.push(l);
+            continue;
+        }
+        let m = l.match(/^\s*(?:弹幕|[-－—•·*])\s*([^：:\s][^：:]{0,24}?)\s*[:：]\s*(.*)$/);
+        if (!m) { const m2 = l.match(THEATER_SC_NAME_COLON_RE); if (m2 && (afterDm || names().has(soThrScName(m2[1])))) m = m2; }
+        if (m) { out.dms.push({ name: soThrScName(m[1]), t: (m[m.length - 1] || '').trim(), b: Math.max(0, out.beats.length - 1) }); last = null; afterDm = true; continue; }
+        afterDm = false;
+        if (last && last.arr && last.arr.length) { last.arr[last.arr.length - 1] += l.trim(); continue; }
+        out.unrec.push(l);
+    }
+    return out;
+}
+const THEATER_SC_PARSERS = { forum: soThrScParseForum, feed: soThrScParseFeed, diary: soThrScParseDiary, live: soThrScParseLive };
+// 内容能不能用 + 丰富度计数（同手感测试）。
+function soThrScStats(scene, c, mode) {
+    const chars = (s) => [...String(s || '')].length;
+    if (!c) return { ok: false };
+    if (scene === 'forum') {
+        if (mode === 'more') {
+            const fl = c.newFloors || [];
+            const ths = c.threads.filter((t) => t.op);
+            return { ok: fl.length > 0 || ths.length > 0, floors: fl.length, threads: ths.length, chars: fl.reduce((a, f) => a + chars(f.text), 0) };
+        }
+        const ths = c.threads.filter((t) => t.op || t.floors.length);
+        const fl = ths.map((t) => t.floors.length);
+        return { ok: ths.length > 0, threads: ths.length, floors: fl.reduce((a, b) => a + b, 0), minFloors: fl.length ? Math.min(...fl) : 0, people: c.people.length,
+            quotes: ths.reduce((a, t) => a + t.floors.filter((f) => f.replyTo).length, 0), chars: ths.reduce((a, t) => a + chars(t.op) + t.floors.reduce((x, f) => x + chars(f.text), 0), 0) };
+    }
+    if (scene === 'feed') {
+        const ps = c.posts.filter((p) => p.text || p.pic);
+        const main = ps.filter((p) => !p.old);
+        return { ok: (mode === 'more' ? ps.length : main.length) > 0, posts: main.length, oldPosts: ps.length - main.length, comments: ps.reduce((a, p) => a + p.cmts.length, 0),
+            likes: ps.reduce((a, p) => a + p.likes.length, 0), pics: ps.filter((p) => p.pic).length, people: c.people.length, friendLists: c.friends.length,
+            chars: ps.reduce((a, p) => a + chars(p.text) + p.cmts.reduce((x, k) => x + chars(k.t), 0), 0) };
+    }
+    if (scene === 'diary') {
+        const es = c.entries.filter((e) => e.paras.length || (e.letter && e.letter.body));
+        return { ok: es.length > 0, pages: es.length, sealed: es.filter((e) => e.letter).length, owner: c.owner || '', chars: es.reduce((a, e) => a + chars(e.paras.join('')) + chars(e.letter && e.letter.body), 0) };
+    }
+    if (scene === 'live') {
+        return { ok: c.beats.length > 0 && (mode === 'more' || c.dms.length > 0), beats: c.beats.length, danmaku: c.dms.length, viewers: c.viewers.length,
+            chars: c.beats.reduce((a, b) => a + chars(b), 0) + c.dms.reduce((a, d) => a + chars(d.t), 0) };
+    }
+    return { ok: false };
+}
+// 解析一份回复。mode 'first' | 'more'；known = 已知人物名（续写时用）。→ { content|null, lex, skin, extras, unrec, missing, contentRaw, stats, parts }。绝不抛。
+// missing = 缺的部分（'content' / 'lex' / 'skin' / 'extras'；续写只看 content）。
+function soThrSceneParse(scene, text, mode, known) {
+    const md = mode === 'more' ? 'more' : 'first';
+    const empty = { content: null, lex: {}, skin: '', extras: {}, unrec: [], missing: md === 'more' ? ['content'] : ['content', 'lex', 'skin', 'extras'], contentRaw: String(text || ''), stats: { ok: false }, parts: {} };
+    if (!THEATER_SC_PARSERS[scene]) return empty;
+    try {
+        if (md === 'more') text = soThrScMoreClean(text);   // 2026-11-07：「更多」的预设尾巴（机制块 / 摘要 / 包裹闭标签）不再粘进最后一条（首轮不动）
+        const { secs, pre } = soThrScSplit(text);
+        const tailCut = soThrScTailCut(secs, pre);
+        const contentSecs = secs.filter((s) => s.kind === '内容');
+        const contentLines = contentSecs.length ? contentSecs.flatMap((s) => s.lines) : (secs.length ? pre : String(text || '').split(/\r?\n|[\u2028\u2029]/));
+        const knownSet = known instanceof Set ? known : new Set(Array.isArray(known) ? known : []);
+        const content = THEATER_SC_PARSERS[scene](contentLines, md, knownSet);
+        const stats = soThrScStats(scene, content, md);
+        const out = { content: stats.ok ? content : null, lex: {}, skin: '', extras: {}, unrec: content.unrec.slice(), missing: [],
+            contentRaw: contentLines.join('\n').trim(), stats, parts: { content: { ok: stats.ok, unrec: content.unrec.length, lines: content.lines, drift: content.drift || 0 } } };
+        if (!stats.ok) out.missing.push('content');
+        if (tailCut) out.parts.tailCut = tailCut;
+        if (md === 'first') {
+            const lexSecs = secs.filter((s) => s.kind === '叫法');
+            const lx = soThrScParseLex(lexSecs.flatMap((s) => s.lines));
+            const skinSecs = secs.filter((s) => s.kind === '皮肤');
+            const sk = soThrScParseSkin(skinSecs.length ? skinSecs.flatMap((s) => s.lines) : null, text);
+            const ex = soThrScParseExtras(secs, scene);
+            out.lex = lx.lex;
+            out.skin = sk.css;
+            out.extras = ex.slots;
+            out.parts.lex = { ok: lx.count >= 3, count: lx.count };
+            out.parts.skin = { ok: sk.ok, chars: sk.chars, unclosed: sk.unclosed };
+            out.parts.extras = { ok: ex.ok, slots: ex.names, offSlot: ex.offSlot };
+            if (!out.parts.lex.ok) out.missing.push('lex');
+            if (!sk.ok) out.missing.push('skin');
+            if (!ex.ok) out.missing.push('extras');
+        }
+        return out;
+    } catch (e) {
+        console.warn('[Story Oracle] 小剧场：场景解析出错（按纯文字显示）', e);
+        return empty;
+    }
+}
+
+
+/* —— 合并 + 组装（首轮 + 各次「更多」→ App 吃的数据；scene-feel/build.mjs assemble 的移植）——
+ * 打开时一律从原文重算：item.raw.first + item.raw.more（按顺序，at = 'thread:<帖子 id>' / 'board' / 'feed' / 'diary' / 'live'）。
+ * 帖子 id = 't' + 它在「有正文或有楼的帖子」里的序号（只会往后追加，重算出来的 id 稳定）。 */
+function soThrForumVisible(c) {
+    return (c && Array.isArray(c.threads) ? c.threads : []).filter((t) => t && (t.op || t.floors.length));
+}
+// 场景正文进解析之前：剥掉思维链（预设路上的模型常在格式外头包一层 <thinking>）。原文照存。
+function soThrSceneCleanRaw(text) {
+    return stripReasoningTags(String(text == null ? '' : text));
+}
+function soThrSceneKnown(scene, c) {
+    if (!c) return new Set();
+    return new Set(scene === 'live' ? c.viewers.map((v) => v.name) : c.people.map((p) => p.name));
+}
+// 一次「更多」接到内容上（原地改 c）。
+function soThrSceneApplyMore(scene, c, at, mc) {
+    const kind = String(at || '').split(':')[0];
+    if (scene === 'forum') {
+        c.people.push(...mc.people);
+        if (kind === 'board') {
+            c.threads.push(...mc.threads.filter((t) => t.op || t.floors.length));
+        } else {
+            const vis = soThrForumVisible(c);
+            const id = String(at || '').slice('thread:'.length);
+            const n = /^t\d+$/.test(id) ? Number(id.slice(1)) - 1 : -1;
+            const t = vis[n] || null;
+            if (t) t.floors.push(...(mc.newFloors || []));
+        }
+    } else if (scene === 'feed') {
+        c.people.push(...mc.people);
+        c.friends.push(...mc.friends);
+        c.posts.push(...mc.posts.filter((p) => p.text || p.pic));
+    } else if (scene === 'diary') {
+        c.people.push(...mc.people);
+        c.entries.push(...mc.entries.filter((e) => e.paras.length || (e.letter && e.letter.body)));
+    } else if (scene === 'live') {
+        const off = c.beats.length;
+        c.viewers.push(...mc.viewers);
+        c.beats.push(...mc.beats);
+        c.dms.push(...mc.dms.map((d) => Object.assign({}, d, { b: d.b + off })));
+    }
+}
+// → { scene, first, content|null, lex, skin, extras, mores:[{at, ok, raw}], firstPages }
+function soThrSceneMerge(item) {
+    const scene = item && item.scene;
+    const first = soThrSceneParse(scene, soThrSceneCleanRaw(item && item.raw ? item.raw.first : ''), 'first');
+    const res = { scene, first, content: first.content ? soThrClone(first.content) : null, lex: first.lex || {}, skin: first.skin || '', extras: first.extras || {}, mores: [], firstPages: 0 };
+    if (!res.content) return res;
+    if (scene === 'diary') res.firstPages = res.content.entries.filter((e) => e.paras.length || (e.letter && e.letter.body)).length;
+    for (const m of ((item.raw && Array.isArray(item.raw.more)) ? item.raw.more : [])) {
+        if (!m || typeof m.text !== 'string') continue;
+        const p = soThrSceneParse(scene, soThrSceneCleanRaw(m.text), 'more', soThrSceneKnown(scene, res.content));
+        res.mores.push({ at: String(m.at || ''), ok: !!p.content, raw: m.text });
+        if (p.content) soThrSceneApplyMore(scene, res.content, m.at, p.content);
+    }
+    return res;
+}
+function soThrSceneGuessMonth(label) {
+    const m = String(label || '').match(/([一二三四五六七八九十腊正冬]{1,3}月|\d{1,2}\s*月)/);
+    return m ? m[1] : '本月';
+}
+// 人物登记（名字 → id；同名合一，「名字的一部分」唯一命中也算同一人）。
+function soThrSceneRegistry() {
+    const people = {};
+    const byName = new Map();
+    let n = 0;
+    const glyphOf = (g, name) => { g = String(g || '').trim(); if (g && [...g].length <= 2) return g; const cs = [...name.replace(/\s/g, '')]; return cs[cs.length - 1] || '?'; };
+    const find = (name) => {
+        name = soThrScName(name);
+        if (!name) return null;
+        if (byName.has(name)) return byName.get(name);
+        const c = [...byName.values()].filter((p) => p.name.includes(name) || name.includes(p.name));
+        return c.length === 1 ? c[0] : null;
+    };
+    const add = (name, glyph, title, bio) => {
+        name = soThrScName(name);
+        if (!name) return null;
+        const ex = byName.get(name);
+        if (ex) { if (!ex.title && title) ex.title = title; if (!ex.bio && bio) ex.bio = bio; return ex; }
+        const p = { id: 'p' + (++n), name, glyph: glyphOf(glyph, name), title: title || '', bio: bio || '' };
+        people[p.id] = p; byName.set(name, p);
+        return p;
+    };
+    const get = (name) => { const nm = soThrScName(name) || '匿名'; return find(nm) || add(nm, '', '', ''); };
+    return { people, add, find, get };
+}
+// 合并后的内容 → App 运行时吃的数据（window.__SO_THR__.content）。
+function soThrSceneAssemble(merged) {
+    const scene = merged && merged.scene;
+    const c = merged && merged.content;
+    const reg = soThrSceneRegistry();
+    const W = { me: { name: '你', glyph: '你' }, people: reg.people, friends: {} };
+    if (!c) return W;
+    const uniq = (a) => [...new Set(a)];
+    if (scene !== 'live') for (const p of c.people) reg.add(p.name, p.glyph, p.title, p.bio);
+    if (scene === 'forum') {
+        const vis = soThrForumVisible(c);
+        const hot = vis.slice().sort((a, b) => (b.heat || 0) - (a.heat || 0) || b.floors.length - a.floors.length)[0] || null;
+        W.forum = {
+            board: c.board || '', intro: c.intro || '',
+            threads: vis.map((t, i, arr) => {
+                const a = reg.get(t.authorName || '匿名');
+                const all = [{ name: a.name, n: 1 }];
+                const resolveQ = (nm) => { if (!nm) return undefined; const p = reg.find(nm); const key = p ? p.name : soThrScName(nm); for (let k = all.length - 1; k >= 0; k--) if (all[k].name === key) return all[k].n; return undefined; };
+                const floors = t.floors.map((f, j) => { const u = reg.get(f.name); const q = resolveQ(f.replyTo); all.push({ name: u.name, n: j + 2 }); return { u: u.id, text: f.text, q }; });
+                const heat = t.heat != null ? t.heat : (arr.length - i) * 137;
+                return { id: 't' + (i + 1), title: t.title || '（无题）', author: a.id, tags: t.tags, heat, time: t.time, up: Math.max(3, Math.round(heat / 37)), op: t.op, floors };
+            }),
+        };
+        W.hot = hot ? 't' + (vis.indexOf(hot) + 1) : '';
+    } else if (scene === 'feed') {
+        let k = 0;
+        const mk = (p) => ({ id: 'f' + (++k), a: reg.get(p.authorName).id, time: p.time, place: p.place, text: p.text, pic: p.pic || '',
+            l: uniq(p.likes.map((n) => (n === '你' ? null : reg.get(n).id)).filter(Boolean)),
+            c: p.cmts.map((x) => ({ u: x.name === '你' ? 'me' : reg.get(x.name).id, to: x.to ? (x.to === '你' ? 'me' : reg.get(x.to).id) : undefined, t: x.t })) });
+        const ps = c.posts.filter((p) => p.text || p.pic);
+        W.feed = { motto: c.motto || '', posts: ps.filter((p) => !p.old).map(mk), extra: ps.filter((p) => p.old).map(mk) };
+        const ids = Object.keys(reg.people);
+        for (const f of c.friends) { const p = reg.get(f.name); W.friends[p.id] = uniq(f.list.map((n) => reg.get(n).id)).filter((x) => x !== p.id); }
+        for (const id of Object.keys(reg.people)) if (!W.friends[id]) W.friends[id] = ids.filter((x) => x !== id);
+    } else if (scene === 'diary') {
+        const owner = reg.get(c.owner || (c.people[0] && c.people[0].name) || '日记主人');
+        const es = c.entries.filter((e) => e.paras.length || (e.letter && e.letter.body)).map((e, i) => ({
+            k: 'd' + i, month: e.month || soThrSceneGuessMonth(e.label), day: e.day != null ? e.day : null, label: e.label || `第 ${i + 1} 页`,
+            weather: e.weather || '—', mood: e.mood || '—', paras: e.paras.length ? e.paras : ['（这一页只夹着东西）'],
+            letter: e.letter ? { from: e.letter.from || '', seal: e.letter.seal || '封', body: e.letter.body || '' } : null,
+        }));
+        es.forEach((e, i) => { if (e.day == null) e.day = Math.min(31, (i ? es[i - 1].day : 0) + 1); });
+        const cl = c.currentLabel;
+        let cur = cl ? es.find((e) => e.label === cl) : null;
+        if (!cur && cl) { const hits = es.filter((e) => e.label.includes(cl) || cl.includes(e.label)); if (hits.length === 1) cur = hits[0]; }
+        if (!cur) cur = es[Math.max(0, Math.min(es.length, merged.firstPages || es.length) - 1)];
+        W.diary = { owner: owner.id, current: cur ? cur.k : null, entries: es };
+    } else if (scene === 'live') {
+        const viewers = {};
+        const vid = new Map();
+        let n = 0;
+        const addV = (name, lv, bio) => {
+            name = soThrScName(name) || '匿名';
+            if (!vid.has(name)) { const cs = [...vid.keys()].filter((x) => x.includes(name) || name.includes(x)); if (cs.length === 1) name = cs[0]; }
+            if (vid.has(name)) { const v = viewers[vid.get(name)]; if (!v.bio && bio) v.bio = bio; if (lv && !v.lvSet) { v.lv = lv; v.lvSet = true; } return vid.get(name); }
+            const id = 'v' + (++n);
+            let hh = 0;
+            for (const ch of name) hh = (hh * 31 + ch.codePointAt(0)) >>> 0;
+            viewers[id] = { name, lv: lv || 1 + (hh % 30), bio: bio || '', lvSet: !!lv };
+            vid.set(name, id);
+            return id;
+        };
+        for (const v of c.viewers) addV(v.name, v.lv, v.bio);
+        W.live = { title: c.title || '', host: c.host || '主播', hostGlyph: c.hostGlyph || [...(c.host || '播')].slice(-1)[0], viewersN: c.viewersN || 3000, viewers,
+            beats: c.beats.length ? c.beats.slice() : ['（没有画面拍）'], pool: c.dms.map((d) => ({ v: addV(d.name), t: d.t, b: d.b })) };
+    }
+    return W;
+}
+
+/* —— 「更多」的上下文（Task 2，moreContext 的移植，封顶）——
+ * 手感测试的教训（三家模型都一样）：续写照抄上下文里看到的格式。所以已有的条目一律用【模型要写回的那种记录格式】摆出来
+ * （论坛的楼 = 「- 名字：正文」，不是「#N 名字：」）。 */
+function soThrScCap(s, n) { s = String(s || ''); return [...s].length > n ? [...s].slice(0, n).join('') + '…' : s; }
+function soThrScCapBlock(lines, n) {
+    const out = [];
+    let used = 0;
+    for (const l of lines) {
+        const len = [...l].length + 1;
+        if (used + len > n) { out.push(`……（另有 ${lines.length - out.length} 行略）`); break; }
+        out.push(l);
+        used += len;
+    }
+    return out.join('\n');
+}
+// 复审 §4.1：封顶时留【最新】的——先留前 keepHead 行（标题行），再从末尾往前收，中间写一句「前面另有 N 行略」。
+// 全都放得下 = 与 soThrScCapBlock 逐字节相同（放得下的场景，模型看到的上下文一个字都不变）。
+const soThrScLinesLen = (lines) => lines.reduce((a, l) => a + [...l].length + 1, 0);
+function soThrScCapTail(lines, n, keepHead) {
+    if (soThrScLinesLen(lines) <= n) return lines.join('\n');
+    const kh = Math.max(0, Math.min(lines.length, keepHead || 0));
+    const head = lines.slice(0, kh);
+    const rest = lines.slice(kh);
+    let used = soThrScLinesLen(head) + 20;
+    const tail = [];
+    for (let i = rest.length - 1; i >= 0; i--) {
+        const len = [...rest[i]].length + 1;
+        if (used + len > n) break;
+        tail.unshift(rest[i]);
+        used += len;
+    }
+    return [...head, `……（前面另有 ${rest.length - tail.length} 行略）`, ...tail].join('\n');
+}
+function soThrScFloorLine(f) {
+    return `- ${f.name}${f.replyTo ? ' 回复@' + f.replyTo : ''}：${f.text}`;
+}
+function soThrScPostRecord(p, withCmts) {
+    const out = [`【${p.old ? '旧动态' : '动态'}】${p.authorName}｜${p.time}｜${p.place}`, p.text];
+    if (p.pic) out.push('配图：' + p.pic);
+    if (p.likes.length) out.push('赞：' + p.likes.join('、'));
+    if (withCmts) for (const k of p.cmts) out.push(`评论 ${k.name}${k.to ? ' 回复 ' + k.to : ''}：${k.t}`);
+    return out.join('\n');
+}
+function soThrScPageRecord(e) {
+    const out = [`【一页】${e.label}｜${e.month}｜${e.day == null ? '' : e.day}｜${e.weather}｜${e.mood}`, ...e.paras];
+    if (e.letter) out.push(`【封存】${e.letter.seal}｜${e.letter.from}`, e.letter.body);
+    return out.join('\n');
+}
+// → 「更多」那一轮用户消息里【场景】之后的整段（人物表 / 叫法 / 已有内容 / 最近的原文 / 这次要写）。kind / target 缺省 = 这个场景的自然方向。
+function soThrSceneMoreContext(scene, merged, kind, target) {
+    const c = merged && merged.content;
+    const lexLines = Object.entries((merged && merged.lex) || {}).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join('／') : v}`);
+    const ctx = { cast: '', lex: soThrScCapBlock(lexLines, 600) || '（无）', summary: '', verbatim: '', request: '' };
+    if (!c) {
+        ctx.cast = '（解析不出人物表）';
+        ctx.summary = '（已有内容的格式没能解析，下面给原文末尾）';
+        ctx.verbatim = soThrScCap([...String((merged && merged.first && merged.first.contentRaw) || '')].slice(-2400).join(''), 2500);
+        ctx.request = THEATER_SCENE_MORE_REQUESTS.fallback;
+    } else {
+        const people = scene === 'live'
+            ? c.viewers.map((v) => `【观众】${v.name}｜${v.lv == null ? '' : v.lv}｜${v.bio}`)
+            : c.people.map((p) => `【人物】${p.name}｜${p.glyph}｜${p.title}｜${p.bio}`);
+        if (scene === 'live' && c.host) people.unshift(`【直播间】${c.title}｜${c.host}｜${c.hostGlyph}｜${c.viewersN == null ? '' : c.viewersN}`);
+        ctx.cast = soThrScCapBlock(people, 1200) || '（无）';
+        if (scene === 'forum') {
+            const vis = soThrForumVisible(c);
+            const list = [`版面「${c.board}」共 ${vis.length} 个帖子：`, ...vis.map((x) => `· 「${x.title}」${x.authorName}，${x.floors.length + 1} 楼`)];
+            if (kind === 'board') {
+                ctx.summary = soThrScCapTail(list, 1600, 1);
+                const tail = vis.slice(-2).map((t) => [`【帖子】${t.title}｜${t.authorName}｜${t.tags.join('、')}｜${t.heat == null ? '' : t.heat}｜${t.time}`,
+                    `楼主：${t.op}`, ...t.floors.slice(0, 4).map(soThrScFloorLine)].join('\n'));
+                ctx.verbatim = soThrScCapBlock(tail.join('\n\n').split('\n'), 2500);
+                ctx.request = THEATER_SCENE_MORE_REQUESTS.board;
+            } else {
+                const n = /^t\d+$/.test(String(target || '')) ? Number(String(target).slice(1)) - 1 : -1;
+                const t = vis[n] || vis.slice().sort((a, b) => (b.heat || 0) - (a.heat || 0) || b.floors.length - a.floors.length)[0];
+                if (t) {
+                    const fl = t.floors;
+                    const older = fl.slice(0, Math.max(0, fl.length - 4));
+                    const last4 = fl.slice(Math.max(0, fl.length - 4));
+                    const tb = ['', `正在续写的帖子：「${t.title}」（发帖人 ${t.authorName}，现在共 ${fl.length + 1} 楼）`,
+                        `楼主：${soThrScCap(t.op, 400)}`,
+                        ...(older.length ? ['较早的楼（摘要）：', ...older.map((f) => soThrScFloorLine({ name: f.name, replyTo: f.replyTo, text: soThrScCap(f.text, 28) }))] : []),
+                        `已发言的人：${[...new Set([t.authorName, ...fl.map((f) => f.name)])].join('、')}`];
+                    // §4.1：放得下 → 原样；放不下 → 续写的这一帖优先（标题 / 楼主 / 最新的较早楼 / 已发言的人），版面帖子表留最新的。
+                    if (soThrScLinesLen([...list, ...tb]) <= 1600) ctx.summary = soThrScCapBlock([...list, ...tb], 1600);
+                    else {
+                        const tbs = soThrScCapTail(tb, 1000, 4);
+                        ctx.summary = soThrScCapTail(list, 1600 - soThrScLinesLen(tbs.split('\n')), 1) + '\n' + tbs;
+                    }
+                    ctx.verbatim = soThrScCapBlock(last4.map(soThrScFloorLine), 2500);
+                    ctx.request = THEATER_SCENE_MORE_REQUESTS.thread(t.title);
+                } else ctx.request = THEATER_SCENE_MORE_REQUESTS.thread('');
+            }
+        } else if (scene === 'feed') {
+            const ps = c.posts.filter((p) => p.text || p.pic);
+            const main = ps.filter((p) => !p.old);
+            const fa = [`信息流里已有 ${main.length} 条动态（新→旧）：`, ...main.map((p) => `· ${p.authorName}｜${p.time}｜${p.place}：${soThrScCap(p.text, 30)}（${p.cmts.length} 条评论）`)];
+            const fb = [`各人主页里另有 ${ps.length - main.length} 条更早的旧动态：`, ...ps.filter((p) => p.old).map((p) => `· ${p.authorName}｜${p.time}：${soThrScCap(p.text, 20)}`)];
+            // §4.1：放得下 → 原样；放不下 → 两张表各自留最新的（新写的那几批在表尾）。
+            if (soThrScLinesLen([...fa, ...fb]) <= 1600) ctx.summary = soThrScCapBlock([...fa, ...fb], 1600);
+            else {
+                const fas = soThrScCapTail(fa, 1000, 1);
+                ctx.summary = fas + '\n' + soThrScCapTail(fb, 1600 - soThrScLinesLen(fas.split('\n')), 1);
+            }
+            const latest = new Map();
+            for (const p of main) if (!latest.has(p.authorName)) latest.set(p.authorName, p);
+            const lastPost = main[main.length - 1];
+            const recs = [...latest.values()].filter((p) => p !== lastPost).map((p) => soThrScPostRecord(p, false));
+            if (lastPost) recs.push(soThrScPostRecord(lastPost, true));
+            ctx.verbatim = soThrScCapBlock(recs.join('\n\n').split('\n'), 2500);
+            ctx.request = THEATER_SCENE_MORE_REQUESTS.feed(lastPost ? lastPost.time : '');
+        } else if (scene === 'diary') {
+            const es = c.entries.filter((e) => e.paras.length);
+            const lastE = es[es.length - 1];
+            ctx.summary = soThrScCapTail([`日记主人：${c.owner || '?'}。已有 ${es.length} 页：`, ...es.map((e) => `· ${e.label}（${e.weather}/${e.mood}）：${soThrScCap(e.paras[0], 30)}${e.letter ? ' 〔夹着封存：' + e.letter.seal + '〕' : ''}`)], 1600, 1);   // §4.1：留最新的几页
+            ctx.verbatim = lastE ? soThrScCapBlock(soThrScPageRecord(lastE).split('\n'), 2500) : '';
+            ctx.request = THEATER_SCENE_MORE_REQUESTS.diary(lastE ? lastE.label : '');
+        } else if (scene === 'live') {
+            const recent = new Map();
+            for (const d of c.dms) { const a = recent.get(d.name) || []; a.push(d.t); recent.set(d.name, a.slice(-2)); }
+            ctx.summary = soThrScCapTail([`直播「${c.title}」，主播 ${c.host}，已播 ${c.beats.length} 拍：`, ...c.beats.map((b) => `【画面】${b}`)], 1600, 1);   // §4.1：留最新的几拍
+            ctx.verbatim = soThrScCapBlock(['各位观众最近的弹幕：', ...[...recent.entries()].flatMap(([nm, a]) => a.map((t) => `弹幕 ${nm}：${t}`))], 2500);
+            ctx.request = THEATER_SCENE_MORE_REQUESTS.live;
+        }
+    }
+    return `【人物表】\n${ctx.cast}\n\n【叫法】\n${ctx.lex}\n\n【已有内容】\n${ctx.summary}\n\n【最近的原文】\n${ctx.verbatim}\n\n【这次要写】\n${ctx.request}`;
+}
+
+/* —— 场景提示词（Task 5，scene-feel/prompts.mjs 的移植：去掉测试世界——故事来自真的聊天历史——去掉短剧）——
+ * FROZEN（2026-11-07，plan 3 Task 7 场景措辞电池 tests/unit/_theater-tuning/scene-battery：B 只在 3/10 组胜过 A → 出厂这一版原样冻结）。
+ * 下面这些文本（COMMON / SPECS / MORE_REQUESTS / MORE_COMMON 与四个拼装函数的输出）由 theater-scene-prompts-pin.test.mjs 钉 sha256；
+ * 改一个字节 = 先重跑那个电池。电池测试缝 window.__soThrSceneArm 见 soThrScenePrompt。 */
+const THEATER_SCENE_COMMON = `你在为「小剧场」写一个场景。小剧场是挂在一段进行中的角色扮演故事旁边的小 App，演的是故事此刻在这个世界里激起的回响。App 的骨架是 SO 的程序写好的：有哪些屏、什么能点、点了去哪、返回、滚动、「翻到底就请你再写一批」，都归程序管。你交回三样东西：填进骨架的内容、一整套属于这个世界的外观、你自己设计的装饰小部件。
+
+玩家会像用真的 App 一样到处点。第一次打开时看得见的每一样东西背后都已经有真内容——点开一个帖子就有完整的楼，点一个名字就有那个人的身份和简介——不靠之后补写。内容用中文；人物的口吻、梗和彼此的关系，要像这个世界里真会有的样子。
+
+交回的格式：四种段，每段以单独一行的段头开始，程序按段头切开；段头之外不写解释。
+=== 内容 ===
+=== 叫法 ===
+=== 皮肤 ===
+=== 装饰 · 插槽名 ===　（每个插槽一段，插槽名用下面列出的英文名；可以只写其中几个）
+
+〔内容〕纯文字记录，格式见下面的场景说明。一条记录以行首的【…】或记号开头；没有记号的行接在上一条后面当正文。楼号、数量、跳转都由程序算，你不写编号。
+
+〔叫法〕这个世界里对 App 各处的叫法，每行一条：键=叫法。只用下面列出的键，没写的键用默认叫法。loading 是加载时轮流出现的几句话，用「／」隔开。
+
+〔皮肤〕一份 CSS（可以放在 \`\`\`css 代码块里）。它只作用在小剧场里，靠下面公开的类名和 --thx-* 变量起作用。外观完全由你决定：配色、纹理、字体、边框、卡片形状、用 CSS 画的背景图案、动画都可以，让同一个 App 一看就是这个世界里的东西。可以用网络字体，但要写本地兜底字体（有的玩家打不开外网）。界线：顶栏 .thx-bar 和返回键 .thx-back 始终看得见、点得到；不用 position:fixed；不把能点的东西藏起来或盖住。.thx-decor[data-slot=bar-l] 和 .thx-decor[data-slot=bar-r] 是顶栏标题两侧的两个空位，默认不显示，皮肤可以在那里画徽记。
+
+〔装饰〕插槽里放你自己设计的小部件，HTML、CSS、JS 都可以：可以动、可以点、可以联网（比如 CDN 上的动画库），创意越自由越好——排行榜、印章、天气牌、跑马灯、时钟、氛围粒子……程序把每段放进固定位置、固定大小的插槽；段里的 <script> 会执行，脚本里可以直接用变量 slot（这个插槽元素）和 app（整个小剧场元素）。界线：只在自己的插槽里画；不改程序的结构和导航；不拦截别处的点击。
+
+通用类名：.thx（整个 App，变量写在这里）.thx-bar .thx-back .thx-title .thx-screen .thx-tabs .thx-tab(.on) .thx-card .thx-avatar(.sm/.lg) .thx-name .thx-meta .thx-text .thx-ttl .thx-btn(.on/.gen) .thx-banner .thx-banner-t .thx-banner-s .thx-prof .thx-bio .thx-stats .thx-stat .thx-list-item .thx-sheet .thx-loading .thx-loading-ico .thx-loading-txt .thx-loading-bar .thx-skel .thx-end
+变量：--thx-bg --thx-bar --thx-ink --thx-sub --thx-card --thx-line --thx-accent --thx-accent-ink --thx-radius --thx-font
+通用叫法键：back=‹　more=加载更多　end=没有更多了　loading=正在生成…／正在写下一段…
+通用插槽：top（顶栏下一条，整宽，高不超过 34px）· ambient（盖在整个 App 上的氛围层，不接收点击）`;
+// FROZEN（场景措辞电池）
+const THEATER_SCENE_SPECS = {
+    forum: {
+        req: '「论坛」：这个世界里的人在一个论坛或公告板上议论此刻发生的事——热帖、跟帖、吵架、考据、玩梗都行；也可以有和此刻无关、但很有这个世界味道的帖子。论坛是什么载体、叫什么，按世界观来定。',
+        app: `App 里有：版面首页（横幅上是版面名和简介；「最新 / 最热」两个页签；帖子卡显示标题、标签、发帖人、回帖数、热度）→ 点帖子进帖子页（楼主正文和每一楼，带楼号；「回复@某人」的楼会显示成可点的引用块；每楼可点赞）→ 点任何名字或头像进这个人的人物页（身份、简介、TA 开的帖、TA 回的楼）。帖子翻到底，程序会另外请你续写新楼。
+第一次就要给足：版面首页至少 5 个帖子，每帖楼主正文 + 至少 5 楼回帖；热度有高有低；出场的 5–8 个人物每人都有身份和简介。`,
+        format: `【版面】版面名｜一句简介
+【人物】名字｜头像字（一个字）｜身份｜一句简介
+【帖子】标题｜发帖人｜标签1、标签2｜热度（数字）｜发帖时间
+楼主：正文
+- 名字：回帖正文
+- 名字 回复@某人：回帖正文`,
+        moreFormat: `【人物】名字｜头像字｜身份｜一句简介　（只在有新人物时写）
+- 名字：回帖正文
+- 名字 回复@某人：回帖正文`,
+        moreBoardFormat: `【人物】名字｜头像字｜身份｜一句简介　（只在有新人物时写）
+【帖子】标题｜发帖人｜标签1、标签2｜热度（数字）｜发帖时间
+楼主：正文
+- 名字：回帖正文`,
+        classes: '.thx-tags .thx-tag .thx-badge（楼主标记）.thx-quote（引用块）.thx-floor-no（楼号）.thx-acts',
+        lex: 'forumTitle=论坛　thread=帖子　replies=回复　heat=热度　op=楼主　floor=#{n}（{n} 换成楼号）　like=赞　liked=已赞　newest=最新　hottest=最热　topics=发帖　replied=回帖　follow=关注　followed=已关注',
+        slot: 'board（版面首页横幅下的一块，整宽，最高 240px）',
+    },
+    feed: {
+        req: '「朋友圈」：故事里的人物（和他们身边的人）对此刻发的动态，下面有点赞，评论区里人物之间互相回复。这个世界里的「朋友圈」是什么载体、长什么样，按世界观来定。',
+        app: `App 里有：信息流首页（横幅上是标题和一句话；「动态 / 好友」两个页签）→ 每条动态（头像、名字、时间地点、正文、配图框、点赞的人、前两条评论）→ 点开看大图和全部评论（玩家也能留言）→ 点名字或头像进这个人的主页（横幅、身份、简介、TA 全部动态的网格、好友数）→ 点好友数看 TA 的好友名单 → 再点进别人的主页……信息流翻到底，程序会另外请你写更早的动态。
+第一次就要给足：首页 5–6 条动态，每条都有点赞和 3 条以上评论（评论里人物互相回）；出场的 5–8 个人物每人都有身份、简介和好友名单，并且每人至少 2 条【旧动态】，让每个人的主页网格都不是空的。`,
+        format: `【主页】横幅上的一句话
+【人物】名字｜头像字（一个字）｜身份｜一句简介
+【好友】名字：好友名、好友名、好友名
+【动态】发布人｜时间｜地点（可空）
+正文
+配图：画面的文字描述（可选；程序会画一个配图框，把这句话放进去）
+赞：名字、名字
+评论 名字：内容
+评论 名字 回复 名字：内容
+【旧动态】格式同【动态】——不进首页信息流，只出现在发布人主页的网格里`,
+        moreFormat: `【人物】名字｜头像字｜身份｜一句简介　（只在有新人物时写）
+【动态】发布人｜时间｜地点（可空）
+正文
+配图：画面的文字描述（可选）
+赞：名字、名字
+评论 名字：内容
+评论 名字 回复 名字：内容`,
+        classes: '.thx-pic（配图框）.thx-pic-cap .thx-likes .thx-cmts .thx-cmt .thx-grid .thx-tile(.pic)（主页网格）.thx-input（留言框）.thx-acts',
+        lex: 'feedTitle=朋友圈　posts=动态　friends=好友　like=赞　liked=已赞　comment=评论　reply=回复　follow=关注　followed=已关注　send=发送　inputPh=说点什么…',
+        slot: 'feed（信息流横幅下的一块，整宽，最高 240px）',
+    },
+    diary: {
+        req: '「日记」：挑此刻心里最有戏的一位人物，翻开他/她的私密日记——只有自己会看的那种，今晚这一页，加上之前的几页。',
+        app: `App 里有：一本可以翻的日记（「上一页 / 下一页」按钮、左右滑动、「目录」里按月份的日期格直接跳到某一天）；每页有日期、天气、心情、正文、末尾签名；某一页可以夹着一样封存的东西（信、纸条、照片背面……），显示成带封口的信封，点开才看见里面写了什么。翻过最后一页，程序会另外请你写下一天。
+第一次就要给足：4–6 页，日期有先有后（可以隔几天、几周），最后一页是此刻这一晚；至少一页夹着【封存】。`,
+        format: `【日记主人】名字｜头像字（一个字）｜身份｜一句简介
+【一页】日期的写法｜月份（比如 三月）｜几号（数字 1–31）｜天气｜心情
+正文，一段一行
+【封存】封口上的字｜来自谁　（可选，夹在当前这一页里）
+封存的内容，可以多行
+【当前页】打开时停在哪一页（写那一页的日期写法；不写就是最后一页）`,
+        moreFormat: `【一页】日期的写法｜月份｜几号（数字 1–31）｜天气｜心情
+正文，一段一行
+【封存】封口上的字｜来自谁　（可选）
+封存的内容`,
+        classes: '.thx-diary .thx-diary-nav .thx-diary-date .thx-book .thx-page .thx-page-head .thx-page-date .thx-stamps .thx-stamp（天气 / 心情）.thx-page-body .thx-sign .thx-letter .thx-letter-env .thx-letter-seal .thx-letter-paper .thx-cal .thx-cal-m .thx-cal-grid .thx-day(.has/.cur)',
+        lex: 'diaryTitle=日记　index=目录　earlier=更早　later=之后　sign=——　letterHint=（点开）',
+        slot: 'diary（日记本右上角一条竖窄区，70×160，不接收点击）',
+    },
+    live: {
+        req: '「弹幕直播」：把此刻当成一场直播——画面里演出此刻的场面，观众的弹幕从画面上飞过（吐槽、起哄、猜测、刷礼物都行）。这个世界里的「直播」和「观众」是什么，按世界观来定。',
+        app: `App 里有：上半是直播画面（底部字幕区一拍一拍地演出画面里正在发生的事；弹幕从画面上飞过；在线人数、点赞飘心）→ 下面是主播信息和一直滚动的评论区；点任何一条弹幕或名字，弹出这位观众的卡片（等级、一句话特点、本场说过的所有话）。画面拍演完，程序会另外请你写接下来的几拍。
+第一次就要给足：5–7 拍画面，每拍 5–8 条弹幕；8–12 位观众，各有性格，会接彼此的话头、前后呼应。`,
+        format: `【直播间】直播标题｜主播名｜主播头像字（一个字）｜在线人数（数字）
+【观众】名字｜等级（数字）｜一句话特点
+【画面】这一拍画面里发生了什么（一两句，显示在字幕区）
+弹幕 名字：内容
+弹幕 名字：内容`,
+        moreFormat: `【观众】名字｜等级（数字）｜一句话特点　（只在有新观众时写）
+【画面】这一拍画面里发生了什么（一两句）
+弹幕 名字：内容`,
+        classes: '.thx-stage（画面）.thx-live-top .thx-live-badge .thx-live-n .thx-dmlayer .thx-dm（一条弹幕）.thx-caption（字幕区）.thx-heart .thx-live-info .thx-chat（评论区）.thx-chat-ln .thx-lv（等级）.thx-said',
+        lex: 'liveTitle=直播　liveBadge=LIVE　capLabel=画面　viewers=人在看　block=屏蔽　saidHere=在本场说过的话　follow=关注　followed=已关注',
+        slot: 'live（直播画面右上角的小块，宽不过画面一半多一点，高 26px）',
+    },
+};
+// FROZEN（场景措辞电池）：「更多」各方向的那一句请求。
+const THEATER_SCENE_MORE_REQUESTS = {
+    thread: (title) => (title ? `玩家在「${title}」里翻到了最后一楼。接着往下写 6–8 楼新回帖，楼号由程序排。` : '玩家翻到了热帖的最后一楼。接着往下写 6–8 楼新回帖。'),
+    board: '玩家把版面翻到了最底下。接着写 2–3 个新帖子，每帖带楼主正文和 4–6 楼回帖。',
+    feed: (time) => `玩家把信息流翻到了底（最底下一条的时间是「${time || '?'}」）。接着写 3 条更早的动态，时间都早于它；每条带点赞和评论。`,
+    diary: (label) => `玩家翻过了最后一页（${label || '?'}）。写下一页：这之后的一天。`,
+    live: '画面拍演完了。接着写 3 拍画面，每拍 5–8 条弹幕；老观众可以接着自己之前的话头，也可以来新观众。',
+    fallback: '玩家翻到了已有内容的尽头。接着写下一批，格式照这个场景原来的格式。',
+};
+// FROZEN（场景措辞电池）
+const THEATER_SCENE_MORE_COMMON = `你在为「小剧场」的一个已经打开的场景续写。玩家在 App 里翻到了已有内容的尽头，程序请你写接下来的一批。外观已经定好，不再写叫法、皮肤或装饰。
+
+这一批接着已有的往同一个方向走：同一批人、同样的口吻和梗，可以接前面的话头、回应前面的事；写的是新的东西，不是把已有的换个说法再说一遍。需要新人物时可以加，先用格式里的介绍行介绍。
+
+交回一段，段头单独一行，段头之外不写解释：
+=== 内容 ===`;
+// FROZEN（场景措辞电池）
+const THEATER_SCENE_FIRST_SYSTEM = (scene) => {
+    const s = THEATER_SCENE_SPECS[scene];
+    if (!s) return '';
+    return `${THEATER_SCENE_COMMON}
+
+—— 本次场景：${THEATER_SCENE_NAMES[scene]} ——
+${s.app}
+
+内容格式：
+${s.format}
+
+本场景类名：${s.classes}
+本场景叫法键：${s.lex}
+本场景插槽：${s.slot}`;
+};
+// FROZEN（场景措辞电池）
+const THEATER_SCENE_FIRST_USER = (scene, note) => {
+    const s = THEATER_SCENE_SPECS[scene];
+    const n = String(note == null ? '' : note).trim();
+    return `【小剧场请求】\n${s ? s.req : ''}${n ? `\n\n【玩家想看的】\n${n}` : ''}`;
+};
+// FROZEN（场景措辞电池；kind = 'board' 时用发帖的格式）
+const THEATER_SCENE_MORE_SYSTEM = (scene, kind) => {
+    const s = THEATER_SCENE_SPECS[scene];
+    if (!s) return '';
+    const fmt = (scene === 'forum' && kind === 'board') ? s.moreBoardFormat : s.moreFormat;
+    return `${THEATER_SCENE_MORE_COMMON}
+格式与这个场景原来的格式相同（一条记录以行首的【…】或记号开头，没有记号的行接在上一条后面；编号由程序算）：
+${fmt}`;
+};
+// FROZEN（场景措辞电池）
+const THEATER_SCENE_MORE_USER = (scene, ctxText) => `【场景】${THEATER_SCENE_NAMES[scene] || ''}\n\n${String(ctxText || '')}`;
+// 电池测试缝（theater plan 3 Task 7，惰性）：window.__soThrSceneArm 只有是【非 null 的对象】时才读——它可以给四个函数
+// firstSystem(scene) / firstUser(scene, note) / moreSystem(scene, kind) / moreUser(scene, ctxText)，返回字符串就用它；
+// 不是对象 / 没给 / 不是函数 / 抛错 / 返回的不是字符串 → 出厂提示词，一个字节都不变。产品代码从不写它。
+function soThrScenePrompt(part, a, b) {
+    const shipped = () => {
+        if (part === 'firstSystem') return THEATER_SCENE_FIRST_SYSTEM(a);
+        if (part === 'firstUser') return THEATER_SCENE_FIRST_USER(a, b);
+        if (part === 'moreSystem') return THEATER_SCENE_MORE_SYSTEM(a, b);
+        if (part === 'moreUser') return THEATER_SCENE_MORE_USER(a, b);
+        return '';
+    };
+    let arm = null;
+    try { arm = (typeof window !== 'undefined') ? window.__soThrSceneArm : null; } catch (e) { arm = null; }
+    if (arm === null || typeof arm !== 'object') return shipped();
+    let fn = null;
+    try { fn = arm[part]; } catch (e) { fn = null; }
+    if (typeof fn !== 'function') return shipped();
+    let v;
+    try { v = fn(a, b); } catch (e) { return shipped(); }
+    return typeof v === 'string' ? v : shipped();
+}
+
+
+/* —— 场景文档（Task 3）：一份自带一切的 <!DOCTYPE html>——SO 的 App 运行时 + 数据 + AI 皮肤 + AI 装饰 ——
+ * 运行时与底色皮从 scene-feel/app/{engine.js, app.css} 移植（骨架 / 导航 / 「更多」照旧；预取的假「更多」换成真的：
+ * window.parent.__soThrHost.more(sceneId, kind, target) → Promise<{content}>）。快照模式（plan 4 主聊天里的那一份）或没有宿主：
+ * 一切「更多」入口都藏起来，只在宿主在场时给一个「在小剧场中打开」。同一个构造器也给 plan 4 出快照。
+ * 运行时写成一个普通函数、按 .toString() 嵌进文档（在 iframe 里跑，绝不碰本文件里的任何变量）。 */
+// SO 的底色皮（AI 皮肤缺席 / 被换下时就是它）。只在 iframe 里生效，不受 style.css 的 token 规矩约束。
+const THEATER_APP_CSS = `.thx{--thx-bg:#15171c;--thx-bar:#1c1f26;--thx-ink:#e6e8ec;--thx-sub:#8d93a0;--thx-card:#1e222a;--thx-line:#2c313b;--thx-accent:#6d9cff;--thx-accent-ink:#fff;--thx-radius:10px;
+  --thx-font:system-ui,-apple-system,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  position:relative;height:100%;display:flex;flex-direction:column;background:var(--thx-bg);color:var(--thx-ink);font-family:var(--thx-font);font-size:14px;line-height:1.6;overflow:hidden}
+.thx-bar{flex:none;height:48px;display:flex;align-items:center;gap:6px;padding:0 8px;background:var(--thx-bar);border-bottom:1px solid var(--thx-line);position:relative;z-index:20}
+.thx-back{border:0;background:none;color:inherit;font-size:15px;min-width:36px;height:34px;padding:0 8px;border-radius:8px;cursor:pointer;visibility:hidden;white-space:nowrap}
+.thx-back.show{visibility:visible}
+.thx-title{flex:1;min-width:0;text-align:center;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.thx-bar-r{min-width:36px;display:flex;justify-content:flex-end}
+.thx-open{border:1px solid var(--thx-line);background:transparent;color:inherit;font:inherit;font-size:12px;min-height:30px;padding:2px 10px;border-radius:999px;cursor:pointer;white-space:nowrap}
+.thx-stack{position:relative;flex:1;overflow:hidden}
+.thx-screen{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;background:var(--thx-bg);transition:transform .34s cubic-bezier(.2,.8,.2,1),opacity .34s;overscroll-behavior:contain;padding-bottom:18px;-webkit-overflow-scrolling:touch}
+.thx-screen.enter{transform:translateX(100%)}
+.thx-screen.under{transform:translateX(-24%);opacity:.35;pointer-events:none}
+.thx-decor{display:none}
+.thx-tabs{display:flex;gap:4px;padding:8px 12px;position:sticky;top:0;z-index:6;background:var(--thx-bg);border-bottom:1px solid var(--thx-line)}
+.thx-tab{flex:1;border:0;background:none;color:var(--thx-sub);padding:6px 4px;border-radius:8px;cursor:pointer;font:inherit;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.thx-tab.on{color:var(--thx-ink);background:var(--thx-card);font-weight:700}
+.thx-card{background:var(--thx-card);border:1px solid var(--thx-line);border-radius:var(--thx-radius);margin:10px 12px;padding:12px 14px;position:relative}
+.thx-card.tap,.tap{cursor:pointer}
+.thx-row{display:flex;align-items:center;gap:8px;min-width:0}
+.sp{flex:1}
+.thx-avatar{width:40px;height:40px;flex:none;border-radius:50%;display:grid;place-items:center;background:var(--thx-accent);color:var(--thx-accent-ink);font-weight:700;font-size:17px;cursor:pointer;user-select:none;line-height:1}
+.thx-avatar.sm{width:26px;height:26px;font-size:12px}
+.thx-avatar.lg{width:78px;height:78px;font-size:32px;margin:0 auto}
+.thx-name{font-weight:700;cursor:pointer}
+.thx-meta{font-size:12px;color:var(--thx-sub)}
+.thx-text{white-space:pre-wrap;word-break:break-word;margin:6px 0}
+.thx-ttl{font-size:15.5px;font-weight:700;line-height:1.45}
+.thx-tags{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0}
+.thx-tag{font-size:11px;padding:0 8px;border:1px solid var(--thx-accent);color:var(--thx-accent);border-radius:999px}
+.thx-btn{border:1px solid var(--thx-line);background:transparent;color:var(--thx-ink);padding:4px 12px;border-radius:999px;font:inherit;font-size:12.5px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;min-height:28px}
+.thx-btn.on{background:var(--thx-accent);border-color:var(--thx-accent);color:var(--thx-accent-ink)}
+.thx-btn:disabled{opacity:.4;cursor:default}
+.thx-btn.gen{border-style:dashed}
+.thx-acts{display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap}
+.thx-quote{border-left:3px solid var(--thx-accent);background:rgba(127,127,127,.1);padding:5px 10px;font-size:12.5px;color:var(--thx-sub);border-radius:0 6px 6px 0;cursor:pointer;margin:8px 0 4px}
+.thx-floor-no{margin-left:auto;font-size:12px;color:var(--thx-sub);white-space:nowrap}
+.thx-badge{font-size:10.5px;padding:0 6px;border-radius:4px;background:var(--thx-accent);color:var(--thx-accent-ink);white-space:nowrap}
+.thx-flash{animation:thxflash 1.6s ease-out}
+@keyframes thxflash{0%{box-shadow:0 0 0 3px var(--thx-accent)}100%{box-shadow:0 0 0 0 transparent}}
+.thx-pic{position:relative;min-height:120px;display:flex;align-items:flex-end;padding:10px 12px;margin:8px 0;border-radius:8px;background:repeating-linear-gradient(135deg,rgba(127,127,127,.13) 0 10px,rgba(127,127,127,.06) 10px 20px);color:var(--thx-sub);font-size:12.5px;cursor:pointer;overflow:hidden}
+.thx-pic-cap{display:block}
+.thx-likes{font-size:12.5px;margin-top:6px;color:var(--thx-sub)}
+.thx-likes .thx-name{font-weight:600;color:var(--thx-ink)}
+.thx-cmts{margin-top:8px;padding:6px 10px;background:rgba(127,127,127,.08);border-radius:8px;font-size:13px}
+.thx-cmt{padding:2px 0;word-break:break-word}
+.thx-cmt .thx-name{font-weight:600}
+.thx-banner{position:relative;height:118px;background:linear-gradient(135deg,#2a3350,#1a1d26);display:flex;align-items:flex-end;padding:12px 14px;overflow:hidden}
+.thx-banner-t{font-size:19px;font-weight:800;line-height:1.3}
+.thx-banner-s{font-size:12px;color:var(--thx-sub);max-width:78%}
+.thx-prof{text-align:center;padding:0 18px 8px;margin-top:-40px;position:relative;z-index:2}
+.thx-prof .thx-name{font-size:18px;display:block;margin-top:6px}
+.thx-bio{font-size:13px;margin:6px auto;max-width:330px}
+.thx-stats{display:flex;justify-content:center;gap:26px;margin:10px 0}
+.thx-stat{text-align:center;font-size:12px;color:var(--thx-sub)}
+.thx-stat.tap:hover{color:var(--thx-ink)}
+.thx-stat b{display:block;font-size:17px;color:var(--thx-ink)}
+.thx-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;padding:6px 3px 0}
+.thx-tile{aspect-ratio:1;overflow:hidden;padding:8px;font-size:11.5px;line-height:1.45;background:var(--thx-card);cursor:pointer;position:relative;word-break:break-all}
+.thx-tile.pic{background:repeating-linear-gradient(135deg,rgba(127,127,127,.16) 0 8px,rgba(127,127,127,.07) 8px 16px)}
+.thx-tile small{position:absolute;left:8px;bottom:6px;color:var(--thx-sub);font-size:10px}
+.thx-list-item{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--thx-line);cursor:pointer}
+.thx-list-item .grow{flex:1;min-width:0}
+.thx-input{display:flex;gap:8px;padding:10px 12px;position:sticky;bottom:0;background:var(--thx-bg);border-top:1px solid var(--thx-line);z-index:4}
+.thx-input input{flex:1;min-width:0;background:var(--thx-card);border:1px solid var(--thx-line);color:var(--thx-ink);border-radius:999px;padding:7px 12px;font:inherit;font-size:16px}
+.thx-more{margin:12px 12px 18px;min-height:30px;text-align:center}
+.thx-hold{position:relative;overflow:hidden;width:100%;min-height:44px;justify-content:center;touch-action:pan-y;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+.thx-hold-fill{position:absolute;inset:0;transform-origin:left center;transform:scaleX(0);background:var(--thx-accent);opacity:.35;pointer-events:none}
+.thx-hold.holding .thx-hold-fill{transform:scaleX(1);transition:transform var(--thx-hold-ms,2s) linear}
+.thx-hold-t{position:relative}
+.thx-hold[aria-disabled=true]{opacity:.55;cursor:default}
+.thx-diary-nav .thx-hold,.thx-caption .thx-hold{width:auto;min-height:34px}
+.thx-more-note{font-size:12.5px;color:var(--thx-sub);display:flex;gap:8px;align-items:center;justify-content:center;flex-wrap:wrap;padding:6px 0}
+.thx-more-inline{margin:0;min-height:0;flex:1;min-width:0;text-align:left}
+.thx-more-inline .thx-more-note{justify-content:flex-start;padding:0}
+.thx-loading{padding:16px 14px;border-radius:var(--thx-radius);border:1px dashed var(--thx-line);text-align:left}
+.thx-loading-ico{display:block;margin:0 auto 8px;width:28px;height:28px;border-radius:50%;border:2px solid var(--thx-accent);border-right-color:transparent;animation:thxspin .9s linear infinite}
+.thx-loading-txt{display:block;text-align:center;font-size:13px;color:var(--thx-sub);min-height:1.6em;transition:opacity .22s}
+.thx-loading-bar{height:3px;background:var(--thx-line);border-radius:3px;overflow:hidden;margin:10px auto 2px;max-width:180px}
+.thx-loading-bar i{display:block;height:100%;width:30%;background:var(--thx-accent);animation:thxbar 1.3s ease-in-out infinite}
+.thx-skel{height:58px;margin-top:10px;border-radius:var(--thx-radius);background:linear-gradient(90deg,rgba(127,127,127,.07) 25%,rgba(127,127,127,.17) 50%,rgba(127,127,127,.07) 75%);background-size:300% 100%;animation:thxshim 1.4s linear infinite}
+.thx-skel.s2{height:38px;width:78%}
+.thx-end{text-align:center;font-size:12px;color:var(--thx-sub);padding:10px}
+.thx-new{animation:thxnew .6s cubic-bezier(.2,.9,.25,1) both;animation-delay:var(--d,0s)}
+@keyframes thxnew{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@keyframes thxspin{to{transform:rotate(360deg)}}
+@keyframes thxbar{0%{transform:translateX(-110%)}100%{transform:translateX(360%)}}
+@keyframes thxshim{from{background-position:100% 0}to{background-position:-200% 0}}
+.diary-screen{overflow:hidden !important;padding:0 !important}
+.thx-diary{display:flex;flex-direction:column;height:100%;padding:10px 12px}
+.thx-diary-nav{display:flex;align-items:center;gap:6px;margin-bottom:8px}
+.thx-diary-date{flex:1;min-width:0;text-align:center;font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.thx-book{position:relative;perspective:1600px;flex:1;min-height:300px;touch-action:pan-y}
+.thx-page{position:absolute;inset:0;background:var(--thx-card);border:1px solid var(--thx-line);border-radius:6px;padding:16px 18px;overflow:auto;transform-origin:left center;box-shadow:0 10px 24px -14px rgba(0,0,0,.7)}
+.thx-page.turn-away{animation:turnAway .55s cubic-bezier(.5,0,.6,1) forwards;z-index:3}
+.thx-page.turn-back{animation:turnBack .55s cubic-bezier(.3,0,.4,1) both;z-index:3}
+@keyframes turnAway{to{transform:rotateY(-105deg);opacity:.15}}
+@keyframes turnBack{from{transform:rotateY(-105deg);opacity:.15}to{transform:none;opacity:1}}
+.thx-page-head{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-bottom:8px}
+.thx-page-date{font-weight:800;font-size:16px;margin-right:auto}
+.thx-stamps{display:flex;gap:6px}
+.thx-stamp{font-size:11.5px;padding:0 8px;border:1px solid var(--thx-line);border-radius:999px;color:var(--thx-sub)}
+.thx-page-body p{margin:0 0 10px;line-height:1.85}
+.thx-sign{text-align:right;color:var(--thx-sub);margin-top:6px;font-size:13px}
+.thx-letter{margin:12px auto 6px;max-width:300px;cursor:pointer;perspective:900px}
+.thx-letter-env{padding:14px;border:1px solid var(--thx-line);border-radius:6px;background:rgba(127,127,127,.1);text-align:center;font-size:12.5px}
+.thx-letter-seal{display:grid;place-items:center;width:46px;height:46px;border-radius:50%;background:var(--thx-accent);color:var(--thx-accent-ink);font-weight:700;margin:0 auto 6px;font-size:12px}
+.thx-letter-paper{display:none;transform-origin:top;padding:14px;border:1px solid var(--thx-line);background:var(--thx-card);white-space:pre-wrap;font-size:13.5px;line-height:1.8}
+.thx-letter.open .thx-letter-env{display:none}
+.thx-letter.open .thx-letter-paper{display:block;animation:unfold .8s cubic-bezier(.2,.9,.25,1)}
+@keyframes unfold{0%{transform:rotateX(-88deg) scaleY(.4);opacity:0}60%{transform:rotateX(8deg);opacity:1}100%{transform:none}}
+.thx-cal{margin:10px 12px 4px}
+.thx-cal-m{font-weight:800;margin:8px 0 6px}
+.thx-cal-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
+.thx-day{aspect-ratio:1.2;display:grid;place-items:center;font-size:12px;border-radius:6px;color:var(--thx-sub);background:rgba(127,127,127,.06)}
+.thx-day.has{background:var(--thx-accent);color:var(--thx-accent-ink);cursor:pointer;font-weight:700}
+.thx-day.cur{outline:2px solid var(--thx-ink);outline-offset:1px}
+.live-screen{overflow:hidden !important;padding:0 !important}
+.thx-live{display:flex;flex-direction:column;height:100%}
+.thx-stage{position:relative;flex:none;height:228px;overflow:hidden;background:linear-gradient(#262c40,#0f1119)}
+.thx-live-top{position:absolute;top:8px;left:8px;right:8px;display:flex;gap:6px;z-index:6;font-size:11px;align-items:center}
+.thx-live-badge{background:#ff2d55;color:#fff;font-weight:800;padding:0 7px;border-radius:4px;letter-spacing:1px}
+.thx-live-n{background:rgba(0,0,0,.5);color:#fff;padding:0 8px;border-radius:10px}
+.thx-dmlayer{position:absolute;left:0;right:0;top:32px;height:118px;z-index:5;overflow:hidden}
+.thx-dm{position:absolute;left:0;top:0;white-space:nowrap;font-weight:700;color:#fff;text-shadow:0 1px 2px #000,0 0 2px #000;cursor:pointer;font-size:14px;padding:1px 3px;will-change:transform}
+.thx-caption{position:absolute;left:10px;right:58px;bottom:10px;z-index:6;background:rgba(0,0,0,.62);color:#fff;font-size:12.5px;padding:6px 10px;border-radius:6px;min-height:44px;line-height:1.5}
+.thx-caption small{display:block;font-size:10.5px;opacity:.75}
+.thx-heart{position:absolute;right:10px;bottom:10px;z-index:7;width:40px;height:40px;border-radius:50%;border:0;background:rgba(0,0,0,.5);color:#ff5a7a;font-size:18px;cursor:pointer}
+.thx-fly{position:absolute;right:18px;bottom:44px;z-index:7;pointer-events:none;font-size:18px}
+.thx-live-info{display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid var(--thx-line)}
+.thx-chat{flex:1;overflow-y:auto;padding:6px 12px 10px;font-size:13px}
+.thx-chat-ln{padding:2px 0;animation:thxnew .3s both;word-break:break-word}
+.thx-chat-ln .thx-name{font-weight:600;margin-right:2px}
+.thx-chat-ln.sys{color:var(--thx-sub);font-size:12px}
+.thx-lv{font-size:9.5px;padding:0 4px;border-radius:3px;background:var(--thx-accent);color:var(--thx-accent-ink);margin-right:4px;vertical-align:1px}
+.thx-sheet-back{position:absolute;inset:0;background:rgba(0,0,0,.45);z-index:40;animation:thxfade .2s both}
+.thx-sheet{position:absolute;left:0;right:0;bottom:0;max-height:78%;overflow:auto;z-index:41;background:var(--thx-card);border-top:1px solid var(--thx-line);border-radius:16px 16px 0 0;padding:10px 16px 18px;animation:thxsheet .3s cubic-bezier(.2,.9,.25,1) both}
+.thx-sheet-grip{width:40px;height:4px;border-radius:4px;background:var(--thx-line);margin:0 auto 10px}
+.thx-said{margin:8px 0;padding:6px 10px;border-left:2px solid var(--thx-accent);font-size:13px}
+@keyframes thxfade{from{opacity:0}}
+@keyframes thxsheet{from{transform:translateY(100%)}}
+.thx-x{position:relative;contain:layout style}
+.thx-x:empty{display:none}
+.thx-x-top{flex:none;z-index:15;max-height:34px;font-size:12px}
+.thx-x-ambient{position:absolute;inset:0;z-index:10;pointer-events:none;overflow:hidden;contain:strict}
+.thx-x-in{margin:10px 12px;max-height:240px;overflow:hidden;padding-bottom:6px}
+.thx-x-book{position:absolute;right:0;top:0;width:70px;height:160px;z-index:6;pointer-events:none}
+.thx-x-stage{position:absolute;right:8px;top:6px;z-index:7;max-width:58%;max-height:26px}
+.thx-x details>summary{cursor:pointer;list-style:none}
+.thx-x details>summary::-webkit-details-marker{display:none}
+.thx-x [data-x=cycle]>*{display:none}
+.thx-x [data-x=cycle]>.x-on{display:inline}
+.thx-fallback{border:1px dashed #d08a2e !important}
+.thx-raw{white-space:pre-wrap;word-break:break-word;font:12px/1.6 ui-monospace,Consolas,"Microsoft YaHei",monospace;max-height:420px;overflow:auto;margin:8px 0 0;padding:8px;background:rgba(127,127,127,.1);border-radius:6px;color:inherit}`;
+// 底色皮整张（文档的 <style data-so-base>；主聊天快照经 __soThrHost.runtime().css 拿同一张）。
+const THEATER_APP_BASE_CSS = 'html,body{margin:0;height:100%;background:#15171c}*{box-sizing:border-box}button{font:inherit;color:inherit}body{-webkit-text-size-adjust:100%}\n' + THEATER_APP_CSS;
+/* 主聊天快照的高度（2026-11-07 实玩 Finding 1：框卡在浏览器默认的 150 px，只看得见标题行）。
+ * 酒馆助手怎么定框高（JS-Slash-Runner 4.9.5 src/iframe/adjust_iframe_height.js）：框里一枚 ResizeObserver 盯着 body，每次变化把
+ * frameElement.style.height 设成 body.scrollHeight；它还把 html / body 锁成 overflow:hidden!important，并在 html 上写
+ * --TH-viewport-height = 酒馆【页面】的 innerHeight（adjust_viewport.js；页面一缩放就重写）。App 自己是 html,body,.thx{height:100%}
+ * ——高度取自框、框又取自内容 = 定在 150 px 的不动点。所以快照里：文档高度由内容定（auto），App 定成一个固定高度。
+ * 不用 vh：框里的 100vh 就是框本身（同一个不动点）。取「页面高的 80%」夹在 420–600 px：日记那本书要 ≥ 300 px + 顶栏 48 + 日期行，
+ * 直播的画面 228 px + 弹幕区要 ≈ 480 px，论坛首页 600 px 看得见 4–5 帖；600 封顶 = 1080p 屏上还留着三分之一给上面的正文，
+ * 不会一个快照吞掉整屏聊天。素颜文字版（SO 没在跑）按内容长、到同一个上限为止、超出在框里滚。 */
+const THEATER_SNAPSHOT_HEIGHT = 'clamp(420px,calc(var(--TH-viewport-height,800px) * .8),600px)';
+/* 皮肤之后的锁 · 看得清（2026-11-07 修：forum.W1.ds 的皮肤把 --thx-ink 设成和顶栏同一个 #2b2f24，「在小剧场中打开」继承了它 →
+ * rgb(43,47,36) 的字压在同色的顶栏上，几乎看不见；贴图检查只量大小与点得到，量不到对比度）。SO 自己的几颗核心控件钉成 SO 的中性药丸：
+ * 浅字 + 深色半透明底 + 细边——叠在纯白上也有 ≈ 9:1、叠在纯黑上更高（单测按白 / 黑 / 两张实战皮的底色逐一算过 ≥ 4.5）。
+ * 选择器带 #thx（id 权重）：AI 皮肤就算也写 !important，只要不用 id 就压不过它。只钉「看得清」：颜色 / 底 / 透明度 / 可见 / 滤镜 / 混合；
+ * 位置、圆角、字距、装饰插槽仍归 AI。「在小剧场中打开」另钉边框与字号（它是快照里唯一的出口）。快照的数据 / 宿主 API 都不变——锁由
+ * runtime() 在打开时现发，聊天里已有的快照也吃得到。 */
+const THEATER_GUARD_PILL = 'color:#f4f5f7!important;-webkit-text-fill-color:#f4f5f7!important;background:rgba(17,19,24,.84)!important;'
+    + 'opacity:1!important;filter:none!important;mix-blend-mode:normal!important;text-shadow:none!important';
+const THEATER_GUARD_PILL_KIDS = '{color:inherit!important;-webkit-text-fill-color:inherit!important;background:transparent!important;opacity:1!important;'
+    + 'visibility:inherit!important;filter:none!important;mix-blend-mode:normal!important}';
+const THEATER_APP_GUARD_INK_CSS = '#thx .thx-bar{filter:none!important;mix-blend-mode:normal!important}'
+    + '#thx .thx-bar .thx-open{' + THEATER_GUARD_PILL + ';border:1px solid rgba(255,255,255,.32)!important;font-size:12px!important;visibility:visible!important}'
+    + '#thx .thx-bar .thx-back{' + THEATER_GUARD_PILL + ';border:1px solid rgba(255,255,255,.22)!important}'
+    + '#thx .thx-bar .thx-back.show{visibility:visible!important}'
+    + '#thx .thx-more .thx-btn,#thx [data-so-live-more]{' + THEATER_GUARD_PILL + ';border:1px dashed rgba(255,255,255,.36)!important;visibility:visible!important}'
+    + '#thx .thx-bar .thx-title{color:#f4f5f7!important;-webkit-text-fill-color:#f4f5f7!important;opacity:1!important;visibility:visible!important;filter:none!important;mix-blend-mode:normal!important}'
+    + '#thx .thx-bar .thx-title>*{' + THEATER_GUARD_PILL + ';padding:1px 10px!important;border-radius:999px!important;-webkit-box-decoration-break:clone;box-decoration-break:clone}'
+    + '#thx .thx-bar .thx-open *,#thx .thx-bar .thx-back *,#thx .thx-more .thx-btn *,#thx [data-so-live-more] *,#thx .thx-bar .thx-title>* *' + THEATER_GUARD_PILL_KIDS
+    // 2026-11-07 按住加载：控件本身钉成 SO 药丸（日记「之后」那颗也在内）；子元素同上；填充条要在子元素那条（background:transparent）【之后】再钉回来，
+    // 否则按住时什么都看不见。没写成的那一句也钉成看得清。
+    + '#thx [data-so-hold]{' + THEATER_GUARD_PILL + ';border:1px dashed rgba(255,255,255,.36)!important;visibility:visible!important}'
+    + '#thx [data-so-hold] *' + THEATER_GUARD_PILL_KIDS
+    + '#thx [data-so-hold] .thx-hold-fill{background:rgba(244,245,247,.30)!important;opacity:1!important;display:block!important;visibility:visible!important;filter:none!important;mix-blend-mode:normal!important;pointer-events:none!important}'
+    + '#thx [data-so-hold].holding .thx-hold-fill{transition:transform var(--thx-hold-ms,2s) linear!important}'
+    + '#thx .thx-more-note>span{' + THEATER_GUARD_PILL + ';padding:2px 10px!important;border-radius:999px!important}';
+// 皮肤之后的锁（布局：顶栏 / 返回键 / 插槽容器 / SO 控件的最小尺寸与可点；看得清：上面那张 THEATER_APP_GUARD_INK_CSS）。
+const THEATER_APP_GUARD_CSS ='.thx-bar{display:flex!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;position:relative!important;z-index:20!important;min-height:40px!important}'
+    + '.thx-back.show{visibility:visible!important;opacity:1!important;pointer-events:auto!important;min-width:36px!important;min-height:30px!important}'
+    + '.thx-stack{visibility:visible!important}'
+    + '.thx-tab,[data-so-ctl]{pointer-events:auto!important;min-width:24px!important;min-height:24px!important}'
+    + '.thx-x-ambient{position:absolute!important;inset:0!important;pointer-events:none!important}'
+    + '.thx-x-book{pointer-events:none!important}'
+    + '.thx-x-top{max-height:34px!important;overflow:hidden!important}'
+    + '.thx-x-in{max-height:240px!important;overflow:hidden!important}'
+    + '.thx-x-stage{max-height:26px!important;overflow:hidden!important}'
+    + '[data-so-hold]{min-height:44px!important;touch-action:pan-y!important;-webkit-user-select:none!important;user-select:none!important;-webkit-touch-callout:none!important;pointer-events:auto!important}'
+    + '.thx-diary-nav [data-so-hold],.thx-caption [data-so-hold]{min-height:34px!important}'
+    + 'html.thx-snap,html.thx-snap body{height:auto!important;min-height:0!important}'
+    + 'html.thx-snap .thx{height:' + THEATER_SNAPSHOT_HEIGHT + '!important}'
+    + THEATER_APP_GUARD_INK_CSS;
+const THEATER_APP_SHELL = '<div class="thx" id="thx"><div class="thx-bar"><button class="thx-back" id="thx-back" type="button" aria-label="返回"></button><span class="thx-decor" data-slot="bar-l"></span><div class="thx-title" id="thx-title"></div><span class="thx-decor" data-slot="bar-r"></span><span class="thx-bar-r" id="thx-bar-r"></span></div><div class="thx-x thx-x-top" id="thx-x-top"></div><div class="thx-stack" id="thx-stack"><div class="thx-x thx-x-ambient" id="thx-x-ambient"></div></div></div>';
+// DRAFT 文案（待 Prince 选）：App 运行时里 SO 自己说的几句话（数据里带进去，运行时不写死中文）。
+const THEATER_APP_TEXT = {
+    // 2026-11-07「更多」按住加载（DRAFT）：
+    holdMore: '按住加载更多', holdDiary: '按住写下一页', holdLive: '按住继续直播', holdHint: '要按住约 2 秒', holdAria: '按住约 2 秒，加载更多',
+    writing: '正在写…', writingElse: '另一处正在写，写完再来', moreBad: '这次没写好，没有加进去', retry: '再试一次', moreWait: '稍等：',
+    moreReset: '较早的内容整理过了，已回到首页',
+    open: '在小剧场中打开', moreFail: '⚠ 这次「更多」没写成：', moreUnparsed: '⚠ 这次「更多」没能按格式解析——下面是原文（纯文字，没丢）',
+    rawTitle: '原文（纯文字）', rawNote: '⚠ 内容没能按格式解析，下面是模型的原文（纯文字，什么都没丢）', none: '（还没有）', quiet: '（还没说话）',
+    hint: '点任何一条弹幕或名字 → 看这个人本场说过的所有话', swipe: '左右滑动翻页', cont: '继续直播', live_end: '（这一段播完了）',
+};
+
+// 运行时（在 iframe 里跑；只读 window.__SO_THR__ 与 DOM；与本文件的任何变量都无关）。
+function soThrAppRuntime() {
+    'use strict';
+    const D = window.__SO_THR__ || {};
+    const T = D.text || {};
+    let W = D.content || {};
+    // flight = 在路上的那一次「更多」{ at, token }（整份文档一个；复审 2026-11-07 单趟）；notes[at] = 那个目标上一次没写成的那一句（只留一句，替换不叠）；
+    // wait = 引擎此刻开不了跑的那一句（3 秒后自己消失）；seen = 已经落过地的 token（SO 的推送与这边的 promise 各到一次，只认第一次）。
+    const S = { liked: {}, cmts: {}, follows: {}, blocked: {}, dKey: null, flight: null, notes: {}, wait: null, seen: new Set() };
+    const $ = (s, r) => (r || document).querySelector(s);
+    // 主聊天快照（酒馆助手的框）：给文档挂 thx-snap——锁里那条尺寸规则只认它（框按 body.scrollHeight 定高，见 THEATER_SNAPSHOT_HEIGHT）。
+    if (D.snapshot) { try { document.documentElement.classList.add('thx-snap'); } catch (e) { /* ignore */ } }
+    const thxRoot = $('#thx');
+    const stackEl = $('#thx-stack');
+    const backBtn = $('#thx-back');
+    const titleEl = $('#thx-title');
+    const barR = $('#thx-bar-r');
+    let STACK = [];
+    const raf = (f) => (typeof requestAnimationFrame === 'function' ? requestAnimationFrame(f) : setTimeout(f, 16));
+    const host = () => { try { const p = window.parent; return (p && p !== window && p.__soThrHost) ? p.__soThrHost : null; } catch (e) { return null; } };
+    const CAN_MORE = !D.snapshot && !!(host() && typeof host().more === 'function');
+    const notify = () => { try { const p = window.parent; if (p && p !== window) p.postMessage({ type: 'so-thr-screen', sceneId: D.sceneId }, '*'); } catch (e) { /* ignore */ } };
+    function lex(k) { const a = D.lex || {}; return a[k] !== undefined ? a[k] : (D.lexDefault || {})[k]; }
+    function lexF(k, n) { return String(lex(k)).replace('{n}', n); }
+    function h(tag, a, ...kids) {
+        const e = document.createElement(tag);
+        if (a) for (const k in a) {
+            const v = a[k];
+            if (v == null || v === false) continue;
+            if (k === 'class') e.className = v;
+            else if (k === 'who') e.dataset.who = v;
+            else if (k === 'style') e.style.cssText = v;
+            else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+            else e.setAttribute(k, v === true ? '' : v);
+        }
+        for (const c of kids.flat(Infinity)) { if (c == null || c === false) continue; e.append(c instanceof Node ? c : document.createTextNode(String(c))); }
+        return e;
+    }
+    const lx = (k, n) => h('span', { who: 'lex' }, n == null ? lex(k) : lexF(k, n));
+    const ai = (t) => h('span', { who: 'ai' }, t);
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    function hash(s) { let x = 2166136261; for (const ch of String(s)) { x ^= ch.codePointAt(0); x = Math.imul(x, 16777619); } return x >>> 0; }
+    function fmtN(n) { n = Number(n) || 0; return n >= 10000 ? (n / 10000).toFixed(1) + '万' : n >= 1000 ? (n / 1000).toFixed(1) + 'k' : String(n); }
+    const P = (id) => (W.people && W.people[id]) || { id, name: '？', glyph: '？', title: '', bio: '' };
+    function personOf(id) { return id === 'me' ? { id: 'me', name: (W.me && W.me.name) || '你', glyph: (W.me && W.me.glyph) || '你' } : P(id); }
+    /* —— 数据 —— */
+    const threads = () => (W.forum && W.forum.threads) || [];
+    const threadById = (id) => threads().find((t) => t.id === id);
+    function floors(t) { const out = [{ n: 1, u: t.author, text: t.op }]; (t.floors || []).forEach((f, i) => out.push({ n: i + 2, u: f.u, text: f.text, q: f.q })); return out; }
+    const feedPosts = () => (W.feed && W.feed.posts) || [];
+    const postById = (id) => feedPosts().concat((W.feed && W.feed.extra) || []).find((p) => p.id === id);
+    const profilePosts = (pid) => feedPosts().filter((p) => p.a === pid).concat(((W.feed && W.feed.extra) || []).filter((p) => p.a === pid));
+    const entries = () => (W.diary && W.diary.entries) || [];
+    const liveBeats = () => (W.live && W.live.beats) || [];
+    const livePool = () => (W.live && W.live.pool) || [];
+    const allCmts = (post) => (post.c || []).concat(S.cmts[post.id] || []);
+    /* —— 「更多」（2026-11-07 Prince 实玩修）：只能【按住】约 2 秒触发（holdCtl；滚到底绝不自己叫）；整份文档同一时刻只有一次（S.flight），
+     * 别处的按钮显示「另一处正在写」、按了也没反应；结果按目标（at）落到数据上（W），只在【那个目标的那一屏】画出来——玩家这会儿在别处，
+     * 就等他回去时再画（_stale → 回到那一屏时重画）；没写好的一批只在那一处留一句 + 「再试一次」，内容一个字不动。 —— */
+    const HOLD_MS = (typeof window.__thxHoldMs === 'number' && window.__thxHoldMs > 0) ? window.__thxHoldMs : 2000;   // 测试缝；产品代码从不写
+    if (thxRoot) thxRoot.style.setProperty('--thx-hold-ms', HOLD_MS + 'ms');
+    const LIVE_STEP_MS = (typeof window.__thxLiveStepMs === 'number' && window.__thxLiveStepMs > 0) ? window.__thxLiveStepMs : 8000;   // 直播一拍多久（测试缝；产品代码从不写）
+    const atOf = (kind, target) => (kind === 'thread' ? 'thread:' + target : String(kind || ''));
+    if (CAN_MORE) { try { const f = typeof host().flight === 'function' ? host().flight(D.sceneId) : null; if (f && f.at) S.flight = { at: String(f.at), token: f.token == null ? null : f.token }; } catch (e) { /* ignore */ } }
+    function syncAll() { STACK.forEach(({ el }) => { if (el._syncHold) { try { el._syncHold(); } catch (e) { /* ignore */ } } }); }
+    // 一次「更多」的结局落地（SO 的推送 window.__soThrLanded 与这边 promise 的回答都走这里；token 去重）。
+    function landed(p) {
+        if (!p || typeof p !== 'object') return;
+        const dup = p.token != null && S.seen.has(p.token);
+        // 自己那一次的回答（mine）一定放开在写状态——就算 SO 改了目标（帖子编号对不上 → 最热帖）、推送已经先落过地。
+        if (p.mine && S.flight && dup) { S.flight = null; syncAll(); return; }
+        if (dup) return;
+        if (p.token != null) S.seen.add(p.token);
+        const at = String(p.at || '');
+        if (S.flight && (p.mine || S.flight.at === at || (p.token != null && S.flight.token === p.token))) S.flight = null;
+        if (p.content) W = p.content;
+        if (p.reset) {   // SO 封顶丢了旧批次：这边数过的条数对不上了 → 就地回到首屏
+            S.notes = {};
+            const root = ROOT[D.scene];
+            if (root) { S.notes[ROOT_AT[D.scene]] = { why: T.moreReset || '', info: true }; resetTo([root]); }
+            notify();
+            return;
+        }
+        const why = p.failed || p.error;
+        if (why) S.notes[at] = { why: String(why) }; else delete S.notes[at];
+        const top = STACK[STACK.length - 1];
+        STACK.forEach(({ el }) => {
+            if (!why && el._at === at) { if (top && el === top.el && el._land) el._land(); else el._stale = true; }
+        });
+        syncAll();
+        notify();
+    }
+    window.__soThrLanded = (p) => { try { landed(p); } catch (e) { /* ignore */ } };
+    function askMore(kind, target) {
+        const hst = host();
+        if (!CAN_MORE || !hst || S.flight) return Promise.resolve(null);
+        const at = atOf(kind, target);
+        S.flight = { at, token: null };
+        delete S.notes[at];
+        S.wait = null;
+        syncAll();
+        let p;
+        try { p = Promise.resolve(hst.more(D.sceneId, kind, target)); } catch (e) { p = Promise.reject(e); }
+        return p.then((r) => {
+            r = (r && typeof r === 'object') ? r : {};
+            if (r.busy) {   // SO 那边已经有一次在路上（别的文档发的）：照它的目标显示「正在写」，落地靠推送
+                S.flight = { at: String(r.at || at), token: r.token == null ? null : r.token };
+                syncAll();
+                return r;
+            }
+            if (r.wait) {   // 引擎此刻开不了跑：安静地说一句，3 秒后回到可按
+                S.flight = null;
+                const w = S.wait = { at, why: String(r.wait) };
+                syncAll();
+                setTimeout(() => { if (S.wait === w) { S.wait = null; syncAll(); } }, 3000);
+                return r;
+            }
+            landed(Object.assign({ at }, r, { mine: true }));
+            return r;
+        }).catch((e) => { landed({ at, failed: String((e && e.message) || e), mine: true }); return null; });
+    }
+    window.__soThrMore = askMore;
+    // 按住加载（SO 自己的控件，data-so-ctl 进贴图检查；data-so-hold 有自己的看得清锁）。o = { label, fire(), attrs? }。
+    // 指针：按下开始计时、填充条走满 HOLD_MS 才触发；提前松开 / 浏览器接管去滚动（pointercancel）/ 移动超过 12 px / 失焦 / 页面切走 = 作废。
+    // 键盘：Enter / 空格按住同理（自动连发不重启）。点一下（click）永远不触发；短按给一句提示。
+    function holdCtl(o) {
+        const txt = h('span', { class: 'thx-hold-t' }, o.label);
+        const b = h('button', Object.assign({ class: 'thx-btn gen thx-hold', who: 'so', type: 'button', 'data-so-ctl': true, 'data-so-hold': true, 'aria-label': T.holdAria || '' }, o.attrs || {}),
+            h('span', { class: 'thx-hold-fill', 'aria-hidden': 'true' }), txt);
+        let timer = null;
+        let armed = false;
+        let t0 = 0;
+        let sx = 0;
+        let sy = 0;
+        let hintT = null;
+        const stop = () => { if (timer) clearTimeout(timer); timer = null; armed = false; b.classList.remove('holding'); };
+        const blocked = () => !CAN_MORE || !!S.flight || b.getAttribute('aria-disabled') === 'true';
+        let cur = o.label;
+        const hint = () => { if (!T.holdHint) return; txt.textContent = T.holdHint; clearTimeout(hintT); hintT = setTimeout(() => { if (b.isConnected) txt.textContent = cur; }, 1500); };
+        const start = () => {
+            if (armed || blocked()) return false;
+            armed = true; t0 = Date.now();
+            void b.offsetWidth;
+            b.classList.add('holding');
+            timer = setTimeout(() => { timer = null; armed = false; b.classList.remove('holding'); if (!blocked() && b.isConnected) o.fire(); }, HOLD_MS);
+            return true;
+        };
+        const release = () => { if (!armed) return; const quick = Date.now() - t0 < 300; stop(); if (quick) hint(); };
+        const isKey = (e) => e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar';
+        b.addEventListener('pointerdown', (e) => {
+            if (e.button != null && e.button !== 0) return;
+            sx = e.clientX || 0; sy = e.clientY || 0;
+            if (start() && e.pointerId != null && typeof b.setPointerCapture === 'function') { try { b.setPointerCapture(e.pointerId); } catch (er) { /* ignore */ } }
+        });
+        b.addEventListener('pointerup', release);
+        b.addEventListener('pointercancel', stop);
+        b.addEventListener('lostpointercapture', () => { if (armed) stop(); });
+        b.addEventListener('pointermove', (e) => { if (armed && (Math.abs((e.clientX || 0) - sx) > 12 || Math.abs((e.clientY || 0) - sy) > 12)) stop(); });
+        b.addEventListener('contextmenu', (e) => e.preventDefault());
+        b.addEventListener('keydown', (e) => { if (!isKey(e)) return; e.preventDefault(); if (e.repeat) return; start(); });
+        b.addEventListener('keyup', (e) => { if (!isKey(e)) return; e.preventDefault(); release(); });
+        b.addEventListener('blur', stop);
+        b.addEventListener('click', (e) => { e.preventDefault(); });
+        b._stop = stop;
+        b._label = (t) => { cur = t; txt.textContent = t; };
+        return b;
+    }
+    if (CAN_MORE) document.addEventListener('visibilitychange', () => { thxRoot.querySelectorAll('[data-so-hold]').forEach((x) => { if (x._stop) x._stop(); }); });
+    // 没写成的那一句 + 「再试一次」（普通按钮：那是玩家明确的选择）。info = 只是一句说明，不带按钮。
+    function noteEl(n, retry) {
+        return h('div', { class: 'thx-more-note', who: 'so' }, h('span', {}, n.why),
+            n.info ? null : h('button', { class: 'thx-btn', type: 'button', 'data-so-ctl': true, 'data-so-retry': true, onclick: () => retry() }, T.retry || ''));
+    }
+    // 这一处的按住控件此刻该是什么样：别处在写 → 灰掉 + 「另一处正在写」；引擎忙 → 那一句原因。
+    function holdState(b, at, label) {
+        const w = S.wait && S.wait.at === at ? S.wait : null;
+        if (S.flight) { b.setAttribute('aria-disabled', 'true'); b._label(T.writingElse || ''); }
+        else { b.removeAttribute('aria-disabled'); b._label(w ? (T.moreWait || '') + w.why : label); }
+    }
+    /* —— AI 装饰：原样放进插槽；<script> 会执行（外链照原样，内联的包一层、注入 slot / app 两个变量）—— */
+    function mountX(el, html) {
+        el.innerHTML = html;
+        el.querySelectorAll('script').forEach((old) => {
+            const sc = document.createElement('script');
+            for (const a of old.attributes) { if (a.name !== 'src') sc.setAttribute(a.name, a.value); }
+            if (old.src) sc.src = old.src;
+            else if ((old.type || '').toLowerCase() === 'module') sc.textContent = old.textContent;
+            else {
+                const code = '(function(slot,app){\n' + old.textContent + '\n}).call(window,(document.currentScript&&(document.currentScript.closest(".thx-x")||document.currentScript.parentElement))||null,document.getElementById("thx"));';
+                try { sc.src = URL.createObjectURL(new Blob([code], { type: 'text/javascript' })); } catch (e) { sc.textContent = code; }
+            }
+            sc.async = false;
+            old.replaceWith(sc);
+        });
+    }
+    function extraSlot(name, cls) { const d = h('div', { class: 'thx-x ' + cls, who: 'extra', 'data-x-slot': name }); const src = (D.extras || {})[name]; if (src) { try { mountX(d, src); } catch (e) { /* AI 写坏了只坏自己 */ } } return d; }
+    function mountExtras() { ['top', 'ambient'].forEach((k) => { const el = $('#thx-x-' + k); if (!el) return; el.innerHTML = ''; const src = (D.extras || {})[k]; if (src) { try { mountX(el, src); } catch (e) { /* ignore */ } } }); }
+    /* —— 路由：一叠屏幕，进 = 从右滑入，退 = 滑回 —— */
+    function push(route, o) {
+        const el = h('div', { class: 'thx-screen', who: 'so' });
+        el._route = route;
+        VIEWS[route.v].render(el, route);
+        const prev = STACK[STACK.length - 1];
+        STACK.push({ route, el });
+        stackEl.append(el);
+        if (prev) {
+            if (o && o.instant) prev.el.classList.add('under');
+            else { el.classList.add('enter'); el.getBoundingClientRect(); raf(() => { el.classList.remove('enter'); prev.el.classList.add('under'); }); }
+        }
+        updateBar();
+        return el;
+    }
+    // 一屏拆掉 / 重画前：停它的计时器，忘掉它的「更多」目标（重画时按新数据重新登记）。
+    function cleanupScreen(el) { (el._ios || []).forEach((io) => io.disconnect()); el._ios = []; if (el._cleanup) el._cleanup(); el._cleanup = null; el._at = null; el._land = null; el._syncHold = null; el._stale = false; }
+    function closeSheets() { thxRoot.querySelectorAll('.thx-sheet,.thx-sheet-back').forEach((e) => e.remove()); }
+    function back() {
+        if (STACK.length < 2) return;
+        closeSheets();
+        const top = STACK.pop();
+        const prev = STACK[STACK.length - 1];
+        prev.el.classList.remove('under');
+        // 不在最上面时落地的「更多」（_stale）：回到这一屏时照新数据重画（没有 _refresh 的屏——帖子页——也一样）。
+        if (prev.el._refresh) prev.el._refresh(); else if (prev.el._stale) rerender(prev.el);
+        prev.el._stale = false;
+        top.el.classList.add('enter');
+        cleanupScreen(top.el);
+        setTimeout(() => top.el.remove(), 360);
+        updateBar();
+    }
+    function rerender(el) { const st = el.scrollTop; cleanupScreen(el); el.innerHTML = ''; VIEWS[el._route.v].render(el, el._route); el.scrollTop = st; }
+    function resetTo(routes) { STACK.forEach((s) => { cleanupScreen(s.el); s.el.remove(); }); STACK = []; closeSheets(); routes.forEach((r) => push(r, { instant: true })); }
+    function updateBar() {
+        const top = STACK[STACK.length - 1];
+        backBtn.classList.toggle('show', STACK.length > 1);
+        backBtn.textContent = lex('back');
+        titleEl.innerHTML = '';
+        titleEl.append(VIEWS[top.route.v].title(top.route));
+        notify();
+    }
+    backBtn.onclick = back;
+    function openPerson(id) { if (!id || id === 'me') return; push(D.scene === 'forum' ? { v: 'user', pid: id } : { v: 'profile', pid: id }); }
+    /* —— 通用小件 —— */
+    function avatar(p, size) { return h('div', { class: 'thx-avatar' + (size ? ' ' + size : ''), who: 'ai', title: p.name, onclick: (e) => { e.stopPropagation(); openPerson(p.id); } }, p.glyph); }
+    function nameEl(p) { return h('span', { class: 'thx-name', who: p.id === 'me' ? null : 'ai', onclick: (e) => { e.stopPropagation(); openPerson(p.id); } }, p.name); }
+    function followBtn(key) {
+        const b = h('button', { class: 'thx-btn', who: 'so', type: 'button' });
+        const draw = () => { const on = !!S.follows[key]; b.className = 'thx-btn' + (on ? ' on' : ''); b.innerHTML = ''; b.append(on ? '✓ ' : '+ ', lx(on ? 'followed' : 'follow')); };
+        b.onclick = (e) => { e.stopPropagation(); S.follows[key] = !S.follows[key]; draw(); };
+        draw();
+        return b;
+    }
+    function tagsEl(tags) { return h('div', { class: 'thx-tags' }, (tags || []).map((x) => h('span', { class: 'thx-tag', who: 'ai' }, x))); }
+    function sheet(content) {
+        const bk = h('div', { class: 'thx-sheet-back' });
+        const sh = h('div', { class: 'thx-sheet', who: 'so' }, h('div', { class: 'thx-sheet-grip' }), content);
+        const close = () => { bk.remove(); sh.remove(); };
+        bk.onclick = close;
+        thxRoot.append(bk, sh);
+        return close;
+    }
+    function loadingBox(n) {
+        const txt = h('span', { class: 'thx-loading-txt', who: 'lex' });
+        const box = h('div', { class: 'thx-loading', who: 'so' }, h('span', { class: 'thx-loading-ico' }), txt, h('div', { class: 'thx-loading-bar' }, h('i')),
+            Array.from({ length: n == null ? 2 : n }, (_, i) => h('div', { class: 'thx-skel' + (i % 2 ? ' s2' : '') })));
+        const lines = [T.writing].concat(lex('loading') || []).filter(Boolean);   // 先是 SO 那句「正在写…」，再轮 AI 的叫法
+        let i = 0;
+        txt.textContent = lines[0] || '';
+        const iv = setInterval(() => { if (!box.isConnected) { clearInterval(iv); return; } txt.style.opacity = 0; setTimeout(() => { i = (i + 1) % (lines.length || 1); txt.textContent = lines[i] || ''; txt.style.opacity = 1; }, 220); }, 1000);
+        box._stop = () => clearInterval(iv);
+        return box;
+    }
+    // 列表末尾的「更多」位置（论坛版面 / 帖子 / 朋友圈）。o = { kind, target, label, into, count(), nodes(from) → 新的节点, skel }。
+    // 这一屏记下自己的目标（_at）与【自己画过几条】（_shown）：结果落地时只补画 _shown 之后的那几条（与触发时数的 before 无关——
+    // 中途离开再回来、同一帖开了两屏，都不会漏画或重画）。滚到底不会自己叫（2026-11-07 Prince：按住才算）。
+    function moreSpot(screen, o) {
+        const at = atOf(o.kind, o.target);
+        const el = h('div', { class: 'thx-more', who: 'so', 'aria-live': 'polite' });
+        screen._at = at;
+        screen._shown = o.count();
+        screen._land = () => {
+            const from = screen._shown;
+            const now = o.count();
+            if (now > from) o.nodes(from).forEach((n, i) => { n.classList.add('thx-new'); n.style.setProperty('--d', (i * 0.14) + 's'); o.into.append(n); });
+            screen._shown = Math.max(from, now);
+        };
+        let lb = null;
+        const fire = () => { if (STACK[STACK.length - 1].el !== screen) return; askMore(o.kind, o.target); };
+        const draw = () => {
+            if (lb && lb._stop) lb._stop();
+            lb = null;
+            el.innerHTML = '';
+            if (!CAN_MORE) { el.append(h('div', { class: 'thx-end', who: 'lex' }, lex('end'))); return; }
+            if (S.flight && S.flight.at === at) { lb = loadingBox(o.skel || 2); el.append(lb); return; }
+            if (S.notes[at]) el.append(noteEl(S.notes[at], fire));
+            const b = holdCtl({ label: o.label, fire });
+            holdState(b, at, o.label);
+            el.append(b);
+        };
+        screen._syncHold = draw;
+        draw();
+        return el;
+    }
+    function profileHead(p, stats, btn) {
+        return [h('div', { class: 'thx-banner', who: 'skin' }),
+            h('div', { class: 'thx-prof', who: 'so' }, h('div', { class: 'thx-avatar lg', who: 'ai' }, p.glyph), h('span', { class: 'thx-name', who: 'ai' }, p.name),
+                h('div', { class: 'thx-meta', who: 'ai' }, p.title), h('div', { class: 'thx-bio', who: 'ai' }, p.bio),
+                h('div', { class: 'thx-stats' }, stats.map(([n, label, fn]) => h('div', { class: 'thx-stat' + (fn ? ' tap' : ''), onclick: fn || null }, h('b', {}, n), label))), btn || null)];
+    }
+    function tabsEl(items, cur, onPick) { return h('div', { class: 'thx-tabs', who: 'so' }, items.map(([k, label]) => h('button', { class: 'thx-tab' + (k === cur ? ' on' : ''), type: 'button', onclick: () => onPick(k) }, label))); }
+    function baseUp(key) { return 3 + hash(key) % 90; }
+    /* —— 论坛 —— */
+    function threadCard(t) {
+        const p = P(t.author);
+        return h('div', { class: 'thx-card tap', who: 'so', onclick: () => push({ v: 'thread', id: t.id }) },
+            h('div', { class: 'thx-ttl', who: 'ai' }, t.title), tagsEl(t.tags),
+            h('div', { class: 'thx-row thx-meta' }, avatar(p, 'sm'), nameEl(p), h('span', { class: 'sp' }), h('span', {}, lx('replies'), ' ' + (floors(t).length - 1)), h('span', {}, '· ', lx('heat'), ' ' + fmtN(t.heat))));
+    }
+    function jumpFloor(screen, n) {
+        const t = screen.querySelector(`[data-n="${n}"]`);
+        if (!t) return;
+        if (typeof screen.scrollTo === 'function') screen.scrollTo({ top: Math.max(0, t.offsetTop - screen.clientHeight / 4), behavior: 'smooth' });
+        t.classList.remove('thx-flash'); void t.offsetWidth; t.classList.add('thx-flash');
+    }
+    function floorEl(t, f, screen) {
+        const p = P(f.u);
+        const key = t.id + ':' + f.n;
+        const liked = !!S.liked[key];
+        const up = (f.n === 1 ? t.up : baseUp(key)) + (liked ? 1 : 0);
+        const card = h('div', { class: 'thx-card', 'data-n': f.n, who: 'so' },
+            h('div', { class: 'thx-row' }, avatar(p), h('div', { style: 'min-width:0' }, nameEl(p), h('div', { class: 'thx-meta', who: 'ai' }, p.title)),
+                f.u === t.author ? h('span', { class: 'thx-badge', who: 'lex' }, lex('op')) : null, h('span', { class: 'thx-floor-no', who: 'lex' }, lexF('floor', f.n))),
+            f.q ? (() => { const q = floors(t).find((x) => x.n === f.q); if (!q) return null; const s = q.text.length > 30 ? q.text.slice(0, 30) + '…' : q.text;
+                return h('div', { class: 'thx-quote', who: 'so', onclick: () => jumpFloor(screen, q.n) }, h('span', { who: 'lex' }, lexF('floor', q.n)), ' ', h('span', { who: 'ai' }, P(q.u).name + '：' + s)); })() : null,
+            h('div', { class: 'thx-text', who: 'ai' }, f.text),
+            h('div', { class: 'thx-acts', who: 'so' }, h('button', { class: 'thx-btn' + (liked ? ' on' : ''), type: 'button', onclick: () => { S.liked[key] = !liked; card.replaceWith(floorEl(t, f, screen)); } }, lx(liked ? 'liked' : 'like'), ' ' + up)));
+        return card;
+    }
+    /* —— 朋友圈 —— */
+    function picEl(text, onclick) { return h('div', { class: 'thx-pic', who: 'skin', onclick }, h('span', { class: 'thx-pic-cap', who: 'ai' }, text)); }
+    function cmtEl(c) { const p = personOf(c.u); return h('div', { class: 'thx-cmt' }, nameEl(p), c.to ? [' ', lx('reply'), ' ', nameEl(personOf(c.to))] : null, '：', c.u === 'me' ? c.t : ai(c.t)); }
+    function likers(post) { const a = (post.l || []).map(P); if (S.liked['p:' + post.id]) a.push(personOf('me')); return a; }
+    function likesLine(post) { const a = likers(post); if (!a.length) return null; return h('div', { class: 'thx-likes', who: 'so' }, '♥ ', a.map((p, i) => [i ? '、' : '', nameEl(p)])); }
+    function likeBtn(post, redraw) { const on = !!S.liked['p:' + post.id]; return h('button', { class: 'thx-btn' + (on ? ' on' : ''), type: 'button', onclick: (e) => { e.stopPropagation(); S.liked['p:' + post.id] = !on; redraw(); } }, on ? '♥ ' : '♡ ', lx(on ? 'liked' : 'like'), ' ' + likers(post).length); }
+    function postCard(post) {
+        const a = P(post.a);
+        const cm = allCmts(post);
+        const open = () => push({ v: 'post', id: post.id });
+        const card = h('div', { class: 'thx-card', who: 'so' },
+            h('div', { class: 'thx-row' }, avatar(a), h('div', { style: 'min-width:0' }, nameEl(a), h('div', { class: 'thx-meta' }, ai(post.time), post.place ? [' · ', ai(post.place)] : null))),
+            h('div', { class: 'thx-text tap', who: 'ai', onclick: open }, post.text),
+            post.pic ? picEl(post.pic, open) : null,
+            h('div', { class: 'thx-acts', who: 'so' }, likeBtn(post, () => card.replaceWith(postCard(post))), h('button', { class: 'thx-btn', type: 'button', onclick: open }, '💬 ', lx('comment'), ' ' + cm.length)),
+            likesLine(post),
+            cm.length ? h('div', { class: 'thx-cmts', who: 'so' }, cm.slice(0, 2).map(cmtEl), cm.length > 2 ? h('div', { class: 'thx-meta tap', onclick: open }, '… ' + cm.length + ' ', lx('comment'), ' ›') : null) : null);
+        return card;
+    }
+    function tileEl(x) { const s = x.pic || x.text || ''; return h('div', { class: 'thx-tile' + (x.pic ? ' pic' : ''), who: 'so', onclick: () => push({ v: 'post', id: x.id }) }, h('span', { who: 'ai' }, s.length > 34 ? s.slice(0, 34) + '…' : s), h('small', { who: 'ai' }, x.time)); }
+    function personRow(p) { return h('div', { class: 'thx-list-item', who: 'so', onclick: () => push({ v: 'profile', pid: p.id }) }, avatar(p), h('div', { class: 'grow' }, h('div', { class: 'thx-name', who: 'ai' }, p.name), h('div', { class: 'thx-meta', who: 'ai' }, p.title)), h('span', { class: 'thx-meta' }, '›')); }
+    /* —— 日记 —— */
+    function letterEl(l) {
+        const el = h('div', { class: 'thx-letter', who: 'so', onclick: (e) => { e.stopPropagation(); el.classList.toggle('open'); } },
+            h('div', { class: 'thx-letter-env' }, h('div', { class: 'thx-letter-seal', who: 'ai' }, l.seal), ai(l.from), h('span', { who: 'lex' }, lex('letterHint'))),
+            h('div', { class: 'thx-letter-paper', who: 'ai' }, l.body));
+        return el;
+    }
+    function fillPage(pg, e, fresh) {
+        pg.innerHTML = '';
+        const kids = [h('div', { class: 'thx-page-head' }, h('div', { class: 'thx-page-date', who: 'ai' }, e.label), h('div', { class: 'thx-stamps' }, h('span', { class: 'thx-stamp', who: 'ai' }, e.weather), h('span', { class: 'thx-stamp', who: 'ai' }, e.mood))),
+            h('div', { class: 'thx-page-body', who: 'ai' }, e.paras.map((t) => h('p', {}, t))), e.letter ? letterEl(e.letter) : null,
+            h('div', { class: 'thx-sign', who: 'ai' }, lex('sign') + P(W.diary && W.diary.owner).name)].filter(Boolean);
+        kids.forEach((k, i) => { if (fresh) { k.classList.add('thx-new'); k.style.setProperty('--d', (i * 0.25) + 's'); } pg.append(k); });
+    }
+    function pageEl(e) { const pg = h('div', { class: 'thx-page', who: 'so' }); if (e) fillPage(pg, e); return pg; }
+    /* ======================= 各屏 ======================= */
+    const VIEWS = {
+        board: { title: () => lx('forumTitle'), render(el) {
+            const f = W.forum || {};
+            el.append(h('div', { class: 'thx-banner', who: 'skin' }, h('div', {}, h('div', { class: 'thx-banner-t', who: 'ai' }, f.board || ''), h('div', { class: 'thx-banner-s', who: 'ai' }, f.intro || ''))));
+            el.append(extraSlot('board', 'thx-x-in'));
+            const list = h('div', {});
+            let ts = threads();
+            if (el._sort === 'hot') ts = ts.slice().sort((a, b) => b.heat - a.heat);
+            ts.forEach((t) => list.append(threadCard(t)));
+            el.append(tabsEl([['new', lx('newest')], ['hot', lx('hottest')]], el._sort || 'new', (k) => { el._sort = k; rerender(el); }), list);
+            el.append(moreSpot(el, { into: list, kind: 'board', label: T.holdMore || '', count: () => threads().length, nodes: (b) => threads().slice(b).map(threadCard) }));
+            el._refresh = () => rerender(el);
+        } },
+        thread: { title: () => lx('thread'), render(el, r) {
+            const t = threadById(r.id);
+            if (!t) return;
+            el.append(h('div', { class: 'thx-card', who: 'so' }, h('div', { class: 'thx-ttl', who: 'ai' }, t.title), tagsEl(t.tags), h('div', { class: 'thx-meta' }, lx('heat'), ' ' + fmtN(t.heat) + ' · ', ai(t.time))));
+            const list = h('div', {});
+            floors(t).forEach((f) => list.append(floorEl(t, f, el)));
+            el.append(list, moreSpot(el, { into: list, skel: 3, kind: 'thread', target: t.id, label: T.holdMore || '', count: () => floors(threadById(r.id) || t).length,
+                nodes: (b) => { const t2 = threadById(r.id) || t; return floors(t2).slice(b).map((f) => floorEl(t2, f, el)); } }));
+            if (r.jump) setTimeout(() => jumpFloor(el, r.jump), 420);
+        } },
+        user: { title: (r) => ai(P(r.pid).name), render(el, r) {
+            const p = P(r.pid);
+            const ts = threads().filter((t) => t.author === p.id);
+            const fl = [];
+            threads().forEach((t) => floors(t).forEach((f) => { if (f.u === p.id && f.n > 1) fl.push({ t, f }); }));
+            el.append(...profileHead(p, [[ts.length, lx('topics')], [fl.length, lx('replied')]], followBtn('u:' + p.id)));
+            const tab = el._tab || 't';
+            const list = h('div', {});
+            if (tab === 't') ts.forEach((t) => list.append(threadCard(t)));
+            else fl.forEach(({ t, f }) => list.append(h('div', { class: 'thx-card tap', who: 'so', onclick: () => push({ v: 'thread', id: t.id, jump: f.n }) }, h('div', { class: 'thx-meta' }, ai(t.title), ' · ', lx('floor', f.n)), h('div', { class: 'thx-text', who: 'ai' }, f.text))));
+            if (!list.children.length) list.append(h('div', { class: 'thx-end' }, lx('end')));
+            el.append(tabsEl([['t', lx('topics')], ['f', lx('replied')]], tab, (k) => { el._tab = k; rerender(el); }), list);
+            el._refresh = () => rerender(el);
+        } },
+        feed: { title: () => lx('feedTitle'), render(el) {
+            const f = W.feed || {};
+            const tab = el._tab || 'posts';
+            el.append(h('div', { class: 'thx-banner', who: 'skin' }, h('div', {}, h('div', { class: 'thx-banner-t', who: 'lex' }, lex('feedTitle')), h('div', { class: 'thx-banner-s', who: 'ai' }, f.motto || ''))));
+            el.append(extraSlot('feed', 'thx-x-in'));
+            el.append(tabsEl([['posts', lx('posts')], ['friends', lx('friends')]], tab, (k) => { el._tab = k; rerender(el); }));
+            if (tab === 'friends') { Object.keys(W.people || {}).forEach((id) => el.append(personRow(P(id)))); return; }
+            const list = h('div', {});
+            feedPosts().forEach((p) => list.append(postCard(p)));
+            el.append(list, moreSpot(el, { into: list, kind: 'feed', label: T.holdMore || '', count: () => feedPosts().length, nodes: (b) => feedPosts().slice(b).map(postCard) }));
+            el._refresh = () => rerender(el);
+        } },
+        post: { title: () => lx('posts'), render(el, r) {
+            const post = postById(r.id);
+            if (!post) return;
+            const a = P(post.a);
+            const cm = allCmts(post);
+            el.append(h('div', { class: 'thx-card', who: 'so' },
+                h('div', { class: 'thx-row' }, avatar(a), h('div', { style: 'min-width:0' }, nameEl(a), h('div', { class: 'thx-meta' }, ai(post.time), post.place ? [' · ', ai(post.place)] : null))),
+                h('div', { class: 'thx-text', who: 'ai', style: 'font-size:1.08em' }, post.text), post.pic ? picEl(post.pic) : null,
+                h('div', { class: 'thx-acts', who: 'so' }, likeBtn(post, () => rerender(el))), likesLine(post)));
+            el.append(h('div', { class: 'thx-card', who: 'so' }, h('div', { class: 'thx-meta' }, lx('comment'), ' · ' + cm.length), cm.length ? cm.map(cmtEl) : h('div', { class: 'thx-meta' }, T.none || '')));
+            const input = h('input', { placeholder: lex('inputPh'), maxlength: '60', 'aria-label': lex('comment') });
+            const send = () => { const v = input.value.trim(); if (!v) return; (S.cmts[post.id] = S.cmts[post.id] || []).push({ u: 'me', t: v }); rerender(el); el.scrollTop = el.scrollHeight; };
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+            el.append(h('div', { class: 'thx-input', who: 'so' }, input, h('button', { class: 'thx-btn on', type: 'button', onclick: send }, lx('send'))));
+            el._refresh = () => rerender(el);
+        } },
+        profile: { title: (r) => ai(P(r.pid).name), render(el, r) {
+            const p = P(r.pid);
+            const posts = profilePosts(p.id);
+            const fr = (W.friends || {})[p.id] || [];
+            el.append(...profileHead(p, [[posts.length, lx('posts')], [fr.length, lx('friends'), () => push({ v: 'friends', pid: p.id })]], followBtn('f:' + p.id)));
+            const grid = h('div', { class: 'thx-grid', who: 'so' });
+            posts.forEach((x) => grid.append(tileEl(x)));
+            el.append(grid);
+            el._refresh = () => rerender(el);
+        } },
+        friends: { title: (r) => h('span', {}, ai(P(r.pid).name), ' · ', lx('friends')), render(el, r) { ((W.friends || {})[r.pid] || []).forEach((id) => el.append(personRow(P(id)))); } },
+        book: { title: () => lx('diaryTitle'), render(el) {
+            el.classList.add('diary-screen');
+            const Dd = W.diary || {};
+            if (S.dKey == null) S.dKey = Dd.current;
+            const dateEl = h('div', { class: 'thx-diary-date', who: 'ai' });
+            const prevB = h('button', { class: 'thx-btn', who: 'so', type: 'button', 'data-so-ctl': true, onclick: () => turn(-1) });
+            const nextB = h('button', { class: 'thx-btn', who: 'so', type: 'button', 'data-so-ctl': true, onclick: () => turn(1) });
+            // 2026-11-07：最后一页的「之后」换成按住写下一页（日记屏不滚、书至少 300 px——不另起一行，免得手机上被挤出框）。
+            const fire = () => { if (STACK[STACK.length - 1].el !== el) return; askMore('diary'); };
+            const holdB = CAN_MORE ? holdCtl({ label: T.holdDiary || '', fire }) : null;
+            const book = h('div', { class: 'thx-book', who: 'so' });
+            const hint = h('span', { class: 'thx-meta', who: 'so' });
+            const noteBox = h('div', { class: 'thx-more thx-more-inline', who: 'so', 'aria-live': 'polite' });
+            el.append(h('div', { class: 'thx-diary' }, h('div', { class: 'thx-diary-nav', who: 'so' }, prevB, dateEl, nextB, holdB), book,
+                h('div', { class: 'thx-row', style: 'margin-top:8px' }, hint, noteBox, h('span', { class: 'sp' }), h('button', { class: 'thx-btn', who: 'so', type: 'button', 'data-so-ctl': true, 'data-so-index': true, onclick: () => push({ v: 'index' }) }, '☰ ', lx('index')))));
+            const curEntry = () => { const es = entries(); return es.find((e) => e.k === S.dKey) || es[es.length - 1]; };
+            let cur = pageEl(curEntry());
+            book.append(cur);
+            book.append(extraSlot('diary', 'thx-x-book'));
+            const setNav = (b, can, canGen, k) => {
+                b.innerHTML = '';
+                b.classList.toggle('gen', !can && canGen);
+                b.disabled = !can && !canGen;
+                if (k === 'earlier') b.append(can ? '‹ ' : '', lx(k)); else b.append(lx(k), can ? ' ›' : (canGen ? ' ✎' : ''));
+            };
+            const atNow = () => { const es = entries(); const i = es.findIndex((e) => e.k === S.dKey); return i < 0 ? es.length - 1 : i; };
+            const sync = () => {
+                const es = entries();
+                const at = atNow();
+                const last = at >= es.length - 1;
+                dateEl.textContent = es[at] ? es[at].label : '';
+                setNav(prevB, at > 0, false, 'earlier');
+                setNav(nextB, !last, false, 'later');
+                // 最后一页 + 能要「更多」→ 「之后」让位给按住控件；在写 → 它显示「正在写…」（或「另一处正在写」）。状态全读 S，重画后也对（不再有跨重画残留的 _busy）。
+                nextB.style.display = (holdB && last) ? 'none' : '';
+                if (holdB) {
+                    holdB.style.display = last ? '' : 'none';
+                    if (S.flight && S.flight.at === 'diary') { holdB.setAttribute('aria-disabled', 'true'); holdB._label(T.writing || ''); }
+                    else holdState(holdB, 'diary', T.holdDiary || '');
+                }
+                noteBox.innerHTML = '';
+                const n = S.notes.diary;
+                if (n && last) { hint.textContent = ''; noteBox.append(noteEl(n, fire)); }
+                else hint.textContent = `${at + 1} / ${es.length} · ${T.swipe || ''}`;
+            };
+            const flipTo = (np, dir) => {
+                const old = cur;
+                if (dir > 0) { book.insertBefore(np, old); old.classList.add('turn-away'); setTimeout(() => old.remove(), 560); }
+                else { book.insertBefore(np, old.nextSibling); np.classList.add('turn-back'); setTimeout(() => { old.remove(); np.classList.remove('turn-back'); }, 560); }
+                cur = np;
+            };
+            const turn = (dir) => {
+                const es = entries();
+                const i = es.findIndex((e) => e.k === S.dKey);
+                const ni = i + dir;
+                if (ni >= 0 && ni < es.length) { S.dKey = es[ni].k; flipTo(pageEl(es[ni]), dir); sync(); notify(); return; }
+                // 翻过最后一页：绝不自己叫模型（滑动 / → 键 / 点一下都一样）——只把按住控件闪一下、给一句提示。
+                if (dir > 0 && holdB && !S.flight) { holdB.classList.remove('thx-flash'); void holdB.offsetWidth; holdB.classList.add('thx-flash'); }
+            };
+            el._at = 'diary';
+            el._shown = entries().length;
+            // 落地：玩家还停在（落地前的）最后一页 → 翻到新的那页；在别的页（比如从目录跳走了）→ 不动他的位置，新页翻过去就有。
+            el._land = () => {
+                const es = entries();
+                const from = el._shown;
+                el._shown = Math.max(from, es.length);
+                const wasLast = from > 0 && es[from - 1] && es[from - 1].k === S.dKey;
+                if (es.length > from && wasLast) {
+                    S.dKey = es[from].k;
+                    const np = h('div', { class: 'thx-page', who: 'so' });
+                    fillPage(np, es[from], true);
+                    flipTo(np, 1);
+                }
+                sync();
+            };
+            el._syncHold = sync;
+            let sx = null;
+            let sy = null;
+            book.addEventListener('pointerdown', (e) => { sx = e.clientX; sy = e.clientY; });
+            book.addEventListener('pointerup', (e) => { if (sx == null) return; const dx = e.clientX - sx; const dy = e.clientY - sy; sx = null; if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.4) turn(dx > 0 ? -1 : 1); });
+            el._key = (e) => { if (e.key === 'ArrowLeft') turn(-1); if (e.key === 'ArrowRight') turn(1); };
+            el._refresh = () => rerender(el);
+            sync();
+        } },
+        index: { title: () => lx('index'), render(el) {
+            const es = entries();
+            const months = [];
+            es.forEach((e) => { let m = months.find((x) => x.m === e.month); if (!m) months.push(m = { m: e.month, days: {} }); m.days[e.day] = e; });
+            const jump = (e) => { S.dKey = e.k; back(); };
+            months.forEach((m) => {
+                const grid = h('div', { class: 'thx-cal-grid', who: 'so' });
+                const dn = lex('dayNames');
+                const maxD = Math.max(30, ...Object.keys(m.days).map(Number).filter((x) => Number.isFinite(x)));
+                for (let d = 1; d <= maxD; d++) { const e = m.days[d]; grid.append(h('div', { class: 'thx-day' + (e ? ' has' : '') + (e && e.k === S.dKey ? ' cur' : ''), who: e ? 'ai' : null, onclick: e ? () => jump(e) : null }, dn ? dn[d - 1] : String(d))); }
+                el.append(h('div', { class: 'thx-cal' }, h('div', { class: 'thx-cal-m', who: 'ai' }, m.m), grid));
+            });
+            es.forEach((e) => el.append(h('div', { class: 'thx-list-item', who: 'so', onclick: () => jump(e) }, h('div', { class: 'grow' }, h('div', { class: 'thx-name', who: 'ai' }, e.label),
+                h('div', { class: 'thx-meta', who: 'ai', style: 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }, e.paras[0])), h('span', { class: 'thx-meta' }, '›'))));
+        } },
+        stream: { title: () => lx('liveTitle'), render(el) {
+            el.classList.add('live-screen');
+            const L = W.live || { viewers: {}, beats: [], pool: [] };
+            const stage = h('div', { class: 'thx-stage', who: 'skin' });
+            let viewers = L.viewersN || 3000;
+            const nEl = h('span', { class: 'thx-live-n', who: 'so' });
+            const setN = () => { nEl.textContent = '👁 ' + fmtN(viewers) + ' ' + lex('viewers'); };
+            setN();
+            const layer = h('div', { class: 'thx-dmlayer', who: 'so' });
+            const capT = h('span', { who: 'ai' });
+            const fly = () => { const em = ['♥', '✦', '💗', '✧']; const f = h('span', { class: 'thx-fly' }, em[Math.floor(Math.random() * 4)]); stage.append(f);
+                if (typeof f.animate !== 'function') { setTimeout(() => f.remove(), 1500); return; }
+                const dx = rnd(-40, 10); const a = f.animate([{ transform: 'translate(0,0) scale(.6)', opacity: 0 }, { transform: `translate(${dx * 0.3}px,-30px) scale(1.1)`, opacity: 1, offset: 0.2 }, { transform: `translate(${dx}px,-150px)`, opacity: 0 }], { duration: rnd(1500, 2200), easing: 'ease-out' }); a.onfinish = () => f.remove(); };
+            stage.append(h('div', { class: 'thx-live-top', who: 'so' }, h('span', { class: 'thx-live-badge', who: 'lex' }, lex('liveBadge')), nEl), layer,
+                h('div', { class: 'thx-caption', who: 'so' }, h('small', { who: 'lex' }, lex('capLabel')), capT), h('button', { class: 'thx-heart', who: 'so', type: 'button', 'aria-label': lex('like'), onclick: () => { for (let i = 0; i < 3; i++) setTimeout(fly, i * 120); } }, '♥'),
+                extraSlot('live', 'thx-x-stage'));
+            const chat = h('div', { class: 'thx-chat', who: 'so' });
+            el.append(h('div', { class: 'thx-live' }, stage, h('div', { class: 'thx-live-info', who: 'so' }, h('div', { class: 'thx-avatar', who: 'ai' }, L.hostGlyph),
+                h('div', { style: 'flex:1;min-width:0' }, h('div', { class: 'thx-name', who: 'ai', style: 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis' }, L.title), h('div', { class: 'thx-meta', who: 'ai' }, L.host)), followBtn('live')), chat));
+            const hist = [];
+            const shown = new Set();
+            const lanes = [0, 0, 0, 0];
+            const timers = [];
+            let bi = 0;
+            let typing = null;
+            let waiting = false;
+            const typeCap = (text) => { clearTimeout(typing); capT.textContent = ''; const cs = [...String(text || '')]; let i = 0; const st = () => { if (i >= cs.length) return; capT.textContent += cs[i++]; typing = setTimeout(st, 45); }; st(); };
+            const viewerSheet = (vid) => {
+                const v = (W.live && W.live.viewers || {})[vid];
+                if (!v) return;
+                const said = hist.filter((c) => c.v === vid);
+                let close = null;
+                close = sheet(h('div', {}, h('div', { class: 'thx-row' }, h('div', { class: 'thx-avatar', who: 'ai' }, v.name.slice(0, 1)),
+                    h('div', { style: 'flex:1;min-width:0' }, h('div', { class: 'thx-name', who: 'ai' }, v.name), h('div', { class: 'thx-meta' }, h('span', { class: 'thx-lv', who: 'so' }, 'Lv' + v.lv), ai(v.bio)))),
+                    h('div', { class: 'thx-meta', style: 'margin-top:10px' }, lx('saidHere'), ` · ${said.length}`),
+                    said.length ? said.slice().reverse().map((c) => h('div', { class: 'thx-said', who: 'ai' }, c.t)) : h('div', { class: 'thx-meta' }, T.quiet || ''),
+                    h('div', { class: 'thx-acts', who: 'so' }, followBtn('v:' + vid), h('button', { class: 'thx-btn', type: 'button', onclick: () => { S.blocked[vid] = true; layer.querySelectorAll(`[data-v="${vid}"]`).forEach((x) => x.remove()); close(); } }, '🚫 ', lx('block')))));
+            };
+            const addChat = (c) => { const v = (W.live && W.live.viewers || {})[c.v] || { name: '？', lv: 1 }; chat.append(h('div', { class: 'thx-chat-ln' }, h('span', { class: 'thx-lv', who: 'so' }, 'Lv' + v.lv),
+                h('span', { class: 'thx-name', who: 'ai', onclick: () => viewerSheet(c.v) }, v.name), '：', ai(c.t))); while (chat.children.length > 60) chat.firstChild.remove(); chat.scrollTop = chat.scrollHeight; };
+            const spawn = () => {
+                const pool = livePool().filter((c) => c.b <= bi && !S.blocked[c.v]);
+                if (!pool.length) return;
+                let c = pool.find((x) => !shown.has(x));
+                if (!c) c = pool[Math.floor(Math.random() * pool.length)];
+                shown.add(c); hist.push(c); addChat(c);
+                const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+                const free = lanes.map((t, i) => (t <= now ? i : -1)).filter((i) => i >= 0);
+                if (!free.length) return;
+                const lane = free[Math.floor(Math.random() * free.length)];
+                const d = h('span', { class: 'thx-dm', who: 'ai', 'data-v': c.v, onclick: () => viewerSheet(c.v) }, c.t);
+                d.style.top = (2 + lane * 29) + 'px';
+                layer.append(d);
+                const W0 = layer.clientWidth || 400;
+                const w = d.offsetWidth;
+                const sp = rnd(80, 120);
+                if (typeof d.animate === 'function') { const an = d.animate([{ transform: `translateX(${W0}px)` }, { transform: `translateX(${-w - 12}px)` }], { duration: (W0 + w) / sp * 1000, easing: 'linear' }); an.onfinish = () => d.remove(); }
+                else setTimeout(() => d.remove(), 6000);
+                lanes[lane] = now + (w + 40) / sp * 1000;
+            };
+            // 画面拍演完：有宿主 → 按住「▶ 继续直播」（直播的费用闸；2026-11-07 起只能按住）；没有 → 「这一段播完了」。
+            // waiting = 这一段播完、在等下一批；在写 / 没写成全读 S（不再有跨回合残留的 _busy）。
+            const fire = () => { if (STACK[STACK.length - 1].el !== el) return; askMore('live'); };
+            let noteLn = null;
+            const drawCap = () => {
+                if (!waiting || !CAN_MORE) return;   // 还在播：字幕区归画面
+                clearTimeout(typing);   // 上一拍的字幕还在逐字打：先停（它的 textContent += 会把按钮冲掉）
+                capT.textContent = '';
+                if (S.flight && S.flight.at === 'live') {
+                    const lb = loadingBox(0);
+                    lb.style.cssText = 'padding:0;border:0;background:none;text-align:left';
+                    const ico = lb.querySelector('.thx-loading-ico'); if (ico) ico.remove();
+                    capT.append(lb);
+                } else {
+                    const lbl = '▶ ' + (T.holdLive || '');
+                    const b = holdCtl({ label: lbl, fire, attrs: { 'data-so-live-more': true } });
+                    holdState(b, 'live', lbl);
+                    capT.append(b);
+                }
+                if (noteLn) { noteLn.remove(); noteLn = null; }
+                if (S.notes.live) { noteLn = h('div', { class: 'thx-chat-ln sys', who: 'so' }, noteEl(S.notes.live, fire)); chat.append(noteLn); chat.scrollTop = chat.scrollHeight; }
+            };
+            let restartAdvance = () => {};
+            el._at = 'live';
+            el._shown = liveBeats().length;
+            el._land = () => {
+                const bs = liveBeats();
+                if (bs.length > el._shown) {
+                    bi = el._shown; el._shown = bs.length; waiting = false;
+                    if (noteLn) { noteLn.remove(); noteLn = null; }
+                    typeCap(bs[bi]); notify();
+                    restartAdvance();   // 新的一拍拿满一整拍的时间
+                } else drawCap();
+            };
+            el._syncHold = drawCap;
+            const advance = () => {
+                const bs = liveBeats();
+                if (bi + 1 < bs.length) { bi++; typeCap(bs[bi]); return; }
+                if (waiting) return;
+                waiting = true;
+                if (CAN_MORE) drawCap(); else chat.append(h('div', { class: 'thx-chat-ln sys', who: 'so' }, T.live_end || ''));
+            };
+            chat.append(h('div', { class: 'thx-chat-ln sys', who: 'so' }, T.hint || ''));
+            typeCap(liveBeats()[0]);
+            let advTimer = setInterval(advance, LIVE_STEP_MS);
+            restartAdvance = () => { clearInterval(advTimer); advTimer = setInterval(advance, LIVE_STEP_MS); };
+            timers.push(setInterval(spawn, 1150), setInterval(() => { viewers = Math.max(100, viewers + Math.round(rnd(-40, 120) * (L.viewersN || 3000) / 3000)); setN(); }, 1600));
+            setTimeout(spawn, 300);
+            setTimeout(spawn, 700);
+            el._cleanup = () => { timers.forEach(clearInterval); clearInterval(advTimer); clearTimeout(typing); };
+        } },
+        raw: { title: () => T.rawTitle || '', render(el) { el.append(h('div', { class: 'thx-card thx-fallback', who: 'so' }, h('div', { class: 'thx-meta' }, T.rawNote || ''), h('pre', { class: 'thx-raw' }, D.raw || ''))); } },
+    };
+    const ROOT = { forum: { v: 'board' }, feed: { v: 'feed' }, diary: { v: 'book' }, live: { v: 'stream' } };
+    const ROOT_AT = { forum: 'board', feed: 'feed', diary: 'diary', live: 'live' };
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') { closeSheets(); return; } const top = STACK[STACK.length - 1]; const ae = document.activeElement; if (top && top.el._key && !(ae && /INPUT|TEXTAREA/.test(ae.tagName))) top.el._key(e); });
+    if (D.snapshot && host() && typeof host().open === 'function' && barR) {
+        barR.append(h('button', { class: 'thx-open', type: 'button', 'data-so-ctl': true, 'data-so-open': true, onclick: () => { try { host().open(D.sceneId); } catch (e) { /* ignore */ } } }, T.open || ''));
+    }
+    mountExtras();
+    resetTo([D.contentOk && ROOT[D.scene] ? ROOT[D.scene] : { v: 'raw' }]);
+    window.__thxBack = back;
+    window.__thxReady = true;
+}
+const THEATER_APP_JS = '(' + soThrAppRuntime.toString() + ')();';
+
+// 去掉 AI 装饰里的脚本（「允许场景里的脚本」关掉时）。用惰性的 <template> 解析，绝不执行。复审 I4：不只是 <script> 与 on* 属性——
+// 能另开一份文档 / 换页 / 换基准地址的元素整个拿掉（iframe / frame / frameset / object / embed / applet / portal / meta / base / link；
+// SVG 里改 href 的 animate / set 也拿掉），srcdoc / formaction 一律拿掉，地址类属性里 javascript: / vbscript: / data:text/html 之类的值拿掉
+//（先去掉空白与控制字符再比——浏览器认「java\tscript:」）。
+const THEATER_STRIP_TAGS = ['script', 'iframe', 'frame', 'frameset', 'object', 'embed', 'applet', 'portal', 'meta', 'base', 'link'];
+const THEATER_STRIP_ATTRS = ['srcdoc', 'formaction'];
+const THEATER_STRIP_URL_ATTRS = ['href', 'src', 'xlink:href', 'action', 'data', 'poster', 'background', 'ping', 'codebase', 'cite', 'lowsrc', 'dynsrc', 'srcset'];
+function soThrUrlUnsafe(v) {
+    const t = String(v == null ? '' : v).replace(/[\u0000-\u0020\u007f-\u009f]+/g, '').toLowerCase();
+    return /^(?:javascript|vbscript|livescript):/.test(t) || /^data:(?:text\/html|application\/xhtml|text\/xml|application\/xml|image\/svg)/.test(t);
+}
+function soThrStripTree(root) {
+    root.querySelectorAll(THEATER_STRIP_TAGS.join(',')).forEach((x) => x.remove());
+    root.querySelectorAll('animate,set,animateTransform,animateMotion').forEach((x) => {
+        const n = String(x.getAttribute('attributeName') || '');
+        if (/href/i.test(n) || ['values', 'to', 'from', 'by'].some((k) => soThrUrlUnsafe(x.getAttribute(k)))) x.remove();
+    });
+    root.querySelectorAll('*').forEach((el) => {
+        for (const a of Array.from(el.attributes)) {
+            const name = a.name.toLowerCase();
+            if (/^on/.test(name) || THEATER_STRIP_ATTRS.includes(name) || (THEATER_STRIP_URL_ATTRS.includes(name) && soThrUrlUnsafe(a.value))) el.removeAttribute(a.name);
+        }
+        if (el.content && typeof el.content.querySelectorAll === 'function') soThrStripTree(el.content);   // 嵌套 <template> 里也剥
+    });
+}
+function soThrStripScripts(html) {
+    const s = String(html == null ? '' : html);
+    if (typeof document === 'undefined' || typeof document.createElement !== 'function') {
+        let r = s;
+        for (const tag of THEATER_STRIP_TAGS) {
+            r = r.replace(new RegExp('<' + tag + '\\b[\\s\\S]*?<\\/' + tag + '\\s*>', 'gi'), '').replace(new RegExp('<' + tag + '\\b[^>]*(?:>|$)', 'gi'), '');
+        }
+        return r;
+    }
+    const t = document.createElement('template');
+    t.innerHTML = s;
+    soThrStripTree(t.content);
+    return t.innerHTML;
+}
+// 嵌进 <script> 的 JSON：所有「<」写成 \u003c（脚本永远关不掉、也开不了新标签），连同 U+2028 / U+2029。
+function soThrJsonForScript(v) {
+    return JSON.stringify(v).replace(/</g, '\\u003c').replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
+}
+// 一个场景 → 一份完整文档。parsed = soThrSceneMerge(item) 的结果（缺省就地算）。opts = { snapshot, allowScripts, plain }：
+// plain = 贴图检查没过 → 不要 AI 皮肤、不要 AI 装饰（叫法保留：文字盖不住按钮）。
+function soThrSceneDocument(item, parsed, opts) {
+    const o = opts || {};
+    const merged = (parsed && parsed.first) ? parsed : soThrSceneMerge(item);
+    const extras = soThrSceneExtras(merged, o.allowScripts !== false, !!o.plain);
+    const data = {
+        scene: merged.scene, sceneId: item && item.id ? String(item.id) : '', snapshot: !!o.snapshot, contentOk: !!merged.content,
+        raw: (merged.first && merged.first.contentRaw) || '', lex: merged.lex || {}, lexDefault: THEATER_SCENE_DEFAULT_LEX, extras,
+        content: soThrSceneAssemble(merged), text: THEATER_APP_TEXT,
+    };
+    const skin = soThrSceneSkinText(merged, !!o.plain);
+    return '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+        + '<style data-so-base>' + THEATER_APP_BASE_CSS + '</style>'
+        + (skin ? '<style data-so-ai-skin>\n' + skin + '\n</style>' : '')
+        + '<style data-so-guard>' + THEATER_APP_GUARD_CSS + '</style>'
+        + '</head><body>' + THEATER_APP_SHELL
+        + '<script data-so-runtime>window.__SO_THR__=' + soThrJsonForScript(data) + ';\n' + THEATER_APP_JS + '\n</' + 'script></body></html>';
+}
+// AI 装饰：只收这个场景的插槽、只收字符串；不允许脚本 → 剥脚本；plain（贴图检查没过）→ 一个都不要。
+function soThrSceneExtras(merged, allowScripts, plain) {
+    const extras = {};
+    if (plain) return extras;
+    for (const [k, v] of Object.entries((merged && merged.extras) || {})) {
+        if (!(THEATER_SCENE_CONTRACT.slots[merged.scene] || []).includes(k) || typeof v !== 'string') continue;
+        extras[k] = allowScripts ? v : soThrStripScripts(v);
+    }
+    return extras;
+}
+// AI 皮肤的样式表正文（</style 拆开，关不掉样式表）；plain / 没有 → ''。
+function soThrSceneSkinText(merged, plain) {
+    return (!plain && merged && merged.skin) ? String(merged.skin).replace(/<\/(style)/gi, '<\\/$1') : '';
+}
+
+/* —— 主聊天快照 = 只存数据（Prince 2026-11-07 裁；此前每份快照 ≈ 70 KB，其中运行时 40 KB + 底色皮 14 KB 是整份抄进去的）——
+ * 快照里只有：场景数据（schema 1，soThrSnapshotData）+ 一段小加载器 + 一个素颜文字版。SO 的 App 运行时 / 底色皮 / 锁 / 骨架在【打开时】
+ * 经 window.parent.__soThrHost.runtime(schema) 从 SO 取（酒馆助手的框与酒馆同源、不沙箱——Prince 裁；不读任何文件，SO 仍是单文件）。
+ * 取到 → 与 SO 面板里的整份文档画出同一个 DOM（底色皮 → AI 皮肤 → 锁，同序同文）；取不到（SO 停用 / 卸载 / 旧 SO 不认识这个 schema /
+ * runtime 抛错 / 运行时没起来）→ 半成品全部拆掉，改画素颜文字版（AI 皮肤与装饰都不要），绝不空白。
+ * 兼容契约（同 Hook-API 锚点，见 feature-flags.md）：今天存进聊天的快照，以后的 SO 永远要能画——schema 1 的数据形状、runtime() 的形状
+ * 由 theater-scene-doc / theater-auto 两个测试钉住，_fixtures/theater-snapshot-v1.html 是冻结样本。改数据形状 = 新 schema 号，旧号照旧认。
+ * SO 面板里的查看层不受影响：仍是 soThrSceneDocument 整份自带一切的文档。 */
+const THEATER_SNAPSHOT_SCHEMA = 1;
+const THEATER_SNAPSHOT_SCHEMAS = Object.freeze([THEATER_SNAPSHOT_SCHEMA]);
+// DRAFT 文案（待 Prince 选）：素颜文字版顶上那一句 + 弹幕那一栏的标题（其余标题用场景的缺省叫法）。
+const THEATER_SNAPSHOT_PLAIN_NOTE = '故事神谕没有在运行，这里先显示文字版。';
+const THEATER_SNAPSHOT_PLAIN_DM = '弹幕';
+const THEATER_SNAPSHOT_PLAIN_CSS = 'html,body{margin:0;background:#15171c;color:#e6e8ec}'
+    + '.so-thr-plain{padding:12px 14px;font:15px/1.65 system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;word-break:break-word}'
+    + '.so-thr-plain h2{font-size:17px;margin:0 0 6px}.so-thr-plain h3{font-size:15px;margin:0 0 4px}'
+    + '.so-thr-plain section{border-top:1px solid #2c313b;margin-top:8px;padding-top:8px}'
+    + '.so-thr-plain p,.so-thr-plain li,.so-thr-plain pre{white-space:pre-wrap;margin:4px 0;font:inherit}'
+    + '.so-thr-plain ol,.so-thr-plain ul{margin:6px 0;padding-left:1.4em}.so-thr-plain .m{color:#8d93a0;font-size:13px}'
+    + '.so-thr-plain blockquote{margin:8px 0;padding:6px 10px;border-left:3px solid #6d9cff;background:#1e222a}'
+    + '.so-thr-plain{max-height:' + THEATER_SNAPSHOT_HEIGHT + ';overflow:auto}';   // Finding 1：按内容长、到上限为止，超出在框里滚
+// 一个场景 → 快照数据（schema 1；键与顺序由测试钉住）。raw 只在内容解析不出时才存（解析出来了就不再存第二份原文）。
+function soThrSnapshotData(item, parsed, opts) {
+    const o = opts || {};
+    const merged = (parsed && parsed.first) ? parsed : soThrSceneMerge(item);
+    const contentOk = !!merged.content;
+    return {
+        schema: THEATER_SNAPSHOT_SCHEMA, so: SO_VERSION, scene: merged.scene, sceneId: item && item.id ? String(item.id) : '', contentOk,
+        lex: merged.lex || {}, skin: soThrSceneSkinText(merged, false), extras: soThrSceneExtras(merged, o.allowScripts !== false, false),
+        content: soThrSceneAssemble(merged), raw: contentOk ? '' : ((merged.first && merged.first.contentRaw) || ''),
+    };
+}
+// 快照的加载器（在酒馆助手的框里跑；与本文件的任何变量都无关，按 .toString() 嵌进去）。K = { note, css, titles }。
+// 源码里不许出现反引号、注释记号、「</」——它要原样穿过 ```html 代码块和 <!--so-theater--> 记号（测试钉）。
+function soThrSnapshotLoader(K) {
+    'use strict';
+    var doc = document;
+    var D = null;
+    try { D = JSON.parse(doc.getElementById('so-thr-data').textContent); } catch (e) { D = null; }
+    function app() {
+        var host = null;
+        var rt = null;
+        try { var p = window.parent; host = (p && p !== window && p.__soThrHost) ? p.__soThrHost : null; } catch (e) { return false; }
+        if (!D || typeof D !== 'object' || !host || typeof host.runtime !== 'function') return false;
+        try { rt = host.runtime(D.schema); } catch (e) { return false; }
+        if (!rt || !Array.isArray(rt.schemas) || rt.schemas.indexOf(D.schema) < 0) return false;
+        if (typeof rt.js !== 'string' || typeof rt.css !== 'string' || typeof rt.shell !== 'string') return false;
+        var made = [];
+        var style = function (attr, css) { var s = doc.createElement('style'); s.setAttribute(attr, ''); s.textContent = css; doc.head.appendChild(s); made.push(s); };
+        try {
+            style('data-so-base', rt.css);
+            if (D.skin) style('data-so-ai-skin', '\n' + D.skin + '\n');
+            style('data-so-guard', typeof rt.guard === 'string' ? rt.guard : '');
+            var cfg = {};
+            for (var k in D) cfg[k] = D[k];
+            cfg.snapshot = true;
+            cfg.text = rt.text || {};
+            cfg.lexDefault = rt.lexDefault || {};
+            window.__SO_THR__ = cfg;
+            window.__thxReady = false;
+            var box = doc.createElement('div');
+            box.innerHTML = rt.shell;
+            while (box.lastChild) { var n = box.lastChild; made.push(n); doc.body.insertBefore(n, doc.body.firstChild); }
+            var sc = doc.createElement('script');
+            sc.setAttribute('data-so-runtime', '');
+            sc.textContent = rt.js;
+            made.push(sc);
+            doc.body.appendChild(sc);
+        } catch (e) { window.__thxReady = false; }
+        if (window.__thxReady === true) return true;
+        made.forEach(function (x) { if (x.parentNode) x.parentNode.removeChild(x); });
+        return false;
+    }
+    function plain() {
+        var el = function (tag, cls, text) { var e = doc.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = String(text); return e; };
+        var add = function (at, tag, cls, text) { if (text == null || text === '') return null; var e = el(tag, cls, text); at.appendChild(e); return e; };
+        var arr = function (a) { return Array.isArray(a) ? a : []; };
+        var css = el('style', '', K.css);
+        css.setAttribute('data-so-plain', '');
+        doc.head.appendChild(css);
+        var root = el('div', 'so-thr-plain');
+        add(root, 'p', 'm', K.note);
+        var sec = function () { var s = el('section'); root.appendChild(s); return s; };
+        var list = function (at, tag) { var l = el(tag); at.appendChild(l); return l; };
+        var W = (D && D.content && typeof D.content === 'object') ? D.content : {};
+        var lex = (D && D.lex && typeof D.lex === 'object') ? D.lex : {};
+        var T = K.titles || {};
+        var people = W.people || {};
+        var nm = function (id) { if (id === 'me') return (W.me && W.me.name) || ''; var q = people[id]; return (q && q.name) || String(id == null ? '' : id); };
+        var meta = function (a) { return a.filter(function (x) { return x != null && x !== '' && x !== '—'; }).join(' · '); };
+        try {
+            if (W.forum) {
+                add(root, 'h2', '', lex.forumTitle || T.forum);
+                add(root, 'p', 'm', W.forum.board);
+                add(root, 'p', '', W.forum.intro);
+                arr(W.forum.threads).forEach(function (t) {
+                    var s = sec();
+                    add(s, 'h3', '', t.title);
+                    add(s, 'p', 'm', meta([nm(t.author), t.time]));
+                    add(s, 'p', '', t.op);
+                    var ol = list(s, 'ol');
+                    arr(t.floors).forEach(function (f) { add(ol, 'li', '', nm(f.u) + '：' + (f.text == null ? '' : f.text)); });
+                });
+            }
+            if (W.feed) {
+                add(root, 'h2', '', lex.feedTitle || T.feed);
+                add(root, 'p', 'm', W.feed.motto);
+                arr(W.feed.posts).concat(arr(W.feed.extra)).forEach(function (p) {
+                    var s = sec();
+                    add(s, 'h3', '', nm(p.a));
+                    add(s, 'p', 'm', meta([p.time, p.place]));
+                    add(s, 'p', '', p.text);
+                    if (p.pic) add(s, 'p', 'm', '[' + p.pic + ']');
+                    if (arr(p.l).length) add(s, 'p', 'm', '♥ ' + arr(p.l).map(nm).join('、'));
+                    var ul = list(s, 'ul');
+                    arr(p.c).forEach(function (c) { add(ul, 'li', '', nm(c.u) + (c.to ? ' → ' + nm(c.to) : '') + '：' + (c.t == null ? '' : c.t)); });
+                });
+            }
+            if (W.diary) {
+                add(root, 'h2', '', lex.diaryTitle || T.diary);
+                add(root, 'p', 'm', nm(W.diary.owner));
+                arr(W.diary.entries).forEach(function (e) {
+                    var s = sec();
+                    add(s, 'h3', '', e.label);
+                    add(s, 'p', 'm', meta([e.month, e.day, e.weather, e.mood]));
+                    arr(e.paras).forEach(function (t) { add(s, 'p', '', t); });
+                    if (e.letter) { var q = el('blockquote'); s.appendChild(q); add(q, 'p', 'm', meta([e.letter.seal, e.letter.from])); add(q, 'p', '', e.letter.body); }
+                });
+            }
+            if (W.live) {
+                var L = W.live;
+                var vs = L.viewers || {};
+                add(root, 'h2', '', L.title || lex.liveTitle || T.live);
+                add(root, 'p', 'm', L.host);
+                var s1 = sec();
+                add(s1, 'h3', '', lex.capLabel || T.cap);
+                var ol = list(s1, 'ol');
+                arr(L.beats).forEach(function (b) { add(ol, 'li', '', b); });
+                var s2 = sec();
+                add(s2, 'h3', '', T.dm);
+                var ul = list(s2, 'ul');
+                arr(L.pool).forEach(function (c) { add(ul, 'li', '', ((vs[c.v] && vs[c.v].name) || '') + '：' + (c.t == null ? '' : c.t)); });
+            }
+        } catch (e) { root.setAttribute('data-partial', ''); }
+        if (!root.querySelector('section')) {
+            if (D && typeof D.raw === 'string' && D.raw) add(root, 'pre', '', D.raw);
+            else {
+                var seen = 0;
+                var walk = function (v, depth) {
+                    if (seen > 400 || depth > 8) return;
+                    if (typeof v === 'string') { if (v.trim()) { add(root, 'p', '', v); seen++; } return; }
+                    if (v && typeof v === 'object') for (var k in v) walk(v[k], depth + 1);
+                };
+                walk(W, 0);
+            }
+        }
+        doc.body.appendChild(root);
+    }
+    if (!app()) plain();
+}
+// 每份快照都带一份加载器：去掉行首缩进（只去缩进——源码里没有反引号、没有跨行字符串，测试钉）。
+const THEATER_SNAPSHOT_LOADER_JS = '(' + soThrSnapshotLoader.toString().replace(/\n[ \t]+/g, '\n') + ')(' + soThrJsonForScript({
+    note: THEATER_SNAPSHOT_PLAIN_NOTE, css: THEATER_SNAPSHOT_PLAIN_CSS,
+    titles: { forum: THEATER_SCENE_DEFAULT_LEX.forumTitle, feed: THEATER_SCENE_DEFAULT_LEX.feedTitle, diary: THEATER_SCENE_DEFAULT_LEX.diaryTitle,
+        live: THEATER_SCENE_DEFAULT_LEX.liveTitle, cap: THEATER_SCENE_DEFAULT_LEX.capLabel, dm: THEATER_SNAPSHOT_PLAIN_DM },
+}) + ');';
+// 一个场景 → 主聊天里的快照文档（只有数据 + 加载器）。数据 JSON 里「<」与反引号都写成 \uXXXX：脚本关不掉，代码块与记号也关不掉。
+function soThrSnapshotDocument(item, parsed, opts) {
+    const json = soThrJsonForScript(soThrSnapshotData(item, parsed, opts)).replace(/`/g, '\\u0060');
+    return '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>'
+        + '<script type="application/json" id="so-thr-data">' + json + '</' + 'script>'
+        + '<script data-so-loader>' + THEATER_SNAPSHOT_LOADER_JS + '</' + 'script></body></html>';
+}
+// window.__soThrHost.runtime(schema)：把 SO 的 App 交给快照（只读副本——框里改不到 SO 自己的东西）。不认识的 schema → null。
+// 形状是对外契约（测试钉）：{ version, schemas, css, guard, shell, js, text, lexDefault }——只许加键，不许改 / 删。
+function soThrHostRuntime(schema) {
+    if (schema !== undefined && !THEATER_SNAPSHOT_SCHEMAS.includes(schema)) return null;
+    return {
+        version: SO_VERSION, schemas: THEATER_SNAPSHOT_SCHEMAS.slice(), css: THEATER_APP_BASE_CSS, guard: THEATER_APP_GUARD_CSS, shell: THEATER_APP_SHELL,
+        js: THEATER_APP_JS, text: JSON.parse(JSON.stringify(THEATER_APP_TEXT)), lexDefault: JSON.parse(JSON.stringify(THEATER_SCENE_DEFAULT_LEX)),
+    };
+}
+
+/* —— 贴图检查（Task 4）：AI 的皮肤 / 装饰有没有盖住或挤走 SO 的控件 ——
+ * 对最上层那一屏里每个看得见的 SO 控件（THEATER_SCENE_CONTRACT.controls）取中心点 elementFromPoint：打中的必须是它自己或它里面的东西，
+ * 且不小于 24×24。中心点落在框外：所在那一屏能滚 = 只是没滚到（不算）；不能滚 = 被挤出去了（算挡住）。被 SO 自己吸顶的条
+ * （页签条 / 顶栏 / 留言框）在能滚的屏上压住了 = 只是滚到下面（不算）。→ { ok, blocked:[描述] }。 */
+function soThrGuardCheck(frameDoc) {
+    const out = { ok: true, blocked: [] };
+    if (!frameDoc || typeof frameDoc.querySelectorAll !== 'function') return out;
+    const fw = frameDoc.defaultView;
+    const vw = (fw && fw.innerWidth) || 0;
+    const vh = (fw && fw.innerHeight) || 0;
+    const screens = Array.from(frameDoc.querySelectorAll('.thx-screen')).filter((s) => !s.classList.contains('under') && !s.classList.contains('enter'));
+    const top = screens[screens.length - 1] || null;
+    const cs = (el) => { try { return fw.getComputedStyle(el); } catch (e) { return null; } };
+    const describe = (el) => {
+        const t = String(el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 16);
+        return (el.id ? '#' + el.id : '.' + String(el.className || el.tagName).split(/\s+/)[0]) + (t ? '「' + t + '」' : '');
+    };
+    const seen = new Set();
+    for (const sel of THEATER_SCENE_CONTRACT.controls) {
+        for (const el of Array.from(frameDoc.querySelectorAll(sel))) {
+            if (seen.has(el)) continue;
+            seen.add(el);
+            const inBar = !!(el.closest && el.closest('.thx-bar'));
+            const scr = el.closest ? el.closest('.thx-screen') : null;
+            if (!inBar && scr !== top) continue;                    // 只查最上层那一屏 + 顶栏
+            if (el.closest && el.closest('.thx-sheet')) continue;   // 弹层里的是临时的
+            const st = cs(el);
+            if (st && (st.display === 'none' || st.visibility === 'hidden')) { if (inBar && el.id === 'thx-back') { out.blocked.push(describe(el)); } continue; }
+            if (el.disabled) continue;
+            const r = el.getBoundingClientRect();
+            const w = r.width || 0;
+            const hh = r.height || 0;
+            const cx = r.left + w / 2;
+            const cy = r.top + hh / 2;
+            // SO 自己的定高屏（日记 / 直播）不滚；其余看算出来的 overflow（AI 皮肤也可能把它改成不滚）。
+            const scrollable = (() => { if (!scr || scr.classList.contains('diary-screen') || scr.classList.contains('live-screen')) return false; const ss = cs(scr); return !!ss && /auto|scroll/.test(ss.overflowY || ss.overflow || ''); })();
+            if (w <= 0 && hh <= 0 && !(st && st.position === 'fixed')) {
+                if (scrollable) continue;   // 能滚的屏里塌成 0 的（多半是空列表），不算
+                out.blocked.push(describe(el)); continue;
+            }
+            const outside = vw && vh && (cx < 0 || cy < 0 || cx > vw || cy > vh);
+            if (outside) { if (!scrollable) out.blocked.push(describe(el)); continue; }
+            if (scr && scrollable) {
+                const sr = scr.getBoundingClientRect();
+                if (cy < sr.top || cy > sr.bottom) continue;   // 在这一屏里滚走了
+            }
+            if (w < 24 || hh < 24) { out.blocked.push(describe(el)); continue; }
+            const hit = typeof frameDoc.elementFromPoint === 'function' ? frameDoc.elementFromPoint(cx, cy) : null;
+            if (hit && (hit === el || el.contains(hit))) continue;
+            if (hit && scrollable && hit.closest && hit.closest('.thx-tabs, .thx-input, .thx-bar') && !(hit.closest('.thx-x'))) continue;   // SO 自己的吸顶条压住了：只是滚到下面
+            out.blocked.push(describe(el));
+        }
+    }
+    out.ok = out.blocked.length === 0;
+    return out;
+}
+
+
+/* —— 场景面板 + 查看层（Task 4）——
+ * 面板 [data-thr-panel="scenes"]：四个场景按钮、可选的一句「想看谁」、生成键、这个归属的场景列表（打开 / ★ / 纯文本 / 🔄 / 🗑）。
+ * 查看层 #so-thr-scene-view：照 #so-cur-card 骨架（遮罩 inset:0 + 卡片封顶内滚 + 顶部 ✕ 逃生 + 点遮罩关闭），里面一个 srcdoc iframe
+ * #so-thr-scene-frame——与酒馆助手的消息 iframe 同等能力：同源、srcdoc、【不加 sandbox】（Prince 2026-11-06 有意为之，spec §5.6/§5.7；
+ * 别悄悄加上）。载入后、每次换屏（运行时 postMessage 'so-thr-screen'）跑一遍贴图检查；没过 → 换回 SO 的素颜（不要 AI 皮肤和装饰）再画一次。 */
+// DRAFT 文案（待 Prince 选）。
+const THEATER_SCENE_NOTE_PH = '想看谁、看哪一方面？（可留空）';
+const THEATER_SCENE_GO = '生成';
+const THEATER_SCENE_WRITING = (n, sec) => `正在写…（已 ${n} 字 · ${sec} 秒）`;
+const THEATER_SCENE_DONE = (name) => `${name}写好了（点这里查看）`;
+const THEATER_SCENE_CHAT_SWITCHED = '已切换聊天，这个场景没有保存';
+const THEATER_SCENE_BUSY = '上一个场景还在写';
+const THEATER_SCENE_GONE = '这个场景已经不在了';
+const THEATER_SCENE_EMPTY_LIST = '还没有场景。选一个场景，点「生成」。';
+const THEATER_SCENE_TRUNCATED = '（被截断了）';
+const THEATER_SCENE_MISSING = (parts) => `（缺：${parts.join('、')}）`;
+const THEATER_SCENE_MORE_DROPPED = (n) => `（较早的 ${n} 批「更多」已删掉，免得聊天文件太大）`;
+const THEATER_SCENE_PART_NAMES = { content: '内容', lex: '名称', skin: '外观', extras: '装饰' };
+const THEATER_SCENE_GUARD_NOTE = '这次的外观挡住了按钮，已换回默认外观';
+const THEATER_SCENE_PLAIN = '纯文本';
+const THEATER_SCENE_PAGE = 'App 版';
+const THEATER_SCENE_FAV = '收藏';
+const THEATER_SCENE_REGEN = '再写一个';
+const THEATER_SCENE_DEL = '删除';
+const THEATER_SCENE_DEL_CONFIRM = '删掉这个场景？';
+const THEATER_SCENE_SCOPE_IF = (name) => `场景来自：平行线「${name}」的当下`;
+const THEATER_SCENE_SCOPE_MAIN = '场景来自：主线的当下';
+const THEATER_SCENE_SCOPE_TO_MAIN = '改成主线';
+const THEATER_SCENE_SCOPE_TO_IF = '改成这条平行线';
+const THEATER_SCENE_KINDS = { forum: ['thread', 'board'], feed: ['feed'], diary: ['diary'], live: ['live'] };
+let soThrScenePick = 'forum';
+let soThrSceneUseMain = false;   // 平行线开着时玩家点了「改成主线」
+let soThrSceneBusy = null;       // 首轮在写：{ scene, t0, chars, timer }
+let soThrSceneView = null;       // 查看层：{ id, plain, guardTimer, fellBack }
+
+function soThrScenesPanelHtml() {
+    return `<div class="so-thr-scene-btns" role="group">${THEATER_SCENES.map((k) => `<button type="button" class="so-thr-scene-btn" data-thr-scene="${k}" aria-pressed="${k === 'forum' ? 'true' : 'false'}">${THEATER_SCENE_ICONS[k]} ${THEATER_SCENE_NAMES[k]}</button>`).join('')}</div>
+                        <div class="so-thr-scene-scope" id="so-thr-scene-scope" hidden><span id="so-thr-scene-scope-t"></span><button type="button" class="so-thr-scene-mini" id="so-thr-scene-scope-btn"></button></div>
+                        <div class="so-thr-scene-row"><input type="text" id="so-thr-scene-note" class="so-thr-scene-note" maxlength="200" placeholder="${THEATER_SCENE_NOTE_PH}"><button type="button" id="so-thr-scene-go" class="so-thr-scene-go">${THEATER_SCENE_GO}</button></div>
+                        <div class="so-hint so-thr-scene-status" id="so-thr-scene-status" aria-live="polite"></div>
+                        <div class="so-thr-scene-list" id="so-thr-scene-list"></div>`;
+}
+// 一条 IF 的轮数（场景的 floor = 打开那一刻这条 IF 有几轮）。
+function soThrIfTurnCount(fileId) {
+    try { return soThrIfTurns(fileId).filter((m) => m && (m.role === 'user' || m.role === 'assistant')).length; } catch (e) { return 0; }
+}
+// 此刻打开的场景归谁：小剧场房里正开着一条有记录的 IF（且玩家没点「改成主线」）→ 这条 IF；否则主线。
+function soThrSceneIfNow() {
+    if (!ENABLE_THEATER) return null;
+    const files = soThrIfFilesOn();
+    const fid = files ? soActiveFileId('theater') : SO_CHAT_FILE_DEFAULT;
+    if (!fid || (files && fid === SO_CHAT_FILE_DEFAULT)) return null;
+    return soThrIfGet(fid) ? fid : null;
+}
+function soThrSceneOwnerNow() {
+    const fid = soThrSceneUseMain ? null : soThrSceneIfNow();
+    if (fid) return { kind: 'if', fileId: fid, floor: soThrIfTurnCount(fid) };
+    let n = 0;
+    try { const ctx = getCtx(); n = Array.isArray(ctx && ctx.chat) ? ctx.chat.length : 0; } catch (e) { n = 0; }
+    return { kind: 'main', floor: n };
+}
+function soThrSceneStatus(text) {
+    const el = win && win.querySelector('#so-thr-scene-status');
+    if (el) el.textContent = String(text || '');
+}
+function soThrSceneNotes(item) {
+    const out = [];
+    if (item && item.meta && item.meta.truncated) out.push(THEATER_SCENE_TRUNCATED);
+    let missing = [];
+    try { missing = soThrSceneParse(item.scene, soThrSceneCleanRaw(item.raw.first), 'first').missing; } catch (e) { missing = []; }
+    if (missing.length) out.push(THEATER_SCENE_MISSING(missing.map((k) => THEATER_SCENE_PART_NAMES[k] || k)));
+    if (item && item.meta && item.meta.fromReasoning) out.push(THEATER_REPLY_FROM_REASONING);
+    if (item && item.meta && item.meta.stillCut === true) out.push(THEATER_SCENE_STILL_CUT);
+    else if (item && item.meta && item.meta.retryWhy === 'cut') out.push(THEATER_SCENE_RETRIED_CUT);
+    if (item && item.meta && Number(item.meta.moreDropped) > 0) out.push(THEATER_SCENE_MORE_DROPPED(Number(item.meta.moreDropped)));
+    return out;
+}
+// 场景面板回显（唯一写者）：选中的场景、归属一行、列表。
+function soThrRefreshScenePanel() {
+    if (!ENABLE_THEATER || !win) return;
+    const panel = win.querySelector('[data-thr-panel="scenes"]');
+    if (!panel) return;
+    panel.querySelectorAll('[data-thr-scene]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.thrScene === soThrScenePick ? 'true' : 'false'));
+    const scope = panel.querySelector('#so-thr-scene-scope');
+    const fid = soThrSceneIfNow();
+    if (scope) {
+        scope.hidden = !fid;
+        if (fid) {
+            const nm = soChatFileDisplayName('theater', fid);
+            scope.querySelector('#so-thr-scene-scope-t').textContent = soThrSceneUseMain ? THEATER_SCENE_SCOPE_MAIN : THEATER_SCENE_SCOPE_IF(nm);
+            scope.querySelector('#so-thr-scene-scope-btn').textContent = soThrSceneUseMain ? THEATER_SCENE_SCOPE_TO_IF : THEATER_SCENE_SCOPE_TO_MAIN;
+        }
+    }
+    const go = panel.querySelector('#so-thr-scene-go');
+    if (go) go.disabled = !!soThrSceneBusy;
+    const list = panel.querySelector('#so-thr-scene-list');
+    if (!list) return;
+    list.textContent = '';
+    const items = soThrScenesList(soThrSceneOwnerNow());
+    if (!items.length) {
+        const e = document.createElement('div');
+        e.className = 'so-hint so-thr-scene-empty';
+        e.textContent = THEATER_SCENE_EMPTY_LIST;
+        list.appendChild(e);
+        return;
+    }
+    for (const it of items) {
+        const row = document.createElement('div');
+        row.className = 'so-thr-scene-item' + (it.fav ? ' so-thr-scene-fav' : '');
+        row.dataset.thrSceneItem = it.id;
+        const open = document.createElement('button');
+        open.type = 'button';
+        open.className = 'so-thr-scene-open';
+        open.dataset.act = 'open';
+        const ttl = document.createElement('span');
+        ttl.className = 'so-thr-scene-ttl';
+        ttl.textContent = `${THEATER_SCENE_ICONS[it.scene] || ''} ${THEATER_SCENE_NAMES[it.scene] || it.scene}${it.note ? ' · ' + Array.from(it.note).slice(0, 30).join('') : ''}`;
+        open.appendChild(ttl);
+        const when = document.createElement('span');
+        when.className = 'so-thr-scene-when';
+        try { when.textContent = new Date(Number(it.created) || 0).toLocaleString(); } catch (e) { when.textContent = ''; }
+        open.appendChild(when);
+        const notes = soThrSceneNotes(it);
+        if (notes.length) {
+            const n = document.createElement('span');
+            n.className = 'so-thr-scene-notes';
+            n.textContent = notes.join(' ');
+            open.appendChild(n);
+        }
+        row.appendChild(open);
+        const acts = document.createElement('span');
+        acts.className = 'so-thr-scene-acts';
+        for (const [act, icon, title] of [['fav', it.fav ? 'fa-solid fa-star' : 'fa-regular fa-star', THEATER_SCENE_FAV], ['plain', 'fa-solid fa-align-left', THEATER_SCENE_PLAIN],
+            ['regen', 'fa-solid fa-rotate-right', THEATER_SCENE_REGEN], ['del', 'fa-solid fa-trash-can', THEATER_SCENE_DEL]]) {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'so-thr-scene-act';
+            b.dataset.act = act;
+            b.title = title;
+            b.setAttribute('aria-label', title);
+            if (act === 'fav') b.setAttribute('aria-pressed', it.fav ? 'true' : 'false');
+            b.innerHTML = `<i class="${icon}"></i>`;
+            acts.appendChild(b);
+        }
+        row.appendChild(acts);
+        list.appendChild(row);
+    }
+}
+function soThrBindScenePanel() {
+    if (!ENABLE_THEATER || !win) return;
+    const panel = win.querySelector('[data-thr-panel="scenes"]');
+    if (!panel) return;
+    panel.querySelectorAll('[data-thr-scene]').forEach((b) => b.addEventListener('click', () => {
+        if (!THEATER_SCENES.includes(b.dataset.thrScene)) return;
+        soThrScenePick = b.dataset.thrScene;
+        soThrRefreshScenePanel();
+    }));
+    panel.querySelector('#so-thr-scene-scope-btn')?.addEventListener('click', () => { soThrSceneUseMain = !soThrSceneUseMain; soThrRefreshScenePanel(); });
+    panel.querySelector('#so-thr-scene-go')?.addEventListener('click', () => {
+        const note = panel.querySelector('#so-thr-scene-note');
+        soThrSceneRun(soThrScenePick, note ? note.value : '').catch((e) => console.warn('[Story Oracle] 小剧场：场景生成出错', e));
+    });
+    panel.querySelector('#so-thr-scene-list')?.addEventListener('click', async (e) => {
+        const btn = e.target.closest('[data-act]');
+        const row = e.target.closest('[data-thr-scene-item]');
+        if (!btn || !row) return;
+        const id = row.dataset.thrSceneItem;
+        const act = btn.dataset.act;
+        if (act === 'open') soThrSceneOpen(id);
+        else if (act === 'plain') soThrSceneOpen(id, { plain: true });
+        else if (act === 'fav') { soThrSceneToggleFav(id); soThrRefreshScenePanel(); }
+        else if (act === 'del') {
+            let ok = true;
+            try { ok = await uiConfirm(escapeHtml(THEATER_SCENE_DEL_CONFIRM)); } catch (err) { ok = true; }
+            if (!ok) return;
+            if (soThrSceneView && soThrSceneView.id === id) soThrSceneClose();
+            soThrSceneDelete(id);
+            soThrRefreshScenePanel();
+        } else if (act === 'regen') {
+            const it = soThrSceneGet(id);
+            if (it) soThrSceneRun(it.scene, it.note, it.owner).catch(() => {});
+        }
+    });
+}
+// 查看层（建一次）。
+function soThrSceneViewEl() {
+    let el = win && win.querySelector('#so-thr-scene-view');
+    if (el || !win) return el;
+    el = document.createElement('div');
+    el.id = 'so-thr-scene-view';
+    el.innerHTML = '<div id="so-thr-scene-card">'
+        + '<div id="so-thr-scene-head"><span class="so-warn-title" id="so-thr-scene-title"></span>'
+        + '<span class="so-thr-scene-headbtns"><button type="button" class="so-thr-scene-mini" id="so-thr-scene-mode"></button>'
+        + '<div class="so-iconbtn so-warn-x" id="so-thr-scene-x" title="关闭"><i class="fa-solid fa-xmark"></i></div></span></div>'
+        + '<div class="so-hint" id="so-thr-scene-note-line" hidden></div>'
+        + '<div id="so-thr-scene-body"><iframe id="so-thr-scene-frame" title="小剧场"></iframe><pre id="so-thr-scene-raw" hidden></pre></div>'
+        + '</div>';
+    win.appendChild(el);
+    el.addEventListener('click', (e) => { if (e.target === el) soThrSceneClose(); });   // 点遮罩关闭
+    el.querySelector('#so-thr-scene-x').addEventListener('click', soThrSceneClose);
+    el.querySelector('#so-thr-scene-mode').addEventListener('click', () => { if (soThrSceneView) soThrSceneOpen(soThrSceneView.id, { plain: !soThrSceneView.plain }); });
+    el.querySelector('#so-thr-scene-frame').addEventListener('load', () => soThrSceneGuardSoon());
+    return el;
+}
+function soThrSceneClose() {
+    const el = win && win.querySelector('#so-thr-scene-view');
+    if (soThrSceneView && soThrSceneView.guardTimer) clearTimeout(soThrSceneView.guardTimer);
+    soThrSceneView = null;
+    if (!el) return;
+    el.classList.remove('open');
+    const fr = el.querySelector('#so-thr-scene-frame');
+    if (fr) fr.removeAttribute('srcdoc');
+}
+// 打开一个场景。opts.plain = 只看原文（纯文字，什么都不丢）。窗口没开 → 先打开窗口。
+function soThrSceneOpen(id, opts) {
+    if (!ENABLE_THEATER || !win) return false;
+    const item = soThrSceneGet(id);
+    if (!item) { if (typeof toastr !== 'undefined') toastr.info(THEATER_SCENE_GONE); return false; }
+    if (win.style.display === 'none') toggleWindow(true);
+    const el = soThrSceneViewEl();
+    const plain = !!(opts && opts.plain);
+    const fellBack = !!(opts && opts.fallback);
+    if (soThrSceneView && soThrSceneView.guardTimer) clearTimeout(soThrSceneView.guardTimer);
+    soThrSceneView = { id, plain, guardTimer: null, fellBack };
+    el.querySelector('#so-thr-scene-title').textContent = `${THEATER_SCENE_ICONS[item.scene] || ''} ${THEATER_SCENE_NAMES[item.scene] || ''}${item.note ? ' · ' + Array.from(item.note).slice(0, 24).join('') : ''}`;
+    el.querySelector('#so-thr-scene-mode').textContent = plain ? THEATER_SCENE_PAGE : THEATER_SCENE_PLAIN;
+    const notes = soThrSceneNotes(item);
+    if (fellBack) notes.unshift(THEATER_SCENE_GUARD_NOTE);
+    const nl = el.querySelector('#so-thr-scene-note-line');
+    nl.hidden = !notes.length;
+    nl.textContent = notes.join(' ');
+    const fr = el.querySelector('#so-thr-scene-frame');
+    const raw = el.querySelector('#so-thr-scene-raw');
+    if (plain) {
+        fr.hidden = true;
+        fr.removeAttribute('srcdoc');
+        raw.hidden = false;
+        raw.textContent = [item.raw.first, ...(item.raw.more || []).map((m) => m && m.text)].filter(Boolean).join('\n\n———\n\n');
+    } else {
+        raw.hidden = true;
+        raw.textContent = '';
+        fr.hidden = false;
+        fr.srcdoc = soThrSceneDocument(item, null, { snapshot: false, allowScripts: getSettings().theaterAllowScripts !== false, plain: fellBack });
+    }
+    el.classList.add('open');
+    return true;
+}
+/* 贴图检查的时机（2026-11-07 修：此前换屏后固定 450 ms 查一次——日记翻页的动画 0.55 s，450 ms 时翻动的那页正压在「☰ 日期」上，
+ * elementFromPoint 打中的是纸页 → 误判、换了素颜（录屏 3/3 次翻页都中；150 ms 与 900 ms 时都是空的）。现在：
+ * ① 先等文档里【有限次】的动画 / 过渡走完（document.getAnimations()，running / pending 才算在动）——无限循环的环境动画（粒子、落叶、雨、
+ *    扫描线）永远不算，不然永远等不到；最多等 settle（1.5 s），到点照查；② 查；没过 → 隔 recheck（250 ms）再查一次，【连续两次】不过
+ *    才算真挡住。所有场景、载入与每次换屏都走这一条（soThrSceneGuardSoon）。 */
+const THEATER_GUARD_TIMING = { start: 60, poll: 50, settle: 1500, recheck: 250 };
+// 文档里还有没有在跑的有限次动画 / 过渡（CSSTransition 也在 getAnimations 里）。没有这套 API / 读失败 → 当作不在动（不等）。
+function soThrGuardBusy(doc) {
+    let list = null;
+    try { list = (doc && typeof doc.getAnimations === 'function') ? doc.getAnimations() : null; } catch (e) { list = null; }
+    if (!list || typeof list.length !== 'number') return false;
+    for (const a of Array.from(list)) {
+        let state = '';
+        try { state = a && a.playState; } catch (e) { state = ''; }
+        if (state !== 'running' && state !== 'pending') continue;
+        let it = 1;
+        try {
+            const ef = a.effect;
+            const t = ef && (typeof ef.getComputedTiming === 'function' ? ef.getComputedTiming() : (typeof ef.getTiming === 'function' ? ef.getTiming() : null));
+            if (t && t.iterations != null) it = Number(t.iterations);
+        } catch (e) { it = 1; }
+        if (it === Infinity) continue;
+        return true;
+    }
+    return false;
+}
+/* 一轮贴图检查（纯调度，测试可注入时钟）：o = { live() 这一轮还作数吗, doc() 当前场景文档 | null, check(doc) → {ok, blocked},
+ * busy(doc), timer(handle) 记下待跑的那个计时器（好让关窗 / 新一轮取消它）, done(r | null), fail(r) 连续两次不过, set(fn, ms), now() }。 */
+function soThrGuardWatch(o) {
+    const TM = THEATER_GUARD_TIMING;
+    const set = o.set || ((f, ms) => setTimeout(f, ms));
+    const now = o.now || (() => Date.now());
+    const check = o.check || soThrGuardCheck;
+    const busy = o.busy || soThrGuardBusy;
+    const keep = (h) => { if (typeof o.timer === 'function') o.timer(h); };
+    const t0 = now();
+    let fails = 0;
+    const step = () => {
+        if (!o.live()) return;
+        const doc = o.doc();
+        if (!doc) { if (o.done) o.done(null); return; }
+        if (fails === 0 && now() - t0 < TM.settle && busy(doc)) { keep(set(step, TM.poll)); return; }
+        const r = check(doc);
+        if (r && r.ok) { if (o.done) o.done(r); return; }
+        fails++;
+        if (fails < 2) { keep(set(step, TM.recheck)); return; }
+        if (o.fail) o.fail(r);
+    };
+    keep(set(step, TM.start));
+}
+// 载入后 / 每次换屏：开一轮新的检查（旧的那轮作废）。v.guardPending = 这一轮还没出结果；v.guardLast = 最后一次检查的结果。
+function soThrSceneGuardSoon() {
+    const v = soThrSceneView;
+    if (!v || v.plain) return;
+    if (v.guardTimer) clearTimeout(v.guardTimer);
+    const job = v.guardJob = (v.guardJob || 0) + 1;
+    v.guardPending = true;
+    const finish = (r) => { if (v.guardJob === job) { v.guardPending = false; v.guardLast = r; } };
+    soThrGuardWatch({
+        live: () => soThrSceneView === v && v.guardJob === job,
+        doc: () => {
+            const fr = win && win.querySelector('#so-thr-scene-frame');
+            let doc = null;
+            try { doc = fr && fr.contentDocument; } catch (e) { doc = null; }
+            return (doc && typeof doc.querySelector === 'function' && doc.querySelector('#thx')) ? doc : null;
+        },
+        timer: (h) => { v.guardTimer = h; },
+        done: finish,
+        fail: (r) => { finish(r); soThrSceneGuardFallback(v, r); },
+    });
+}
+// 确认挡住了：还没换过 → 用素颜重画（同一个场景、同一个查看层；只换一次，不循环）。
+function soThrSceneGuardFallback(v, r) {
+    if (!v || soThrSceneView !== v || v.plain || v.fellBack) return;
+    console.warn('[Story Oracle] 小剧场：场景外观挡住了这些按钮，换回默认外观：', r && r.blocked);
+    soThrSceneOpen(v.id, { fallback: true });
+}
+// 立刻查一次这份场景文档；没过 → soThrSceneGuardFallback（手动 / 测试入口；平时走 soThrSceneGuardSoon 的两次确认）。→ 检查结果 / null（没在看场景）。
+function soThrSceneGuardRun(doc) {
+    const v = soThrSceneView;
+    if (!v || v.plain || !doc || typeof doc.querySelector !== 'function' || !doc.querySelector('#thx')) return null;
+    const r = soThrGuardCheck(doc);
+    if (!r.ok) soThrSceneGuardFallback(v, r);
+    return r;
+}
+if (ENABLE_THEATER && typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+    window.addEventListener('message', (e) => {
+        const d = e && e.data;
+        if (!d || d.type !== 'so-thr-screen' || !soThrSceneView || d.sceneId !== soThrSceneView.id) return;
+        const fr = win && win.querySelector('#so-thr-scene-frame');
+        if (fr && e.source === fr.contentWindow) soThrSceneGuardSoon();
+    });
+    // 场景文档里的运行时找它要「更多」/ 在小剧场里打开（plan 4 的主聊天快照也用 open）；主聊天快照的加载器找它要 App（runtime）。
+    // 对外契约（已存进玩家聊天的快照会一直来叫它）：键只许加不许改 / 删（2026-11-07 加了 flight）——theater-auto 测试钉。
+    window.__soThrHost = {
+        more: (sceneId, kind, target) => soThrSceneMore(sceneId, kind, target),
+        open: (sceneId) => soThrHostOpen(sceneId),
+        runtime: (schema) => soThrHostRuntime(schema),
+        // 2026-11-07：查看层中途重开 → 新文档开机时问一句「这个场景有没有一次『更多』在路上、写的是哪儿」，好在那一处显示「正在写…」。
+        flight: (sceneId) => ((soThrMoreFlight && soThrMoreFlight.sceneId === sceneId) ? { at: soThrMoreFlight.at, token: soThrMoreFlight.token } : null),
+    };
+}
+
+/* —— 生成（Task 5）：首轮 + 「更多」，走 soTheaterGenerate（预设路 / SO 路），MVU 规则剥掉 ——
+ * 预设路：预设自己的系统提示词照常；场景说明整段放进最后那条玩家消息（预设埋不掉它的位置）。SO 路：场景说明 + 角色卡 + 世界书
+ *（buildWorldInfo，本来就按 isMvuRuleEntry / stripMvuRuleContents 剔 MVU 规则）当系统提示词，玩家消息只有请求。
+ * 历史 = 主线（剥机制块）或这条 IF 的冻结历史（主线到分出楼 + 分隔线 + IF 各轮，也剥机制块）；SO 路主线只取最近 contextDepth 楼。
+ * 输出上限 = theaterSceneMaxTokens（4096–65536，默认 16384；spec §6.2a 唯一一处有意盖掉预设设置）。 */
+function soThrSceneMaxTokens(s) {
+    const n = Math.round(Number(s && s.theaterSceneMaxTokens));
+    if (!Number.isFinite(n) || n <= 0) return 16384;
+    return Math.min(THEATER_SCENE_MAX_TOKENS_MAX, Math.max(THEATER_SCENE_MAX_TOKENS_MIN, n));
+}
+function soThrSceneHistory(ctx, s, owner, usePreset) {
+    const depth = Number(s && s.contextDepth);
+    const trim = (!usePreset && Number.isFinite(depth) && depth > 0) ? depth : 0;
+    if (owner && owner.kind === 'if') {
+        const rec = soThrIfGet(owner.fileId);
+        if (rec) {
+            const turns = soThrRoomTurns(soThrIfTurns(owner.fileId), ctx).map((t) => Object.assign({}, t, { text: stripMechanismBlocks(t.text) }));
+            return soThrIfHistory(ctx && ctx.chat, rec, turns, trim ? { depth: trim } : null);
+        }
+    }
+    let h = soThrHistoryFromMain(ctx);
+    if (trim) h = h.slice(-trim);
+    return h;
+}
+async function soThrSceneSoSystem(ctx, s, sceneSystem, history) {
+    const parts = [sceneSystem];
+    let card = '';
+    try { card = buildCardSection(ctx); } catch (e) { card = ''; }
+    if (card) parts.push(card);
+    const extra = (Array.isArray(history) ? history : []).slice(-4).map((h) => h.text).filter((t) => t && String(t).trim()).join('\n');
+    let wi = '';
+    try {
+        const bw = (soThrMods && typeof soThrMods.buildWorldInfo === 'function') ? soThrMods.buildWorldInfo : buildWorldInfo;
+        wi = (await bw(undefined, extra)) || '';   // 跟神谕自己的世界书设置；MVU 规则在 buildWorldInfo 里已经剔掉
+    } catch (e) { console.warn('[Story Oracle] 小剧场：场景用的世界书读取失败', e); }
+    if (wi) parts.push('=== 世界书 / 设定 ===\n' + wi);
+    return parts.join('\n\n');
+}
+// 两条路都要神谕自己的连接（与发送同一句提示；2026-11-07 Prince：预设路也用神谕的连接，usePreset 不再豁免）。回 null = 可以，字符串 = 原因。
+function soThrSceneConnIssue(s, usePreset) {   // eslint-disable-line no-unused-vars
+    void usePreset;
+    if (s.mode === 'direct' && (!s.endpoint || !s.model)) return '请先在设置（齿轮图标）中填写端点 URL 和模型。';
+    if (s.mode === 'profile' && !s.profileId) return '请先在设置（齿轮图标）中选择一个连接配置文件。';
+    return null;
+}
+// 一次场景调用的 opts（首轮 / 更多共用）。
+async function soThrSceneOpts(ctx, s, owner, sys, user, onDelta) {
+    const usePreset = soThrUsePreset(s, ctx);
+    const history = soThrSceneHistory(ctx, s, owner, usePreset);
+    const systemText = usePreset ? sys : await soThrSceneSoSystem(ctx, s, sys, history);
+    const directive = usePreset ? sys + '\n\n' + user : user;
+    const opts = { history, directive, systemText, usePreset, maxTokens: soThrSceneMaxTokens(s), stripMvuRules: true, onDelta };
+    const place = usePreset ? soThrScenePlaceArm() : null;
+    if (place && place.addOnly) opts.hooks = { onSettingsReady: (data) => { soThrScenePlaceLast = soThrSceneAoApply(data, THEATER_SCENE_AO_BEAT); } };
+    else if (place) opts.hooks = { onSettingsReady: (data) => { soThrScenePlaceLast = soThrScenePlaceApply(data, directive, place.beat); } };
+    return opts;
+}
+// 预设路场景的出厂行为 = 只加不动（AO，PROBE3 → Prince 2026-11-07 定）：首轮和「更多」都一样。场景请求留在预设放它的地方（预设的正则 /
+// 包裹 / 填充 / 脚本照常作用在它身上），本趟发出前最后一刻（CHAT_COMPLETION_SETTINGS_READY，排最后）只【加】一条 user 消息
+//（THEATER_SCENE_AO_BEAT），放在末尾的 assistant 预填之前；预设产出的东西一条不挪、不删、不改。SO 路、平行线（IF）回合都不加。
+// 电池测试缝 window.__soThrScenePlace（产品代码从不写它）：没设 / 不是对象 / 认不出 = 出厂 AO；{ addOnly: false }（恰好 false）= 关掉 AO，
+// 回到 AO 之前的请求（没有钩子，电池对照用）；ROUND 2 旧臂 { last: true }（addOnly 不是 true 时）= 把场景请求剪出、挪到最末一条 user 消息，
+// beat 是字符串时放在挪过去的请求前面。
+let soThrScenePlaceLast = null;   // 最近一次挪动 / 添加的结果（电池读它）
+function soThrScenePlaceLastForTest() { return soThrScenePlaceLast; }
+function soThrScenePlaceArm() {
+    const AO = { addOnly: true };
+    let v = null;
+    try { v = (typeof window !== 'undefined') ? window.__soThrScenePlace : null; } catch (e) { v = null; }
+    if (v === null || typeof v !== 'object') return AO;
+    let last = false, beat = '', addOnly;
+    try { addOnly = v.addOnly; last = v.last === true; beat = typeof v.beat === 'string' ? v.beat : ''; } catch (e) { return AO; }
+    if (addOnly === true) return AO;
+    if (last) return { beat };
+    if (addOnly === false) return null;
+    return AO;
+}
+// 模型可见文字，字节冻结（PROBE3.md；sha256 钉在 theater-scene-prompts-pin.test.mjs——改一个字节 = 重跑 PROBE3）。
+// 「本轮输入 / 最新输入」与 ROUND 2 的 R2_BEAT 同字符。
+const THEATER_SCENE_AO_BEAT = '【故事在这里暂停】\n这一条不是故事的下一轮，而是一件单独的事：为故事旁边的小剧场 App 交一份数据。上文为故事正文定下的写法——输出格式和标签顺序、字数、思考或草稿标签、状态栏、变量更新、摘要，以及任何指向「本轮输入 / 最新输入」的标记——都只管故事回合，这一次不适用。这一次交回的内容和格式，只以上面那份小剧场数据请求为准，从「=== 内容 ===」开始交回。上文关于内容尺度、题材与创作自由的约定照常有效。';
+// FNV-1a 32 位（UTF-16 码元）→ 8 位十六进制。只给电池对账用：加之前的 messages 快照哈希，电池拿线上请求体去掉 AO 那条后重算比对。
+function soThrSceneAoHash(str) {
+    let h = 0x811c9dc5;
+    const s = String(str);
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h.toString(16).padStart(8, '0');
+}
+const soThrSceneAoLogged = new Set();
+function soThrSceneAoLog(reason, detail) {
+    if (soThrSceneAoLogged.has(reason)) return;
+    soThrSceneAoLogged.add(reason);
+    console.warn('[Story Oracle] 小剧场：只加不动（AO）' + (reason === 'add-only violated' ? 'add-only violated，已撤回添加的那条' : '没有添加（' + reason + '）'), detail || '');
+}
+// 只加不动：messages 是数组、每条都是带非空 role 的对象、能整份 JSON 快照，才动手。插入位置 = 末尾连续 assistant（预填）之前；
+// 全是 assistant / 空数组 / 认不出 → 什么都不加、记一次。加完立刻核对：加之后的 messages === 加之前的快照在该位置多一条，否则撤回、记 add-only violated。
+// → { mode:'addOnly', added, reason, index, trailingAssistant, total, beforeLen, beforeHash, proof:'ok'|'violated'|null }
+function soThrSceneAoApply(data, beat) {
+    const out = { mode: 'addOnly', added: false, reason: null, index: null, trailingAssistant: 0, total: 0, beforeLen: 0, beforeHash: null, proof: null };
+    const msgs = (data && Array.isArray(data.messages)) ? data.messages : null;
+    if (!msgs) { out.reason = 'no-messages'; soThrSceneAoLog(out.reason); return out; }
+    const b = String(beat || '');
+    if (!b) { out.reason = 'no-beat'; soThrSceneAoLog(out.reason); return out; }
+    out.total = out.beforeLen = msgs.length;
+    let before = null;
+    try {
+        if (!msgs.length || !msgs.every((m) => m !== null && typeof m === 'object' && !Array.isArray(m) && typeof m.role === 'string' && m.role !== '')) throw new Error('shape');
+        before = JSON.stringify(msgs);
+    } catch (e) { out.reason = 'shape'; soThrSceneAoLog(out.reason); return out; }
+    let at = msgs.length;
+    while (at > 0 && msgs[at - 1].role === 'assistant') at--;
+    if (at === 0) { out.reason = 'shape'; soThrSceneAoLog(out.reason); return out; }
+    out.trailingAssistant = msgs.length - at;
+    out.beforeHash = soThrSceneAoHash(before);
+    try { out.beforeHashes = msgs.map((m) => soThrSceneAoHash(JSON.stringify(m))); } catch (e) { out.beforeHashes = null; }   // 电池按条对账（哪条在我们之后被别人改了）
+    out.beforeChars = msgs.map((m) => (typeof m.content === 'string' ? m.content.length : -1));
+    const ins = { role: 'user', content: b };
+    msgs.splice(at, 0, ins);
+    let ok = false;
+    try {
+        const expect = JSON.parse(before);
+        expect.splice(at, 0, { role: 'user', content: b });
+        ok = msgs.length === out.beforeLen + 1 && msgs[at] === ins && JSON.stringify(msgs) === JSON.stringify(expect);
+    } catch (e) { ok = false; }
+    if (!ok) {
+        const k = msgs.indexOf(ins);
+        if (k >= 0) msgs.splice(k, 1);
+        out.reason = 'add-only violated';
+        out.proof = 'violated';
+        out.total = msgs.length;
+        soThrSceneAoLog(out.reason);
+        return out;
+    }
+    out.added = true;
+    out.index = at;
+    out.total = msgs.length;
+    out.proof = 'ok';
+    return out;
+}
+// generate_data.messages 里从后往前找第一条含整段请求的字符串消息：整条就是它 → 删掉这条；否则只剪掉那一段。然后在末尾补一条 user。
+// → { found:'whole'|'cut'|'none', fromEnd, appended, total }（fromEnd = 原来那条离末尾几条，0 = 本来就是最后一条）。
+function soThrScenePlaceApply(data, directive, beat) {
+    const out = { found: 'none', fromEnd: null, appended: false, total: 0 };
+    const msgs = (data && Array.isArray(data.messages)) ? data.messages : null;
+    const d = String(directive || '');
+    if (!msgs || !d) return out;
+    for (let i = msgs.length - 1; i >= 0; i--) {
+        const m = msgs[i];
+        if (!m || typeof m.content !== 'string') continue;
+        const at = m.content.lastIndexOf(d);
+        if (at < 0) continue;
+        out.fromEnd = msgs.length - 1 - i;
+        const rest = m.content.slice(0, at) + m.content.slice(at + d.length);
+        if (!rest.trim()) { msgs.splice(i, 1); out.found = 'whole'; } else { m.content = rest; out.found = 'cut'; }
+        break;
+    }
+    msgs.push({ role: 'user', content: (beat ? beat + '\n\n' : '') + d });
+    out.appended = true;
+    out.total = msgs.length;
+    return out;
+}
+/* 半路断了的场景回复（2026-11-07 实玩 Finding 2：朋友圈 × 双人成行 × Gemini 回了 266 字——段头 + 几行【人物】、断在半行、finish=stop——
+ * 什么都没解析出来，Fix B 只救空回复 / 被过滤，于是没有重试）。判据：清洗后（同解析器看到的：剥思维链）有「=== 内容 ===」段头，【而且】内容
+ * 没解析出来。内容解析出来了 = 一律不算（短也好、缺装饰也好，那是另一回事，面板上照常注明缺什么）。没有段头 = 不算（拒答 / 闲聊，重试多半
+ * 还是一样）。finish=length = 不算：是输出上限截断的，原样重试会撞同一堵墙（面板上已有「被截断」那句）。 */
+// DRAFT 文案（待 Prince 选）：场景列表上的小注。
+const THEATER_SCENE_RETRIED_CUT = '（第一次的回复半路断了，已自动重试一次——多用了一次调用）';
+// DRAFT 文案（待 Prince 选；复审 §4.7）：重试过了、交回来的那一份【还是】半路断的（第二份也断 / 重试那一趟出错留下了第一份）。
+const THEATER_SCENE_STILL_CUT = '（回复半路断了，自动重试过一次还是不完整——可以点 🔄 再写一个）';
+function soThrSceneCutOff(scene, text, finish) {
+    if (finish === 'length') return false;
+    const clean = soThrSceneCleanRaw(text);
+    if (!clean.trim()) return false;
+    const { secs } = soThrScSplit(clean);
+    if (!secs.some((x) => x.kind === '内容')) return false;
+    return !soThrSceneParse(scene, clean, 'first').content;
+}
+// 首轮。→ 存下的 SceneItem；没写成 / 作废 → null（原因写在面板状态行）。玩家关掉查看层 / 面板，这一趟照样跑完。
+// runOpts（plan 4 自动场景用）：silent = 不写面板状态行、不弹 toast（原因放进 runOpts.report.why）；postReply = 这是回复后编排
+// 自己的 'scenes' 步（共享锁不拦它自己）。
+async function soThrSceneRun(scene, note, owner, runOpts) {
+    if (!ENABLE_THEATER || !THEATER_SCENES.includes(scene)) return null;
+    const ro = (runOpts && typeof runOpts === 'object') ? runOpts : {};
+    const silent = ro.silent === true;
+    const say = (why) => { if (ro.report && typeof ro.report === 'object') ro.report.why = String(why || ''); if (!silent) soThrSceneStatus(why); };
+    if (soThrSceneBusy || soThrMoreFlight) { say(THEATER_SCENE_BUSY); return null; }   // 「更多」在写时首轮也安静地等（2026-11-07 单趟）
+    const s = getSettings();
+    const ctx = getCtx();
+    if (soThrGroupBlocked(ctx)) { say(THEATER_GROUP_REASON); return null; }
+    const usePreset = soThrUsePreset(s, ctx);
+    const conn = soThrSceneConnIssue(s, usePreset);
+    if (conn) { say(conn); return null; }
+    const own = (owner && typeof owner === 'object') ? owner : soThrSceneOwnerNow();
+    const noteText = String(note == null ? '' : note).trim();
+    const t0 = Date.now();
+    const busy = { scene, t0, chars: 0, timer: null };
+    soThrSceneBusy = busy;
+    const paint = () => { if (!silent) soThrSceneStatus(THEATER_SCENE_WRITING(busy.chars, Math.round((Date.now() - t0) / 1000))); };
+    paint();
+    busy.timer = setInterval(paint, 1000);
+    soThrRefreshScenePanel();
+    const chatKey = fixChatKey();
+    let r = null;
+    try {
+        const opts = await soThrSceneOpts(ctx, s, own, soThrScenePrompt('firstSystem', scene), soThrScenePrompt('firstUser', scene, noteText),
+            (full) => { busy.chars = [...String(full || '')].length; });
+        if (ro.postReply === true) opts.fromPostReply = true;
+        r = await soThrGenerateRecovered(opts, { isStale: () => fixChatKey() !== chatKey, onRetry: () => { busy.chars = 0; },
+            cutOff: (text, finish) => soThrSceneCutOff(scene, text, finish) });
+    } catch (e) {
+        r = { text: '', aborted: false, error: errChainMessage(e) || String(e) };
+    } finally {
+        clearInterval(busy.timer);
+        if (soThrSceneBusy === busy) soThrSceneBusy = null;
+    }
+    if (fixChatKey() !== chatKey) {   // 生成期间换了聊天：结果作废，绝不写进新聊天
+        if (!silent) soThrSceneStatus('');
+        soThrRefreshScenePanel();
+        if (ro.report && typeof ro.report === 'object') ro.report.why = THEATER_SCENE_CHAT_SWITCHED;
+        if (!silent && typeof toastr !== 'undefined') toastr.info(THEATER_SCENE_CHAT_SWITCHED);
+        return null;
+    }
+    r = r || { text: '', aborted: false, error: null };
+    let why = '';
+    if (r.aborted) why = THEATER_ABORTED_NOTE;
+    else if (r.error) why = '错误：' + explainProviderError(String(r.error));
+    else if (r.emptyFinal) why = r.filtered ? THEATER_FILTERED_REPLY : THEATER_EMPTY_REPLY;
+    if (why) { say(why); soThrRefreshScenePanel(); return null; }
+    const item = {
+        id: soThrSceneNewId(), scene, owner: own, created: Date.now(), fav: false, note: noteText,
+        raw: { first: String(r.text || ''), more: [] },
+        meta: { path: r.path === 'preset' ? 'preset' : 'so', ms: Date.now() - t0, finish: String(r.finish || ''), truncated: r.finish === 'length',
+            fromReasoning: !!r.fromReasoning, retried: !!r.retried },
+    };
+    if (r.retryWhy === 'cut') item.meta.retryWhy = 'cut';
+    // 复审 §4.7：重试之后【实际用的那一份】再判一次——还断着（第二份也断 / 重试出错留下了第一份）就照实注明（照旧存下：缺… + 纯文字 + 🔄）。
+    if (r.retried && r.stillCut === true) item.meta.stillCut = true;   // Finding 2：这一趟因为「半路断了」多调了一次（只有这种才加键，普通一趟的形状不变）
+    soThrSceneSave(item);
+    if (!silent) soThrSceneStatus(item.meta.truncated ? THEATER_SCENE_TRUNCATED : '');
+    soThrRefreshScenePanel();
+    if (!silent && typeof toastr !== 'undefined') toastr.success(escapeHtml(THEATER_SCENE_DONE(THEATER_SCENE_NAMES[scene])), '', { timeOut: 8000, onclick: () => soThrSceneOpen(item.id) });
+    return item;
+}
+// 复审 I5：每个场景最多留这么多批「更多」的原文（聊天元数据每次存盘整份重写）；再多就丢最旧的一批，场景上记一句。
+const THEATER_SCENE_MORE_CAP = 12;
+// 丢掉最旧的几批「更多」直到不超过上限（原地改 item）。论坛的帖子编号 t<n> 是按可见帖子的先后数的：丢掉的那批若是「换一版」
+//（board，加了帖子），之后各批 `thread:tN` 的编号要往前挪；指向被丢掉那几帖的批次本身也一起丢（它们的帖子已经不在了）。→ 丢了几批。
+function soThrSceneCapMores(item) {
+    const more = item && item.raw && Array.isArray(item.raw.more) ? item.raw.more : null;
+    if (!more || more.length <= THEATER_SCENE_MORE_CAP) return 0;
+    let dropped = 0;
+    while (more.length > THEATER_SCENE_MORE_CAP) {
+        const old = more[0];
+        if (item.scene === 'forum' && old && String(old.at || '') === 'board') {
+            const before = soThrSceneMerge({ scene: item.scene, raw: { first: item.raw.first, more: [] } });
+            const after = soThrSceneMerge({ scene: item.scene, raw: { first: item.raw.first, more: [old] } });
+            const p = before.content ? soThrForumVisible(before.content).length : 0;
+            const k = after.content ? Math.max(0, soThrForumVisible(after.content).length - p) : 0;
+            more.shift();
+            dropped++;
+            if (k > 0) {
+                for (let i = more.length - 1; i >= 0; i--) {
+                    const m = more[i];
+                    const hit = /^thread:t(\d+)$/.exec(String((m && m.at) || ''));
+                    if (!hit) continue;
+                    const n = Number(hit[1]);
+                    if (n > p && n <= p + k) { more.splice(i, 1); dropped++; } else if (n > p + k) m.at = 'thread:t' + (n - k);
+                }
+            }
+        } else {
+            more.shift();
+            dropped++;
+        }
+    }
+    item.meta = (item.meta && typeof item.meta === 'object') ? item.meta : {};
+    item.meta.moreDropped = (Number(item.meta.moreDropped) || 0) + dropped;
+    return dropped;
+}
+/* —— 「更多」（2026-11-07 Prince 实玩四个问题 → 四条规矩；运行时经 window.__soThrHost.more 叫它）——
+ * (a) 半截 / 解析不出 / 不对路的一批【绝不接上】：Fix B 的同一次重试（cutOff = soThrSceneMoreJudge 说不行），最后用的那一份再判一次，
+ *     还不行 → { failed: THEATER_SCENE_MORE_BAD }，场景一个字节都不动（原文也不存）。
+ * (b) 每一次都绑在它的目标上（at = 'thread:tN' | 'board' | 'feed' | 'diary' | 'live'，与 raw.more 的存法同一个键）：结果并进【那个目标的数据】，
+ *     并推给此刻开着的查看层（soThrSceneViewPush）——不管玩家现在在哪一屏、查看层中途重开过没有；运行时只在那一屏画。
+ * (c) 单趟：同一时刻至多一次「更多」（引擎本来就是全局一趟：soThrMoreFlight 一个槽）。再来的 → { busy }（不建提示词、不调引擎、不弹提示）；
+ *     引擎此刻开不了跑（主聊天在生成 / 别的小剧场在跑 / 回复后编排…）→ { wait: 原因 }，同样什么都不做。
+ * (d) 只能按住触发——在运行时（soThrAppRuntime 的 holdCtl）。 */
+// DRAFT 文案（待 Prince 选）。
+const THEATER_SCENE_MORE_BAD = '这次没写好，没有加进去';
+let soThrMoreFlight = null;   // { token, sceneId, at, t0 }：在路上的那一次「更多」
+let soThrMoreSeq = 0;
+// 目标描述 = raw.more 的 at 键（运行时按同一个式子算，两边永远一致）。
+function soThrMoreAt(kind, target) {
+    return kind === 'thread' ? 'thread:' + String(target) : String(kind || '');
+}
+// 「更多」这一批能不能接上。→ { ok, why: '' | 'length' | 'unparsed' | 'off-kind' | 'short' | 'cut' }。用的是与合并【同一条】解析
+//（soThrSceneCleanRaw → soThrSceneParse(…, 'more', known)），判过的和并进去的永远是同一份。半数规则：要 6–8 楼给不到 3 楼、要 2–3 帖一帖都不完整、
+// 要 3 条动态给不到 2 条、一页日记不到 2 段、要 3 拍给不到 2 拍（或最后一拍一条弹幕都没有）= short；最后一条是空的 = cut。
+// 判不出来的（finish 说 stop / 没报、长长一批在句中断了）照收——Prince 2026-11-07 裁：这个缺口保留。
+function soThrSceneMoreJudge(scene, kind, text, finish, known) {
+    if (finish === 'length') return { ok: false, why: 'length' };
+    const p = soThrSceneParse(scene, soThrSceneCleanRaw(text), 'more', known);
+    const c = p && p.content;
+    if (!c) return { ok: false, why: 'unparsed' };
+    const blank = (v) => !String(v == null ? '' : v).trim();
+    if (scene === 'forum') {
+        if (kind === 'board') {
+            const ths = c.threads.filter((t) => !blank(t.op));
+            if (!ths.length) return { ok: false, why: 'off-kind' };
+            if (!ths.some((t) => t.floors.length >= 1)) return { ok: false, why: 'short' };
+            const lt = c.threads[c.threads.length - 1];
+            const lf = lt && lt.floors[lt.floors.length - 1];
+            if ((lt && blank(lt.op) && !lt.floors.length) || (lf && blank(lf.text))) return { ok: false, why: 'cut' };
+            return { ok: true, why: '' };
+        }
+        const fl = c.newFloors || [];
+        if (!fl.length) return { ok: false, why: 'off-kind' };
+        if (blank(fl[fl.length - 1].text)) return { ok: false, why: 'cut' };
+        if (fl.length < 3) return { ok: false, why: 'short' };
+        return { ok: true, why: '' };
+    }
+    if (scene === 'feed') {
+        const ps = c.posts.filter((x) => !blank(x.text) || !blank(x.pic));
+        if (!ps.length) return { ok: false, why: 'off-kind' };
+        const lp = c.posts[c.posts.length - 1];
+        const lc = lp && lp.cmts[lp.cmts.length - 1];
+        if ((lp && blank(lp.text) && blank(lp.pic)) || (lc && blank(lc.t))) return { ok: false, why: 'cut' };
+        if (ps.length < 2) return { ok: false, why: 'short' };
+        return { ok: true, why: '' };
+    }
+    if (scene === 'diary') {
+        const es = c.entries.filter((e) => e.paras.length || (e.letter && !blank(e.letter.body)));
+        if (!es.length) return { ok: false, why: 'off-kind' };
+        const le = c.entries[c.entries.length - 1];
+        if (le && !le.paras.length && !(le.letter && !blank(le.letter.body))) return { ok: false, why: 'cut' };
+        if (!es.some((e) => e.paras.length >= 2)) return { ok: false, why: 'short' };
+        return { ok: true, why: '' };
+    }
+    if (scene === 'live') {
+        if (!c.beats.length) return { ok: false, why: 'off-kind' };
+        const lastB = c.beats.length - 1;
+        if (blank(c.beats[lastB])) return { ok: false, why: 'cut' };
+        if (c.beats.length < 2 || !c.dms.some((d) => d.b === lastB)) return { ok: false, why: 'short' };
+        return { ok: true, why: '' };
+    }
+    return { ok: false, why: 'unparsed' };
+}
+// 把一次「更多」的结局推给此刻开着的查看层（同源 iframe；运行时 window.__soThrLanded 按 token 去重——它自己那一份 promise 也会到）。
+// 查看层没开 / 开的是别的场景 / 纯文字模式 → 不推（下次打开时数据已经在了）。→ 推了没有。
+function soThrSceneViewPush(sceneId, payload) {
+    if (!soThrSceneView || soThrSceneView.id !== sceneId || soThrSceneView.plain || !win) return false;
+    const fr = win.querySelector('#so-thr-scene-frame');
+    if (!fr || fr.hidden) return false;
+    try {
+        const fw = fr.contentWindow;
+        if (!fw || typeof fw.__soThrLanded !== 'function') return false;
+        fw.__soThrLanded(payload);
+        return true;
+    } catch (e) { return false; }
+}
+// → 成功 { token, sceneId, at, content（整份重新组装的 App 数据）, added: 1, reset, retried }；失败 { token, sceneId, at, failed, why?, retried? }；
+//   单趟挡住 { busy, at, sceneId }；引擎开不了跑 { wait, at }；场景都没了 / 旗关 { error }。
+async function soThrSceneMore(sceneId, kind, target) {
+    if (!ENABLE_THEATER) return { error: 'off' };
+    if (soThrMoreFlight) return { busy: true, at: soThrMoreFlight.at, sceneId: soThrMoreFlight.sceneId };
+    const item = soThrSceneGet(sceneId);
+    if (!item) return { error: THEATER_SCENE_GONE };
+    const kinds = THEATER_SCENE_KINDS[item.scene] || [];
+    const k = kinds.includes(kind) ? kind : kinds[0];
+    const merged = soThrSceneMerge(item);
+    if (!merged.content) return { error: THEATER_SCENE_MISSING([THEATER_SCENE_PART_NAMES.content]) };
+    let tgt = target;
+    if (k === 'thread' && !soThrForumVisible(merged.content)[Number(String(tgt || '').slice(1)) - 1]) tgt = soThrSceneAssemble(merged).hot || 't1';
+    const at = soThrMoreAt(k, tgt);
+    // 先占槽（同步，绝不在 await 之后）——两次同时到也只有一次走得下去。
+    const fl = { token: ++soThrMoreSeq, sceneId, at, t0: Date.now() };
+    soThrMoreFlight = fl;
+    const fail = (why, extra) => { const p = Object.assign({ token: fl.token, sceneId, at, failed: String(why || '') }, extra || {}); soThrSceneViewPush(sceneId, p); return p; };
+    try {
+        const s = getSettings();
+        const ctx = getCtx();
+        const conn = soThrSceneConnIssue(s, soThrUsePreset(s, ctx));
+        if (conn) return fail(conn);
+        if (soThrSceneBusy) return { wait: THEATER_SCENE_BUSY, at };
+        let sc = null;
+        try { sc = await soThrModule('script', loadScriptCore); } catch (e) { sc = null; }
+        const g = soThrCanStart(soThrStartState(ctx, sc));
+        if (!g.ok) return { wait: g.reason, at };
+        const known = soThrSceneKnown(item.scene, merged.content);
+        const chatKey = fixChatKey();
+        let r = null;
+        try {
+            const opts = await soThrSceneOpts(ctx, s, item.owner, soThrScenePrompt('moreSystem', item.scene, k),
+                soThrScenePrompt('moreUser', item.scene, soThrSceneMoreContext(item.scene, merged, k, tgt)), null);
+            r = await soThrGenerateRecovered(opts, { isStale: () => fixChatKey() !== chatKey,
+                cutOff: (text, finish) => !soThrSceneMoreJudge(item.scene, k, text, finish, known).ok });
+        } catch (e) {
+            r = { text: '', aborted: false, error: errChainMessage(e) || String(e) };
+        }
+        r = r || { text: '', aborted: false, error: null };
+        if (fixChatKey() !== chatKey) return fail(THEATER_SCENE_CHAT_SWITCHED);
+        if (r.aborted) return fail(THEATER_ABORTED_NOTE);
+        if (r.error) return fail(explainProviderError(String(r.error)));
+        if (r.emptyFinal) return fail(r.filtered ? THEATER_FILTERED_REPLY : THEATER_EMPTY_REPLY);
+        // 最后用的那一份再判一次（也兜住「第一份坏、重试那趟出错 → 交回的是第一份」）。
+        const jd = soThrSceneMoreJudge(item.scene, k, r.text, r.finish, known);
+        if (!jd.ok) return fail(THEATER_SCENE_MORE_BAD, { why: jd.why, retried: !!r.retried });
+        const fresh = soThrSceneGet(sceneId);
+        if (!fresh) return fail(THEATER_SCENE_GONE);
+        fresh.raw.more = Array.isArray(fresh.raw.more) ? fresh.raw.more : [];
+        fresh.raw.more.push({ at, text: String(r.text || '') });
+        // 封顶丢了旧批次 → 运行时按目标数过的条数对不上了：交回 reset，运行时就地回到首屏（不再整份重开查看层）。
+        const droppedNow = soThrSceneCapMores(fresh);
+        soThrSceneSave(fresh);
+        const payload = { token: fl.token, sceneId, at, content: soThrSceneAssemble(soThrSceneMerge(fresh)), added: 1, reset: droppedNow > 0, retried: !!r.retried };
+        soThrSceneViewPush(sceneId, payload);
+        return payload;
+    } finally {
+        if (soThrMoreFlight === fl) soThrMoreFlight = null;
+    }
+}
+
+/* —— 主聊天自动场景（theater plan 4 Tasks 1–3；spec §5.6）——
+ * 设置 theaterAutoScenes（THEATER_SCENES 的子集，按其顺序）：每条新 AI 回复后，回复后编排的最后一步 'scenes' 依次给每个勾选的场景跑一次
+ * soThrSceneRun（一次调用一个；预设路照 A1 = 只加不动），把成品【快照】——soThrSnapshotDocument：只有数据 + 加载器，App 打开时向 SO 要（2026-11-07 起；见那一节）——
+ * 包成一段 HTML 注释记号 + ```html 代码块，贴到【那条 AI 回复当前 swipe】的最末尾。这是整个小剧场里唯一一处写主聊天的地方：
+ * 不新增楼、不动记号以上的任何字、不碰 variables / 别的 swipe / 别的楼。酒馆助手把代码块渲染成前端框；一条只发给提示词的全局正则
+ *（THEATER_HIDE_REGEX，placement 恒为 [2]，绝不含 0——CLAUDE.md 地雷）把它从发给模型的提示词里剥掉；SO 自己的提示词由 stripMechanismBlocks 剥。
+ * 写之前每一次都核对：本轮没被 supersede、还是同一个聊天、ctx.chat[idx] 还是那一个对象、swipe_id 没变——任何一条不成立就停，什么都不写。 */
+// DRAFT 文案（待 Prince 选）。
+const THEATER_AUTO_TITLE = '每条回复后自动生成（贴在该回复末尾）';
+const THEATER_AUTO_HINT = '每勾一个，每条回复多一次调用。贴进主聊天的是一份快照：在里面可以翻看，要「更多」请点「在小剧场中打开」。';
+const THEATER_AUTO_REGEX_FAILED = '没能登记「不发给模型」的正则，自动场景先不贴进主聊天（详见控制台）';
+const THEATER_AUTO_FAILED = (name, why) => `自动场景「${name}」没写成：${why}`;
+const THEATER_AUTO_NO_HELPER = '没有检测到酒馆助手：自动场景先不贴进主聊天（没有它，贴进去只会显示成一大段代码）';
+// 隐藏正则：只作用在发给模型的提示词上（promptOnly），屏幕照常显示。只核对 / 修这几个键；其余键（ST 自己迁移时加的）不碰。
+const THEATER_HIDE_REGEX = Object.freeze({
+    id: 'so-theater-hide-v1',
+    scriptName: '故事神谕 · 小剧场（不发给模型）',
+    findRegex: '/\\n*<!--so-theater:[\\s\\S]*?<!--\\/so-theater-->/g',
+    replaceString: '',
+    trimStrings: Object.freeze([]),
+    placement: Object.freeze([2]),
+    disabled: false,
+    markdownOnly: false,
+    promptOnly: true,
+    runOnEdit: true,
+    substituteRegex: 0,
+    minDepth: null,
+    maxDepth: null,
+});
+const THEATER_HIDE_REGEX_KEYS = ['scriptName', 'findRegex', 'replaceString', 'placement', 'disabled', 'markdownOnly', 'promptOnly', 'runOnEdit'];
+// SO 自己的提示词里剥记号（stripMechanismBlocks 用；与隐藏正则同一个式子）。
+const THEATER_SNAPSHOT_STRIP_RE = /\n*<!--so-theater:[\s\S]*?<!--\/so-theater-->/g;
+function soThrAutoNorm(v) {
+    return Array.isArray(v) ? THEATER_SCENES.filter((sc) => v.includes(sc)) : [];
+}
+function soThrHideRegexMatches(x) {
+    if (!x || typeof x !== 'object') return false;
+    return THEATER_HIDE_REGEX_KEYS.every((k) => soThrJson(x[k]) === soThrJson(THEATER_HIDE_REGEX[k]));
+}
+// 登记 / 核对隐藏正则（全局脚本）。已有且一致 → 不写；有但走样（ST 迁移过 / 被改过）→ 只把我们这几个键改回；没有 → 追加。
+// 写完【重新读一遍】核对 placement 恰为 [2]、promptOnly 恰为 true——绝不信自己写进去的形状。→ { ok, reason }。
+async function soThrEnsureHideRegex() {
+    if (!ENABLE_THEATER) return { ok: false, reason: 'off' };
+    let rx = null;
+    try { rx = await soThrModule('regex', loadRegexEngine); } catch (e) { rx = null; }
+    if (!rx || typeof rx.getScriptsByType !== 'function' || typeof rx.saveScriptsByType !== 'function') return { ok: false, reason: 'unavailable' };
+    let es = null;
+    try { es = getCtx().extensionSettings; } catch (e) { es = null; }
+    if (es && Array.isArray(es.disabledExtensions) && es.disabledExtensions.includes('regex')) return { ok: false, reason: 'regex-disabled' };
+    const T = (rx.SCRIPT_TYPES && Number.isInteger(rx.SCRIPT_TYPES.GLOBAL)) ? rx.SCRIPT_TYPES.GLOBAL : 0;
+    try {
+        const cur = rx.getScriptsByType(T);
+        const list = Array.isArray(cur) ? cur : [];
+        const at = list.findIndex((x) => x && x.id === THEATER_HIDE_REGEX.id);
+        if (at >= 0 && soThrHideRegexMatches(list[at])) return { ok: true, reason: 'ok' };
+        const next = list.slice();
+        let reason = 'registered';
+        if (at >= 0) {
+            const fixed = Object.assign({}, next[at]);
+            for (const k of THEATER_HIDE_REGEX_KEYS) fixed[k] = JSON.parse(JSON.stringify(THEATER_HIDE_REGEX[k]));
+            next[at] = fixed;
+            reason = 'repaired';
+        } else {
+            next.push(JSON.parse(JSON.stringify(THEATER_HIDE_REGEX)));
+        }
+        await rx.saveScriptsByType(next, T);
+        const back = rx.getScriptsByType(T);
+        const mine = Array.isArray(back) ? back.find((x) => x && x.id === THEATER_HIDE_REGEX.id) : null;
+        const verified = !!mine && soThrJson(mine.placement) === '[2]' && mine.promptOnly === true && soThrHideRegexMatches(mine);
+        if (!verified) { console.warn('[Story Oracle] 小剧场：隐藏正则写进去后读回来对不上', mine); return { ok: false, reason: 'verify-failed' }; }
+        return { ok: true, reason };
+    } catch (e) {
+        console.warn('[Story Oracle] 小剧场：登记隐藏正则失败', e);
+        return { ok: false, reason: 'error' };
+    }
+}
+// 自动场景列表非空时才登记（空列表绝不登记，连正则模块都不读）。勾选变化时 + 初始化时调。
+async function soThrAutoSync() {
+    if (!ENABLE_THEATER) return null;
+    if (!soThrAutoNorm(getSettings().theaterAutoScenes).length) return null;
+    return soThrEnsureHideRegex();
+}
+// 记号：\n\n<!--so-theater:{scene}:{sceneId}-->\n```html\n{document}\n```\n<!--/so-theater-->。文档里的「<!--/so-theater」改成
+// 「<!-- /so-theater」、每串 3 个以上的反引号把第一个换成 &#96;——记号和代码块都不可能被文档内容提前关掉。
+function soThrSnapshotMarker(item, documentHtml) {
+    const scene = String((item && item.scene) || '').replace(/[^a-z]/g, '');
+    const id = String((item && item.id) || '').replace(/[^\w-]/g, '');
+    let d = String(documentHtml == null ? '' : documentHtml).replace(/<!--\/so-theater/g, '<!-- /so-theater');
+    while (/`{3,}/.test(d)) d = d.replace(/`{3,}/g, (run) => '&#96;' + run.slice(1));   // 4 个以上：一轮换掉一个，换到没有 3 连为止
+    return `\n\n<!--so-theater:${scene}:${id}-->\n\`\`\`html\n${d}\n\`\`\`\n<!--/so-theater-->`;
+}
+// 唯一一处写主聊天：贴到 mes、当前 swipe（有 swipes 时）、extra.display_text（是字符串时——翻译类扩展设的，ST 显示它）。
+// 只改内存；存盘 + 重画由 soThrAutoCommit 做（复审 I3：一批贴完只重画一次，CHARACTER_MESSAGE_RENDERED 不连发）。
+function soThrAppendMark(msg, swipe, item) {
+    const s = getSettings();
+    const mark = soThrSnapshotMarker(item, soThrSnapshotDocument(item, null, { allowScripts: s.theaterAllowScripts !== false }));
+    msg.mes = String(msg.mes == null ? '' : msg.mes) + mark;
+    if (Array.isArray(msg.swipes) && swipe >= 0 && swipe < msg.swipes.length) msg.swipes[swipe] = String(msg.swipes[swipe] == null ? '' : msg.swipes[swipe]) + mark;
+    if (msg.extra && typeof msg.extra.display_text === 'string') msg.extra.display_text += mark;
+}
+// 存一次 + 重画一次。重画走诊断写回同一条：updateMessageBlock + 补发 MESSAGE_UPDATED / RENDERED——酒馆助手只在这些事件上把 ```html
+// 代码块渲染成框（smoke L1 实测：只 updateMessageBlock = 0 个框）。MVU 只在 RECEIVED / SENT 解析，不会因此重解析。
+async function soThrAutoCommit(ctx, idx) {
+    try { if (ctx && typeof ctx.saveChat === 'function') await ctx.saveChat(); } catch (e) { console.warn('[Story Oracle] 小剧场：贴上自动场景后存聊天失败', e); }
+    try { refreshMessageBar(idx); } catch (e) { /* 那一楼不在屏上 */ }
+}
+async function soThrAppendSnapshot(ctx, idx, msg, swipe, item) {
+    soThrAppendMark(msg, swipe, item);
+    await soThrAutoCommit(ctx, idx);
+}
+// 贴成功之后记下贴在哪（楼号 + swipe）：「继续」把记号冲掉时据此原样贴回（复审 I3），不必再调一次模型。
+function soThrSceneMarkAuto(id, floor, swipe) {
+    const st = soThrScenesStore(false);
+    const x = st ? st.items.find((it) => it && it.id === id) : null;
+    if (!x) return;
+    x.auto = { floor: Number(floor), swipe: Number(swipe) };
+    saveChatMetadata();
+}
+// 这一楼这一 swipe 上贴过的、这个场景的存货（旧 → 新）。
+function soThrSceneAutoItems(scene, floor, swipe) {
+    return soThrScenesList({ kind: 'main' })
+        .filter((x) => x.scene === scene && x.auto && x.auto.floor === floor && x.auto.swipe === swipe)
+        .reverse();
+}
+function soThrMarkPresent(msg, item) {
+    return String((msg && msg.mes) || '').includes('<!--so-theater:' + String(item.scene || '').replace(/[^a-z]/g, '') + ':' + String(item.id || '').replace(/[^\w-]/g, '') + '-->');
+}
+// 酒馆助手在不在（它把 ```html 代码块渲染成框；不在 = 贴进去的只是一大段代码）。
+function soThrHaveTavernHelper() {
+    try { return typeof window !== 'undefined' && !!window.TavernHelper && typeof window.TavernHelper === 'object'; } catch (e) { return false; }
+}
+// Fix A 的 1.5 秒复查要是还在排队，先等它跑完（它比对的是生成前的快照：不等的话，它会把我们刚贴上去的记号当成预设脚本的改写给改回去）。
+async function soThrChatGuardSettle() {
+    const g = soThrChatGuardPending;
+    if (!g || g.closed) return;
+    const t0 = Date.now();
+    while (!g.closed && Date.now() - t0 < THEATER_CHAT_RECHECK_MS + 1000) await new Promise((r) => setTimeout(r, 50));
+    if (!g.closed) soThrChatGuardRecheck(g);
+}
+let soThrAutoFailToasted = false;   // 自动场景失败的提示每会话只弹一次（同自动诊断）
+let soThrAutoNoHelperToasted = false;   // 没有酒馆助手的提示每会话只弹一次
+// 回复后编排的 'scenes' 步。→ { appended:[scene], reappended:[scene], reason }（只供测试 / 诊断）。
+// opts = { type?（这条回复的 MESSAGE_RECEIVED type；'continue' = 玩家点了「继续」）, mvuWait?（maybePostReply 在入口起跑的 MVU 兼容会话，
+// awaitMvuCompatBatch：额外模型解析的 4 秒起跑窗 + 整批完成）}。
+async function runAutoScenes(ctx, s, idx, opts) {
+    const o = (opts && typeof opts === 'object') ? opts : {};
+    const out = { appended: [], reappended: [], reason: '' };
+    if (!ENABLE_THEATER) { out.reason = 'off'; return out; }
+    const list = soThrAutoNorm(s && s.theaterAutoScenes);
+    const chat = ctx && Array.isArray(ctx.chat) ? ctx.chat : null;
+    const msg = chat ? chat[idx] : null;
+    if (!list.length || !msg || msg.is_user || msg.is_system) { out.reason = 'nothing'; return out; }
+    if (soThrGroupBlocked(ctx)) { out.reason = 'group'; return out; }
+    // 复审 I3：没有酒馆助手 → 贴进去只会显示成一大段代码：不贴、也不调模型；提示一次。
+    if (!soThrHaveTavernHelper()) {
+        out.reason = 'no-helper';
+        if (!soThrAutoNoHelperToasted && typeof toastr !== 'undefined') { soThrAutoNoHelperToasted = true; toastr.warning(THEATER_AUTO_NO_HELPER); }
+        return out;
+    }
+    const reg = await soThrEnsureHideRegex();
+    if (!reg.ok) {
+        out.reason = 'no-regex';
+        console.warn('[Story Oracle] 小剧场：隐藏正则不可用（' + reg.reason + '），自动场景不贴进主聊天');
+        if (!soThrAutoFailToasted && typeof toastr !== 'undefined') { soThrAutoFailToasted = true; toastr.warning(THEATER_AUTO_REGEX_FAILED); }
+        return out;
+    }
+    const swipe = Number.isInteger(msg.swipe_id) ? msg.swipe_id : 0;
+    const chatKey = fixChatKey();
+    const still = () => !postReplyShouldStop() && fixChatKey() === chatKey && chat[idx] === msg && (Number.isInteger(msg.swipe_id) ? msg.swipe_id : 0) === swipe;
+    // 复审 C1c：第一次动手之前，先等 MVU 额外模型解析（入口起跑的 awaitMvuCompatBatch：4 秒起跑窗 + 整批写完）——它晚到的写入会改这条回复，
+    // 小剧场的预设路护栏也不该撞上它。超时 / 被取消 = 宁可不贴。
+    if (o.mvuWait && typeof o.mvuWait.wait === 'function') {
+        const w = await o.mvuWait.wait();
+        if (w && (w.status === 'timed-out' || w.status === 'cancelled')) { out.reason = w.status === 'cancelled' ? 'stale' : 'mvu-timeout'; return out; }
+    }
+    if (!still()) { out.reason = 'stale'; return out; }
+    // 回复后编排的「中断」/ supersede 也要掐掉在途的这一趟（主线发送本来就会经 soThrArmAbort 掐掉它）。
+    const ctl = beginPostReplyCall(30 * 60000);
+    const onAbort = () => { if (soThrRun) soThrAbort('user'); };
+    try { if (ctl.signal) ctl.signal.addEventListener('abort', onAbort, { once: true }); } catch (e) { /* ignore */ }
+    let dirty = false;   // 贴了还没存 / 没重画（一批只重画一次）
+    const flush = async () => { if (!dirty) return; dirty = false; await soThrAutoCommit(ctx, idx); };
+    try {
+        for (const scene of list) {
+            if (!still()) { out.reason = 'stale'; break; }
+            // 复审 I3：「继续」会按提示词版（隐藏正则已剥掉记号）重建正文 → 记号没了。这一楼这一 swipe 贴过的存货原样贴回，不调模型；
+            // 存货已经不在了（被挤出 / 删掉）才重新生成。
+            if (o.type === 'continue') {
+                const stored = soThrSceneAutoItems(scene, idx, swipe);
+                if (stored.length) {
+                    for (const it of stored) {
+                        if (soThrMarkPresent(msg, it)) continue;
+                        soThrAppendMark(msg, swipe, it);
+                        dirty = true;
+                        out.reappended.push(scene);
+                    }
+                    continue;
+                }
+            }
+            await flush();
+            await awaitMvuIdle(await getMvu(), { isCancelled: postReplyShouldStop });   // MVU 额外模型解析还在写这条回复：等它写完再开（否则闸会拒）
+            if (!still()) { out.reason = 'stale'; break; }
+            const report = {};
+            const item = await soThrSceneRun(scene, '', { kind: 'main', floor: idx }, { silent: true, postReply: true, report });
+            if (!still()) { out.reason = 'stale'; break; }
+            if (!item) {
+                console.warn('[Story Oracle] 小剧场：自动场景没写成', scene, report.why || '');
+                if (!soThrAutoFailToasted && typeof toastr !== 'undefined') { soThrAutoFailToasted = true; toastr.warning(escapeHtml(THEATER_AUTO_FAILED(THEATER_SCENE_NAMES[scene] || scene, report.why || '—'))); }
+                continue;
+            }
+            await soThrChatGuardSettle();
+            if (!still()) { out.reason = 'stale'; break; }
+            soThrAppendMark(msg, swipe, item);
+            soThrSceneMarkAuto(item.id, idx, swipe);
+            dirty = true;
+            await flush();
+            out.appended.push(scene);
+        }
+        if (still()) await flush();
+    } finally {
+        try { if (ctl.signal) ctl.signal.removeEventListener('abort', onAbort); } catch (e) { /* ignore */ }
+        ctl.end();
+    }
+    return out;
+}
+// 「在小剧场中打开」（主聊天快照里那颗钮经 window.parent.__soThrHost.open 叫它）：开窗 → 进小剧场模式 → 场景页签 → 在查看层里打开这一个
+//（那里「更多」可用，结果照常存在 SO 自己的存储里）。场景已不在本聊天的存储里（被挤出 / 别的聊天）→ 提示，什么都不开。
+async function soThrHostOpen(sceneId) {
+    if (!ENABLE_THEATER || !win) return false;
+    const item = soThrSceneGet(sceneId);
+    if (!item) { if (typeof toastr !== 'undefined') toastr.info(THEATER_SCENE_GONE); return false; }
+    if (win.style.display === 'none') toggleWindow(true);
+    if (!theaterMode) {
+        await soThrToggle();
+        if (!theaterMode) return false;
+    }
+    if (item.owner && item.owner.kind === 'main') soThrSceneUseMain = true;
+    getSettings().theaterTab = 'scenes';
+    save();
+    soThrRefreshBar();
+    return soThrSceneOpen(sceneId);
+}
+
+/* —— 小剧场设置组（Task 6）：#so-settings 里的 <details id="so-thr-set-group">（旗关不渲染）——
+ * 场景输出上限 / 允许场景里的脚本 / 兼容 MVU 额外模型解析（与小剧场栏那颗是同一个设置，两处同步）。plan 4 的自动场景行也加在这里。 */
+// DRAFT 文案（待 Prince 选）。
+const THEATER_SET_TITLE = '🎭 小剧场';
+const THEATER_SET_MAXTOK = '场景输出上限';
+const THEATER_SET_MAXTOK_HINT = '小剧场场景（首轮和「更多」）每次最多写多少 token（4096–65536）。只管场景；平行线照预设或神谕自己的输出上限走。';
+const THEATER_SET_SCRIPTS = '允许场景里的脚本';
+const THEATER_SET_SCRIPTS_HINT = '关掉后 AI 写的小部件不再运行脚本（动画仍可用 CSS）';
+function soThrSettingsHtml() {
+    return `
+            <details class="so-set-group" id="so-thr-set-group">
+                <summary>${THEATER_SET_TITLE}</summary>
+                <div class="so-set-body">
+                    <label class="so-check"><span>${THEATER_SET_MAXTOK}</span><input id="so-thr-set-maxtok" type="number" min="${THEATER_SCENE_MAX_TOKENS_MIN}" max="${THEATER_SCENE_MAX_TOKENS_MAX}" step="1024" style="width:7em"></label>
+                    <div class="so-hint">${THEATER_SET_MAXTOK_HINT}</div>
+                    <label class="so-check"><input id="so-thr-set-scripts" type="checkbox"><span>${THEATER_SET_SCRIPTS}</span></label>
+                    <div class="so-hint">${THEATER_SET_SCRIPTS_HINT}</div>
+                    <label class="so-check" id="so-thr-set-derive-row" hidden><input id="so-thr-set-derive" type="checkbox"><span>${THEATER_MVU_DERIVE_LABEL}</span></label>
+                    <div class="so-hint" id="so-thr-auto-head"><b>${THEATER_AUTO_TITLE}</b></div>
+                    ${THEATER_SCENES.map((sc) => `<label class="so-check"><input type="checkbox" data-thr-auto="${sc}"><span>${THEATER_SCENE_ICONS[sc] || ''} ${THEATER_SCENE_NAMES[sc] || sc}</span></label>`).join('\n                    ')}
+                    <div class="so-hint">${THEATER_AUTO_HINT}</div>
+                </div>
+            </details>`;
+}
+// 设置组回显（唯一写者）。
+function soThrRefreshSettings() {
+    if (!ENABLE_THEATER || !win) return;
+    const g = win.querySelector('#so-thr-set-group');
+    if (!g) return;
+    const s = getSettings();
+    const mt = g.querySelector('#so-thr-set-maxtok');
+    if (mt) mt.value = String(soThrSceneMaxTokens(s));
+    const sc = g.querySelector('#so-thr-set-scripts');
+    if (sc) sc.checked = s.theaterAllowScripts !== false;
+    const row = g.querySelector('#so-thr-set-derive-row');
+    if (row) {
+        row.hidden = !soThrMvu();
+        const d = row.querySelector('#so-thr-set-derive');
+        if (d) d.checked = !!s.theaterMvuDerive;
+    }
+    const auto = soThrAutoNorm(s.theaterAutoScenes);
+    g.querySelectorAll('[data-thr-auto]').forEach((b) => { b.checked = auto.includes(b.dataset.thrAuto); });
+}
+function soThrBindSettings() {
+    if (!ENABLE_THEATER || !win) return;
+    const g = win.querySelector('#so-thr-set-group');
+    if (!g) return;
+    g.addEventListener('toggle', () => { if (g.open) soThrRefreshSettings(); });
+    g.querySelector('#so-thr-set-maxtok')?.addEventListener('change', (e) => {
+        const s = getSettings();
+        s.theaterSceneMaxTokens = soThrSceneMaxTokens({ theaterSceneMaxTokens: e.target.value });
+        e.target.value = String(s.theaterSceneMaxTokens);
+        save();
+    });
+    g.querySelector('#so-thr-set-scripts')?.addEventListener('change', (e) => { getSettings().theaterAllowScripts = !!e.target.checked; save(); });
+    g.querySelector('#so-thr-set-derive')?.addEventListener('change', (e) => {
+        getSettings().theaterMvuDerive = !!e.target.checked;
+        save();
+        soThrRefreshBar();
+    });
+    // plan 4：每条回复后自动生成哪些场景。勾上（列表变成非空）就登记 / 核对隐藏正则；取消勾选从不删它（聊天里已有的快照仍要藏）。
+    g.querySelectorAll('[data-thr-auto]').forEach((b) => b.addEventListener('change', () => {
+        const s = getSettings();
+        const on = new Set(soThrAutoNorm(s.theaterAutoScenes));
+        if (b.checked) on.add(b.dataset.thrAuto); else on.delete(b.dataset.thrAuto);
+        s.theaterAutoScenes = THEATER_SCENES.filter((sc) => on.has(sc));
+        save();
+        soThrAutoSync().then((r) => {
+            if (r && !r.ok && typeof toastr !== 'undefined') toastr.warning(THEATER_AUTO_REGEX_FAILED);
+        }).catch(() => {});
+    }));
+    soThrRefreshSettings();
+}
+
 // 下拉里显示的名字 = 预设原名 + 作者名。作者原帖是 Discord 链接（对扩展内没用），
 // Prince 会在自己的 Discord 帖里放链接；扩展内只保留署名。
 const BUILTIN_JB_LABEL = '🔓 内置破限 · 初心破限1.2（出自 初遇大佬）';
@@ -5471,6 +11311,8 @@ const defaults = {
     ...(ENABLE_NEXT_BEAT ? { nextBeatEnabled: false, nextBeatAuto: false, nextBeatTemplate: null, nextBeatMaxChars: 4000 } : {}),
     // 🏷 对话称呼（konosbz 1.0.3，ENABLE_DISPLAY_NAMES）：窗口里两个名字标签的自定义称呼；'' = 默认「你」/「神谕」。旗关时两个键不进 defaults。
     ...(ENABLE_DISPLAY_NAMES ? { userDisplayName: '', oracleDisplayName: '' } : {}),
+    // 🎭 小剧场（ENABLE_THEATER）：「用 ST 当前预设」勾选框（只在 ST 走聊天补全时生效，见 soThrUsePreset）/ 小剧场栏当前页签。旗关时两个键不进 defaults。
+    ...(ENABLE_THEATER ? { theaterUseStPreset: false, theaterTab: 'if', theaterMvuDerive: false, theaterSceneMaxTokens: 16384, theaterAllowScripts: true, theaterAutoScenes: [] } : {}),
     // Whether advisor mode runs THROUGH the curated preset (directive layered on
     // top, RP markers skipped) — same opt-in pattern as lorebookUsePreset.
     advisorUsePreset: false,
@@ -5538,6 +11380,8 @@ let advisorMode = false;
 let fixMode = false;
 // Builder mode state (角色工坊). Plain on/off mode like fix.
 let builderMode = false;
+// 🎭 小剧场 mode state (ENABLE_THEATER). Plain on/off mode like builder; the only writer is setOracleMode.
+let theaterMode = false;
 let bldContextText = '';   // structured "book -> selected entries" listing, built in generateReply
 let bldScanWiText = '';    // 关键词扫描命中的补充条目块（opt-in bldScanWi；buildBuilderContext 同步刷新）
 let bldBookNames = [];     // names of the books included in the current builder context
@@ -5779,6 +11623,8 @@ function getSettings() {
     if (ENABLE_EXTRA_SKINS || ENABLE_THEME_LIBRARY || ENABLE_APPEARANCE_MEDIA || ENABLE_READING_COMFORT) soAppearanceFill(s);
     // TBW spec D · D1：知识库索引（角色键 → 服务器上的文件编号），默认空；旗关不写这个键。
     if (ENABLE_KNOWLEDGE_BASE && !(s.kbIndex && typeof s.kbIndex === 'object' && !Array.isArray(s.kbIndex))) s.kbIndex = soKbIndexDefault();
+    // 🎭 小剧场 plan 4：自动场景列表归一（THEATER_SCENES 的子集、按其顺序、本设置对象自己的新数组——绝不与 defaults 共用引用）。旗关不写这个键。
+    if (ENABLE_THEATER) s.theaterAutoScenes = soThrAutoNorm(s.theaterAutoScenes);
     return s;
 }
 
@@ -5863,7 +11709,8 @@ async function soCallModel(messages, opts = {}) {
 }
 
 // ---- 插件模式注册表（registerMode）----
-const SO_BUILTIN_MODE_IDS = ['chat', 'diagnose', 'lorebook', 'advisor', 'fix', 'builder'];
+// 🎭 小剧场开着时 'theater' 也是内置模式 id（插件不得再注册同名模式；旗关 = 原六个）。
+const SO_BUILTIN_MODE_IDS = ['chat', 'diagnose', 'lorebook', 'advisor', 'fix', 'builder', ...(ENABLE_THEATER ? ['theater'] : [])];
 const registeredModes = new Map();   // id → spec（插件注册的模式）
 let activeRegisteredModeId = null;    // 当前激活的注册模式 id（内置模式激活时为 null）
 const registeredMessageActions = [];  // 插件经 addMessageAction 注册的每条 AI 回复动作按钮（{id, icon, title, onClick}）
@@ -6299,7 +12146,7 @@ function init() {
             // 开场白（type 'first_message'：打开只有开场白的聊天时 ST 会发）不是新回复 → 跳过（postReplyHandlesType）。
             ctx.eventSource.on(et.MESSAGE_RECEIVED || 'message_received', (id, type) => {
                 if (!postReplyHandlesType(type)) return;
-                Promise.resolve(maybePostReply(id)).catch((e) => console.warn('[Story Oracle] 回复后编排调度失败：', e));
+                Promise.resolve(maybePostReply(id, type)).catch((e) => console.warn('[Story Oracle] 回复后编排调度失败：', e));
             });
             // 新的用户输入令旧回复的后台工作失去语义基础：静默作废 Story Oracle 自己的等待 / LLM，
             // 但不碰 MVU 的外部解析（它没有公开 cancel API）。这与用户点提示的“手动中断”分开，
@@ -6326,6 +12173,12 @@ function init() {
                 et.MESSAGE_DELETED || 'message_deleted',
             ].forEach((ev) => ctx.eventSource.on(ev, () => { refreshFixChatEntry(); refreshOracleEntries(); }));
             ctx.eventSource.on(et.CHAT_CHANGED || 'chat_id_changed', () => { clearFixChatSel(); refreshFixChatEntry(); refreshOracleEntries(); });
+            // 🎭 小剧场：换聊天 → 群聊禁用态重算（人在小剧场里换进群聊就退回普通聊天）。
+            if (ENABLE_THEATER) ctx.eventSource.on(et.CHAT_CHANGED || 'chat_id_changed', () => soThrOnChatChanged());
+            // 🎭 plan 2 Task 6：载入时也查一次变量切换日志（上次页面在互换窗口里被刷新 / 崩掉）。
+            if (ENABLE_THEATER) { try { soThrRecoverSwap(ctx); } catch (e) { /* 日志坏了只影响自动还原 */ } }
+            // 🎭 plan 4：自动场景勾着 → 载入时核对一次「不发给模型」的隐藏正则（ST 可能在启动迁移里改过它）；没勾 = 一行都不读。
+            if (ENABLE_THEATER) soThrAutoSync().catch(() => {});
             if (ENABLE_NEXT_BEAT) {
                 // 🧭 下一拍建议（1.87.0）：楼层 / 聊天变动一律重对卡片（nbeatRefresh 自己判闸、判归属、掐陈旧在途请求）。
                 // 事件名对 ST 真源码 public/scripts/events.js 核过。自动生成挂 MESSAGE_RECEIVED（与回复后编排同一信号），
@@ -6974,9 +12827,10 @@ function isMvuRuleEntry(e) {
 
 // Enumerate every enabled, constant [mvu_update] entry from the raw active
 // books. Returns substituted content strings, deduped, sorted by entry order.
-async function collectMvuRuleContents() {
+// modIn（可选，🎭 小剧场预设路传它自己那份 world-info 模块）；缺省 = loadWorldInfoModule()，其余调用点照旧。
+async function collectMvuRuleContents(modIn) {
     const ctx = getCtx();
-    const mod = await loadWorldInfoModule();
+    const mod = modIn || await loadWorldInfoModule();
     if (!mod || typeof mod.getSortedEntries !== 'function' || typeof mod.loadWorldInfo !== 'function') {
         return [];
     }
@@ -7028,10 +12882,10 @@ async function collectMvuUpdateRules(existingBlock) {
 // the same substituted content the scan would have inserted is matched and
 // cut out, then leftover blank lines are collapsed. No-op on cards without
 // [mvu_update] entries.
-async function stripMvuRuleContents(text) {
+async function stripMvuRuleContents(text, modIn) {
     if (!text || typeof text !== 'string') return text || '';
     let contents;
-    try { contents = await collectMvuRuleContents(); } catch (e) { return text; }
+    try { contents = await collectMvuRuleContents(modIn); } catch (e) { return text; }
     if (!contents.length) return text;
     let out = text;
     for (const c of contents) {
@@ -9540,13 +15394,14 @@ function saveChatMetadata() {
 function serializeConvo(list) {
     const out = (Array.isArray(list) ? list : [])
         .filter((m) => m && (m.role === 'user' || m.role === 'assistant' || m.role === 'note') && typeof m.content === 'string')
-        .map((m) => soWithHideFields(m, soWithRawFields(m, soWithReplyVersionFields(m, (m.diagStamp && typeof m.diagStamp === 'object')
+        .map((m) => soWithTheaterFields(m, soWithHideFields(m, soWithRawFields(m, soWithReplyVersionFields(m, (m.diagStamp && typeof m.diagStamp === 'object')
             ? { id: m.id, role: m.role, content: m.content, diagStamp: m.diagStamp }
-            : { id: m.id, role: m.role, content: m.content }))));
+            : { id: m.id, role: m.role, content: m.content })))));
     for (let i = out.length - 1, seen = false; i >= 0; i--) {
         if (!out[i].diagStamp) continue;
         if (seen) delete out[i].diagStamp; else seen = true;
     }
+    if (ENABLE_THEATER) soThrPruneVars(out);   // 🎭 平行线变量本只留最近 THEATER_VARS_KEEP 轮（复审 I5）
     return out;
 }
 
@@ -9829,10 +15684,16 @@ function soRecordRaw(entry, modelText, map) {
 }
 // 一次改动版本 / 文字的操作，原文表跟着走（fn 里做 variantSelect / variantDeleteCurrent / 改 content 等）。
 function soWithRaw(entry, fn) {
-    if (!ENABLE_ORACLE_REGEX || !entry) return fn();
+    const thr = (ENABLE_THEATER && entry) ? soThrVarsSnap(entry) : null;   // 🎭 平行线变量本也跟着版本走（没有变量 = null = 不插手）
+    if (!ENABLE_ORACLE_REGEX || !entry) {
+        const out0 = fn();
+        if (thr) soThrVarsApply(entry, thr);
+        return out0;
+    }
     const map = soRawMapOf(entry);
     const out = fn();
     soRawApply(entry, map);
+    if (thr) soThrVarsApply(entry, thr);
     return out;
 }
 function soWithRawFields(m, o) {
@@ -9997,6 +15858,7 @@ function convoStreamKeyForMode(mode, s) {
         case 'lorebook': return 'lorebook';
         case 'advisor': return 'advisor';
         case 'fix': return 'fix';
+        case 'theater': return 'theater';   // 🎭 小剧场（ENABLE_THEATER 关时 currentOracleMode 永不返回它）
         default: return 'main';
     }
 }
@@ -12295,6 +18157,9 @@ function dbBridgeAfterCommandsFirst(type, params, dryRun) {
     dbBridgeRun.depth += 1;
     if (dbBridgeRun.depth > 1) return false;                        // 嵌套那发（酒馆助手 generateRaw 再 emit）：不附、不碰 pending
     try {
+        // 🎭 小剧场在跑：这一发不是主线叙述（主线发送会先同步中断小剧场、清掉 soThrRun）——不附、不碰输入框与聊天。
+        // 放在嵌套计数之后：depth 仍与 last 成对。
+        if (ENABLE_THEATER && soThrRun !== null) return false;
         if (!ENABLE_DB_BRIDGE) return false;
         if (dryRun) return false;
         if (type != null && type !== 'normal') return false;        // ST 自己把 undefined 与 'normal' 同视（script.js sendTextareaMessage）
@@ -12633,6 +18498,8 @@ function glueArrayCarriesOurs(chat, slots) {
 // 没贴上（slot-missing / slot-dup / no-host / no-top / no-user / selfcheck / error）console.info 一行；闸拒绝、
 // empty-slots、外来数组静默。glueLast 仍是内存里的唯一记录。
 function onPromptReadyGlue(data) {
+    // 🎭 小剧场预设路自己调 prepareOpenAIMessages 也会发 CHAT_COMPLETION_PROMPT_READY——那是小剧场的请求，不是主线叙述：静默放过。
+    if (ENABLE_THEATER && soThrRun !== null) return false;
     let eligible = false;
     try {
         // 1.78.0：GENERATION_AFTER_COMMANDS 链条还开着时到来的 prompt_ready 是【链条里别人的生成】（数据库主 API 路经酒馆助手 generateRaw 发的规划请求，
@@ -19521,7 +25388,7 @@ function supersedePostReply() {
 // （fixLandOrPark），回到原聊天时自动落地（fixDrainParked）。step 为空（还没进任一步）时不作废——
 // 那一轮还没花钱，也没有任何待写的东西。
 function postReplyStepCancels(step) {
-    return step === 'diag' || step === 'trainer';
+    return step === 'diag' || step === 'trainer' || step === 'scenes';   // 🎭 自动场景只贴进它起跑时那个聊天的那条回复
 }
 
 // 运行时薄封装：当前这一轮该不该因为切聊天而作废。onChatChanged 与 CHAT_CHANGED 的 supersede
@@ -19550,7 +25417,7 @@ function drainPendingPostReply() {
     if (pending
         && pending.chatKey === fixChatKey()
         && (pendingCtx?.chat || [])[pending.messageId] === pending.messageRef) {
-        Promise.resolve(maybePostReply(pending.messageId)).catch((e) => console.warn('[Story Oracle] pending 回复后编排失败：', e));
+        Promise.resolve(maybePostReply(pending.messageId, pending.type)).catch((e) => console.warn('[Story Oracle] pending 回复后编排失败：', e));
     }
     // ✨/📋 1.77.0（复审 minor #9）：暂存的成品若因为「有一轮在飞」而被 fixDrainParked 让过，这里是锁刚
     // 释放的那一刻——补唤一次。放在补跑【之后】：补跑那一轮若真开跑会同步把锁重新置真，我们就再让一次，
@@ -19574,6 +25441,8 @@ function postReplyPlan(flags, s) {
     // 🎛 修改器（1.63.0）恒排最后：诊断是「猜剧情该怎么改」，修改器是用户的显式覆盖，后写者赢。
     // 条件是【本聊天有生效规则】，与两个自动开关无关——关了自动校正不该让修改器停摆。
     if (flags && flags.trainer && s && s.trainerActive) plan.push('trainer');
+    // 🎭 小剧场 plan 4：自动场景恒排最后——贴在【最后显示出来的那个 swipe】上（自动校正换过 swipe 也一样）。旗关 / 没勾 = 原计划。
+    if (flags && flags.scenes && s && Array.isArray(s.theaterAutoScenes) && s.theaterAutoScenes.length) plan.push('scenes');
     return plan;
 }
 
@@ -19750,7 +25619,7 @@ async function awaitFixMvuBoundary(s, compatSession, capturedChatId) {
     return { proceed: true, coordinated, status: 'ready' };
 }
 
-async function maybePostReply(messageId) {
+async function maybePostReply(messageId, type) {
     const ctx = getCtx(); if (!ctx) return;
     const s = getSettings();
     // 编排门控：autoFixEnabled 走【本聊天】生效配置（Phase 4 per-chat 迁移）；autoDiagnoseEnabled
@@ -19763,15 +25632,17 @@ async function maybePostReply(messageId) {
         trainerActive: ENABLE_MVU_TRAINER && trainerReadRules().length > 0,
         // 📋 自定义模板任务：任务选择也是【本聊天】配置，与 autoFixEnabled 同一份 cfg（'fix' | 'custom'）。
         fixTask: resolveFixCustomCfg(cfg).task,
+        // 🎭 小剧场 plan 4：每条回复后自动生成的场景（全局设置）。
+        theaterAutoScenes: ENABLE_THEATER ? s.theaterAutoScenes : undefined,
     };
-    const plan = postReplyPlan({ fix: ENABLE_REPLY_FIX, diag: ENABLE_AUTO_DIAGNOSE, trainer: ENABLE_MVU_TRAINER, custom: ENABLE_FIX_CUSTOM_TASK && ENABLE_REPLY_FIX }, gate);
+    const plan = postReplyPlan({ fix: ENABLE_REPLY_FIX, diag: ENABLE_AUTO_DIAGNOSE, trainer: ENABLE_MVU_TRAINER, custom: ENABLE_FIX_CUSTOM_TASK && ENABLE_REPLY_FIX, scenes: ENABLE_THEATER }, gate);
     if (!plan.length) return;                               // 两个杀死开关 / 两个设置都没开 → 不做事、不动模型
     const idx = Number(messageId); const m = (ctx.chat || [])[idx];
     if (!m || m.is_user || m.is_system) return;             // 只处理 AI 回复（排除用户 / 系统消息）
     // eventSource 不会等本函数；若上一轮仍占锁，保留最新合法 AI 回复，释放后补跑。单槽刻意采用
     // “last write wins”：连着 swipe / regenerate 时，过期的中间回复不值得再花一次模型调用。
     if (postReplyBusy) {
-        pendingPostReplyRun = { messageId: idx, chatKey: fixChatKey(), messageRef: m };
+        pendingPostReplyRun = { messageId: idx, chatKey: fixChatKey(), messageRef: m, type };
         return;
     }
     if (isGenerating) return;                               // 不在主聊天生成中途插手
@@ -19783,6 +25654,7 @@ async function maybePostReply(messageId) {
     // 更需要一个「这一轮开始时」的基准），故一并顺给 runAutoDiagnose。
     const chatKey = fixChatKey();
     const run = { messageId: idx, superseded: false, step: null };   // step = 正在跑的处理器名（onChatChanged 据此决定作废谁）
+    run.type = type;   // MESSAGE_RECEIVED 的 type（🎭 自动场景认「continue」：原样贴回存货，不再调模型）
     postReplyBusy = true;
     postReplyCancelled = false;                                 // 每轮开始清零；用户点提示「中断」会把它置真
     activePostReplyRun = run;
@@ -19794,6 +25666,9 @@ async function maybePostReply(messageId) {
         mvuApi || window.Mvu,
         plan.includes('diag') && !!s.autoDiagnoseMvuCompat,
     );
+    // 🎭 自动场景（复审 C1c）：动手前也等 MVU 额外模型解析——同一个 awaitMvuCompatBatch；诊断那份开着就共用它，否则单给场景起一份（入口起跑，
+    // 4 秒起跑窗与下面的 settle 重叠）。没有 MVU / 旧版无 isDuringExtraAnalysis → 立刻 not-started，不加等待。
+    const scenesMvuWait = plan.includes('scenes') ? (compatSession.enabled ? compatSession : createMvuCompatSession(mvuApi || window.Mvu, true)) : null;
     try {
         // 给普通 / 行内 MVU 先消化这条回复的更新，再读取权威状态。兼容开启时，额外解析的 4s
         // 启动窗已在上方并行起跑；校正与诊断仍共用这一次 settle，不另叠一份固定延时。
@@ -19810,10 +25685,11 @@ async function maybePostReply(messageId) {
                 if (step === 'fix') await runAutoFix(ctx, s, idx, compatSession);
                 else if (step === 'custom') await runCustomTask(ctx, s, idx, compatSession);
                 else if (step === 'diag') await runAutoDiagnoseWithRetry(ctx, s, idx, chatKey, compatSession);
+                else if (step === 'scenes') await runAutoScenes(ctx, s, idx, { type: run.type, mvuWait: scenesMvuWait });
                 else await runTrainer(chatKey, compatSession);
             } catch (e) {
                 if (postReplyShouldStop()) break;               // abort / supersede → 静默收尾，不当报错
-                const stepName = step === 'fix' ? '自动校正' : (step === 'custom' ? '📋 模板任务' : (step === 'diag' ? '自动诊断' : '🎛 修改器'));
+                const stepName = step === 'fix' ? '自动校正' : (step === 'custom' ? '📋 模板任务' : (step === 'diag' ? '自动诊断' : (step === 'scenes' ? '🎭 自动场景' : '🎛 修改器')));
                 console.warn(`[Story Oracle] ${stepName}失败：`, e);
                 // 沿用诊断的「每会话一次」错误 toast（校正的失败已在其侧聊记录里反映，不再额外打扰；
                 // 修改器有意静默——不弹 toast，只留上面这行 console.warn）。
@@ -26476,7 +32352,8 @@ function buildWindow() {
                 <div class="so-iconbtn" id="so-advisor-btn" title="剧情参谋 —— 构思新剧情走向，并引导主线靠近它"><i class="fa-solid fa-compass"></i></div>
                 <div class="so-iconbtn" id="so-lorebook-btn" title="世界书模式 —— 聊聊或修改世界书"><i class="fa-solid fa-book"></i></div>
                 <div class="so-iconbtn" id="so-diagnose-btn" title="诊断模式 —— 修复 MVU 状态变量（再点一次开启自动模式）"><i class="fa-solid fa-stethoscope"></i><span class="so-auto-tag">A</span></div>
-                <div class="so-iconbtn" id="so-fix-btn" title="校正模式 —— 修一修最新这条回复（AI 味 / 对话 / 设定 / 详略…），应用后原文仍在"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                <div class="so-iconbtn" id="so-fix-btn" title="校正模式 —— 修一修最新这条回复（AI 味 / 对话 / 设定 / 详略…），应用后原文仍在"><i class="fa-solid fa-wand-magic-sparkles"></i></div>${ENABLE_THEATER ? `
+                <div class="so-iconbtn" id="so-theater-btn" title="${THEATER_BTN_TITLE}"><i class="fa-solid fa-clapperboard"></i></div>` : ''}
                 <span class="so-hdr-div" aria-hidden="true"></span>
                 <div class="so-tools-wrap">
                     <div class="so-iconbtn" id="so-tools-btn" aria-haspopup="true" aria-expanded="false" title="更多 —— 剧情概要 / 调试提示词 / 设置"><i class="fa-solid fa-ellipsis"></i></div>
@@ -26725,7 +32602,7 @@ function buildWindow() {
                 </div>
             </details>
 
-            <details class="so-set-group">
+${ENABLE_THEATER ? soThrSettingsHtml() + '\n' : ''}            <details class="so-set-group">
                 <summary>界面</summary>
                 <div class="so-set-body">
                     <label class="so-check"><span>窗口配色</span><select id="so-window-skin" title="深色 / 浅色为固定配色，不跟随酒馆主题"><option value="dark">深色</option><option value="light">浅色</option><option value="theme">跟随酒馆主题</option>${ENABLE_EXTRA_SKINS ? '<option value="aero">蓝玻璃</option><option value="background">配合背景</option>' : ''}</select></label>${ENABLE_EXTRA_SKINS ? `
@@ -26981,7 +32858,30 @@ function buildWindow() {
                 </div>
             </details>
         </div>
-
+${ENABLE_THEATER ? `
+        <div id="so-thr-bar">
+            <details class="so-mode-collapse" id="so-thr-collapse" open>
+                <summary class="so-mode-collapse-sum"><i class="fa-solid fa-clapperboard"></i><span>${THEATER_BAR_TITLE}</span></summary>
+                <div class="so-mode-collapse-body">
+                    <div class="so-thr-tabs" role="tablist">
+                        <button type="button" class="so-thr-tab" role="tab" data-thr-tab="if" aria-selected="true">${THEATER_TAB_IF}</button>
+                        <button type="button" class="so-thr-tab" role="tab" data-thr-tab="scenes" aria-selected="false">${THEATER_TAB_SCENES}</button>
+                    </div>
+                    <div class="so-thr-panel" role="tabpanel" data-thr-panel="if">
+                        <div class="so-hint">${THEATER_IF_HINT}</div>
+                        <div class="so-thr-if-head"><button type="button" class="so-thr-if-new" id="so-thr-if-new" title="${THEATER_IF_NEW_TITLE}">${THEATER_IF_NEW}</button></div>
+                        <div class="so-thr-if-list" id="so-thr-if-list"></div>
+                    </div>
+                    <div class="so-thr-panel" role="tabpanel" data-thr-panel="scenes" hidden>
+                        ${soThrScenesPanelHtml()}
+                    </div>
+                    <label class="so-check so-lb-check" id="so-thr-preset-row"><input id="so-thr-use-preset" type="checkbox"><span>${THEATER_PRESET_LABEL}</span></label>
+                    <div class="so-hint" id="so-thr-preset-hint">${THEATER_PRESET_HINT}</div>
+                    <label class="so-check so-lb-check" id="so-thr-mvu-derive-row" hidden><input id="so-thr-mvu-derive" type="checkbox"><span>${THEATER_MVU_DERIVE_LABEL}</span></label>
+                </div>
+            </details>
+        </div>
+` : ''}
         <div id="so-lb-bar">
             <details class="so-mode-collapse" id="so-lb-collapse" open>
                 <summary class="so-mode-collapse-sum"><i class="fa-solid fa-book"></i><span>世界书设置</span></summary>
@@ -27251,6 +33151,7 @@ function bindControls() {
     win.querySelector('#so-lorebook-btn').addEventListener('click', toggleLorebook);
     win.querySelector('#so-advisor-btn').addEventListener('click', toggleAdvisor);
     win.querySelector('#so-fix-btn').addEventListener('click', toggleFix);
+    if (ENABLE_THEATER) { win.querySelector('#so-theater-btn')?.addEventListener('click', soThrToggle); soThrRefreshButton(); soThrBindBar(); }
     win.querySelector('#so-adv-preset').addEventListener('change', (e) => {
         const s2 = getSettings();
         s2.advisorUsePreset = e.target.checked;
@@ -28902,6 +34803,7 @@ function currentJbModeKey() {
     if (advisorMode) return 'advisor';
     if (builderMode) return 'builder';
     if (fixMode) return 'fixManual';
+    if (ENABLE_THEATER && theaterMode) return 'theater';   // 🎭 小剧场
     return 'chat';
 }
 
@@ -28913,6 +34815,9 @@ function currentJbModeKey() {
 // 复用旧开关而不新增五个复选框：语义就是「这个模式也走我选的那个『预设』」，内置破限
 // 只是下拉里的一个选项，语义天然一致；也不必为此再教用户一套新概念。
 function modeWantsJb(s, mode) {
+    // 🎭 小剧场 SO 路：跟内置破限开关走（同普通聊天）。不进 SO_MODE_PRESET_OWNERS（那是 TBW 原样拼入块，改它破坏旗关同一）；
+    // 小剧场的每模式预设留给 Plan 2 的叙事者配方。
+    if (mode === 'theater') return ENABLE_THEATER && builtinJbActive(s);
     // TBW spec A · A3：各模式的内置破限跟着本模式解析出的预设走（主预设 = 破限 + 「跟随普通聊天」也就跟着套）。
     if (ENABLE_MODE_PRESETS) {
         if (mode === 'chat') return builtinJbActive(s);
@@ -29571,6 +35476,7 @@ function toggleWindow(show) {
         // 触屏不自动聚焦（见 focusOracleInput）：弹软键盘会压缩视口、把标题栏挤出屏外；桌面保留自动聚焦。
         focusOracleInput();
         checkPlanReminder(); // natural opportunity for the 20-message staleness ping
+        if (ENABLE_THEATER && theaterMode) soThrRefreshBar();   // 🎭 开窗时重算「用 ST 当前预设」可用性
         // 更新提醒：每会话首开时后台检查一次（fire-and-forget，绝不拖慢开窗；设置关掉即不查）。
         if (ENABLE_UPDATE_CHECK && getSettings().updAutoCheck && !updState.checkedThisSession) {
             updState.checkedThisSession = true;
@@ -29619,6 +35525,8 @@ const MODE_PLACEHOLDERS = {
     advisor: '聊聊剧情接下来可以怎么走…（出方案后可一键开始引导）',
     fix: '想怎么改最新这条回复都行——重写、删改、换语气、调节奏、改设定…说出来，我来改一版…',
     builder: '告诉我你想打造谁——完善你自己的角色，还是创造 / 充实一个 NPC…',
+    // 🎭 小剧场（DRAFT 文案，待 Prince 选）
+    ...(ENABLE_THEATER ? { theater: '如果当时……？说说你想看的平行线走向——只在小剧场里演，不改主线…' } : {}),
 };
 
 // 各模式的空状态：模式图标 + 引导语 +（可选）副标题 + 示例 chip。点一下 chip 把问题填进输入框
@@ -29657,11 +35565,15 @@ const MODE_EMPTY = {
     builder: { icon: 'fa-masks-theater', lead: '一起打造一个立得住的角色。',
         sub: '先聊清楚是谁、什么样，再一键锻造成稿；写入前都只是草稿。',
         chips: ['帮我完善我当前的角色。', '我想造一个全新的 NPC。', '把剧情里出现过的那个角色写成世界书条目。'] },
+    // 🎭 小剧场（DRAFT 文案，待 Prince 选；fa-masks-theater 已归角色工坊，这里用场记板）
+    ...(ENABLE_THEATER ? { theater: { icon: 'fa-clapperboard', lead: '平行线（IF）与小剧场场景，都只在这里演。',
+        sub: '主聊天的故事一字不动；这里演的每一轮都单独存在小剧场里。',
+        chips: ['如果刚才主角拒绝了那个提议，会怎样？', '如果这一幕换个人在场，会怎么演？'] } } : {}),
 };
 
 function currentOracleMode() {
     if (activeRegisteredModeId) return activeRegisteredModeId;   // Hook API：注册模式激活时返回它的 id
-    return diagnoseMode ? 'diagnose' : (lorebookMode ? 'lorebook' : (advisorMode ? 'advisor' : (fixMode ? 'fix' : (builderMode ? 'builder' : 'chat'))));
+    return diagnoseMode ? 'diagnose' : (lorebookMode ? 'lorebook' : (advisorMode ? 'advisor' : (fixMode ? 'fix' : (builderMode ? 'builder' : (theaterMode ? 'theater' : 'chat')))));
 }
 
 function modeReturnNote(mode) {
@@ -29670,6 +35582,7 @@ function modeReturnNote(mode) {
     if (mode === 'fix') return '已返回校正模式。';
     if (mode === 'lorebook') return '已返回世界书模式。';
     if (mode === 'builder') return '已返回角色工坊模式。';
+    if (mode === 'theater') return '已返回小剧场模式。';   // 🎭 DRAFT 文案
     return '已返回普通聊天模式。';
 }
 
@@ -29680,16 +35593,20 @@ function setOracleMode(target) {
     advisorMode = target === 'advisor';
     fixMode = target === 'fix';
     builderMode = target === 'builder';
+    theaterMode = ENABLE_THEATER && target === 'theater';
     win.classList.toggle('so-diag-on', diagnoseMode);
     win.classList.toggle('so-lb-on', lorebookMode);
     win.classList.toggle('so-adv-on', advisorMode);
     win.classList.toggle('so-fix-on', fixMode);
     win.classList.toggle('so-bld-on', builderMode);
+    if (ENABLE_THEATER) win.classList.toggle('so-thr-on', theaterMode);
     win.querySelector('#so-diagnose-btn').classList.toggle('so-diag-active', diagnoseMode);
     win.querySelector('#so-lorebook-btn').classList.toggle('so-lb-active', lorebookMode);
     win.querySelector('#so-advisor-btn').classList.toggle('so-adv-active', advisorMode);
     win.querySelector('#so-fix-btn').classList.toggle('so-fix-active', fixMode);
     win.querySelector('#so-builder-btn')?.classList.toggle('so-bld-active', builderMode);
+    if (ENABLE_THEATER) win.querySelector('#so-theater-btn')?.classList.toggle('so-thr-active', theaterMode);
+    if (ENABLE_THEATER && theaterMode) soThrRefreshBar();   // 进小剧场 = 重算「用 ST 当前预设」可用性
     inputEl.placeholder = MODE_PLACEHOLDERS[target] || MODE_PLACEHOLDERS.chat;
     if (ENABLE_DIAG_WI_PICKER) refreshDiagPickerUI();   // 诊断「精选条目」栏随模式刷新（用户功能请求）
     updateDiagButtonVisual();   // 诊断按钮（含红色 AUTO）状态随模式切换始终对齐（含从子模式回到诊断时）
@@ -34754,6 +40671,8 @@ function buildTranscript(ctx, s, keepMechanism) {
 // 内层标签就没了，届时再判会漏掉截断尾巴）。
 function stripMechanismBlocks(text) {
     let out = String(text || '');
+    // 🎭 小剧场 plan 4：主聊天里贴的自动场景快照（记号对 + 中间的一切）先剥——SO 自己的提示词也不带它；先剥，文档里的字就碰不到下面的 MVU 规则。旗关 = 原样。
+    if (ENABLE_THEATER) out = out.replace(THEATER_SNAPSHOT_STRIP_RE, '');
     const src = out;
     for (const d of MVU_BLOCK_DIALECTS) {
         if (!mvuDialectInnerOk(src, d)) continue;
@@ -35340,6 +41259,8 @@ async function onSend() {
         if (ENABLE_HOOK_API_UI) soEmitHook('empty-send', { mode: currentOracleMode() });   // TBW spec A：空输入按发送（点击 / Enter 都走这里）
         return;
     }
+    // 🎭 小剧场：自己的发送路（预设路不需要 SO 的连接设置，故排在连接校验之前；SO 路的校验在 soThrSend 里）。
+    if (ENABLE_THEATER && theaterMode) { await soThrSend(text); return; }
 
     // validate config
     if (s.mode === 'direct' && (!s.endpoint || !s.model)) {
@@ -35407,6 +41328,13 @@ function errChainMessage(err) {
 async function generateReply(options = {}) {
     if (isGenerating) return;
     const soKbMode = ENABLE_KNOWLEDGE_BASE ? currentOracleMode() : null;   // TBW spec D：知识库只认进函数时的模式（普通聊天 / 参谋）
+    // 🎭 小剧场（theater plan 2 Task 3）：重新生成 / 续写 / 补答都走小剧场自己的发送路（IF 历史、框定句、MVU 块留存）。
+    if (ENABLE_THEATER && theaterMode) {
+        if (options && options.target) { await soThrSend('', { kind: options.kind, target: options.target }); return; }
+        const last = convo[convo.length - 1];
+        if (last && last.role === 'user') await soThrSend(last.content, { answer: last });
+        return;
+    }
     // TBW spec A · A2：options = { kind:'new'|'regenerate'|'continue', target }。重新生成 / 续写针对 convo 里的一条回复；
     // 目标不在记录里 → 不跑。旗关 / 不传 = 'new'，与 1.90.0 同一条路。
     const rv = (ENABLE_REPLY_VERSIONS && options && options.target) ? soReplyRunStart(options) : null;
@@ -40575,6 +46503,7 @@ function editOracleReply(entry) {
         persistConvo();
         close();
         soRepaintEntry(entry);
+        if (ENABLE_THEATER && theaterMode && convoStreamKey === 'theater') soThrAfterEdit(entry);   // 🎭 改过的正文重算这一版的平行线变量
     };
     saveBtn.addEventListener('click', commit);
     ta.addEventListener('keydown', (ev) => {
@@ -41655,6 +47584,7 @@ function repaintHtmlForRoom(streamKey, content) {
     if (streamKey && String(streamKey).startsWith('bld_')) return renderBuilderReplyHtml(t);
     if (streamKey === 'diagnose' || streamKey === 'lorebook') return null;
     if (streamKey === 'fix') return renderFixResultHtml(t);
+    if (ENABLE_THEATER && streamKey === 'theater') return soThrRenderHtml(t);   // 🎭 IF 回复：剥机制块 + 跟「应用正则」
     return renderMarkdownOnly(t);   // main / 注册插件模式房：1.20.0 F5 补渲行为不变
 }
 // PURE：按房间算重画后该重挂哪些动作卡。参谋采纳卡 / 世界书应用控件从【字符串】可完整导出 →
@@ -42045,6 +47975,7 @@ function loadConvoForChat() {
     // TBW spec A · A2：多版本字段读回后再验一遍形状（content 必须等于当前版本、下标在界内…），不合格 = 退回单版本。
     if (ENABLE_REPLY_VERSIONS) for (const m of convo) if (m.role === 'assistant') variantsLoad(m, m);
     if (ENABLE_ORACLE_REGEX) for (const m of convo) soRawLoad(m);   // TBW spec B · B6：原文跟着版本表再验一遍
+    if (ENABLE_THEATER) for (const m of convo) soThrVarsLoad(m);    // 🎭 平行线变量本跟着版本表再验一遍
     // TBW spec B · B1：别处（锻造归位等）在这间房离开期间可能添了楼 → 读回后按本房设置重算一次，变了才落盘。
     if (ENABLE_CONVO_HIDE && soHideRefresh().length) persistConvo();
     cidSeq = convo.reduce((mx, m) => Math.max(mx, Number(m.id) || 0), cidSeq);
@@ -42485,6 +48416,7 @@ function soSwitchChatFile(room, id) {
     saveChatMetadata();
     loadConvoForChat();
     soEmitHook('conversation-switch', { room, chatId: fixChatKey(), fileId: id });
+    if (ENABLE_THEATER && room === 'theater') soThrRefreshIfPanel();   // 🎭 IF 列表的高亮跟着换
     return true;
 }
 function soNewChatFileId() {
@@ -42520,11 +48452,13 @@ function soDeleteChatFile(room, id) {
         delete md[key];
         if (md[SO_HIDE_META_KEY] && typeof md[SO_HIDE_META_KEY] === 'object') delete md[SO_HIDE_META_KEY][soHideCfgKey(room, id)];
     }
+    if (ENABLE_THEATER && room === 'theater') soThrIfDrop(id);   // 🎭 这份聊天是一条 IF → 它的记录（分出楼号 / 前提 / 起点变量）一起删
     saveChatMetadata();
     if (wasActive) {
         loadConvoForChat();
         soEmitHook('conversation-switch', { room, chatId: fixChatKey(), fileId: r.nextActive });
     }
+    if (ENABLE_THEATER && room === 'theater') soThrRefreshIfPanel();
     return true;
 }
 function soChatFileCount(room, id) {

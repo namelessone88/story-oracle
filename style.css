@@ -2960,6 +2960,80 @@ body.so-skin-light :is(.so-knowledge-dialog, .so-big-summary-dialog) .so-local-d
 #so-bld-chips-legend .so-bld-legend-row b { color: var(--so-bld-accent); }
 #so-bld-chips-legend .so-bld-legend-guide { opacity: .9; margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px dashed color-mix(in srgb, var(--so-bld-accent) 30%, transparent); }
 
+/* ==================== 🎭 小剧场（第 7 模式，ENABLE_THEATER；theater plan 1）==================== */
+/* 只用已有 token（--so-accent / --so-ink），不引入新 token。群聊里按钮灰掉（仍可点，点了 toast 原因）。 */
+#so-theater-btn.so-thr-active { color: var(--so-accent); background-color: rgba(var(--so-ink), 0.12); opacity: 1; }
+#so-theater-btn.so-thr-blocked { opacity: 0.35; cursor: not-allowed; }
+/* 小剧场栏：照其他模式栏的骨架（只在 .so-thr-on 时显示、设置面板打开时让位）。 */
+#so-thr-bar { display: none; flex: 0 0 auto; flex-direction: column; gap: 6px; padding: 9px 12px; border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,0.1)); background: rgba(var(--so-ink), 0.03); max-height: 50%; overflow-y: auto; }
+#so-window.so-thr-on #so-thr-bar { display: flex; }
+#so-window.so-settings-open #so-thr-bar { display: none; }
+.so-thr-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.so-thr-tab { flex: 1 1 0; min-height: 32px; padding: 4px 10px; border: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,0.15)); border-radius: 8px; background: transparent; color: var(--so-control-ink, var(--SmartThemeBodyColor, #e6e6e6)); font-size: 13px; cursor: pointer; opacity: 0.7; }
+.so-thr-tab:hover { opacity: 1; background-color: rgba(var(--so-ink), 0.06); }
+.so-thr-tab[aria-selected="true"] { opacity: 1; color: var(--so-accent); border-color: var(--so-accent); background-color: rgba(var(--so-ink), 0.08); }
+.so-thr-tab:focus-visible { outline: 2px solid var(--so-accent); outline-offset: -2px; }
+.so-thr-panel[hidden] { display: none; }
+#so-thr-preset-row.so-thr-disabled { opacity: 0.5; cursor: not-allowed; }
+/* theater plan 2：IF 面板（新平行线按钮 + 每条 IF 一行）。 */
+.so-thr-if-head { display: flex; justify-content: flex-end; margin-top: 6px; }
+.so-thr-if-new { min-height: 30px; padding: 3px 10px; border: 1px dashed var(--SmartThemeBorderColor, rgba(255,255,255,0.2)); border-radius: 8px; background: transparent; color: var(--so-control-ink, var(--SmartThemeBodyColor, #e6e6e6)); font-size: 12px; cursor: pointer; opacity: 0.8; }
+.so-thr-if-new:hover { opacity: 1; color: var(--so-accent); border-color: var(--so-accent); }
+.so-thr-if-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; max-height: 28vh; overflow-y: auto; }
+.so-thr-if-list[hidden], .so-thr-if-new[hidden] { display: none; }
+.so-thr-if-row { display: flex; align-items: stretch; gap: 4px; width: 100%; border: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,0.12)); border-radius: 8px; cursor: pointer; }
+.so-thr-if-row:hover { background-color: rgba(var(--so-ink), 0.06); }
+.so-thr-if-main { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-height: 34px; padding: 5px 9px; text-align: left; border: 0; background: transparent; color: var(--so-control-ink, var(--SmartThemeBodyColor, #e6e6e6)); font-size: 12px; cursor: pointer; }
+.so-thr-if-import { flex: 0 0 auto; min-width: 34px; min-height: 34px; border: 0; border-left: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,0.12)); background: transparent; color: var(--so-control-ink, var(--SmartThemeBodyColor, #e6e6e6)); opacity: 0.7; cursor: pointer; }
+.so-thr-if-import:hover { opacity: 1; color: var(--so-accent); }
+.so-thr-if-main:focus-visible, .so-thr-if-import:focus-visible { outline: 2px solid var(--so-accent); outline-offset: -2px; }
+.so-thr-if-row.so-thr-if-active { border-color: var(--so-accent); background-color: rgba(var(--so-ink), 0.08); }
+.so-thr-if-name { font-weight: 600; overflow-wrap: anywhere; }
+.so-thr-if-split { opacity: 0.6; font-size: 11px; }
+.so-thr-if-premise { flex: 1 0 100%; opacity: 0.7; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Fix B：IF 回复气泡上的小注（正文从思考区找回 / 自动重试过一次）。 */
+.so-thr-reply-tag { margin-top: 4px; font-size: 11px; opacity: 0.6; }
+/* theater plan 3：场景面板（四个场景按钮 / 一句「想看谁」/ 生成 / 列表）。 */
+.so-thr-scene-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.so-thr-scene-btn { flex: 1 1 0; min-width: 72px; min-height: 34px; padding: 4px 8px; border: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,0.15)); border-radius: 8px; background: transparent; color: var(--so-control-ink, var(--SmartThemeBodyColor, #e6e6e6)); font-size: 13px; cursor: pointer; opacity: 0.75; }
+.so-thr-scene-btn:hover { opacity: 1; background-color: rgba(var(--so-ink), 0.06); }
+.so-thr-scene-btn[aria-pressed="true"] { opacity: 1; color: var(--so-accent); border-color: var(--so-accent); background-color: rgba(var(--so-ink), 0.08); }
+.so-thr-scene-scope { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; opacity: 0.85; }
+.so-thr-scene-scope[hidden] { display: none; }
+.so-thr-scene-mini { min-height: 28px; padding: 2px 9px; border: 1px dashed var(--SmartThemeBorderColor, rgba(255,255,255,0.2)); border-radius: 8px; background: transparent; color: var(--so-control-ink, var(--SmartThemeBodyColor, #e6e6e6)); font-size: 12px; cursor: pointer; }
+.so-thr-scene-mini:hover { color: var(--so-accent); border-color: var(--so-accent); }
+.so-thr-scene-row { display: flex; gap: 6px; margin-top: 6px; }
+.so-thr-scene-note { flex: 1 1 auto; min-width: 0; min-height: 32px; padding: 4px 8px; border: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,0.15)); border-radius: 8px; background: var(--so-field, rgba(var(--so-ink), 0.05)); color: var(--so-control-ink, var(--SmartThemeBodyColor, #e6e6e6)); font-size: 13px; }
+.so-thr-scene-go { flex: 0 0 auto; min-width: 64px; min-height: 32px; padding: 4px 12px; border: 1px solid var(--so-accent); border-radius: 8px; background: transparent; color: var(--so-accent); font-size: 13px; cursor: pointer; }
+.so-thr-scene-go:disabled { opacity: 0.45; cursor: progress; }
+.so-thr-scene-status:empty { display: none; }
+.so-thr-scene-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; max-height: 28vh; overflow-y: auto; }
+.so-thr-scene-item { display: flex; align-items: stretch; gap: 2px; border: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,0.12)); border-radius: 8px; }
+.so-thr-scene-item.so-thr-scene-fav { border-color: var(--so-accent); }
+.so-thr-scene-open { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-height: 36px; padding: 5px 9px; text-align: left; border: 0; background: transparent; color: var(--so-control-ink, var(--SmartThemeBodyColor, #e6e6e6)); font-size: 12px; cursor: pointer; }
+.so-thr-scene-open:hover { background-color: rgba(var(--so-ink), 0.06); }
+.so-thr-scene-ttl { font-weight: 600; overflow-wrap: anywhere; }
+.so-thr-scene-when { opacity: 0.55; font-size: 11px; }
+.so-thr-scene-notes { flex: 1 0 100%; opacity: 0.7; font-size: 11px; }
+.so-thr-scene-acts { display: flex; flex: 0 0 auto; }
+.so-thr-scene-act { min-width: 32px; min-height: 36px; border: 0; border-left: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,0.12)); background: transparent; color: var(--so-control-ink, var(--SmartThemeBodyColor, #e6e6e6)); opacity: 0.7; cursor: pointer; }
+.so-thr-scene-act:hover, .so-thr-scene-act[aria-pressed="true"] { opacity: 1; color: var(--so-accent); }
+.so-thr-scene-open:focus-visible, .so-thr-scene-act:focus-visible, .so-thr-scene-btn:focus-visible { outline: 2px solid var(--so-accent); outline-offset: -2px; }
+/* 场景查看层：照 #so-cur-card 骨架——遮罩 inset:0、卡片封顶内滚、顶部 ✕ 恒在屏内、点遮罩关闭。 */
+#so-thr-scene-view { display: none; position: absolute; inset: 0; z-index: 60; align-items: center; justify-content: center; padding: 8px; box-sizing: border-box; background: var(--so-scrim); }
+#so-thr-scene-view.open { display: flex; }
+#so-thr-scene-card { position: relative; display: flex; flex-direction: column; width: 100%; max-width: 640px; height: 100%; max-height: 100%; min-height: 0; overflow: hidden; box-sizing: border-box; border-radius: 12px; border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18)); background-color: var(--so-cur-surface, #1b1d23); color: var(--so-cur-ink, #e6e6e6); box-shadow: 0 20px 50px -12px rgba(var(--so-shadow-rgb, 0, 0, 0), 0.7); }
+#so-thr-scene-head { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.1)); }
+#so-thr-scene-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.so-thr-scene-headbtns { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+#so-thr-scene-card .so-thr-scene-mini { color: var(--so-cur-ink, #e6e6e6); }
+#so-thr-scene-note-line { flex: 0 0 auto; padding: 4px 10px; }
+#so-thr-scene-note-line[hidden] { display: none; }
+#so-thr-scene-body { flex: 1 1 auto; min-height: 0; display: flex; }
+#so-thr-scene-frame { flex: 1 1 auto; width: 100%; min-height: 0; border: 0; background: var(--so-cur-surface, #1b1d23); }
+#so-thr-scene-frame[hidden], #so-thr-scene-raw[hidden] { display: none; }
+#so-thr-scene-raw { flex: 1 1 auto; margin: 0; padding: 10px 12px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; line-height: 1.6; }
+
 /* ==================== 更新提醒（ENABLE_UPDATE_CHECK，1.38.0） ==================== */
 /* 红点：有新版时挂 ⋯ / ⚙ / 设置「更新」组标题。position:relative 只在亮点时上桩，平时零布局影响。 */
 #so-window.so-upd-on #so-tools-btn,
