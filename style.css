@@ -20,6 +20,14 @@
     --so-ink: 255, 255, 255;                          /* hover / 淡填充蒙层基色；用法 rgba(var(--so-ink), α) */
     --so-field: var(--black30a, rgba(0, 0, 0, 0.3));  /* 输入框 / 文本域底色 */
     --so-scrim: rgba(8, 9, 12, 0.84);                 /* 覆盖卡遮罩底 */
+    /* 🎬 小剧场等待 / 中转大卡（ENABLE_THR_CONCURRENT）：红 = 中转一次只接一个请求（唯一的红），琥珀 = 等太久 / 让路用完。
+       自带每档的可读色，绝不退到 ST 的 --crimson70a（深色底上几乎看不见，mockup 面板 0）。 */
+    --so-thr-danger-ink: #ff8f86;
+    --so-thr-danger-bg: rgba(255, 92, 80, 0.11);
+    --so-thr-danger-line: rgba(255, 120, 110, 0.5);
+    --so-thr-warn-ink: #e9b65f;
+    --so-thr-warn-bg: rgba(224, 162, 58, 0.10);
+    --so-thr-warn-line: rgba(224, 162, 58, 0.45);
 
     position: fixed;
     top: 70px;
@@ -386,6 +394,264 @@
 .so-fixm-warn { color: var(--so-warn, color-mix(in srgb, #e0a23a 72%, var(--SmartThemeBodyColor, #e6e6e6))); opacity: 0.9; }
 /* 近抄警示（Tier 0 ①，1.25.0）：校正结果里稿子几乎没改时的琥珀提示（比普通 hint 更醒目，出现在应用条上方） */
 .so-fix-nearcopy-warn { margin: 4px 0 2px; font-size: 0.82em; line-height: 1.4; color: var(--so-warn, color-mix(in srgb, #e0a23a 80%, var(--SmartThemeBodyColor, #e6e6e6))); opacity: 0.95; }
+
+/* ---------- settings V2（ENABLE_SETTINGS_V2，plan docs/superpowers/plans/2026-11-15-settings-rework.md Task 8）----------
+   七个页签 + 每个页签一个 pane。每条选择器都带只有 V2 才有的 id / 类（#so-settings.so-set-v2 · #so-window.so-set-full · #so-set-…），
+   旗关时一条都不命中。没有一条规则管面板的「未知子元素」（插件追加到 #so-settings 末尾的块在每个页签都照常可见，Review Focus 5）。
+   主题守卫（@layer so-guard）另钉页签行和「外观」页签 / pane（回到 外观 → 不使用 的路）。 */
+/* 整窗高：⚙ 开着且不在「外观」→ 面板占满，聊天区 + 输入栏藏起（只是不显示，流式照常、草稿照留）。外观 = 今天的 55% 上下分屏。 */
+#so-window.so-set-full #so-settings { max-height: none; flex: 1 1 auto; min-height: 0; }
+#so-window.so-set-full #so-messages,
+#so-window.so-set-full #so-footer { display: none; }
+#so-settings.so-set-v2 { padding-top: 0; }
+/* 页签行：吸顶、横向可滑、铺满面板左右内边距、底色不透明（滚动的内容从它下面过）。 */
+#so-settings.so-set-v2 #so-set-tabs {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    flex: 0 0 auto;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    margin: 0 -12px;
+    padding: 0 8px;
+    background: var(--SmartThemeBlurTintColor, rgba(26, 26, 28, 0.98));
+    border-bottom: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.1));
+}
+#so-settings.so-set-v2 #so-set-tabs::-webkit-scrollbar { display: none; }
+#so-settings.so-set-v2 .so-set-tab {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding: 8px 10px 6px;
+    font: inherit;
+    font-size: 0.82em;
+    white-space: nowrap;
+    cursor: pointer;
+    color: var(--SmartThemeBodyColor, #e6e6e6);
+    background: none;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    opacity: 0.65;
+    transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+}
+#so-settings.so-set-v2 .so-set-tab:hover { opacity: 0.9; }
+#so-settings.so-set-v2 .so-set-tab[aria-selected="true"] { opacity: 1; color: var(--so-accent); border-bottom-color: var(--so-accent); font-weight: 600; }
+#so-settings.so-set-v2 .so-set-tab:focus-visible { outline: 2px solid var(--so-accent); outline-offset: -3px; opacity: 1; }
+/* 红点（有新版）从组标题挪到「关于」页签上；组标题不再挂点（它的状态行已经写着「发现新版本」）。 */
+#so-window.so-upd-on #so-settings.so-set-v2 #so-set-tab-about { position: relative; }
+#so-window.so-upd-on #so-settings.so-set-v2 #so-set-tab-about::after {
+    content: '';
+    position: absolute;
+    top: 7px;
+    right: 3px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--so-notify, #e05b5b);
+    box-shadow: 0 0 0 1px rgba(var(--so-shadow-rgb, 0, 0, 0), 0.35);
+    pointer-events: none;
+}
+#so-window.so-upd-on #so-settings.so-set-v2 #so-upd-group > summary::after { content: none; }
+/* pane：非当前的带 hidden（控件留在 DOM 里）。 */
+#so-settings.so-set-v2 .so-tabpane { display: flex; flex-direction: column; gap: 10px; flex: 0 0 auto; }
+#so-settings.so-set-v2 .so-tabpane[hidden] { display: none; }
+/* 组标题 = 标题 + 状态行，不再折叠（没有 ▸、不像按钮）。 */
+#so-settings.so-set-v2 .so-tabpane > .so-set-group > summary { cursor: default; }
+#so-settings.so-set-v2 .so-tabpane > .so-set-group > summary::before { content: none; }
+#so-settings.so-set-v2 .so-tabpane > .so-set-group > summary:hover { background: rgba(var(--so-ink), 0.04); opacity: 0.85; }
+#so-settings.so-set-v2 .so-set-h { flex: 0 0 auto; white-space: nowrap; }
+#so-settings.so-set-v2 .so-set-sum {
+    flex: 0 1 auto;
+    min-width: 0;
+    margin-left: auto;
+    font-weight: 400;
+    letter-spacing: 0;
+    opacity: 0.7;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* 一行 = 控件 + 「？」；「？」点开的说明。 */
+#so-settings.so-set-v2 .so-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
+#so-settings.so-set-v2 .so-line > .so-check,
+#so-settings.so-set-v2 .so-line > .so-line-t { flex: 1 1 auto; min-width: 0; }
+#so-settings.so-set-v2 .so-line-end { justify-content: flex-end; }
+#so-settings.so-set-v2 .so-line-t { font-size: 0.85em; }
+#so-settings.so-set-v2 .so-line > .so-hint.so-line-t { font-size: 0.78em; }
+#so-settings.so-set-v2 .so-q {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border-radius: 50%;
+    font: 600 12px/22px system-ui, sans-serif;
+    text-align: center;
+    cursor: pointer;
+    color: var(--SmartThemeBodyColor, #e6e6e6);
+    background: transparent;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+    opacity: 0.6;
+}
+#so-settings.so-set-v2 .so-q:hover,
+#so-settings.so-set-v2 .so-q[aria-expanded="true"] { opacity: 1; color: var(--so-accent); border-color: var(--so-accent); }
+#so-settings.so-set-v2 .so-q:focus-visible { outline: 2px solid var(--so-accent); outline-offset: 1px; opacity: 1; }
+#so-settings.so-set-v2 .so-help {
+    margin: -4px 0 0 24px;
+    padding: 6px 9px;
+    font-size: 0.78em;
+    line-height: 1.5;
+    opacity: 0.8;
+    border-left: 2px solid color-mix(in srgb, var(--so-accent) 55%, transparent);
+    border-radius: 0 6px 6px 0;
+    background: rgba(var(--so-ink), 0.035);
+}
+#so-settings.so-set-v2 .so-help[hidden] { display: none; }
+/* 小标题 / 开头一句。 */
+#so-settings.so-set-v2 .so-sub {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+    padding-top: 8px;
+    font-size: 0.8em;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    opacity: 0.75;
+    border-top: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.1));
+}
+#so-settings.so-set-v2 .so-sub:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+#so-settings.so-set-v2 .so-lead { font-size: 0.8em; line-height: 1.45; opacity: 0.7; }
+/* 折叠（「连不上 / 报错时再看」等）+ 「改了 N 项」。 */
+#so-settings.so-set-v2 .so-fold > summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 4px 2px;
+    list-style: none;
+    font-size: 0.8em;
+    cursor: pointer;
+    opacity: 0.75;
+}
+#so-settings.so-set-v2 .so-fold > summary::-webkit-details-marker { display: none; }
+#so-settings.so-set-v2 .so-fold > summary::before { content: '▸'; display: inline-block; opacity: 0.7; transition: transform 0.15s; }
+#so-settings.so-set-v2 .so-fold[open] > summary::before { transform: rotate(90deg); }
+#so-settings.so-set-v2 .so-fold > summary:hover { opacity: 1; }
+#so-settings.so-set-v2 .so-fold > summary:focus-visible { outline: 2px solid var(--so-accent); outline-offset: -2px; opacity: 1; }
+#so-settings.so-set-v2 .so-fold-n { margin-left: auto; color: var(--so-accent); font-size: 0.95em; white-space: nowrap; }
+#so-settings.so-set-v2 .so-fold-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-left: 5px;
+    padding: 6px 0 2px 10px;
+    border-left: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.1));
+}
+/* 「重新精选」现在是文字键（旧的 32×32 图标格放不下字）。 */
+#so-settings.so-set-v2 #so-sysprompt-preset-recurate.so-set-textbtn {
+    width: auto;
+    height: auto;
+    min-height: 28px;
+    padding: 3px 9px;
+    font-size: 0.8em;
+    white-space: nowrap;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+    border-radius: 7px;
+}
+/* 连接存档 · 配置文件模式下「新存一套」那一行（plan Addition A）。 */
+#so-settings.so-set-v2 .so-set-connnew {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+    padding: 8px;
+    border: 1px dashed var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+    border-radius: 8px;
+}
+#so-settings.so-set-v2 .so-set-connnew-f { display: flex; flex-direction: column; gap: 3px; }
+#so-settings.so-set-v2 .so-set-connnew-f > span { opacity: 0.7; }
+/* 配置文件模式下「加载」停用（复审 I-2；原因行 .so-set-connload-why 就在它下面）。 */
+#so-settings.so-set-v2 #so-conn-preset-load[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
+/* 自动页签：一行一个功能（标题 + 「设置 ›」、一句说明、原因行）。 */
+#so-settings.so-set-v2 .so-auto-row {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 7px 9px;
+    border-radius: 8px;
+    background: rgba(var(--so-ink), 0.035);
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.08));
+}
+#so-settings.so-set-v2 .so-auto-head > .so-check,
+#so-settings.so-set-v2 .so-auto-t { font-weight: 600; }
+#so-settings.so-set-v2 .so-auto-row .so-check { flex-wrap: wrap; }
+#so-settings.so-set-v2 .so-auto-row select { width: auto; flex: 0 1 auto; min-width: 0; margin-left: auto; padding: 3px 6px; }
+#so-settings.so-set-v2 .so-auto-row input[type="checkbox"] { accent-color: var(--so-accent); }
+#so-settings.so-set-v2 .so-auto-row input:disabled,
+#so-settings.so-set-v2 .so-auto-row select:disabled { cursor: not-allowed; }
+#so-settings.so-set-v2 .so-auto-row .so-check input:disabled + span { opacity: 0.5; }
+#so-settings.so-set-v2 .so-auto-why { opacity: 0.8; }
+#so-settings.so-set-v2 .so-auto-why[hidden] { display: none; }
+#so-settings.so-set-v2 .so-auto-pointer { flex-wrap: wrap; }
+#so-settings.so-set-v2 .so-chipset { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+#so-settings.so-set-v2 .so-chipset .so-check { gap: 5px; }
+#so-settings.so-set-v2 .so-badge {
+    padding: 0 5px;
+    font-size: 0.85em;
+    font-weight: 400;
+    white-space: nowrap;
+    opacity: 0.75;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+    border-radius: 5px;
+}
+/* 「设置 ›」/「去「连接」 ›」/「打开微谕 ›」：强调色文字键。 */
+#so-settings.so-set-v2 .so-set-go {
+    flex: 0 0 auto;
+    min-height: 28px;
+    margin-left: auto;
+    padding: 4px 2px;
+    font: inherit;
+    font-size: 0.8em;
+    white-space: nowrap;
+    cursor: pointer;
+    color: var(--so-accent);
+    background: none;
+    border: 0;
+}
+#so-settings.so-set-v2 .so-set-go:hover { text-decoration: underline; }
+#so-settings.so-set-v2 .so-set-go:focus-visible { outline: 2px solid var(--so-accent); outline-offset: 1px; }
+#so-settings.so-set-v2 .so-set-go:disabled { color: var(--SmartThemeBodyColor, #e6e6e6); opacity: 0.45; cursor: not-allowed; text-decoration: none; }
+/* 小剧场页签最后一行：打开微谕。 */
+#so-settings.so-set-v2 .so-set-wy { margin-top: 2px; padding-top: 8px; border-top: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.1)); }
+#so-settings.so-set-v2 .so-set-wy-why[hidden] { display: none; }
+/* 更新横幅 #so-set-upd-banner（plan Task 9）。它是 <button>：字体 / 颜色 / 宽度不吃按钮默认值；左边「有新版本 vX」，右边「去看看 ›」。 */
+#so-settings.so-set-v2 #so-set-upd-banner {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin: 0;
+    padding: 7px 9px;
+    font-family: inherit;
+    font-size: 0.8em;
+    line-height: 1.4;
+    text-align: left;
+    color: var(--SmartThemeBodyColor, #e6e6e6);
+    cursor: pointer;
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--so-accent) 13%, transparent);
+    border: 1px solid color-mix(in srgb, var(--so-accent) 45%, transparent);
+}
+#so-settings.so-set-v2 #so-set-upd-banner[hidden] { display: none; }
+#so-settings.so-set-v2 #so-set-upd-banner:focus-visible { outline: 2px solid var(--so-accent); outline-offset: 1px; }
+#so-settings.so-set-v2 .so-set-upd-t { flex: 1 1 auto; min-width: 0; font-weight: 600; overflow-wrap: anywhere; }
+#so-settings.so-set-v2 .so-set-upd-go { flex: 0 0 auto; color: var(--so-accent); white-space: nowrap; }
+/* ---------- /settings V2 ---------- */
 
 /* ---------- messages ---------- */
 #so-messages {
@@ -2345,6 +2611,182 @@ body.so-skin-light :is(.so-knowledge-dialog, .so-big-summary-dialog) .so-local-d
     border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.16));
     border-radius: 8px; padding: 6px 9px; font-family: inherit;
 }
+/* 🎚 预设标准化 Stage 1（ENABLE_PRESET_BLOCK / ENABLE_MODE_TIDY）：模式栏里的「?」帮助按钮、帮助段、折叠——与设置面板 V2 的同名件同一套 token
+   （#so-settings.so-set-v2 那几条照抄；模式栏没有 V2 的 class，所以另写一份，挂在栏的 .so-mode-collapse-body 下）。 */
+#so-window .so-mode-collapse-body .so-q {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border-radius: 50%;
+    font: 600 12px/22px system-ui, sans-serif;
+    text-align: center;
+    cursor: pointer;
+    color: var(--SmartThemeBodyColor, #e6e6e6);
+    background: transparent;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+    opacity: 0.6;
+}
+#so-window .so-mode-collapse-body .so-q:hover,
+#so-window .so-mode-collapse-body .so-q[aria-expanded="true"] { opacity: 1; color: var(--so-accent); border-color: var(--so-accent); }
+#so-window .so-mode-collapse-body .so-q:focus-visible { outline: 2px solid var(--so-accent); outline-offset: 1px; opacity: 1; }
+#so-window .so-mode-collapse-body .so-help {
+    margin: -4px 0 0 24px;
+    padding: 6px 9px;
+    font-size: 0.78em;
+    line-height: 1.5;
+    opacity: 0.8;
+    border-left: 2px solid color-mix(in srgb, var(--so-accent) 55%, transparent);
+    border-radius: 0 6px 6px 0;
+    background: rgba(var(--so-ink), 0.035);
+}
+#so-window .so-mode-collapse-body .so-help[hidden] { display: none; }
+#so-window .so-mode-collapse-body details.so-fold > summary {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    padding: 4px 2px;
+    list-style: none;
+    font-size: 0.8em;
+    cursor: pointer;
+    opacity: 0.75;
+}
+#so-window .so-mode-collapse-body details.so-fold > summary::-webkit-details-marker { display: none; }
+#so-window .so-mode-collapse-body details.so-fold > summary::before { content: '▸'; display: inline-block; opacity: 0.7; transition: transform 0.15s; }
+#so-window .so-mode-collapse-body details.so-fold[open] > summary::before { transform: rotate(90deg); }
+#so-window .so-mode-collapse-body details.so-fold > summary:hover { opacity: 1; }
+#so-window .so-mode-collapse-body details.so-fold > summary:focus-visible { outline: 2px solid var(--so-accent); outline-offset: -2px; opacity: 1; }
+#so-window .so-mode-collapse-body details.so-fold .so-fold-n { margin-left: auto; color: var(--so-accent); font-size: 0.95em; white-space: nowrap; }
+/* 🔌 「各模式用哪个连接」表（ENABLE_MODE_CONN，2026-11-16）：设置 → 连接组末尾，一模式一行下拉 + 该行的警告。只用 token。 */
+#so-settings .so-mode-conn {
+    display: flex; flex-direction: column; gap: 6px;
+    margin-top: 2px; padding-top: 10px;
+    border-top: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.14));
+}
+#so-settings .so-mode-conn-title { font-size: 0.85em; font-weight: 600; opacity: 0.85; }
+#so-settings .so-mode-conn select { min-height: 32px; }
+#so-settings .so-mode-conn-warn { margin-top: -2px; opacity: 0.95; }
+#so-settings .so-mode-conn-warn[hidden] { display: none; }
+/* 🎚 实时预设（ENABLE_LIVE_PRESET，2026-11-16）：普通聊天 / 参谋的「精选一份 / 跟酒馆实时走」行（设置面板 + 参谋栏，代码挂）+ 挑选窗口里的
+   警告行 / 新条目提示 / 徽章（窗口骨架 = #so-cur-card）。只用 token；手机宽度下整行可换行、长预设名可断行，不撑出横向滚动。 */
+#so-window .so-live-row {
+    display: flex; flex-direction: column; gap: 5px; min-width: 0; box-sizing: border-box;
+    margin: 4px 0 8px; padding: 7px 9px; border-radius: 8px;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.14));
+}
+#so-window .so-live-row [hidden] { display: none; }
+/* 🎚 预设块（ENABLE_PRESET_BLOCK，plan 2026-11-18 Task 8）：每个模式设置顶上同一块——小标题、「用自定义聊天预设」勾 +「?」、⚠、没勾时的灰字、
+   勾上后上下叠着的选项卡（手机 360 px 宽也放得下）。只用 token；长预设名可断行，不撑出横向滚动。块里的 [hidden] 一律压过各自的 display。 */
+#so-window .so-pb {
+    display: flex; flex-direction: column; gap: 4px; min-width: 0; box-sizing: border-box;
+    margin: 2px 0 10px; padding: 8px 10px; border-radius: 8px;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.14));
+    background: rgba(var(--so-ink), 0.02);
+}
+#so-window .so-pb [hidden] { display: none; }
+#so-window .so-pb-cap { font-size: 0.75em; font-weight: 600; opacity: 0.7; overflow-wrap: anywhere; }
+/* 🎚 预设块折叠（2026-11-18）：块头 = 一颗按钮（小标题 / 一句现状 两行 + 箭头），恒显示、手指好点（≥ 40 px）；块身 .so-pb-body 只在打开时显示
+  （.so-pb-shut = 收起，元素都还在）。现状那一句只占一行，长了用省略号（完整的字在 title 里）；红字沿用状态行的 .so-hint-error。只用 token。 */
+#so-window button.so-pb-head {
+    display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; min-width: 0; box-sizing: border-box;
+    margin: 0; padding: 3px 4px; appearance: none; -webkit-appearance: none; cursor: pointer; text-align: left;
+    font-family: inherit; font-size: 1em; line-height: 1.35;
+    color: var(--so-control-ink, var(--SmartThemeBodyColor, #e6e6e6));
+    background: transparent; border: 0; border-radius: 6px;
+}
+#so-window button.so-pb-head:hover { background: rgba(var(--so-ink), 0.05); }
+#so-window button.so-pb-head:focus-visible { outline: 2px solid var(--so-accent); outline-offset: 1px; }
+#so-window .so-pb-headtext { display: flex; flex-direction: column; gap: 1px; flex: 1 1 auto; min-width: 0; }
+#so-window .so-pb-head .so-pb-sum { display: block; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#so-window .so-pb-head .so-pb-sum:empty { display: none; }
+#so-window .so-pb-chev { flex: 0 0 auto; width: 1em; text-align: center; }
+#so-window .so-pb-chev::before { content: '▸'; display: inline-block; opacity: 0.7; transition: transform 0.15s; }
+#so-window .so-pb-head[aria-expanded="true"] .so-pb-chev::before { transform: rotate(90deg); }
+#so-window .so-pb-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+#so-window .so-pb.so-pb-shut > .so-pb-body { display: none; }
+#so-window .so-pb .so-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
+#so-window .so-pb .so-pb-check {
+    display: flex; flex-direction: row; align-items: center; gap: 8px; flex: 1 1 auto; min-width: 0; min-height: 28px;
+    font-size: 0.85em; cursor: pointer;
+}
+#so-window .so-pb .so-pb-check input { margin: 0; accent-color: var(--so-accent); }
+#so-window .so-pb .so-pb-warn,
+#so-window .so-pb .so-pb-off { overflow-wrap: anywhere; }
+#so-window .so-pb .so-pb-warn { opacity: 0.8; }
+#so-window .so-pb-ways { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+#so-window .so-pb-card {
+    display: flex; flex-direction: column; gap: 5px; min-width: 0; box-sizing: border-box;
+    padding: 7px 9px; border-radius: 8px;
+    border: 1px solid color-mix(in srgb, var(--so-accent) 45%, transparent);
+    background: rgba(var(--so-ink), 0.03);
+}
+#so-window .so-pb-card-text { font-size: 0.78em; line-height: 1.45; opacity: 0.85; overflow-wrap: anywhere; }
+#so-window .so-pb-card-body { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+#so-window .so-pb-card-body > .so-mode-preset-field { margin: 0; }
+#so-window .so-pb-card-body > .so-live-row { margin: 0; }
+#so-window .so-pb-statusline { flex-wrap: wrap; gap: 6px 10px; }
+#so-window .so-pb-status { flex: 1 1 12em; min-width: 0; overflow-wrap: anywhere; }
+#so-window button.so-pb-recurate {
+    flex: 0 0 auto; appearance: none; -webkit-appearance: none; cursor: pointer;
+    font-family: inherit; font-size: 0.82em; padding: 3px 10px; min-height: 28px; border-radius: 7px;
+    color: var(--so-control-ink, var(--SmartThemeBodyColor, #e6e6e6));
+    background: rgba(var(--so-ink), 0.05);
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+}
+#so-window button.so-pb-recurate:hover { background: rgba(var(--so-ink), 0.1); }
+#so-window button.so-pb-recurate:focus-visible { outline: 2px solid var(--so-accent); outline-offset: 1px; }
+/* 🎚 预设块 · 跟酒馆实时走（plan Task 9）：实时行本身当两张卡的容器（不再画自己的框）；卡头 = 单选框那一格；没选中的卡框变淡、卡身收起。
+   模式说明（Task 10）在块底。只用 token；手机 360 px 下照样一列叠放、长字可断行。 */
+#so-window .so-pb-ways > .so-pb-liverow { margin: 0; padding: 0; border: 0; border-radius: 0; }
+#so-window .so-live-seg.so-pb-seg { flex-direction: column; flex-wrap: nowrap; gap: 6px; font-size: 1em; }
+#so-window .so-pb-card:not(.so-pb-chosen) { border-color: var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.14)); background: transparent; }
+#so-window .so-pb-card-head {
+    display: flex; align-items: center; gap: 6px; min-height: 28px; min-width: 0;
+    font-size: 0.85em; font-weight: 600; cursor: pointer; overflow-wrap: anywhere;
+}
+#so-window .so-pb-card-head input[type="radio"] { margin: 0; flex: 0 0 auto; accent-color: var(--so-accent); }
+#so-window .so-pb .so-pb-cost,
+#so-window .so-pb .so-pb-chathint { overflow-wrap: anywhere; opacity: 0.8; }
+#so-window details.so-pb-details > summary {
+    display: flex; align-items: center; gap: 6px; min-height: 28px; padding: 2px;
+    list-style: none; font-size: 0.8em; cursor: pointer; opacity: 0.75;
+}
+#so-window details.so-pb-details > summary::-webkit-details-marker { display: none; }
+#so-window details.so-pb-details > summary::before { content: '▸'; display: inline-block; opacity: 0.7; transition: transform 0.15s; }
+#so-window details.so-pb-details[open] > summary::before { transform: rotate(90deg); }
+#so-window details.so-pb-details > summary:hover { opacity: 1; }
+#so-window details.so-pb-details > summary:focus-visible { outline: 2px solid var(--so-accent); outline-offset: -2px; opacity: 1; }
+#so-window .so-pb-details > .so-live-explain { padding: 2px 0 2px 10px; }
+#so-window .so-pb-lines { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+#so-window .so-pb-lines .so-pb-line { overflow-wrap: anywhere; opacity: 0.8; }
+/* 去 AI 味「更多设置」里的正文标签扫描面板：.so-fix-scan-panel 的 display:flex 压过了 [hidden]，藏着时会剩一个空的虚线框。 */
+#so-window .so-fix-scan-panel[hidden] { display: none; }
+#so-window .so-live-seg { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.85em; min-width: 0; }
+#so-window .so-live-seg > label { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; cursor: pointer; }
+#so-window .so-live-seg input[type="radio"] { margin: 0; accent-color: var(--so-accent); }
+#so-window .so-live-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+#so-window .so-live-status { flex: 1 1 12em; min-width: 0; overflow-wrap: anywhere; opacity: 0.85; }
+#so-window .so-live-pick {
+    flex: 0 0 auto; appearance: none; -webkit-appearance: none; cursor: pointer;
+    font-family: inherit; font-size: 0.82em; padding: 3px 10px; min-height: 28px; border-radius: 7px;
+    color: var(--SmartThemeBodyColor, #e6e6e6);
+    background: rgba(var(--so-ink), 0.05);
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18));
+}
+#so-window .so-live-pick:hover { background: rgba(var(--so-ink), 0.1); }
+#so-window .so-live-explain { display: flex; flex-direction: column; gap: 3px; min-width: 0; overflow-wrap: anywhere; }
+#so-cur-card .so-live-warn {
+    flex: 0 0 auto; margin: 6px 14px 2px; padding: 8px 11px; border-radius: 8px;
+    font-size: 0.78em; line-height: 1.55;
+    color: var(--so-warn-ink, #f0d28a);
+    background: rgba(var(--so-warn-rgb, 242, 201, 76), 0.12);
+    border: 1px solid rgba(var(--so-warn-rgb, 242, 201, 76), 0.35);
+}
+#so-cur-card .so-live-fresh { flex: 0 0 auto; margin: 4px 14px 0; font-size: 0.78em; font-weight: 600; color: var(--so-accent); }
+#so-cur-card .so-live-pick-row { cursor: pointer; flex-wrap: wrap; }
+#so-cur-card .so-live-pick-row .so-cur-name { flex-basis: 8em; }
+#so-cur-card .so-live-badge-new { background: color-mix(in srgb, var(--so-accent) 24%, transparent); font-weight: 600; }
 #so-arc-form .so-field, .so-adv-field { display: flex; flex-direction: column; gap: 4px; font-size: 0.82em; }
 #so-arc-form .so-field > span, .so-adv-field > span { opacity: 0.72; }
 #so-arc-form input,
@@ -3059,6 +3501,379 @@ body.so-skin-light :is(.so-knowledge-dialog, .so-big-summary-dialog) .so-local-d
 #so-window .so-thr-panel { margin: 4px 0; max-width: 100%; }
 #so-window .so-thr-panel-frame { display: block; width: 100%; border: 0; background: transparent; }
 #so-window .so-thr-panel-folded { margin: 4px 0; padding: 4px 8px; border: 1px dashed rgba(var(--so-ink), 0.2); border-radius: 6px; font-size: 12px; opacity: 0.7; }
+/* 🎬 小剧场 · 主聊天生成时也能开（ENABLE_THR_CONCURRENT）：等待行 / 等待气泡 / 没发出的那一句 / 琥珀小注 / 红色中转大卡（几何照 mockup 的
+   .wait / .clk / .ct.waiting / .outcome / .loud）。颜色只用 token；「不等了」在触屏宽度上 ≥ 32 px；时钟指针在 reduced-motion 下不转。 */
+.so-thr-wait { display: flex; gap: 10px; align-items: flex-start; white-space: normal; }
+.so-thr-wait-clk { flex: 0 0 auto; position: relative; width: 18px; height: 18px; margin-top: 2px; border-radius: 50%; border: 1.6px solid var(--so-accent); opacity: 0.9; box-sizing: border-box; }
+.so-thr-wait-clk::before, .so-thr-wait-clk::after { content: ''; position: absolute; left: 50%; top: 50%; width: 1.6px; background: var(--so-accent); transform-origin: 50% 0; border-radius: 1px; }
+.so-thr-wait-clk::before { height: 6px; transform: translate(-50%, 0) rotate(180deg); }
+.so-thr-wait-clk::after { height: 5px; transform: translate(-50%, 0) rotate(90deg); animation: so-thr-wait-hand 3s linear infinite; }
+@keyframes so-thr-wait-hand { from { transform: translate(-50%, 0) rotate(0); } to { transform: translate(-50%, 0) rotate(360deg); } }
+.so-thr-wait-body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.so-thr-wait-why { line-height: 1.45; }
+.so-thr-wait-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; font-size: 12px; }
+.so-thr-wait-el { opacity: 0.65; font-variant-numeric: tabular-nums; }
+.so-thr-wait-cancel { min-height: 28px; padding: 2px 10px; border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15)); border-radius: 999px; background: transparent; color: var(--so-control-ink, var(--SmartThemeBodyColor, #e6e6e6)); font-size: 12px; cursor: pointer; }
+.so-thr-wait-cancel:hover { border-color: var(--so-accent); color: var(--so-accent); }
+.so-thr-wait-cancel:disabled { opacity: 0.5; cursor: default; }
+.so-thr-wait-cancel:focus-visible { outline: 2px solid var(--so-accent); outline-offset: 1px; }
+@media (pointer: coarse), (max-width: 600px) { .so-thr-wait-cancel { min-height: 32px; padding: 3px 12px; } }
+.so-thr-wait-box { padding: 7px 9px; border: 1px dashed color-mix(in srgb, var(--so-accent) 45%, transparent); border-radius: 8px; background: color-mix(in srgb, var(--so-accent) 5%, transparent); font-size: 12.5px; }
+.so-thr-wait-box .so-thr-wait-clk { width: 15px; height: 15px; }
+#so-window .so-msg.so-thr-waiting .so-content { border-style: dashed; border-color: color-mix(in srgb, var(--so-accent) 45%, transparent); background: color-mix(in srgb, var(--so-accent) 5%, transparent); }
+#so-window .so-msg.so-thr-waiting .so-role { opacity: 1; }
+#so-window .so-msg.so-thr-waiting .so-role-label { opacity: 0.5; }
+.so-thr-wait-pill { letter-spacing: 0; text-transform: none; font-size: 11px; color: var(--so-accent); border: 1px solid color-mix(in srgb, var(--so-accent) 55%, transparent); border-radius: 999px; padding: 0 7px; line-height: 17px; }
+#so-window .so-msg.so-thr-unsent .so-content { opacity: 0.6; border-style: dashed; }
+.so-thr-unsent-tag { font-size: 11px; opacity: 0.6; text-align: right; padding: 0 2px; }
+#so-window .so-content.so-thr-outct { border-color: var(--so-thr-warn-line); background: var(--so-thr-warn-bg); white-space: normal; }
+.so-thr-outcome { display: flex; flex-direction: column; gap: 6px; white-space: normal; }
+.so-thr-outcome-t { color: var(--so-thr-warn-ink); }
+.so-thr-outcome-btns, .so-thr-loud-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.so-thr-outcome-retry, .so-thr-loud-btn { min-height: 30px; padding: 3px 12px; border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15)); border-radius: 8px; background: transparent; color: var(--so-control-ink, var(--SmartThemeBodyColor, #e6e6e6)); font-size: 12.5px; cursor: pointer; }
+.so-thr-outcome-retry, .so-thr-loud-pri { border-color: var(--so-accent); color: var(--so-accent); }
+.so-thr-outcome-retry:disabled { opacity: 0.5; cursor: default; }
+.so-thr-outcome-retry:focus-visible, .so-thr-loud-btn:focus-visible { outline: 2px solid var(--so-accent); outline-offset: 1px; }
+@media (pointer: coarse), (max-width: 600px) { .so-thr-outcome-retry, .so-thr-loud-btn { min-height: 34px; } }
+#so-window .so-content.so-thr-loudct { padding: 0; border: 0; background: transparent; white-space: normal; }
+.so-thr-loud { display: flex; flex-direction: column; gap: 7px; padding: 10px 12px; border: 1.5px solid var(--so-thr-danger-line); border-left-width: 5px; border-radius: 10px; background: var(--so-thr-danger-bg); color: var(--so-control-ink, var(--SmartThemeBodyColor, #e6e6e6)); white-space: normal; }
+.so-thr-loud-t { display: flex; gap: 7px; align-items: flex-start; color: var(--so-thr-danger-ink); font-weight: 700; font-size: 15px; line-height: 1.35; }
+.so-thr-loud-b { line-height: 1.5; }
+.so-thr-loud-fix { font-size: 13px; line-height: 1.5; }
+.so-thr-loud-fix ul { margin: 0; padding-left: 18px; }
+.so-thr-loud-raw { font-size: 11.5px; opacity: 0.7; overflow-wrap: anywhere; }
+.so-thr-loud-raw summary { cursor: pointer; }
+.so-thr-loud-raw-t { white-space: pre-wrap; }
+#so-thr-relay-banner.so-thr-loud-sm { flex: 0 0 auto; margin: 8px 10px 0; padding: 8px 10px; gap: 5px; }
+#so-thr-relay-banner.so-thr-loud-sm .so-thr-loud-t { font-size: 13.5px; }
+#so-thr-scene-wait { margin-top: 2px; }
+#so-thr-scene-wait[hidden], #so-thr-scene-status[hidden] { display: none; }
+#so-thr-scene-wait .so-thr-outcome { padding: 7px 9px; border: 1px solid var(--so-thr-warn-line); border-radius: 8px; background: var(--so-thr-warn-bg); font-size: 12.5px; }
+@media (prefers-reduced-motion: reduce) { .so-thr-wait-clk::after { animation: none; } }
+/* <<WEIYU:host-css>> */
+/* 💬 微谕（ENABLE_THR_WEIYU）：手机的外框——遮罩 + 卡片 + 顶部一行（标题 / 状态 / ✕）+ 放手机的格子。手机本身在 #so-thr-weiyu-host 的
+   shadow root 里（自带样式，主题改不动）；这里只管外框，照 #so-thr-scene-view 骨架：遮罩 inset:0、卡片封顶内滚、✕ 恒在屏内。
+   只用 token（颜色字面量只作 var(--so-…, …) 的回退），不写 color:inherit。 */
+#so-thr-weiyu-view { display: none; position: absolute; inset: 0; z-index: 60; align-items: center; justify-content: center; padding: 8px; box-sizing: border-box; background: var(--so-scrim); }
+#so-thr-weiyu-view.open { display: flex; }
+#so-thr-weiyu-card { position: relative; display: flex; flex-direction: column; width: 100%; max-width: 460px; height: 100%; max-height: 100%; min-height: 0; overflow: hidden; box-sizing: border-box; border-radius: 12px; border: 1px solid var(--so-control-border, var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18))); background-color: var(--so-cur-surface, #1b1d23); color: var(--so-cur-ink, #e6e6e6); box-shadow: 0 20px 50px -12px rgba(var(--so-shadow-rgb, 0, 0, 0), 0.7); }
+#so-thr-weiyu-card .so-thr-weiyu-head { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; min-width: 0; padding: 6px 10px; border-bottom: 1px solid var(--so-control-border, var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.1))); }
+#so-thr-weiyu-title { flex: 0 0 auto; font-weight: 600; white-space: nowrap; }
+#so-thr-weiyu-status { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; opacity: 0.75; }
+#so-thr-weiyu-x { flex: 0 0 auto; }
+#so-thr-weiyu-host { flex: 1 1 auto; min-height: 0; min-width: 0; position: relative; display: block; }
+/* 接线（join Task 4）：等待盒（顶部一行与手机之间：引擎的等待行 / 中转大卡）+ 停止键（✕ 前面，只在有一趟在跑时出现）。 */
+#so-thr-weiyu-wait { flex: none; padding: 6px 8px; }
+#so-thr-weiyu-wait[hidden], #so-thr-weiyu-stop[hidden] { display: none; }
+#so-thr-weiyu-stop { flex: 0 0 auto; min-height: 32px; padding: 4px 10px; border: 1px solid var(--so-control-border, var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.18))); border-radius: 8px; background: none; color: var(--so-cur-ink, #e6e6e6); font-size: 12px; cursor: pointer; }
+/* 接线（join Task 5）：场景按钮一行里的第五个——微谕 入口；几何照 .so-thr-scene-btn，只用 token。IF 里置灰（aria-disabled）、不隐藏。 */
+#so-thr-weiyu-entry { flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-width: 72px; min-height: 34px; padding: 4px 8px; border: 1px solid var(--so-control-border, var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15))); border-radius: 8px; background: none; color: var(--so-control-ink, var(--SmartThemeBodyColor, #e6e6e6)); font-size: 13px; cursor: pointer; opacity: 0.75; }
+#so-thr-weiyu-entry:hover { opacity: 1; }
+#so-thr-weiyu-entry:focus-visible { outline: 2px solid var(--so-accent); outline-offset: -2px; }
+#so-thr-weiyu-entry[aria-disabled="true"] { opacity: 0.4; cursor: not-allowed; }
+#so-thr-weiyu-entry svg { width: 16px; height: 16px; flex: none; }
+/* 接线（join Stage 2 Task 13，ENABLE_THR_WEIYU_SYNC）：入口按钮里的未读数（手机关着时剧情同步来过）；0 = hidden。 */
+#so-thr-weiyu-entry-n { flex: none; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: var(--so-accent); color: var(--so-on-accent, #fff); font-size: 10px; font-weight: 600; line-height: 16px; text-align: center; }
+#so-thr-weiyu-entry-n[hidden] { display: none; }
+/* <</WEIYU:host-css>> */
+/* 💬 微谕 外框 = 一部手机（重做第 1 片，2026-11-17 Prince 选 A「Slab」：docs/superpowers/specs/2026-11-16-weiyu-phone-frame-mockup.html）。
+   只靠 CSS 改固定结构（块的 soWyHostBuild 标记一字不动）：卡片 = 机身（10 px 黑边框 + 2.5 px 金属边 + 48 px 圆角 + 侧键 + 长影）；
+   顶部一行 = 40 px 状态栏（颜色 = 手机屏顶部的 --wy-panel）；状态 = 灵动岛（空闲 = 98 × 32 黑药丸带镜头、没有字；在写 / 排队 = 「● 正在写…」
+   和 ■ 停止 连成一颗——Prince：停止要在大家会看的地方）；✕ = 机身右上角的圆徽章（窄屏 / 手机进状态栏）；等待盒 = 从岛下来的横幅（absolute，
+   屏不挪）；外框标题只藏视觉（读屏照读）；屏的圆角 = 手机里读的一个继承变量 --wy-screen-radius。
+   取值跟手机的主题走（:has(#so-thr-weiyu-host[data-wy-theme=…])），没有 :has 的旧内核退到神谕的皮肤（深色 / 跟随 = 深，浅色 = 浅）。
+   :is() 两条同一特异度、浅的在后。只用 token；写在 host-css 记号对外面（那一段是块文件逐字拼进来的）。 */
+:is(#so-window, #so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-theme="dark"])) {
+    --so-wy-metal: linear-gradient(140deg, #9a9ea6 0%, #44474e 16%, #1c1d21 44%, #2f3136 70%, #a3a7af 100%);
+    --so-wy-key: #6d7179;
+    --so-wy-strip: #191919;
+    --so-wy-strip-ink: #D9D9D9;
+    --so-wy-strip-icons: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 31 11'%3E%3Cg fill='%23D9D9D9'%3E%3Crect x='0' y='7' width='3' height='4' rx='1'/%3E%3Crect x='4.5' y='5' width='3' height='6' rx='1'/%3E%3Crect x='9' y='2.5' width='3' height='8.5' rx='1'/%3E%3Crect x='13.5' y='0' width='3' height='11' rx='1' opacity='.35'/%3E%3Cpath d='M20 4.2a8.3 8.3 0 0 1 11 0l-1.3 1.4a6.4 6.4 0 0 0-8.4 0zM22.6 7a4.6 4.6 0 0 1 5.8 0L25.5 10z'/%3E%3C/g%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 11'%3E%3Crect x='.6' y='.6' width='22' height='9.8' rx='3' fill='none' stroke='%23D9D9D9' stroke-opacity='.45' stroke-width='1.2'/%3E%3Crect x='2.3' y='2.3' width='14.5' height='6.4' rx='1.6' fill='%23D9D9D9'/%3E%3Crect x='23.8' y='3.6' width='1.8' height='3.8' rx='.9' fill='%23D9D9D9' fill-opacity='.45'/%3E%3C/svg%3E");
+    --so-wy-scrim: rgba(5, 6, 9, 0.68);
+    --so-wy-x-bg: #f3f4f6;
+    --so-wy-x-ink: #121418;
+    --so-wy-x-shadow: 0 6px 16px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.4);
+    --so-wy-banner: rgba(36, 38, 42, 0.96);
+    --so-wy-banner-ink: #eceef1;
+    --so-wy-banner-shadow: 0 14px 30px rgba(0, 0, 0, 0.55), inset 0 0 0 0.5px rgba(255, 255, 255, 0.12);
+    --so-wy-relay: #ff8a80;
+    --so-wy-on-relay: #2a0f0c;
+    --so-wy-lens: radial-gradient(circle at 38% 36%, #3d5a86 0 1.5px, #0c1424 2.5px, #05070b 4.5px, #16181d 5px);
+}
+:is(body.so-skin-light #so-window, #so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-theme="light"])) {
+    --so-wy-metal: linear-gradient(140deg, #fbfbfc 0%, #c3c6cb 18%, #8f939a 46%, #cfd2d6 72%, #fdfdfe 100%);
+    --so-wy-key: #8f939a;
+    --so-wy-strip: #FFFFFF;
+    --so-wy-strip-ink: #191919;
+    --so-wy-strip-icons: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 31 11'%3E%3Cg fill='%23191919'%3E%3Crect x='0' y='7' width='3' height='4' rx='1'/%3E%3Crect x='4.5' y='5' width='3' height='6' rx='1'/%3E%3Crect x='9' y='2.5' width='3' height='8.5' rx='1'/%3E%3Crect x='13.5' y='0' width='3' height='11' rx='1' opacity='.35'/%3E%3Cpath d='M20 4.2a8.3 8.3 0 0 1 11 0l-1.3 1.4a6.4 6.4 0 0 0-8.4 0zM22.6 7a4.6 4.6 0 0 1 5.8 0L25.5 10z'/%3E%3C/g%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 11'%3E%3Crect x='.6' y='.6' width='22' height='9.8' rx='3' fill='none' stroke='%23191919' stroke-opacity='.45' stroke-width='1.2'/%3E%3Crect x='2.3' y='2.3' width='14.5' height='6.4' rx='1.6' fill='%23191919'/%3E%3Crect x='23.8' y='3.6' width='1.8' height='3.8' rx='.9' fill='%23191919' fill-opacity='.45'/%3E%3C/svg%3E");
+    --so-wy-scrim: rgba(44, 40, 34, 0.38);
+    --so-wy-x-bg: #000000;
+    --so-wy-x-ink: #ffffff;
+    --so-wy-x-shadow: 0 6px 16px rgba(0, 0, 0, 0.28), 0 0 0 2px #ffffff;
+    --so-wy-banner: rgba(255, 255, 255, 0.97);
+    --so-wy-banner-ink: #22262b;
+    --so-wy-banner-shadow: 0 14px 30px rgba(0, 0, 0, 0.22), inset 0 0 0 0.5px rgba(0, 0, 0, 0.08);
+    --so-wy-relay: #c8322c;
+    --so-wy-on-relay: #ffffff;
+}
+/* 遮罩：6 px 内边距 + 尺寸容器（窄面板换手机宽的样子）。机身外面那圈 20 / 22 / 16 px（给 ✕ 徽章和侧键留地方，不被 #so-window 的 overflow:clip 切掉）
+   = 这 6 px + 机身自己的 margin——手机宽时 margin 归零。点遮罩关手机照旧（e.target === view）：伸出机身的 ✕ / 侧键都属于机身。 */
+#so-thr-weiyu-view { padding: 6px; background: var(--so-wy-scrim); container: so-wy-view / size; }
+/* 机身的宽、高各取遮罩给的地方（宽封顶 445、高封顶 925），宽不再由高按 0.49 算出来（2026-11-18 Prince 试玩：面板矮（约 650 px）但够宽时，
+   手机只有 ~300 px 宽、两边空着，屏比设计的 360 px 还窄——他要的是屏里多放字，不是放大）。高面板 / 窄面板（宽先到顶）尺寸和以前一模一样；
+   只有矮面板变宽（机身矮胖一些）。 */
+#so-thr-weiyu-card {
+    width: calc(100% - 32px);                    /* = 遮罩的宽减两边各 16 px 的 margin */
+    height: calc(100% - 24px);
+    max-width: min(calc(100% - 32px), 445px);   /* 445 = 手机自己的 420 px 宽上限 + 边框；也永远到不了手机里 520 px 的「带框」样子 */
+    max-height: 925px;                           /* = 手机自己的 860 px 高上限 + 状态栏 + 边框 */
+    min-width: 0;
+    min-height: 0;
+    margin: 14px 16px 10px;
+    padding: 10px;
+    overflow: visible;
+    border: 2.5px solid transparent;
+    border-radius: 48px;
+    background: linear-gradient(var(--so-wy-bezel, #050506), var(--so-wy-bezel, #050506)) padding-box, var(--so-wy-metal) border-box;
+    color: var(--so-wy-strip-ink);
+    box-shadow: 0 34px 64px -24px rgba(var(--so-shadow-rgb, 0, 0, 0), 0.75), 0 14px 26px -12px rgba(var(--so-shadow-rgb, 0, 0, 0), 0.5), inset 0 0 0 1px rgba(var(--so-wy-edge-rgb, 255, 255, 255), 0.06);
+    --wy-screen-radius: 0 0 35.5px 35.5px;
+}
+/* 侧键：左边两颗音量键（::before + 它的 box-shadow 复本）、右边电源键（状态栏的 ::after；状态栏不定位，所以它和 ✕ 都按机身定位）。z-index:-1 = 画在机身后面。 */
+#so-thr-weiyu-card::before { content: ""; position: absolute; z-index: -1; left: -6.5px; top: 122px; width: 5px; height: 54px; border-radius: 3px 0 0 3px; background: var(--so-wy-key); box-shadow: 0 68px 0 var(--so-wy-key); }
+#so-thr-weiyu-card .so-thr-weiyu-head::after { content: ""; position: absolute; z-index: -1; right: -6.5px; top: 160px; width: 5px; height: 84px; border-radius: 0 3px 3px 0; background: var(--so-wy-key); }
+#so-thr-weiyu-card .so-thr-weiyu-head {
+    position: static;
+    box-sizing: border-box;
+    height: 40px;
+    min-height: 40px;
+    padding: 0;
+    gap: 0;
+    justify-content: center;
+    border-bottom: 0;
+    border-radius: 35.5px 35.5px 0 0;
+    background-color: var(--so-wy-strip);
+    color: var(--so-wy-strip-ink);
+    background-image: var(--so-wy-strip-icons, none);
+    background-repeat: no-repeat;
+    background-position: left 24px center, right 22px center;
+    background-size: 31px 11px, 26px 11px;
+}
+/* 外框标题「微谕」= 手机屏自己标题的重复：只藏视觉，读屏照读。 */
+#so-thr-weiyu-title { position: absolute; width: 1px; height: 1px; margin: 0; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+/* 灵动岛：空闲 = 98 × 32 黑药丸 + 镜头、没有字（:empty）；有字 = 一颗「● 正在写…」+ ■ 停止 的左半边（右侧圆角让给停止，镜头让位）。字太长先省略，停止不缩不换行。 */
+#so-thr-weiyu-status {
+    position: relative;
+    display: inline-block;
+    flex: 0 1 auto;
+    box-sizing: border-box;
+    height: 32px;
+    min-width: 98px;
+    max-width: calc(100% - 118px);
+    padding: 0 34px 0 14px;
+    border-radius: 999px;
+    background: var(--so-wy-island, #000);
+    color: var(--so-wy-island-ink, #f3f4f6);
+    font-size: 11.5px;
+    font-weight: 500;
+    line-height: 32px;
+    opacity: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    box-shadow: 0 0 0 0.5px rgba(var(--so-wy-edge-rgb, 255, 255, 255), 0.08);
+}
+#so-thr-weiyu-status::after { content: ""; position: absolute; right: 11px; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%; background: var(--so-wy-lens); }
+#so-thr-weiyu-status:not(:empty) { min-width: 0; padding: 0 6px 0 12px; border-radius: 999px; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+#so-thr-weiyu-status:not(:empty)::after { display: none; }
+#so-thr-weiyu-status:not(:empty)::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 7px; vertical-align: 1px; border-radius: 50%; background: var(--so-wy-live, #46d68b); box-shadow: 0 0 0 3px rgba(var(--so-wy-live-rgb, 70, 214, 139), 0.2); animation: so-wy-livedot 1.4s ease-in-out infinite; }
+@keyframes so-wy-livedot { 50% { box-shadow: 0 0 0 5px rgba(var(--so-wy-live-rgb, 70, 214, 139), 0); } }
+#so-thr-weiyu-stop {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    height: 32px;
+    min-height: 32px;
+    min-width: 32px;
+    margin: 0;
+    padding: 0 14px 0 6px;
+    border: 0;
+    border-radius: 999px;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    background: var(--so-wy-island, #000);
+    color: var(--so-wy-stop-ink, #ff6b62);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+}
+#so-thr-weiyu-stop::before { content: ""; flex: none; width: 8px; height: 8px; border-radius: 2px; background: currentColor; }
+#so-thr-weiyu-stop:focus-visible { outline: 2px solid var(--so-accent); outline-offset: 2px; }
+/* 记忆片 · 界面（ENABLE_THR_WEIYU_MEMORY，2026-11-18，Prince #44「Status island」，设计稿 2026-11-18-weiyu-meter-mockup.html 方案 ①）：岛上的大小计数器
+   #so-thr-weiyu-meter（接线 soThrWeiyuMeterPaint 建 / 刷；旗关 = 不在 DOM 里）。它就是那颗岛（黑药丸 32 px + 镜头）：空闲时顶替空着的状态岛
+   （.so-wy-has-meter），状态岛有字（正在写… + 停止）时让开。三档墨色 = 岛恒黑，所以各一个固定值：fine 暗灰 / amber 琥珀 / red = 停止键的红；
+   环的满度 + ⚠ + 「· 该总结了」兜住不靠颜色。点按区 = 状态栏整高 40 px（::before 上下各伸 4 px、左右 8 px；到 44 会压进屏里，不做）。 */
+#so-thr-weiyu-card .so-thr-weiyu-head.so-wy-has-meter #so-thr-weiyu-status:empty { display: none; }
+#so-thr-weiyu-meter {
+    -webkit-appearance: none;
+    appearance: none;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    flex: 0 1 auto;
+    box-sizing: border-box;
+    height: 32px;
+    min-height: 32px;
+    min-width: 98px;
+    max-width: calc(100% - 118px);
+    margin: 0;
+    padding: 0 34px 0 12px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--so-wy-island, #000);
+    color: var(--so-wy-meter-ink, #8d929b);
+    font-size: 11.5px;
+    font-weight: 500;
+    line-height: 32px;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: 0 0 0 0.5px rgba(var(--so-wy-edge-rgb, 255, 255, 255), 0.08);
+}
+#so-thr-weiyu-meter[hidden], #so-thr-weiyu-status:not(:empty) + #so-thr-weiyu-meter { display: none; }
+#so-thr-weiyu-meter::before { content: ""; position: absolute; inset: -4px -8px; }
+#so-thr-weiyu-meter::after { content: ""; position: absolute; right: 11px; top: 50%; width: 10px; height: 10px; margin-top: -5px; border-radius: 50%; background: var(--so-wy-lens); }
+#so-thr-weiyu-meter[data-lv="amber"] { color: var(--so-wy-meter-warn, #ffbe55); }
+#so-thr-weiyu-meter[data-lv="red"] { color: var(--so-wy-stop-ink, #ff6b62); font-weight: 600; }
+#so-thr-weiyu-meter:focus-visible { outline: 2px solid var(--so-accent); outline-offset: 2px; }
+#so-thr-weiyu-meter .so-wy-m-g { display: inline-flex; flex: none; }
+#so-thr-weiyu-meter .so-wy-m-ring { display: block; width: 13px; height: 13px; }
+#so-thr-weiyu-meter .so-wy-m-warn { display: inline-flex; }
+#so-thr-weiyu-meter .so-wy-m-warn svg { display: block; width: 14px; height: 14px; }
+#so-thr-weiyu-meter[data-lv="red"] .so-wy-m-ring, #so-thr-weiyu-meter:not([data-lv="red"]) .so-wy-m-warn, #so-thr-weiyu-meter .so-wy-m-w:empty { display: none; }
+#so-thr-weiyu-meter .so-wy-m-n { display: inline-block; flex: none; font-variant-numeric: tabular-nums; letter-spacing: 0.1px; }
+#so-thr-weiyu-meter .so-wy-m-w { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+/* ✕ = 机身右上角的圆徽章（36 px、深皮浅底 / 浅皮深底 + 白圈，盖在金属边上也看得清）；「✕」字藏起来，画两道杠。 */
+#so-thr-weiyu-x {
+    -webkit-appearance: none;
+    appearance: none;
+    position: absolute;
+    z-index: 8;
+    top: -12px;
+    right: -12px;
+    display: grid;
+    place-items: center;
+    box-sizing: border-box;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    min-height: 36px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--so-wy-x-bg);
+    color: var(--so-wy-x-ink);
+    box-shadow: var(--so-wy-x-shadow);
+    font-size: 0px;
+    line-height: 0;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+#so-thr-weiyu-x::before, #so-thr-weiyu-x::after { content: ""; grid-area: 1 / 1; width: 14px; height: 2px; border-radius: 2px; background: currentColor; transform: rotate(45deg); }
+#so-thr-weiyu-x::after { transform: rotate(-45deg); }
+#so-thr-weiyu-x:hover { transform: scale(1.07); }
+#so-thr-weiyu-x:active { transform: scale(0.94); }
+#so-thr-weiyu-x:focus-visible { outline: 2px solid var(--so-accent); outline-offset: 2px; }
+/* 等待盒 = 从岛里落下来的横幅，盖在屏顶上（absolute：屏不挪；在状态栏下面：top 58 = 10 边框 + 40 栏 + 8）。内容太高就自己滚，绝不被切。
+   里面是引擎的等待行（不等了）/ 中转大卡（红）——它们自己的框线 / 底色在横幅里收掉，按钮换成横幅的药丸、至少 32 px。 */
+#so-thr-weiyu-wait {
+    position: absolute;
+    z-index: 7;
+    top: 58px;
+    left: 16px;
+    right: 16px;
+    max-height: calc(100% - 74px);
+    overflow: auto;
+    box-sizing: border-box;
+    padding: 12px 13px;
+    border-radius: 20px;
+    background: var(--so-wy-banner);
+    color: var(--so-wy-banner-ink);
+    box-shadow: var(--so-wy-banner-shadow);
+    font-size: 12.5px;
+    line-height: 1.5;
+    animation: so-wy-dropin 0.32s cubic-bezier(0.2, 1.1, 0.4, 1) both;
+}
+@keyframes so-wy-dropin { from { opacity: 0; transform: translateY(-14px) scale(0.96); } }
+#so-thr-weiyu-wait .so-thr-wait-box { padding: 0; border: 0; border-radius: 0; background: none; font-size: 12.5px; }
+#so-thr-weiyu-wait .so-thr-wait-clk { border-color: currentColor; opacity: 0.85; }
+#so-thr-weiyu-wait .so-thr-wait-clk::before, #so-thr-weiyu-wait .so-thr-wait-clk::after { background: currentColor; }
+#so-thr-weiyu-wait .so-thr-wait-why { font-weight: 600; }
+#so-thr-weiyu-wait .so-thr-loud { padding: 0 0 0 10px; border: 0; border-left: 3px solid var(--so-wy-relay); border-radius: 0; background: none; color: var(--so-wy-banner-ink); }
+#so-thr-weiyu-wait .so-thr-loud-t { color: var(--so-wy-relay); font-size: 13.5px; }
+#so-thr-weiyu-wait .so-thr-wait-cancel, #so-thr-weiyu-wait .so-thr-loud-btn { min-height: 32px; padding: 0 12px; border: 1px solid currentColor; border-radius: 999px; background: transparent; color: var(--so-wy-banner-ink); font-size: 12.5px; }
+#so-thr-weiyu-wait .so-thr-loud-pri { border-color: var(--so-wy-relay); background: var(--so-wy-relay); color: var(--so-wy-on-relay); font-weight: 600; }
+/* 手机宽（神谕自己的手机断点）和窄面板（遮罩 ≤ 360 px）：边框 4 px、金属边 1.5 px、没有侧键和长影、✕ 进状态栏右端（32 px）。两块声明逐条相同（单测钉）。 */
+@media (max-width: 600px) {
+    #so-thr-weiyu-card { aspect-ratio: auto; width: 100%; height: 100%; max-width: 100%; max-height: 100%; margin: 0; padding: 4px; border-width: 1.5px; border-radius: 26px; box-shadow: none; --wy-screen-radius: 0 0 20.5px 20.5px; }
+    #so-thr-weiyu-card .so-thr-weiyu-head { border-radius: 20.5px 20.5px 0 0; background-position: left 16px center, right 54px center; }
+    #so-thr-weiyu-card::before, #so-thr-weiyu-card .so-thr-weiyu-head::after { display: none; }
+    #so-thr-weiyu-x { top: 6px; right: 8px; width: 32px; height: 32px; min-width: 32px; min-height: 32px; background: rgba(var(--so-wy-x-in-rgb, 127, 127, 127), 0.2); color: var(--so-wy-strip-ink); box-shadow: none; }
+    #so-thr-weiyu-status { max-width: calc(100% - 150px); }
+    #so-thr-weiyu-meter { max-width: calc(100% - 150px); }
+    #so-thr-weiyu-wait { top: 48px; left: 8px; right: 8px; }
+}
+@container so-wy-view (max-width: 360px) {
+    #so-thr-weiyu-card { aspect-ratio: auto; width: 100%; height: 100%; max-width: 100%; max-height: 100%; margin: 0; padding: 4px; border-width: 1.5px; border-radius: 26px; box-shadow: none; --wy-screen-radius: 0 0 20.5px 20.5px; }
+    #so-thr-weiyu-card .so-thr-weiyu-head { border-radius: 20.5px 20.5px 0 0; background-position: left 16px center, right 54px center; }
+    #so-thr-weiyu-card::before, #so-thr-weiyu-card .so-thr-weiyu-head::after { display: none; }
+    #so-thr-weiyu-x { top: 6px; right: 8px; width: 32px; height: 32px; min-width: 32px; min-height: 32px; background: rgba(var(--so-wy-x-in-rgb, 127, 127, 127), 0.2); color: var(--so-wy-strip-ink); box-shadow: none; }
+    #so-thr-weiyu-status { max-width: calc(100% - 150px); }
+    #so-thr-weiyu-meter { max-width: calc(100% - 150px); }
+    #so-thr-weiyu-wait { top: 48px; left: 8px; right: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    #so-thr-weiyu-status:not(:empty)::before, #so-thr-weiyu-wait { animation: none; }
+    #so-thr-weiyu-x { transition: none; }
+}
+/* MOTION (lane M) */
+/* 外框自己的动作（设计稿 §3 MOTION 表 Tier 2「弹出 / 收起」、Tier 3「按住机身往下甩掉」）：只认手机「动画」照过来的旗
+   #so-thr-weiyu-card[data-wy-motion="on"]（join 的 soThrWeiyuMotionMirror；关 = 一条都不匹配）。只动 transform / opacity。
+   弹出：遮罩 220 ms 淡入、机身从下 40 px、.94 弹上来（420 ms，略过冲）；收起（join 给遮罩挂 .so-wy-leaving 240 ms）：机身 200 ms 落下淡出。
+   甩掉（join 的 soThrWeiyuFlick，Web Animations）：按住时 .so-wy-drag（跟手、不过渡）；松手回弹 340 ms / 甩出 220 ms。机身在手机触屏上不让浏览器拿去平移
+   （touch-action: none——手机里的滚动区是自己的滚动容器，照旧能滚）。 */
+#so-thr-weiyu-card[data-wy-motion="on"] { touch-action: none; }
+#so-thr-weiyu-card.so-wy-drag { transition: none; cursor: grabbing; }
+#so-thr-weiyu-view.open:has(> #so-thr-weiyu-card[data-wy-motion="on"]) { animation: so-wy-scrimin 0.22s ease backwards; }
+#so-thr-weiyu-view.open > #so-thr-weiyu-card[data-wy-motion="on"] { animation: so-wy-devin 0.42s cubic-bezier(0.2, 1.25, 0.35, 1) backwards; }
+#so-thr-weiyu-view.so-wy-leaving { display: flex; pointer-events: none; }
+#so-thr-weiyu-view.so-wy-leaving:has(> #so-thr-weiyu-card[data-wy-motion="on"]) { animation: so-wy-scrimout 0.2s ease 0.04s both; }
+#so-thr-weiyu-view.so-wy-leaving > #so-thr-weiyu-card[data-wy-motion="on"] { animation: so-wy-devout 0.2s cubic-bezier(0.4, 0, 1, 1) both; }
+@keyframes so-wy-scrimin { from { opacity: 0; } }
+@keyframes so-wy-scrimout { to { opacity: 0; } }
+@keyframes so-wy-devin { from { opacity: 0; transform: translateY(40px) scale(0.94); } }
+@keyframes so-wy-devout { to { opacity: 0; transform: translateY(22px) scale(0.95); } }
+/* 合并（2026-11-17）：动画 = 关 照到机身上时，岛上的「正在写」脉动点 / 等待盒也停——和上面系统「减少动态效果」那一块停的一样（第一片只认系统设置）。 */
+#so-thr-weiyu-card[data-wy-motion="off"] #so-thr-weiyu-status:not(:empty)::before, #so-thr-weiyu-card[data-wy-motion="off"] #so-thr-weiyu-wait { animation: none; }
+#so-thr-weiyu-card[data-wy-motion="off"] #so-thr-weiyu-x { transition: none; }
+/* 记忆片 · 界面：岛上计数器的动作（只在外框的动画旗开着时匹配；关 = 直接换）。墨色 300 ms 淡变、环的弧 450 ms 滑到新长度、新数字从下 4 px 升起 220 ms
+   （.so-wy-tick，接线只在数字变了时挂一次）、级别往上时整颗岛弹一下（.so-wy-bump，1 → 1.07 → 1，500 ms，一次）；变红时的变宽是接线的 Web Animations（320 ms）。
+   都不循环；红不闪。动画放完接线就把类摘掉。 */
+#so-thr-weiyu-card[data-wy-motion="on"] #so-thr-weiyu-meter { transition: color 0.3s ease; }
+#so-thr-weiyu-card[data-wy-motion="on"] #so-thr-weiyu-meter .so-wy-m-arc { transition: stroke-dashoffset 0.45s cubic-bezier(0.2, 0.8, 0.2, 1); }
+#so-thr-weiyu-card[data-wy-motion="on"] #so-thr-weiyu-meter .so-wy-m-n.so-wy-tick { animation: so-wy-mtick 0.22s ease both; }
+#so-thr-weiyu-card[data-wy-motion="on"] #so-thr-weiyu-meter.so-wy-bump { animation: so-wy-mbump 0.5s cubic-bezier(0.2, 1.4, 0.4, 1); }
+@keyframes so-wy-mtick { from { opacity: 0; transform: translateY(4px); } }
+@keyframes so-wy-mbump { 40% { transform: scale(1.07); } }
+/* /MOTION (lane M) */
 
 /* ==================== 更新提醒（ENABLE_UPDATE_CHECK，1.38.0） ==================== */
 /* 红点：有新版时挂 ⋯ / ⚙ / 设置「更新」组标题。position:relative 只在亮点时上桩，平时零布局影响。 */
@@ -3153,6 +3968,12 @@ body.so-skin-light #so-live {
     --so-ink: 0, 0, 0;
     --so-field: rgba(0, 0, 0, 0.05);
     --so-scrim: rgba(20, 22, 28, 0.55);
+    --so-thr-danger-ink: #a3201a;
+    --so-thr-danger-bg: rgba(200, 40, 40, 0.07);
+    --so-thr-danger-line: rgba(180, 30, 30, 0.38);
+    --so-thr-warn-ink: #8a5600;
+    --so-thr-warn-bg: rgba(224, 162, 58, 0.12);
+    --so-thr-warn-line: rgba(170, 110, 0, 0.4);
 }
 
 /* 固定配色下毛玻璃彻底关掉。底色已不透明、blur 本就不可见；置 none 是【构造性】保证 ——
@@ -3200,6 +4021,20 @@ body.so-skin-light #so-fixwarn-btns button {
 body.so-skin-light .so-cur-disabled {
     color: #952323;
 }
+/* 🎚 挑选窗口 × 浅色档（Task 10 跟进，2026-11-16）：它借策展卡的骨架，applyCurationChrome 的内联底色让卡在任何档下都是深的，
+   而浅色档把卡上的字翻成深色 → 深底深字几乎看不见。只给挑选卡：浅色档下它是一座「深色档」小岛（浅字 + 深色档自己的那几个变量值），
+   与深色档里看到的一样。共用的策展卡不在这里改（它在浅色档下的样子由 Prince 定）。深色档 / 跟随主题档没有任何新规则。 */
+body.so-skin-light #so-cur-card.so-live-pick-card {
+    color: var(--so-cur-ink, #e6e6e6);
+    --SmartThemeBodyColor: #e6e6e6;
+    --SmartThemeBorderColor: rgba(255, 255, 255, 0.12);
+    --SmartThemeQuoteColor: #8ab4f8;
+    --SmartThemeCheckboxTickColor: #1f2430;
+    --so-ink: 255, 255, 255;
+    --so-field: rgba(0, 0, 0, 0.32);
+}
+body.so-skin-light #so-cur-card.so-live-pick-card .so-cur-btn { color: var(--so-cur-ink, #e6e6e6); }
+body.so-skin-light #so-cur-card.so-live-pick-card .so-cur-disabled { color: var(--so-cur-danger, #e89a9a); }
 
 /* ==================== 世界书「智能选条」助手（ENABLE_LB_SMART_SELECT，2026-08-08）==================== */
 /* 🪄 入口按钮：同 .so-lb-mini 家族，用世界书强调色点亮。 */
@@ -3622,6 +4457,50 @@ body.so-skin-light .so-cur-disabled {
     }
 }
 .so-pulse-glow { animation: so-pulse-glow-kf 2s ease-in-out infinite; }
+
+/* 🧹 模式栏整理（ENABLE_MODE_TIDY，2026-11-18）：soTidyBar 在校正 / 诊断 / 参谋 / 工坊栏里建的段、折叠、页签、「?」行与镜像。只用 token。
+   段 = column flex + gap:6px（与 .so-mode-collapse-body 同一套竖向间距——包一层普通 div 会把间距塌成 0，见 #so-diag-wisel 的注释）。 */
+#so-window .so-tidy-sec { display: flex; flex-direction: column; gap: 6px; }
+#so-window .so-tidy-sec[hidden], #so-window details.so-tidy-fold[hidden], #so-window .so-tidy-lead[hidden] { display: none; }
+/* 校正的三个页签面板本身不是 flex：段与段之间补同样的 6px */
+#so-fix-manual > .so-tidy-sec ~ *, #so-fix-auto-wrap > .so-tidy-sec ~ *, #so-fix-custom-wrap > .so-tidy-sec ~ * { margin-top: 6px; }
+#so-window .so-tidy-body { display: flex; flex-direction: column; gap: 6px; padding: 2px 0 6px 4px; }
+#so-window details.so-tidy-fold { border-top: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.1)); }
+/* 借用的旧 <details>（去 AI 味的「进阶设置」「上下文」）原本带 .so-mode-collapse 的粗体强调色标题：拉回折叠的普通样子 */
+#so-window .so-mode-collapse-body details.so-tidy-fold > summary {
+    color: var(--so-control-ink, var(--SmartThemeBodyColor, #e6e6e6));
+    font-weight: 400;
+    letter-spacing: normal;
+    margin-top: 0;
+}
+#so-window .so-tidy-fold-t { flex: 0 1 auto; min-width: 0; }
+#so-window .so-tidy-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+#so-window .so-tidy-tab {
+    flex: 1 1 0;
+    min-height: 32px;
+    padding: 4px 10px;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.15));
+    border-radius: 8px;
+    background: transparent;
+    color: var(--so-control-ink, var(--SmartThemeBodyColor, #e6e6e6));
+    font-size: 13px;
+    cursor: pointer;
+    opacity: 0.7;
+}
+#so-window .so-tidy-tab:hover { opacity: 1; background-color: rgba(var(--so-ink), 0.06); }
+#so-window .so-tidy-tab[aria-selected="true"] { opacity: 1; color: var(--so-accent); border-color: var(--so-accent); background-color: rgba(var(--so-ink), 0.08); }
+#so-window .so-tidy-tab:focus-visible { outline: 2px solid var(--so-accent); outline-offset: -2px; }
+#so-window .so-tidy-btnrow { flex-direction: row; flex-wrap: wrap; }
+#so-window .so-tidy-btnrow > .so-mvued-row { flex: 1 1 120px; margin: 0; }
+/* 自动诊断的子选项：缩进在它下面；没开时变灰（照样能点、能改——不是 disabled） */
+#so-window .so-tidy-sub { margin-left: 14px; padding-left: 8px; border-left: 2px solid color-mix(in srgb, var(--so-accent) 30%, transparent); }
+#so-window .so-tidy-dim { opacity: 0.5; }
+#so-window .so-tidy-qrow { display: flex; align-items: center; gap: 6px; }
+#so-window .so-tidy-qrow > :first-child { flex: 1 1 auto; min-width: 0; }
+#so-window .so-tidy-suffix { margin-left: 4px; }
+#so-window .so-tidy-sub #so-diag-retry-count { width: 4.5em; }
+/* 自定义的模板行：手机宽度下拉单占一行、按钮换到第二行（今天会挤成三行） */
+#so-window #so-fix-custom-wrap .so-tidy-sec .so-fix-bundle-row #so-fixc-template { flex-basis: 100%; }
 
 /* 搜索未命中 —— 必须排在最后：它靠【后来居上】压过上面同特异度的 display:flex（.so-mvued-leaf 等），
    在这条前面插新规则会把过滤悄悄搞失效。 */
@@ -4256,6 +5135,15 @@ body.so-skin-background #so-live {
        out) and the label's text. Values = today's (flex column box, inline span, opaque). */
     body.so-theme-on #so-theme-lib { display: flex !important; visibility: visible !important; opacity: 1 !important; }
     body.so-theme-on #so-theme-none > span { display: inline !important; visibility: visible !important; opacity: 1 !important; }
+    /* 🧹 settings V2 (ENABLE_SETTINGS_V2, settings-rework plan Task 8): under V2 the way out is ⚙ → the 外观 tab → 不使用, so the tab row,
+       the 外观 tab button and the shown 外观 pane are pinned too. Values = the base rules' (settings V2 section above); a hidden pane stays
+       hidden (:not([hidden])). Inert without V2 (no such ids / class). */
+    body.so-theme-on #so-settings.so-set-v2 #so-set-tabs { display: flex !important; visibility: visible !important; pointer-events: auto !important; opacity: 1 !important; position: sticky !important; top: 0 !important; }
+    body.so-theme-on #so-settings.so-set-v2 #so-set-tab-look { display: inline-flex !important; visibility: visible !important; pointer-events: auto !important; opacity: 1 !important; }
+    body.so-theme-on #so-settings.so-set-v2 #so-set-pane-look:not([hidden]) { display: flex !important; visibility: visible !important; opacity: 1 !important; }
+    /* 💬 微谕 device frame (redesign slice 1): the phone overlay covers the header ✕ — its own ✕ badge is the way out. Values = the
+       frame rules' (visible, clickable, opaque). Inert while the phone is closed (the overlay is display:none). */
+    body.so-theme-on #so-thr-weiyu-x { visibility: visible !important; pointer-events: auto !important; opacity: 1 !important; }
 }
 
 /* so-skin: 蓝玻璃 / 配合背景 + the shared layout layer under body.so-theme-on — [TBW-C so-skin filled] by spec C Task 7.
@@ -4401,4 +5289,9 @@ body.so-skin-background #so-live {
     body.so-skin-light .so-kb-pill-blue { color: #3f6d94; }
     body.so-skin-light .so-kb-pill-green { color: #527950; }
     body.so-skin-light :is(.so-knowledge-dialog, .so-big-summary-dialog) .so-local-danger { color: #a3193a; }
+    /* [🎬 小剧场 · 复审 M8] 等待中的那几处（场景等待盒 / 等待中的气泡 / 「等待中」小标签）：描边与淡底是 color-mix(var…)，旧内核在计算值阶段
+       整条失效（虚线框、描边消失，底变透明）→ 实心强调色描边 + 今天的气泡底 / 淡蒙层底。 */
+    .so-thr-wait-box { border: 1px dashed var(--so-accent); background: rgba(var(--so-ink), 0.04); }
+    #so-window .so-msg.so-thr-waiting .so-content { border-color: var(--so-accent); background: var(--SmartThemeBotMesBlurTintColor, rgba(255, 255, 255, 0.05)); }
+    .so-thr-wait-pill { border: 1px solid var(--so-accent); }
 }
