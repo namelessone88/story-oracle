@@ -3471,6 +3471,12 @@ body.so-skin-light :is(.so-knowledge-dialog, .so-big-summary-dialog) .so-local-d
 #so-thr-scene-card .so-thr-scene-mini { color: var(--so-cur-ink, #e6e6e6); }
 #so-thr-scene-note-line { flex: 0 0 auto; padding: 4px 10px; }
 #so-thr-scene-note-line[hidden] { display: none; }
+/* 🎨 重做美化（ENABLE_THR_RELOOK）：顶栏下的外观栏——「重画外观」+ ‹ 第 n 版 › + 一行提示；窄屏折行，提示独占一行。 */
+.so-thr-scene-look-row { flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 10px; }
+#so-thr-scene-look-step { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }
+#so-thr-scene-look-line { flex: 1 1 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.so-thr-scene-look-row[hidden], #so-thr-scene-look-step[hidden], #so-thr-scene-look-line[hidden] { display: none; }
+.so-thr-scene-look-row .so-thr-scene-mini:disabled { opacity: 0.45; cursor: default; }
 #so-thr-scene-body { flex: 1 1 auto; min-height: 0; display: flex; }
 #so-thr-scene-frame { flex: 1 1 auto; width: 100%; min-height: 0; border: 0; background: var(--so-cur-surface, #1b1d23); }
 #so-thr-scene-frame[hidden], #so-thr-scene-raw[hidden] { display: none; }
@@ -3550,6 +3556,57 @@ body.so-skin-light :is(.so-knowledge-dialog, .so-big-summary-dialog) .so-local-d
 #so-thr-scene-wait[hidden], #so-thr-scene-status[hidden] { display: none; }
 #so-thr-scene-wait .so-thr-outcome { padding: 7px 9px; border: 1px solid var(--so-thr-warn-line); border-radius: 8px; background: var(--so-thr-warn-bg); font-size: 12.5px; }
 @media (prefers-reduced-motion: reduce) { .so-thr-wait-clk::after { animation: none; } }
+/* <<BOARD:host-css>> */
+/* 🗂 论坛板（ENABLE_THR_BOARD）：SO 面板这边的样式（块文件，经 tests/unit/_board/_splice.mjs 原样拼进 style.css 的 BOARD:host-css 一对标记之间；
+   改这里再拼，绝不改拼进去的副本）。只管版面、不写颜色（颜色跟着 .so-hint / .so-thr-scene-mini 走主题），不写 color:inherit。 */
+/* —— 面板卡（P4）—— */
+/* 小剧场 → 小场景 → 论坛 顶上那张卡：标题 / 一行说明 / 帖数楼数 / 大小 / 打开·新写·移除 / 状态 / 可折叠的设置。字色跟着 .so-hint /
+   .so-thr-scene-mini 走主题；只有大小提醒（--so-warn / --so-danger）和移除键悬停（--so-danger）用颜色 token，字面色只作回退；触屏下按钮 ≥ 32 px。 */
+#so-thr-board-card { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; padding: 8px 10px; border: 1px solid var(--so-accent); border-radius: 8px; font-size: 12.5px; min-width: 0; }
+#so-thr-board-card[hidden], #so-thr-board-card [hidden] { display: none; }
+.so-thr-board-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; }
+.so-thr-board-title { font-weight: 600; }
+#so-thr-board-name { min-width: 0; overflow-wrap: anywhere; opacity: 0.85; }
+.so-thr-board-note, .so-thr-board-status { overflow-wrap: anywhere; }
+.so-thr-board-stats { opacity: 0.8; }
+.so-thr-board-size-warn { color: var(--so-warn, color-mix(in srgb, #e0a23a 80%, var(--SmartThemeBodyColor, #e6e6e6))); opacity: 1; }
+.so-thr-board-size-full { color: var(--so-danger, var(--crimson70a, #e07c7c)); opacity: 1; }
+.so-thr-board-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.so-thr-board-acts .so-thr-scene-mini { max-width: 100%; white-space: normal; text-align: start; }
+.so-thr-board-acts .so-thr-scene-mini:disabled { opacity: 0.45; cursor: progress; }
+.so-thr-board-danger:hover { color: var(--so-danger, var(--crimson70a, #e07c7c)); border-color: var(--so-danger, var(--crimson70a, #e07c7c)); }
+.so-thr-board-set > summary { cursor: pointer; opacity: 0.85; }
+.so-thr-board-set[open] > summary { margin-bottom: 4px; }
+.so-thr-board-num { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; }
+.so-thr-board-num > span { min-width: 0; }
+.so-thr-board-num input { flex: 0 0 auto; width: 5.5em; min-height: 28px; padding: 2px 6px; border: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,0.15)); border-radius: 6px; background: var(--so-field, rgba(var(--so-ink), 0.05)); color: var(--so-control-ink, var(--SmartThemeBodyColor, #e6e6e6)); font-size: 12.5px; }
+.so-thr-board-num input:focus-visible, .so-thr-board-set > summary:focus-visible { outline: 2px solid var(--so-accent); outline-offset: 1px; }
+@media (pointer: coarse), (max-width: 600px) { .so-thr-board-acts .so-thr-scene-mini, .so-thr-board-num input { min-height: 32px; } .so-thr-board-set > summary { padding: 4px 0; } }
+/* —— 查看层的板行（P5）—— */
+#so-thr-board-row { flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 4px 10px; }
+#so-thr-board-row[hidden], #so-thr-board-row [hidden] { display: none; }
+#so-thr-board-vstatus, #so-thr-board-batch, #so-thr-board-notice { flex: 1 1 12em; min-width: 0; }
+#so-thr-board-wait { flex: 1 1 100%; }
+#so-thr-board-row .so-thr-scene-mini:disabled { opacity: 0.45; cursor: default; }
+/* —— 主线知情（stage 2）—— */
+/* 设置里：开关 / 上限框 / 尺寸行 / 预览键，下面一组「整理论坛」；卡面上「主线这次没读到什么」那一句用提醒色（同 P4 的大小提醒，字面色只作回退）。
+   预览框是页面居中的对话框（.so-local-dialog），里面的原文保留换行、太长就在框里滚。 */
+.so-thr-board-tell, .so-thr-board-clean { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; min-width: 0; }
+.so-thr-board-subhead { font-weight: 600; opacity: 0.85; }
+.so-thr-board-note-size { overflow-wrap: anywhere; }
+.so-thr-board-note-cut { overflow-wrap: anywhere; color: var(--so-warn, color-mix(in srgb, #e0a23a 80%, var(--SmartThemeBodyColor, #e6e6e6))); opacity: 1; }
+.so-thr-board-tell .so-thr-scene-mini { align-self: flex-start; max-width: 100%; white-space: normal; text-align: start; }
+#so-thr-board-note-dlg h3.so-local-title { margin: 0; font-size: 1.02em; }
+#so-thr-board-note-dlg pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 60vh; overflow: auto; margin: 8px 0 0; font-size: 12.5px; }
+@media (pointer: coarse), (max-width: 600px) { .so-thr-board-tell .so-thr-scene-mini { min-height: 32px; } }
+/* 整理论坛：两个按钮同上；「多久没人回」的下拉同数字框；按不了的按钮淡一点；按下摘要后的那一行可长可短。 */
+.so-thr-board-clean .so-thr-scene-mini { align-self: flex-start; max-width: 100%; white-space: normal; text-align: start; }
+.so-thr-board-clean .so-thr-scene-mini:disabled { opacity: 0.55; cursor: default; }
+.so-thr-board-num select { flex: 0 1 auto; min-width: 0; max-width: 60%; min-height: 28px; padding: 2px 6px; border: 1px solid var(--SmartThemeBorderColor, rgba(255,255,255,0.15)); border-radius: 6px; background: var(--so-field, rgba(var(--so-ink), 0.05)); color: var(--so-control-ink, var(--SmartThemeBodyColor, #e6e6e6)); font-size: 12.5px; }
+.so-thr-board-num select:focus-visible { outline: 2px solid var(--so-accent); outline-offset: 1px; }
+.so-thr-board-sum-now-line { overflow-wrap: anywhere; }
+@media (pointer: coarse), (max-width: 600px) { .so-thr-board-clean .so-thr-scene-mini, .so-thr-board-num select { min-height: 32px; } }
+/* <</BOARD:host-css>> */
 /* <<WEIYU:host-css>> */
 /* 💬 微谕（ENABLE_THR_WEIYU）：手机的外框——遮罩 + 卡片 + 顶部一行（标题 / 状态 / ✕）+ 放手机的格子。手机本身在 #so-thr-weiyu-host 的
    shadow root 里（自带样式，主题改不动）；这里只管外框，照 #so-thr-scene-view 骨架：遮罩 inset:0、卡片封顶内滚、✕ 恒在屏内。

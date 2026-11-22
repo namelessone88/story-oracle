@@ -2083,7 +2083,7 @@ const ENABLE_CUSTOM_PERSONAS = true;
 // —— 更新提醒（1.38.0）——
 // SO_VERSION 是代码内唯一版本号，必须与 manifest.json 的 version 完全一致——update-check.test.mjs
 // 有失配即红的漂移钉（发版清单：两处一起 bump）。
-const SO_VERSION = '2.1.0';
+const SO_VERSION = '2.2.0';
 // 更新提醒总开关。false → 设置面板不渲染「更新」组、开窗不检查、红点绘制器与一键更新 no-op、
 // 绑定/回填跳过——字节级零行为变化。运行期另有 opt-out 设置 updAutoCheck（默认开）。
 const ENABLE_UPDATE_CHECK = true;
@@ -2208,10 +2208,51 @@ const ENABLE_THR_WEIYU_WORDS_AI = true;
 // 只有通过了第二步检查（THEATER_WEIYU_WORD_SETS 的 ready.phone）的那一套才生效；现代 = 与之前逐字节相同。同时受 ENABLE_THR_WEIYU_WORDS 管；不加设置键。
 // false = 手机的每一种请求、每一次读回复都与只有第一步时逐字节相同（deps 里没有 words、env.words 没有 phone、开机定卡只看主线知情那一阶段）。
 const ENABLE_THR_WEIYU_WORDS_PHONE = true;
+// 💬 微谕 · AI 自动回复开关（spec docs/superpowers/specs/2026-11-20-weiyu-hold-reply-design.md；owner 2026-11-20）：输入框上方一行开关，整部手机一个（opts.autoReply）——
+// 关掉后玩家发的东西照样存下、照样显示，但不发请求；按「AI 现在回复」才用今天的「重新回复」要一次回复（没有新的模型可见文字）。同时受 ENABLE_THR_WEIYU 管。
+// on since 2026-11-20: the real-model check gm-hold passed（5/6 格每条都答到）。false = 与之前逐字节相同：没有那一行、env / deps 里没有 autoReply、每次发送都和今天一样、put 一律被拒。
+const ENABLE_THR_WEIYU_AUTOREPLY = true;
+// 💬 微谕 · 每几次回复更新一次（design docs/superpowers/specs/2026-11-21-weiyu-sync-every-design.md；owner #160「Phone sync do a.」）：「跟着剧情更新」下面
+// 一行数字框（按聊天存 opts.syncEvery，默认 1 = 今天）。数满 N 条主线回复才发一趟剧情同步，那一趟盖住攒下的几楼（n ≥ 2 时用多楼那一版说法，
+// 块里 THEATER_WEIYU_P_SYNC_MULTI + 故事历史里的一条分隔线 THEATER_WEIYU_SYNC_DIVIDER，2026-11-22 真模型 SY3 / SYB 之后定稿）；撤回仍锚在它盖住的最后一楼。
+// 只经 soThrWeiyuSyncEveryOn() 读；同时受 ENABLE_THR_WEIYU_SYNC 管。on since 2026-11-22: real-model rounds SY3 + SYB, browser smoke（Prince：ship it switched on）。
+// false = 与之前逐字节相同：没有那一行、env 里没有 syncEvery、不数数（存着的 opts.syncEvery / syncWait 一律不理 = 1）、同步请求不带 n、开关下的说明是旧的那一句。
+const ENABLE_THR_WEIYU_SYNC_EVERY = true;
+// 💬 微谕 · 手动添加联系人（spec docs/superpowers/specs/2026-11-21-weiyu-add-contact-design.md；plan 2026-11-21-weiyu-add-contact.md）：聊天列表「+」里的「添加朋友」——
+// 玩家自己填一个人（故事里的人 / 故事外的新人 + 人物说明），零调用；人物说明和「还没在故事里出现过」进这部手机每一趟请求的【人】行。只经 soThrWeiyuAddOn() 读。
+// on since 2026-11-21: real-model check gm-add passed (round 1 + GA2) + browser smoke。false = 与之前逐字节相同：没有菜单项 / 表单 / 资料卡那一块、env / deps 里没有 add / ac、存着的字段不进任何请求。
+const ENABLE_THR_WEIYU_ADD = true;
+// 💬 微谕 · 从故事里找人（同一份 spec / plan；要 ENABLE_THR_WEIYU_ADD 开着）：「+」里的「从故事里找人」——一次请求列出故事里还不在通讯录里的人，玩家逐行「添加」；
+// 名单只是草稿，不点添加什么都不进手机；只读故事正文（不带角色卡 / 世界书）。只经 soThrWeiyuFindOn() 读。
+// on since 2026-11-21: gm-add passed + re-check GA4 PASS (story-prose-only request) + browser smoke。
+// false = 与之前逐字节相同：没有那一项、env 里没有 find、deps 里没有 findSource、'find' 请求一律 {error: 'kind'}。
+const ENABLE_THR_WEIYU_FIND = true;
 // 🎬 小剧场 · 自动重试次数可调（owner 2026-11-16）：小剧场的一次生成（平行线 / 场景首轮 / 「更多」/ 自动场景 / 微谕）没拿到能用的回复——
 // 空的、被内容过滤拦下、半路断了——时自动再试几次：设置 theaterAutoRetries（0–3，默认 1 = 之前的行为），小剧场设置组里一个下拉。
 // 同时受 ENABLE_THEATER 管。false = 没有那个下拉、恒按 1 次、窗口与行为与之前逐字节相同。
 const ENABLE_THR_RETRIES = true;
+// 🎨 小剧场 · 重做美化（spec docs/superpowers/specs/2026-11-19-scene-redo-look-design.md；plan docs/superpowers/plans/2026-11-19-scene-redo-look.md）：
+// 存下来的场景（论坛 / 朋友圈 / 日记 / 弹幕直播）查看层里一个按钮——玩家按了才发一次请求，只要回一套新的皮肤 + 装饰；新外观存在原文旁边
+//（looks / lookOn，原版 + 最近 2 版），内容和叫法永远不动；过了贴图检查才换上，可以一步步换回之前的外观。外观偏简单时查看层里一行提示，从不自己发请求。
+// 只经 soThrRelookOn() 读（同时要 ENABLE_THR_PARALLEL 的轮流拼引擎）。false = 没有按钮 / 提示、不加任何 DOM，存的场景照今天读（looks 不理、显示第一套外观），请求逐字节同。
+const ENABLE_THR_RELOOK = false;   // PARKED 2026-11-19 (owner): built and tested, switched off until its request wording passes a real-model round
+// 🗂 小剧场 · 论坛板（spec docs/superpowers/specs/2026-11-19-living-forum-design.md；plan docs/superpowers/plans/2026-11-19-living-forum-p1-core.md）：
+// 一份存过的论坛可以「升级」成这个聊天的常驻论坛板（chat metadata storyOracle_thrBoard，一个结构化对象），跟着主线故事补帖、玩家能发帖 / 删帖，
+// 每次改动都经同一个 reducer、可撤销。只经 soThrBoardOn() 读（同时要 ENABLE_THR_PARALLEL 的轮流拼引擎）。false = 存着的论坛板不读、不整理、
+// 不写，IF 导入的元数据照今天，请求和窗口逐字节同。PARKED until its real-model rounds pass (index §7 O6)
+const ENABLE_THR_BOARD = false;
+// 🗂 论坛板 · 后台帖子摘要：长帖子自动写一段前情摘要，请求里用摘要代替老楼层；存量太大时折叠早已沉底、已有摘要的老楼层。
+// 只经 soThrBoardSumOn() 读（同时要论坛板开着）。false = 不发摘要请求、设置里没有摘要那几行、不折叠；存着的摘要照样读。
+// PARKED until its real-model rounds pass (index §7 O6)
+const ENABLE_THR_BOARD_SUM = false;
+// 🗂 论坛板 · 主线知情（stage 2，plan docs/superpowers/plans/2026-11-20-living-forum-stage2-tell.md）：每个聊天一个开关（默认关）；勾上后主线 AI
+// 每次回复多读一格由代码拼好的扩展提示词（不发请求）——论坛上最近在聊什么、玩家发过帖的帖子、玩家网名背后是谁；有上限、超了按固定顺序收缩并告诉玩家。
+// 只经 soThrBoardTellOn() 读（同时要论坛板开着）。false = 没有开关和任何界面、不注册那一格、THEATER_PARK_KEYS 照旧。PARKED until its real-model probe passes
+const ENABLE_THR_BOARD_TELL = false;
+// 🗂 论坛板 · 版主与人员流动（stage 3，plan docs/superpowers/plans/2026-11-20-living-forum-stage3-mods.md）：论坛有站长和版主；模型写「版务」行（置顶 / 锁帖 /
+// 折叠 / 禁言 / 封号 / 任命 / 卸任 / 退出……），代码按那一刻的板子查权限再落下，每一件都进批次、可撤销，从不写主聊天。
+// 只经 soThrBoardModsOn() 读（同时要论坛板开着）。false = 版务行照今天读（第一行不认 / 粘进上一楼）、存着的版务字段原样不动、不拦玩家发帖。PARKED until its real-model probe passes
+const ENABLE_THR_BOARD_MODS = false;
 // 🎚 实时预设（spec docs/superpowers/specs/2026-11-15-live-preset-design.md；plan docs/superpowers/plans/2026-11-15-live-preset.md）：普通聊天 / 参谋
 // 各自一个开关「跟酒馆实时走」——这一条按酒馆【当前选中】的预设、由 ST 自己的拼装发出（预设的正则 / 酒馆助手脚本照常生效），只用玩家为这份预设
 // 挑的条目（给 ST 的拼装器一份私有条目表，玩家真预设的开关一个不碰），故事上下文仍由神谕决定；走小剧场同一台引擎（排队 / 让路 / 只加不动）。
@@ -2246,6 +2287,18 @@ const PRESET_STD_SUMMARY_FOLLOWS = false;
 // 读点 soLiveAllOn()（= 本旗 ∧ soLiveFlagOn() ∧ soThrParallelOn() ∧ soPbOn() ∧ soOneRuleOn()）。
 // false = 每一条请求与窗口与之前逐字节相同（tests/unit/_fixtures/live-all-pre.json）、getSettings 不写新键。
 const ENABLE_LIVE_ALL_MODES = true;
+// ✋ 停下也算一条回复（owner 决定 #84，2026-11-20）：侧聊回复正在流、玩家按了停止、已经流到了字 → 流到的那些字留在气泡里，
+// 照跑完的回复同一条定稿路径存进侧聊记录（清理 / 渲染 / 落盘 / reply-done 一样；✏ 🗑 🔄 ⏩ 照常可用，重载 / 换房还在）；不挂任何应用卡、不做模式副作用
+//（条目上记一枚 soStopped 指纹，重画时也不挂）。一个字都没流到（或只有没写完的思维链 / 机制块）= 照旧「(已停止)」。只认玩家自己按的停止（stopGeneration）；
+// 超时 / 换聊天 / 换房的中断、锻造、自动 / 后台步骤、小剧场、手机都不经这里。false = 与之前逐字节相同的行为（tests/unit/stop-keep-off.test.mjs）。
+const ENABLE_STOP_KEEP = true;
+// 🎚 精选副本的变量宏只写一本临时变量本（2026-11-21 修，owner 同意）：神谕自己按「精选一份」拼请求时（普通聊天 / 参谋 / 世界书 / 校正 / 诊断 /
+// 工坊访谈 / 小剧场 · IF · 手机 · 论坛，手动、自动都一样），保留条目里的 {{setvar}} / {{addvar}} / {{incvar}} / {{setglobalvar}} …… 以前会真的写进
+// 主聊天的变量（chat_metadata.variables）和全局变量——精选副本留下了预设的「默认值」条目、没留玩家开着的开关条目，于是每发一次就把主聊天里
+// 那些开关悄悄改回默认。现在：拼的那一下（同步、不 await）换上一份临时拷贝，拼完把原来那两本原样放回；同一次拼装里先 setvar 后 getvar 照旧读得到，
+// 发给模型的字一个不变。只管这六个精选组装器（soVarDetached）；跟酒馆实时走 / 用 ST 当前预设（ST 自己拼、异步）不经这里，照旧。
+// false = 与之前逐字节相同的行为（宏照旧写主聊天 / 全局变量；tests/unit/preset-var-detach-off.test.mjs）。
+const ENABLE_PRESET_VAR_DETACH = true;
 // 远端版本号来源（按序尝试，首个可解析者胜）：GitHub Raw 在中国大陆常被墙 → jsDelivr CDN 兜底
 // （其缓存可滞后 ~12h，红点可能晚亮，可接受）。只 GET 公开文件，不发送任何用户数据。
 // bust = 是否加时间戳绕缓存（Raw 要绕；jsDelivr 缓存本身就是它的意义，不绕）。
@@ -5293,6 +5346,7 @@ function soThrOnChatChanged() {
     if (!win) return;
     // 复审 §4.5：换了聊天，查看层里那个场景属于上一个聊天——关掉（不然它的「更多」只会撞上「这个场景已经不在了」）。
     if (soThrSceneView) soThrSceneClose();
+    if (soThrRelookOn()) soThrRelookPending.clear();   // 🎨 重做美化：待试穿的新外观都属于上一个聊天
     if (soThrWeiyuPhone) soThrWeiyuClose();   // 💬 微谕：开着的手机属于上一个聊天
     soThrRefreshButton();
     soThrRefreshBar();
@@ -5473,6 +5527,7 @@ const THEATER_PARK_KEYS = [
     'story_oracle_plan', 'storyOracle_seqPulse',
     '1_memory', '3_vectors', '4_vectors_data_bank', 'chromadb',
     'LittleWhiteBox_StorySummary',
+    ...(soThrBoardTellOn() ? ['storyOracle_boardNote'] : []),   // 🗂 论坛板 主线知情槽（THEATER_BOARD_NOTE_KEY）：旗开才进表
     // 'storyOracle_weiyuNote' —— 本文件 THEATER_WEIYU_NOTE_KEY = MODULE + '_weiyuNote'（💬 微谕 主线知情槽，soThrWeiyuNoteSync）；三枚旗都开才进表（旗关 = 原表）
     ...(ENABLE_THR_WEIYU_TELL && ENABLE_THR_WEIYU && ENABLE_THEATER ? ['storyOracle_weiyuNote'] : []),
 ];
@@ -5970,9 +6025,16 @@ function soThrHold(delta) { soThrHoldCount = Math.max(0, soThrHoldCount + (Numbe
 function soThrHolding() { return soThrParallelOn() ? soThrHoldCount > 0 : soThrSendHolding; }
 let soThrOwnMvuDepth = 0;       // 🎬 神谕自己对 IF 回复调 Mvu.parseMessage 的层数（它引起的 MVU 生命周期事件不算主线的）
 let soThrMods = null;         // 测试接缝（soThrModulesForTest）；生产恒 null
-let soThrOpenAI = null;       // '/scripts/openai.js'（null = 没取过，false = 取不到），与 loadWorldInfoModule 同款缓存
-// DRAFT 文案（待 Prince 选）。
+// '/scripts/openai.js'：null = 没取过 / 上一次 import 抛了（下一次重试，owner #95）；false = 载入了但缺预设路要的导出（这个酒馆的稳定事实，原因在 soThrOpenAIFail）。
+let soThrOpenAI = null;
+let soThrOpenAIFail = null;   // owner #95：最近一次没取到的原因 { why: 'old', missing: [导出名…] } | { why: 'load' }；取到了 = null
+// DRAFT 文案（待 Prince 选）。原因说不清时的那一句（测试接缝给的模块不带原因；也是复审 M10「没走预设路」的那一句）。
 const THEATER_PRESET_UNAVAILABLE = '没能载入酒馆的预设组件，这一轮没有发出';
+// owner #95：预设组件载不进的两种原因分开说。文案 = Prince 亲选（2026-11-20，三个候选里的第 2 个）；每句一个常量。
+// A = 酒馆载入了 openai.js 但缺预设路要的导出（四个导出齐全的第一个 SillyTavern 正式版 = 1.15.0：createGenerationParameters 在 1.15.0 才导出，git tag 核过）。
+const THEATER_PRESET_TOO_OLD = '跟酒馆预设需要 SillyTavern 1.15.0 以上，这一轮没有发出';   // Prince 亲选（2026-11-20，候选 2）
+// B = 这一次 import 抛了（网络 / 一时的载入错误）——不记住，下一次发送重新载入。
+const THEATER_PRESET_LOAD_FAILED = '预设功能没载入成功，这一轮没有发出，请再试一次';   // Prince 亲选（2026-11-20，候选 2）
 const THEATER_MAXTOK_400_HINT = '（请求被拒了：可能是「场景输出上限」超过了这个模型的上限，试试在设置 → 🎭 小剧场里调低它）';
 const THEATER_ABORT_MESSAGE = '小剧场已中断';
 // 本趟自己的世界书登记键（ST 的命名：public/scripts/constants.js:54–55 CUSTOM_WI_DEPTH_ROLE / CUSTOM_WI_OUTLET）。
@@ -5981,19 +6043,55 @@ function soThrWiOutletKey(name) { return `customWIOutlet_${name}`; }
 
 async function soThrLoadOpenAI() {
     if (soThrOpenAI !== null) return soThrOpenAI;
+    let mod;
     try {
-        const mod = await import('/scripts/openai.js');
-        // 2026-11-07（Prince）：预设路的连接永远是神谕自己的——发送不再走 ST 的 sendOpenAIRequest（它用 ST 的连接），
-        // 改由 soThrPresetSend 用 ST 的 createGenerationParameters 拼参数、getStreamingReply 解流。缺任一导出 = 预设组件不可用。
-        soThrOpenAI = (mod && typeof mod.prepareOpenAIMessages === 'function' && typeof mod.createGenerationParameters === 'function'
-            && typeof mod.getStreamingReply === 'function' && typeof mod.setOpenAIMessages === 'function') ? mod : false;
+        // 测试接缝 soThrMods.openaiImport（只有单测给；生产恒走 import）——验「载入失败不记住、下一次重试」那条腿。
+        mod = await ((soThrMods && typeof soThrMods.openaiImport === 'function') ? soThrMods.openaiImport() : import('/scripts/openai.js'));
     } catch (e) {
-        console.warn('[Story Oracle] 小剧场：载入 /scripts/openai.js 失败', e);
+        // owner #95：载入失败【不记住】——soThrOpenAI 仍是 null，下一次发送重新 import；原因记成「这次没载入成功」。
+        console.warn('[Story Oracle] 小剧场：载入 /scripts/openai.js 失败（下一次发送会重试）', e);
+        soThrOpenAIFail = { why: 'load' };
+        return false;
+    }
+    // 2026-11-07（Prince）：预设路的连接永远是神谕自己的——发送不再走 ST 的 sendOpenAIRequest（它用 ST 的连接），
+    // 改由 soThrPresetSend 用 ST 的 createGenerationParameters 拼参数、getStreamingReply 解流。缺任一导出 = 预设组件不可用（酒馆太旧 / 改过：记住，原因另记）。
+    const missing = ['prepareOpenAIMessages', 'createGenerationParameters', 'getStreamingReply', 'setOpenAIMessages']
+        .filter((k) => !(mod && typeof mod[k] === 'function'));
+    if (missing.length) {
+        console.warn('[Story Oracle] 小剧场：/scripts/openai.js 缺预设路要用的导出', missing);
         soThrOpenAI = false;
+        soThrOpenAIFail = { why: 'old', missing };
+    } else {
+        soThrOpenAI = mod;
+        soThrOpenAIFail = null;
     }
     return soThrOpenAI;
 }
+// owner #95：预设组件（openai.js）此刻为什么不可用 → 'old'（缺导出）| 'load'（上一次 import 抛了）| ''（说不清：没试过 / 测试接缝给的模块）。
+// 测试接缝：soThrModulesForTest({ openai, openaiWhy }) —— 给了 openai 就只认 openaiWhy（不读真载入器留下的原因）。
+function soThrOpenAIWhy() {
+    if (soThrMods && Object.hasOwn(soThrMods, 'openai')) return (soThrMods.openaiWhy === 'old' || soThrMods.openaiWhy === 'load') ? soThrMods.openaiWhy : '';
+    return soThrOpenAIFail ? soThrOpenAIFail.why : '';
+}
+// owner #95：预设路的模块缺了 → 引擎结果里给玩家的那一句。openai.js 没取到 = 按 soThrOpenAIWhy 分 A / B（说不清 = 旧的那句）；
+// /script.js 没取到 = 只可能是 import 抛了（B）；world-info.js 没取到（它的载入器只在缺 getSortedEntries 或 import 抛了时给 false——它已在页面的模块图里，
+// 实际只剩前者）/ 缺 getWorldInfoPrompt、/script.js 缺 getCharacterCardFields = 酒馆太旧 / 改过（A）。
+// 只在「预设路缺模块」那一处调（oai / sc / wi 至少一样不能用）：oai、sc 都在 = 缺的是 world-info 或某个函数 = A。
+function soThrPresetMissingText(oai, sc) {
+    if (!oai) {
+        const why = soThrOpenAIWhy();
+        return why === 'old' ? THEATER_PRESET_TOO_OLD : (why === 'load' ? THEATER_PRESET_LOAD_FAILED : THEATER_PRESET_UNAVAILABLE);
+    }
+    if (!sc) return THEATER_PRESET_LOAD_FAILED;
+    return THEATER_PRESET_TOO_OLD;
+}
+// 🎚 复审 M10（owner #95 复看）：带私有条目表（pmPicks = 实时请求）却没走预设路。ST 此刻不在聊天补全 = 说真原因（实时那句 notCC，这类请求都显示「这一条」）；
+// 其余（usePreset 没开——实时请求恒开，只有调用方写错才会走到）= 原来那句。
+function soThrM10Text(ctx) {
+    return soThrPresetAvailable(ctx).ok ? THEATER_PRESET_UNAVAILABLE : LIVE_COPY.notCC;
+}
 // 测试接缝：{ openai, script, worldInfo, regex, ctx?, callModel?, trace? }（键在场 = 用它，不在 = 生产载入）。传 null 复位。
+// owner #95 加的两个可选键：openaiWhy（给了 openai 时它的「为什么不可用」）、openaiImport（不给 openai 时替真 import，验载入器自己）。
 function soThrModulesForTest(mods) { soThrMods = mods || null; }
 function soThrModule(name, loader) {
     if (soThrMods && Object.hasOwn(soThrMods, name)) return Promise.resolve(soThrMods[name]);
@@ -7059,7 +7157,7 @@ async function soTheaterGenerate(opts) {
     const trace = (n) => { if (soThrMods && typeof soThrMods.trace === 'function') soThrMods.trace(n); };
     const path = (o.usePreset && soThrPresetAvailable(ctx).ok) ? 'preset' : 'so';
     const out = (extra) => soThrConnOut(Object.assign({ text: '', aborted: false, error: null, path, reasoning: '', finish: '' }, ENABLE_MODE_CONN ? { conn: null } : {}, extra));
-    if (typeof o.pmPicks === 'function' && path !== 'preset') return out({ error: THEATER_PRESET_UNAVAILABLE });   // 🎚 复审 M10（同新路）
+    if (typeof o.pmPicks === 'function' && path !== 'preset') return out({ error: soThrM10Text(ctx) });   // 🎚 复审 M10（同新路）
     let sc = null, oai = null, wi = null, rx = null, an = null;
     try {
         sc = await soThrModule('script', loadScriptCore);
@@ -7075,7 +7173,7 @@ async function soTheaterGenerate(opts) {
     if (!gate.ok) return out({ error: gate.reason });
     if (path === 'preset' && (!oai || !sc || !wi || typeof wi.getWorldInfoPrompt !== 'function'
         || typeof sc.getCharacterCardFields !== 'function')) {
-        return out({ error: THEATER_PRESET_UNAVAILABLE });
+        return out({ error: soThrPresetMissingText(oai, sc) });   // owner #95：A 酒馆太旧 / B 这次没载入成功
     }
     // 预设路的连接永远是神谕自己的（2026-11-07 Prince）：先把神谕的连接解析好；缺 / 不能用 = 神谕自己的提示，什么都不挪、不发。
     let conn = null;
@@ -7160,7 +7258,7 @@ async function soThrGenerateQueued(o) {
     const out = (extra) => soThrConnOut(Object.assign({ text: '', aborted: false, error: null, path, reasoning: '', finish: '', ended: null, sent: false, relay: null },
         ENABLE_MODE_CONN ? { conn: null } : {}, extra));
     // 🎚 复审 M10：带私有条目表（pmPicks，实时请求）却没走预设路 = 绝不改走神谕路（那会是一发没有预设、没有系统提示词的请求）。
-    if (typeof o.pmPicks === 'function' && path !== 'preset') return out({ error: THEATER_PRESET_UNAVAILABLE });
+    if (typeof o.pmPicks === 'function' && path !== 'preset') return out({ error: soThrM10Text(ctx) });
     let sc = null, oai = null, wi = null, rx = null, an = null;
     try {
         sc = await soThrModule('script', loadScriptCore);
@@ -7175,7 +7273,7 @@ async function soThrGenerateQueued(o) {
     if (!gate.ok) return out({ error: gate.reason });
     if (path === 'preset' && (!oai || !sc || !wi || typeof wi.getWorldInfoPrompt !== 'function'
         || typeof sc.getCharacterCardFields !== 'function')) {
-        return out({ error: THEATER_PRESET_UNAVAILABLE });
+        return out({ error: soThrPresetMissingText(oai, sc) });   // owner #95：A 酒馆太旧 / B 这次没载入成功
     }
     let conn = null;
     if (path === 'preset') {
@@ -7964,7 +8062,8 @@ function soConnBareText(e, text) {
     return t.startsWith(pre) ? t.slice(pre.length) : t;
 }
 // 拼这一发的请求体：ST 的 createGenerationParameters 跑在「oai_settings 浅拷贝 + 神谕连接字段」上（oai_settings 本身不动）。
-// → { generate_data, stream }。Vertex：拼完先删 ST 的认证模式 / 项目 id，再只按 soVertexAuthFill 补 'full'（绝不发 express / 项目 id）。
+// → { generate_data, stream }。Vertex：拼完先删 ST 的认证模式 / 项目 id，再只按 soVertexAuthFill 补 'full'（绝不发 express / 项目 id），
+// 配置档没存区域时按 soVertexRegionFill 补酒馆当前的区域。
 // sampling（🎚 Prince 2026-11-15 改 A，实时预设用；小剧场不传 = 照预设）：{ stream?: boolean, temperature?: number|null }——
 // stream 写在拷贝上（ST 照它拼 body.stream、也照它决定流 / 非流），temperature 拼完写进请求体（null = 删掉这个键，同「发送温度」关）。
 // maxTokens（🎚 复审 C1，实时请求的 lateMt；别人不传 = 照 oai_settings）：输出上限写在拷贝上（oai_settings 此刻已是玩家自己的值）。
@@ -7980,7 +8079,7 @@ async function soThrPresetBody(oai, conn, type, messages, ctx, sampling, maxToke
     if (gd.chat_completion_source === 'vertexai') {
         delete gd.vertexai_auth_mode;
         delete gd.vertexai_express_project_id;
-        if (conn.profileId) Object.assign(gd, soVertexAuthFill(conn.profileId, ctx));
+        if (conn.profileId) Object.assign(gd, soVertexAuthFill(conn.profileId, ctx), soVertexRegionFill(conn.profileId, ctx));   // 区域：配置档没存才补酒馆当前的
     }
     Object.assign(gd, conn.patch || {});
     return { generate_data: gd, stream: !!(built && built.stream) };
@@ -10479,6 +10578,7 @@ function soThrBuildImportChat(mainChat, record, turns, ctx) {
     const meta = soThrPlainCopy((ctx && ctx.chatMetadata) || {}) || {};
     delete meta[THEATER_IF_META_KEY];
     delete meta[THEATER_SCENES_META_KEY];   // theater plan 3：场景留在神谕里，导入的聊天文件不带它们
+    if (soThrBoardOn()) delete meta[THEATER_BOARD_META_KEY];   // 🗂 常驻论坛只属于做它的那条主线（index §7 O14）
     const roomBase = convoMetaKeyFor('theater');
     for (const k of Object.keys(meta)) if (k === roomBase || k.startsWith(roomBase + '__f')) delete meta[k];
     const idx = meta[CHAT_FILES_META_KEY];
@@ -12061,6 +12161,16 @@ function soThrScDateOf(label) {
 }
 function soThrScBase() { return { people: [], unrec: [], lines: 0 }; }
 function soThrScAddPerson(out, rest) { const p = soThrScPerson(rest); if (p.name) out.people.push(p); return p; }
+// 论坛的人物块（forum-handles 探针，PREREG-forum-handles-r3.md）：Gemini 常写一行空的【人物】，下面一串「网名｜头像字｜身份｜简介」
+//（行首可带「- 」「@」，或把网名包在【】里）。只在空的【人物】行正下方用：这一行像人物行 → 「网名｜其余」，否则 ''（人物块到此为止）。
+function soThrScForumPeopleRow(l) {
+    if (THEATER_SC_REC_RE.test(l)) return '';
+    const m = String(l).match(/^\s*(?:[-－—•·*]\s*)?[@＠]?\s*(?:【([^】\s][^】]{0,23})】|([^｜|【\[\s：:][^｜|：:]{0,23}?))\s*[｜|]\s*(\S.*)$/);
+    if (!m) return '';
+    const name = (m[1] || m[2] || '').trim();
+    if (!name || m[3].split(THEATER_SC_SEP).filter((s) => s.trim()).length < 2) return '';
+    return name + '｜' + m[3];
+}
 
 function soThrScParseForum(lines, mode, known) {
     const out = Object.assign(soThrScBase(), { board: '', intro: '', threads: [], drift: 0 });
@@ -12068,10 +12178,16 @@ function soThrScParseForum(lines, mode, known) {
     let cur = mode === 'more' ? virtual : null;
     let last = null;
     const names = () => new Set([...(known || []), ...out.people.map((p) => p.name)]);
+    let peopleBlock = false;   // 上一条记录是空的【人物】行：紧跟着的人物样子的行照人物收（soThrScForumPeopleRow），第一行不像就收口
     for (const l0 of lines) {
         let l = soThrScClean(l0);
         if (!l.trim() || THEATER_SC_FENCE_RE.test(l)) continue;
         out.lines++;
+        if (peopleBlock) {
+            const row = soThrScForumPeopleRow(l);
+            if (row) { soThrScAddPerson(out, row); last = null; continue; }
+            peopleBlock = false;
+        }
         // 宽容：照抄上下文里的「#N 名字：」或写成「【名字】#N …」——转成楼层行，另计 drift
         let dm = l.match(/^\s*【([^】]{1,24})】\s*#\d+\s*(.*)$/);
         if (dm && !THEATER_SC_REC_RE.test(l)) { l = `- ${dm[1]}${/^回复/.test(dm[2]) ? ' ' : '：'}${dm[2]}`; out.drift++; }
@@ -12080,7 +12196,7 @@ function soThrScParseForum(lines, mode, known) {
         if (r) {
             const [, k, rest] = r;
             if (k === '版面') { const p = rest.split(THEATER_SC_SEP); out.board = p[0] || ''; out.intro = p.slice(1).join('｜'); last = null; }
-            else if (k === '人物') { soThrScAddPerson(out, rest); last = null; }
+            else if (k === '人物') { soThrScAddPerson(out, rest); last = null; peopleBlock = !rest.trim(); }
             else if (k === '帖子') {
                 const p = rest.split(THEATER_SC_SEP).map((s) => s.trim());
                 cur = { title: p[0] || '', authorName: soThrScName(p[1]), tags: (p[2] || '').split(THEATER_SC_LIST_SEP).filter(Boolean), heat: soThrScHeat(p[3]), time: p[4] || '', op: '', floors: [] };
@@ -12340,6 +12456,7 @@ function soThrSceneMerge(item) {
     const scene = item && item.scene;
     const first = soThrSceneParse(scene, soThrSceneCleanRaw(item && item.raw ? item.raw.first : ''), 'first');
     const res = { scene, first, content: first.content ? soThrClone(first.content) : null, lex: first.lex || {}, skin: first.skin || '', extras: first.extras || {}, mores: [], firstPages: 0 };
+    if (soThrRelookOn()) soThrRelookApply(item, res);   // 🎨 重做美化：换上选中的那套外观（只换皮肤 + 装饰）
     if (!res.content) return res;
     if (scene === 'diary') res.firstPages = res.content.entries.filter((e) => e.paras.length || (e.letter && e.letter.body)).length;
     for (const m of ((item.raw && Array.isArray(item.raw.more)) ? item.raw.more : [])) {
@@ -12603,25 +12720,26 @@ const THEATER_SCENE_COMMON = `你在为「小剧场」写一个场景。小剧�
 变量：--thx-bg --thx-bar --thx-ink --thx-sub --thx-card --thx-line --thx-accent --thx-accent-ink --thx-radius --thx-font
 通用叫法键：back=‹　more=加载更多　end=没有更多了　loading=正在生成…／正在写下一段…
 通用插槽：top（顶栏下一条，整宽，高不超过 34px）· ambient（盖在整个 App 上的氛围层，不接收点击）`;
-// FROZEN（场景措辞电池）
+// FROZEN（场景措辞电池）。论坛 req 末尾那段 + 论坛三份格式里的「网名」= 探针 forum-handles 的 C1 臂（Prince 2026-11-20 批；
+// 证据 tests/unit/_theater-tuning/scene-feel/PREREG-forum-handles*.md、forum-handles/arms.mjs）。
 const THEATER_SCENE_SPECS = {
     forum: {
-        req: '「论坛」：这个世界里的人在一个论坛或公告板上议论此刻发生的事——热帖、跟帖、吵架、考据、玩梗都行；也可以有和此刻无关、但很有这个世界味道的帖子。论坛是什么载体、叫什么，按世界观来定。',
+        req: '「论坛」：这个世界里的人在一个论坛或公告板上议论此刻发生的事——热帖、跟帖、吵架、考据、玩梗都行；也可以有和此刻无关、但很有这个世界味道的帖子。论坛是什么载体、叫什么，按世界观来定。发帖、回帖的人都用网名，不用真名——网名照这个世界和这个载体的习惯来起，字眼也是这个世界里的人会用的（化名、名号、匿名代号都算）。发帖的人里至少一半是和故事里的人物素不相识的寻常人；故事里的人物也可以用网名混在其中。',
         app: `App 里有：版面首页（横幅上是版面名和简介；「最新 / 最热」两个页签；帖子卡显示标题、标签、发帖人、回帖数、热度）→ 点帖子进帖子页（楼主正文和每一楼，带楼号；「回复@某人」的楼会显示成可点的引用块；每楼可点赞）→ 点任何名字或头像进这个人的人物页（身份、简介、TA 开的帖、TA 回的楼）。帖子翻到底，程序会另外请你续写新楼。
 第一次就要给足：版面首页至少 5 个帖子，每帖楼主正文 + 至少 5 楼回帖；热度有高有低；出场的 5–8 个人物每人都有身份和简介。`,
         format: `【版面】版面名｜一句简介
-【人物】名字｜头像字（一个字）｜身份｜一句简介
+【人物】网名｜头像字（一个字）｜身份｜一句简介
 【帖子】标题｜发帖人｜标签1、标签2｜热度（数字）｜发帖时间
 楼主：正文
-- 名字：回帖正文
-- 名字 回复@某人：回帖正文`,
-        moreFormat: `【人物】名字｜头像字｜身份｜一句简介　（只在有新人物时写）
-- 名字：回帖正文
-- 名字 回复@某人：回帖正文`,
-        moreBoardFormat: `【人物】名字｜头像字｜身份｜一句简介　（只在有新人物时写）
+- 网名：回帖正文
+- 网名 回复@某人：回帖正文`,
+        moreFormat: `【人物】网名｜头像字｜身份｜一句简介　（只在有新人物时写）
+- 网名：回帖正文
+- 网名 回复@某人：回帖正文`,
+        moreBoardFormat: `【人物】网名｜头像字｜身份｜一句简介　（只在有新人物时写）
 【帖子】标题｜发帖人｜标签1、标签2｜热度（数字）｜发帖时间
 楼主：正文
-- 名字：回帖正文`,
+- 网名：回帖正文`,
         classes: '.thx-tags .thx-tag .thx-badge（楼主标记）.thx-quote（引用块）.thx-floor-no（楼号）.thx-acts',
         lex: 'forumTitle=论坛　thread=帖子　replies=回复　heat=热度　op=楼主　floor=#{n}（{n} 换成楼号）　like=赞　liked=已赞　newest=最新　hottest=最热　topics=发帖　replied=回帖　follow=关注　followed=已关注',
         slot: 'board（版面首页横幅下的一块，整宽，最高 240px）',
@@ -13732,13 +13850,15 @@ function soThrJsonForScript(v) {
 function soThrSceneDocument(item, parsed, opts) {
     const o = opts || {};
     const merged = (parsed && parsed.first) ? parsed : soThrSceneMerge(item);
-    const extras = soThrSceneExtras(merged, o.allowScripts !== false, !!o.plain);
+    // 🎨 重做美化：opts.look = { skin, extras } 试穿一套还没存的外观（浅拷贝上换皮肤 + 装饰；内容 / 叫法照旧）。旗关 = mm 就是 merged。
+    const mm = (soThrRelookOn() && o.look && typeof o.look === 'object') ? Object.assign({}, merged, { skin: String(o.look.skin || ''), extras: (o.look.extras && typeof o.look.extras === 'object') ? o.look.extras : {} }) : merged;
+    const extras = soThrSceneExtras(mm, o.allowScripts !== false, !!o.plain);
     const data = {
-        scene: merged.scene, sceneId: item && item.id ? String(item.id) : '', snapshot: !!o.snapshot, contentOk: !!merged.content,
-        raw: (merged.first && merged.first.contentRaw) || '', lex: merged.lex || {}, lexDefault: THEATER_SCENE_DEFAULT_LEX, extras,
-        content: soThrSceneAssemble(merged), text: THEATER_APP_TEXT,
+        scene: mm.scene, sceneId: item && item.id ? String(item.id) : '', snapshot: !!o.snapshot, contentOk: !!mm.content,
+        raw: (mm.first && mm.first.contentRaw) || '', lex: mm.lex || {}, lexDefault: THEATER_SCENE_DEFAULT_LEX, extras,
+        content: soThrSceneAssemble(mm), text: THEATER_APP_TEXT,
     };
-    const skin = soThrSceneSkinText(merged, !!o.plain);
+    const skin = soThrSceneSkinText(mm, !!o.plain);
     return '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
         + '<style data-so-base>' + THEATER_APP_BASE_CSS + '</style>'
         + (skin ? '<style data-so-ai-skin>\n' + skin + '\n</style>' : '')
@@ -14041,7 +14161,7 @@ let soThrSceneView = null;       // 查看层：{ id, plain, guardTimer, fellBac
 const THEATER_SCENE_WAIT_BOX_HTML = `
                         <div class="so-thr-scene-wait" id="so-thr-scene-wait" hidden></div>`;
 function soThrScenesPanelHtml() {
-    return `<div class="so-thr-scene-btns" role="group">${THEATER_SCENES.map((k) => `<button type="button" class="so-thr-scene-btn" data-thr-scene="${k}" aria-pressed="${k === 'forum' ? 'true' : 'false'}">${THEATER_SCENE_ICONS[k]} ${THEATER_SCENE_NAMES[k]}</button>`).join('')}${soThrWeiyuOn() ? soThrWeiyuEntryHtml() : ''}</div>
+    return `<div class="so-thr-scene-btns" role="group">${THEATER_SCENES.map((k) => `<button type="button" class="so-thr-scene-btn" data-thr-scene="${k}" aria-pressed="${k === 'forum' ? 'true' : 'false'}">${THEATER_SCENE_ICONS[k]} ${THEATER_SCENE_NAMES[k]}</button>`).join('')}${soThrWeiyuOn() ? soThrWeiyuEntryHtml() : ''}</div>${soThrBoardOn() ? soThrBoardCardHtml() : ''}
                         <div class="so-thr-scene-scope" id="so-thr-scene-scope" hidden><span id="so-thr-scene-scope-t"></span><button type="button" class="so-thr-scene-mini" id="so-thr-scene-scope-btn"></button></div>
                         <div class="so-thr-scene-row"><input type="text" id="so-thr-scene-note" class="so-thr-scene-note" maxlength="200" placeholder="${THEATER_SCENE_NOTE_PH}"><button type="button" id="so-thr-scene-go" class="so-thr-scene-go">${THEATER_SCENE_GO}</button></div>
                         <div class="so-hint so-thr-scene-status" id="so-thr-scene-status" aria-live="polite"></div>${soThrConcOn() ? THEATER_SCENE_WAIT_BOX_HTML : ''}
@@ -14085,6 +14205,8 @@ function soThrSceneNotes(item) {
     if (item && item.meta && item.meta.truncated) out.push(THEATER_SCENE_TRUNCATED);
     let missing = [];
     try { missing = soThrSceneParse(item.scene, soThrSceneCleanRaw(item.raw.first), 'first').missing; } catch (e) { missing = []; }
+    // 🎨 重做美化：正在用的是一份读得出的新外观 → 「缺：外观 / 装饰」不再算（首轮缺的那两样已经补上了）。
+    if (soThrRelookOn() && missing.length && soThrRelookLook(item, soThrRelookActive(item))) missing = missing.filter((k) => k !== 'skin' && k !== 'extras');
     if (missing.length) out.push(THEATER_SCENE_MISSING(missing.map((k) => THEATER_SCENE_PART_NAMES[k] || k)));
     if (item && item.meta && item.meta.fromReasoning) out.push(THEATER_REPLY_FROM_REASONING);
     if (item && item.meta && item.meta.stillCut === true) out.push(soThrRetryNote(THEATER_SCENE_STILL_CUT, item.meta));
@@ -14098,6 +14220,7 @@ function soThrRefreshScenePanel() {
     const panel = win.querySelector('[data-thr-panel="scenes"]');
     if (!panel) return;
     if (soThrWeiyuOn()) soThrWeiyuRefreshEntry();   // 💬 微谕入口：平行线里置灰
+    if (soThrBoardOn()) soThrRefreshBoardCard();   // 🗂 论坛板：顶上那张卡
     panel.querySelectorAll('[data-thr-scene]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.thrScene === soThrScenePick ? 'true' : 'false'));
     const scope = panel.querySelector('#so-thr-scene-scope');
     const fid = soThrSceneIfNow();
@@ -14122,6 +14245,7 @@ function soThrRefreshScenePanel() {
         list.appendChild(e);
         return;
     }
+    const bdPromote = soThrBoardOn() && soThrBoardCardCanPromote();   // 🗂 论坛板：这个聊天还没存板值 → 主线论坛那几行带「设为常驻」
     for (const it of items) {
         const row = document.createElement('div');
         row.className = 'so-thr-scene-item' + (it.fav ? ' so-thr-scene-fav' : '');
@@ -14160,6 +14284,7 @@ function soThrRefreshScenePanel() {
             b.innerHTML = `<i class="${icon}"></i>`;
             acts.appendChild(b);
         }
+        if (soThrBoardOn() && bdPromote && it.scene === 'forum' && it.owner && it.owner.kind === 'main') acts.insertBefore(soThrBoardCardPromoteBtn(), acts.lastChild);
         row.appendChild(acts);
         list.appendChild(row);
     }
@@ -14174,6 +14299,7 @@ function soThrBindScenePanel() {
         soThrRefreshScenePanel();
     }));
     if (soThrWeiyuOn()) soThrWeiyuBindEntry(panel);   // 💬 微谕入口（第五个按钮）
+    if (soThrBoardOn()) soThrBindBoardCard(panel);   // 🗂 论坛板：顶上那张卡
     panel.querySelector('#so-thr-scene-scope-btn')?.addEventListener('click', () => { soThrSceneUseMain = !soThrSceneUseMain; soThrRefreshScenePanel(); });
     panel.querySelector('#so-thr-scene-go')?.addEventListener('click', () => {
         const note = panel.querySelector('#so-thr-scene-note');
@@ -14185,6 +14311,7 @@ function soThrBindScenePanel() {
         if (!btn || !row) return;
         const id = row.dataset.thrSceneItem;
         const act = btn.dataset.act;
+        if (soThrBoardOn() && act === 'promote') { soThrBoardCardPromote(id); return; }   // 🗂 论坛板：设为常驻
         if (act === 'open') soThrSceneOpen(id);
         else if (act === 'plain') soThrSceneOpen(id, { plain: true });
         else if (act === 'fav') { soThrSceneToggleFav(id); soThrRefreshScenePanel(); }
@@ -14211,19 +14338,26 @@ function soThrSceneViewEl() {
         + '<div id="so-thr-scene-head"><span class="so-warn-title" id="so-thr-scene-title"></span>'
         + '<span class="so-thr-scene-headbtns"><button type="button" class="so-thr-scene-mini" id="so-thr-scene-mode"></button>'
         + '<div class="so-iconbtn so-warn-x" id="so-thr-scene-x" title="关闭"><i class="fa-solid fa-xmark"></i></div></span></div>'
+        + (soThrRelookOn() ? soThrRelookRowHtml() : '')   // 🎨 重做美化：外观栏（旗关 = 今天的查看层，一个字节不多）
+        + (soThrBoardOn() ? soThrBoardRowHtml() : '')   // 🗂 论坛板：查看层那一行（旗关 = 一个字节不多）
         + '<div class="so-hint" id="so-thr-scene-note-line" hidden></div>'
         + '<div id="so-thr-scene-body"><iframe id="so-thr-scene-frame" title="小剧场"></iframe><pre id="so-thr-scene-raw" hidden></pre></div>'
         + '</div>';
     win.appendChild(el);
     el.addEventListener('click', (e) => { if (e.target === el) soThrSceneClose(); });   // 点遮罩关闭
     el.querySelector('#so-thr-scene-x').addEventListener('click', soThrSceneClose);
-    el.querySelector('#so-thr-scene-mode').addEventListener('click', () => { if (soThrSceneView) soThrSceneOpen(soThrSceneView.id, { plain: !soThrSceneView.plain }); });
+    el.querySelector('#so-thr-scene-mode').addEventListener('click', () => { if (soThrSceneView) { if (soThrBoardOn() && soThrSceneView.board) soThrBoardOpen({ plain: !soThrSceneView.plain, noCatch: true }); else soThrSceneOpen(soThrSceneView.id, { plain: !soThrSceneView.plain }); } });
     el.querySelector('#so-thr-scene-frame').addEventListener('load', () => soThrSceneGuardSoon());
+    if (soThrRelookOn()) soThrRelookBindRow(el);
+    if (soThrBoardOn()) soThrBoardBindRow(el);
     return el;
 }
 function soThrSceneClose() {
     const el = win && win.querySelector('#so-thr-scene-view');
     if (soThrSceneView && soThrSceneView.guardTimer) clearTimeout(soThrSceneView.guardTimer);
+    // 🎨 重做美化：试穿到一半关了 → 那一份放回待试穿（下次打开这个场景再试）。
+    if (soThrRelookOn() && soThrSceneView && soThrSceneView.trial) soThrRelookPending.set(soThrSceneView.id, Object.assign({ chatKey: fixChatKey() }, soThrSceneView.trial));
+    if (soThrBoardOn() && soThrSceneView && soThrSceneView.board) soThrBoardViewLeft(soThrSceneView);   // 🗂 论坛板：看过的通知记下、那一行收起
     soThrSceneView = null;
     if (soThrConcOn()) soThrMainWake();   // 🎬 复审 I3：排队中的「更多」立刻重问一次还要不要（不等 250 ms 的轮询）
     if (!el) return;
@@ -14241,7 +14375,10 @@ function soThrSceneOpen(id, opts) {
     const plain = !!(opts && opts.plain);
     const fellBack = !!(opts && opts.fallback);
     if (soThrSceneView && soThrSceneView.guardTimer) clearTimeout(soThrSceneView.guardTimer);
+    const trial = soThrRelookOn() ? soThrRelookTrialFor(id, opts, plain, fellBack) : null;   // 🎨 重做美化：这一次要不要试穿新外观
+    if (soThrBoardOn() && soThrSceneView && soThrSceneView.board) soThrBoardViewLeft(soThrSceneView);   // 🗂 论坛板之后开一次性场景：那一行收起
     soThrSceneView = { id, plain, guardTimer: null, fellBack };
+    if (trial) soThrSceneView.trial = trial;
     el.querySelector('#so-thr-scene-title').textContent = `${THEATER_SCENE_ICONS[item.scene] || ''} ${THEATER_SCENE_NAMES[item.scene] || ''}${item.note ? ' · ' + Array.from(item.note).slice(0, 24).join('') : ''}`;
     el.querySelector('#so-thr-scene-mode').textContent = plain ? THEATER_SCENE_PAGE : THEATER_SCENE_PLAIN;
     const notes = soThrSceneNotes(item);
@@ -14260,9 +14397,11 @@ function soThrSceneOpen(id, opts) {
         raw.hidden = true;
         raw.textContent = '';
         fr.hidden = false;
-        fr.srcdoc = soThrSceneDocument(item, null, { snapshot: false, allowScripts: getSettings().theaterAllowScripts !== false, plain: fellBack });
+        fr.srcdoc = trial ? soThrSceneDocument(item, null, { snapshot: false, allowScripts: getSettings().theaterAllowScripts !== false, plain: false, look: trial.look })
+            : soThrSceneDocument(item, null, { snapshot: false, allowScripts: getSettings().theaterAllowScripts !== false, plain: fellBack });
     }
     el.classList.add('open');
+    if (soThrRelookOn()) soThrRelookRowPaint(id);
     return true;
 }
 /* 贴图检查的时机（2026-11-07 修：此前换屏后固定 450 ms 查一次——日记翻页的动画 0.55 s，450 ms 时翻动的那页正压在「☰ 日期」上，
@@ -14332,15 +14471,17 @@ function soThrSceneGuardSoon() {
             return (doc && typeof doc.querySelector === 'function' && doc.querySelector('#thx')) ? doc : null;
         },
         timer: (h) => { v.guardTimer = h; },
-        done: finish,
-        fail: (r) => { finish(r); soThrSceneGuardFallback(v, r); },
+        // 🎨 重做美化：试穿中的这一轮检查决定换不换（过了 = 存下；连续两次不过 = 回到原来那一套，不换素颜）。
+        done: soThrRelookOn() ? (res) => { finish(res); if (v.trial) soThrRelookTrialEnd(v, !!(res && res.ok), res); } : finish,
+        fail: soThrRelookOn() ? (res) => { finish(res); if (v.trial) soThrRelookTrialEnd(v, false, res); else soThrSceneGuardFallback(v, res); }
+            : (r) => { finish(r); soThrSceneGuardFallback(v, r); },
     });
 }
 // 确认挡住了：还没换过 → 用素颜重画（同一个场景、同一个查看层；只换一次，不循环）。
 function soThrSceneGuardFallback(v, r) {
     if (!v || soThrSceneView !== v || v.plain || v.fellBack) return;
     console.warn('[Story Oracle] 小剧场：场景外观挡住了这些按钮，换回默认外观：', r && r.blocked);
-    soThrSceneOpen(v.id, { fallback: true });
+    if (soThrBoardOn() && v.board) soThrBoardOpen({ fallback: true, noCatch: true }); else soThrSceneOpen(v.id, { fallback: true });
 }
 // 立刻查一次这份场景文档；没过 → soThrSceneGuardFallback（手动 / 测试入口；平时走 soThrSceneGuardSoon 的两次确认）。→ 检查结果 / null（没在看场景）。
 function soThrSceneGuardRun(doc) {
@@ -14975,6 +15116,474 @@ async function soThrSceneMore(sceneId, kind, target) {
     }
 }
 
+/* —— 🎨 重做美化（ENABLE_THR_RELOOK；plan docs/superpowers/plans/2026-11-19-scene-redo-look.md）——
+ * 存下来的场景多两个可选字段（只加不改，旧版本的 SO 不认识就不理、照样显示第一套外观）：
+ *   looks  = [{ at, text, path:'so'|'preset' }]（旧的在前；text = 只有「=== 皮肤 ===」+「=== 装饰 · 插槽 ===」两种段的规整文本），最多 THEATER_RELOOK_KEEP 份；
+ *   lookOn = 玩家选的那一套：没有 = 最新；-1 = 原版；0…looks.length-1 = 那一份。新换上一套时删掉 lookOn（回到最新）。
+ * raw.first / raw.more（内容 + 叫法）永远不动；外观只换皮肤和装饰。 */
+const THEATER_RELOOK_KEEP = 2;
+function soThrRelookOn() { return ENABLE_THR_RELOOK && soThrParallelOn(); }
+// 当前显示哪一套：没有新外观 → -1（原版）；lookOn 是 [-1, looks.length-1] 里的整数 → 它；别的（缺、小数、字符串、越界）→ 最新那份。
+function soThrRelookActive(item) {
+    const looks = (item && Array.isArray(item.looks)) ? item.looks : [];
+    if (!looks.length) return -1;
+    const v = item.lookOn;
+    if (Number.isInteger(v) && v >= -1 && v <= looks.length - 1) return v;
+    return looks.length - 1;
+}
+// 第 idx 份新外观 → { skin, extras }；idx < 0 / 没有那份 / 读不出皮肤 → null。
+function soThrRelookLook(item, idx) {
+    if (!item || !Number.isInteger(idx) || idx < 0) return null;
+    const e = Array.isArray(item.looks) ? item.looks[idx] : null;
+    if (!e || typeof e.text !== 'string') return null;
+    const p = soThrSceneParse(item.scene, soThrSceneCleanRaw(e.text), 'first');
+    if (!p.skin) return null;
+    return { skin: p.skin, extras: p.extras || {} };
+}
+// 合并结果上换上当前那套外观（原地改 merged，只动 skin / extras；content / lex / first 一个不碰）；merged.look = { idx, of }。
+function soThrRelookApply(item, merged) {
+    const of = (item && Array.isArray(item.looks)) ? item.looks.length : 0;
+    const idx = soThrRelookActive(item);
+    merged.look = { idx, of };
+    if (idx >= 0) {
+        const L = soThrRelookLook(item, idx);
+        if (L) { merged.skin = L.skin; merged.extras = L.extras; }
+    }
+    return merged;
+}
+// 存一份新外观（重读、追加、只留最近 THEATER_RELOOK_KEEP 份、删 lookOn → 显示最新）。→ 加完后的份数；场景已经不在 → 0。
+function soThrRelookAdd(id, text, path) {
+    const item = soThrSceneGet(id);
+    if (!item) return 0;
+    const looks = Array.isArray(item.looks) ? item.looks : [];
+    looks.push({ at: Date.now(), text: String(text == null ? '' : text), path: path === 'preset' ? 'preset' : 'so' });
+    while (looks.length > THEATER_RELOOK_KEEP) looks.shift();
+    item.looks = looks;
+    delete item.lookOn;
+    soThrSceneSave(item);
+    return looks.length;
+}
+// 往前（-1）/ 往后（+1）换一套，夹在 [-1, looks.length-1]，记进 lookOn 并存。→ 新的当前序号；场景不在 / 没有新外观 / dir 不是 ±1 → null。
+function soThrRelookStep(id, dir) {
+    if (dir !== -1 && dir !== 1) return null;
+    const item = soThrSceneGet(id);
+    if (!item || !Array.isArray(item.looks) || !item.looks.length) return null;
+    const idx = Math.max(-1, Math.min(item.looks.length - 1, soThrRelookActive(item) + dir));
+    item.lookOn = idx;
+    soThrSceneSave(item);
+    return idx;
+}
+// 读一份重做回来的外观。皮肤至少要用上这么多个契约里的不同名字（类名去掉「.状态」后的本名 + --thx-* 变量），少了 = 没作用到 App 上（'nostyle'）。
+const THEATER_RELOOK_MIN_REFS = 3;
+// 规整文本的长度上限（UTF-16 码元）。证据：丰富的一套 ≈ 16 KB；留足余量，又让 30 个场景 × 2 份外观有个上限。
+const THEATER_RELOOK_MAX_CHARS = 40000;
+// 「外观偏简单」的线（只给那行提示用）：三项里至少 need 项低于线 = 简单。线落在 spec 的证据中间——简单的 0.5–1 KB / 5–10 条规则 / ≈1 KB 装饰，
+// 丰富的 4–6 KB / 26–32 条 / 7–10 KB。
+const THEATER_RELOOK_THIN = Object.freeze({ skinBytes: 2000, skinRules: 16, extrasBytes: 3000, need: 2 });
+// UTF-8 字节数（按码点数 1 / 2 / 3 / 4；纯函数，不靠 TextEncoder）。
+function soThrRelookBytes(s) {
+    let n = 0;
+    for (const ch of String(s == null ? '' : s)) {
+        const cp = ch.codePointAt(0);
+        n += cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4;
+    }
+    return n;
+}
+// 一份 CSS 用上了契约里多少个不同的名字。
+function soThrRelookRefs(css) {
+    const known = new Set([...THEATER_SCENE_CONTRACT.classes.map((c) => c.split('.')[0]), ...THEATER_SCENE_CONTRACT.vars]);
+    const hit = new Set();
+    const re = /\.(thx[\w-]*)|(--thx-[\w-]+)/g;
+    let m;
+    const s = String(css == null ? '' : css);
+    while ((m = re.exec(s))) { const k = m[1] || m[2]; if (known.has(k)) hit.add(k); }
+    return hit.size;
+}
+// 规整文本 = 「=== 皮肤 ===」段 + 按契约插槽顺序、每个非空插槽一段「=== 装饰 · 插槽 ===」。存的就是它（内容 / 叫法永远不在里面）。
+function soThrRelookNormal(scene, skin, extras) {
+    let out = '=== 皮肤 ===\n' + String(skin == null ? '' : skin) + '\n';
+    for (const slot of (THEATER_SCENE_CONTRACT.slots[scene] || [])) {
+        const b = (extras && typeof extras === 'object') ? extras[slot] : null;
+        if (typeof b === 'string' && b) out += '=== 装饰 · ' + slot + ' ===\n' + b + '\n';
+    }
+    return out;
+}
+// 一份回复 → { ok, why, skin, extras, text, chars }。why（第一个不过的）：'length' 截断 · 'empty' 空 · 'noskin' 读不出皮肤 · 'nostyle' 没作用到 App ·
+// 'big' 太大 · 'roundtrip' 规整文本重读出来对不上；过了 = ''。装饰可以没有（不和旧外观的装饰混搭）；回复里的「=== 内容 ===」/「=== 叫法 ===」一概不理。
+// text = 规整文本（原样存）；ok 时 skin / extras 是规整文本重读出来的那一份（= 存下后显示的那一份）。
+function soThrRelookParse(scene, text, finish) {
+    const out = { ok: false, why: '', skin: '', extras: {}, text: '', chars: 0 };
+    if (finish === 'length') { out.why = 'length'; return out; }
+    const clean = soThrSceneCleanRaw(text);
+    if (!clean.trim()) { out.why = 'empty'; return out; }
+    const p = soThrSceneParse(scene, clean, 'first');
+    if (!(p.parts && p.parts.skin && p.parts.skin.ok) || !p.skin) { out.why = 'noskin'; return out; }
+    out.skin = p.skin;
+    out.extras = p.extras || {};
+    out.text = soThrRelookNormal(scene, out.skin, out.extras);
+    out.chars = out.text.length;
+    if (soThrRelookRefs(out.skin) < THEATER_RELOOK_MIN_REFS) { out.why = 'nostyle'; return out; }
+    if (out.chars > THEATER_RELOOK_MAX_CHARS) { out.why = 'big'; return out; }
+    const back = soThrSceneParse(scene, soThrSceneCleanRaw(out.text), 'first');
+    const bx = back.extras || {};
+    const ka = Object.keys(out.extras).sort();
+    const kb = Object.keys(bx).sort();
+    if (back.skin !== out.skin || ka.join('\n') !== kb.join('\n') || ka.some((k) => bx[k] !== out.extras[k])) { out.why = 'roundtrip'; return out; }
+    out.extras = bx;
+    out.ok = true;
+    return out;
+}
+// 一份合并结果的外观有多「满」→ { skinBytes, skinRules（「{」的个数，同 soThrScParseSkin）, extrasBytes（装饰字符串的字节和）, slots（非空插槽数）}。
+function soThrRelookMeasure(merged) {
+    const skin = String((merged && merged.skin) || '');
+    let extrasBytes = 0, slots = 0;
+    for (const v of Object.values((merged && merged.extras && typeof merged.extras === 'object') ? merged.extras : {})) {
+        if (typeof v !== 'string') continue;
+        extrasBytes += soThrRelookBytes(v);
+        if (v) slots++;
+    }
+    return { skinBytes: soThrRelookBytes(skin), skinRules: (skin.match(/\{/g) || []).length, extrasBytes, slots };
+}
+// 外观偏简单吗（只决定那一行提示）。
+function soThrRelookThin(m) {
+    if (!m || typeof m !== 'object') return false;
+    const T = THEATER_RELOOK_THIN;
+    const under = [Number(m.skinBytes) < T.skinBytes, Number(m.skinRules) < T.skinRules, Number(m.extrasBytes) < T.extrasBytes].filter(Boolean).length;
+    return under >= T.need;
+}
+/* —— 重做美化的请求（只要皮肤 + 装饰）——
+ * 系统提示词 = THEATER_RELOOK_COMMON + 本场景的类名 / 插槽参考（逐字取自冻结的 THEATER_SCENE_SPECS 与 THEATER_SCENE_COMMON 的三行；冻结的〔皮肤〕/〔装饰〕
+ * 两段不搬——里面的部件清单会漏进来）。玩家消息 = 【场景】+【叫法】+【内容提要】（程序写的：标题 / 名字 / 数字，不带故事原文、不带现在的 CSS）。
+ * 【叫法】/【内容提要】两个标签模型看得见：Task 9 之后改一个字节 = 重跑探针。 */
+// DRAFT（未过探针，Task 9 换成胜出的一版并钉 sha256）
+const THEATER_RELOOK_COMMON = `你在为「小剧场」里一个已经写好的场景重画外观。小剧场是挂在一段进行中的角色扮演故事旁边的小 App，屏幕、按钮和跳转都由 SO 的程序搭好。这个场景已经有一套外观；这一次再画一套，更完整、更用心，属于这个世界。
+
+做得完整的 App，像这个世界里真有人在经营、天天有人在用的东西：顶栏、横幅和顶部插槽层层叠起，一打开就有层次；首页看上去是活的，正有事在发生、有人在场；配色、纹理、字体、卡片和边框都出自这个世界的材料和习惯；下面列出的每个插槽都有属于这个世界的装饰，把各自的位置用足。
+
+这个场景的内容和叫法已经定下，这一次不重写、不交回；【叫法】和【内容提要】写的就是它现在的样子，装饰可以用上里面的标题、名字和数字。
+
+交回的格式：两种段，每段以单独一行的段头开始，程序按段头切开；段头之外不写解释。
+=== 皮肤 ===
+=== 装饰 · 插槽名 ===　（每个插槽一段，插槽名用下面列出的英文名）
+
+〔皮肤〕一份 CSS，只作用在小剧场里，靠下面公开的类名和 --thx-* 变量起作用。顶栏标题两侧还有两个默认不显示的空位 .thx-decor[data-slot=bar-l] 和 .thx-decor[data-slot=bar-r]，皮肤可以用上。用网络字体时写上本地兜底字体。界线：外观怎么变，顶栏 .thx-bar 和返回键 .thx-back 都一直看得见、点得到；不用 position:fixed；能点的东西一样也不藏起来、不盖住。
+
+〔装饰〕每段是你自己设计的一个部件，HTML、CSS、JS 都可以，可以动、可以点；段里的脚本会执行，脚本里可以直接用变量 slot（这个插槽元素）和 app（整个小剧场元素）。界线：装饰只画在自己的插槽里，不动程序搭好的结构和跳转，也不接住插槽以外的点击。`;
+// common + 本场景参考 → 系统提示词（探针 rig 用它换别的 common）；不认识的场景 → ''。
+function soThrRelookSystemFrom(common, scene) {
+    const s = THEATER_SCENE_SPECS[scene];
+    if (!s) return '';
+    const ref = ['通用类名：', '变量：', '通用插槽：'].map((h) => THEATER_SCENE_COMMON.split('\n').find((l) => l.startsWith(h)) || '').join('\n');
+    return `${common}\n\n—— 本次场景：${THEATER_SCENE_NAMES[scene]} ——\n本场景类名：${s.classes}\n本场景插槽：${s.slot}\n${ref}`;
+}
+const THEATER_RELOOK_SYSTEM = (scene) => soThrRelookSystemFrom(THEATER_RELOOK_COMMON, scene);
+const THEATER_RELOOK_USER = (scene, ctxText) => `【场景】${THEATER_SCENE_NAMES[scene] || ''}\n\n${String(ctxText || '')}`;
+// DRAFT（预设路的暂停拍；只给第二轮探针 Task 10，第一轮不探）：照抄 THEATER_SCENE_AO_BEAT 的结构，只换交回的东西（外观）和起始段头（=== 皮肤 ===）。
+const THEATER_RELOOK_AO_BEAT = '【故事在这里暂停】\n这一条不是故事的下一轮，而是一件单独的事：为故事旁边的小剧场 App 交一份外观。上文为故事正文定下的写法——输出格式和标签顺序、字数、思考或草稿标签、状态栏、变量更新、摘要，以及任何指向「本轮输入 / 最新输入」的标记——都只管故事回合，这一次不适用。这一次交回的内容和格式，只以上面那份小剧场外观请求为准，从「=== 皮肤 ===」开始交回。上文关于内容尺度、题材与创作自由的约定照常有效。';
+// 内容提要（程序写，封顶 1600 字）：只有标题 / 名字 / 数字——不带故事原文（帖子正文、楼、日记、画面），不带现在的 CSS（会把模型拴在旧外观上）。
+function soThrRelookOutline(scene, merged) {
+    const c = merged && merged.content;
+    if (!c) return '（解析不出内容）';
+    const lines = [];
+    if (scene === 'forum') {
+        const vis = soThrForumVisible(c);
+        lines.push(`版面「${c.board || ''}」：${c.intro || ''}`);
+        lines.push(`共 ${vis.length} 个帖子、${vis.reduce((a, t) => a + t.floors.length + 1, 0)} 楼、${c.people.length} 位人物`);
+        for (const t of vis.slice().sort((a, b) => (b.heat || 0) - (a.heat || 0)).slice(0, 8)) {
+            lines.push(`· 「${t.title || '（无题）'}」${t.authorName || ''}｜${(t.tags || []).join('、')}｜热度 ${t.heat ?? '?'}｜${t.floors.length + 1} 楼`);
+        }
+    } else if (scene === 'feed') {
+        const ps = c.posts.filter((p) => p.text || p.pic);
+        const main = ps.filter((p) => !p.old);
+        lines.push(`主页：${c.motto || ''}`);
+        lines.push(`${main.length} 条动态（另有 ${ps.length - main.length} 条旧动态）、${ps.reduce((a, p) => a + p.cmts.length, 0)} 条评论、${c.people.length} 位人物`);
+        for (const p of main.slice(0, 8)) lines.push(`· ${p.authorName || ''}｜${p.time || ''}｜${p.place || ''}：${soThrScCap(p.text, 20)}`);
+    } else if (scene === 'diary') {
+        const es = c.entries.filter((e) => e.paras.length || (e.letter && e.letter.body));
+        lines.push(`日记主人：${c.owner || (c.people[0] && c.people[0].name) || ''}`);
+        lines.push(`共 ${es.length} 页`);
+        es.forEach((e, i) => lines.push(`· ${e.label || `第 ${i + 1} 页`}（${e.weather || '—'}/${e.mood || '—'}）${e.letter ? '〔夹着封存〕' : ''}`));
+    } else if (scene === 'live') {
+        lines.push(`直播「${c.title || ''}」，主播 ${c.host || ''}，在线 ${c.viewersN ?? '?'}`);
+        lines.push(`${c.beats.length} 拍、${c.dms.length} 条弹幕、${c.viewers.length} 位观众`);
+        for (const v of c.viewers.slice().sort((a, b) => (b.lv || 0) - (a.lv || 0)).slice(0, 8)) lines.push(`· ${v.name}（等级 ${v.lv ?? '?'}）`);
+    }
+    return soThrScCapBlock(lines, 1600);
+}
+// 玩家消息里【场景】之后的整段：【叫法】（同「更多」的写法，封顶 600）+【内容提要】。
+function soThrRelookContext(scene, merged) {
+    const lexLines = Object.entries((merged && merged.lex) || {}).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join('／') : v}`);
+    return `【叫法】\n${soThrScCapBlock(lexLines, 600) || '（无）'}\n\n【内容提要】\n${soThrRelookOutline(scene, merged)}`;
+}
+// 探针测试缝（惰性，同 soThrScenePrompt）：window.__soThrRelookArm 只有是【非 null 的对象】时才读——system(scene) / user(scene, ctxText) 返回字符串就用它；
+// 不是对象 / 没给 / 不是函数 / 抛错 / 返回的不是字符串 → 出厂提示词，一个字节都不变。产品代码从不写它。
+function soThrRelookPrompt(part, a, b) {
+    const shipped = () => {
+        if (part === 'system') return THEATER_RELOOK_SYSTEM(a);
+        if (part === 'user') return THEATER_RELOOK_USER(a, b);
+        return '';
+    };
+    let arm = null;
+    try { arm = (typeof window !== 'undefined') ? window.__soThrRelookArm : null; } catch (e) { arm = null; }
+    if (arm === null || typeof arm !== 'object') return shipped();
+    let fn = null;
+    try { fn = arm[part]; } catch (e) { fn = null; }
+    if (typeof fn !== 'function') return shipped();
+    let v;
+    try { v = fn(a, b); } catch (e) { return shipped(); }
+    return typeof v === 'string' ? v : shipped();
+}
+// 一次重做美化的引擎 opts。两条路都不带聊天历史（history: []，从不是函数）；角色卡 + 世界书经 soThrSceneSoSystem 进 SO 路的系统提示词。
+// 预设路：整段请求放进玩家消息；出厂 AO 臂 → 末尾只加 THEATER_RELOOK_AO_BEAT（不是场景的那一拍）；主线拥有的场景再挂变量镜像（同 soThrSceneOpts）。
+async function soThrRelookOpts(ctx, s, item, sys, user, onDelta) {
+    const usePreset = soThrUsePreset(s, ctx);
+    const conc = soThrConcOn();
+    const systemText = usePreset ? sys : conc ? () => soThrSceneSoSystem(ctx, s, sys, []) : await soThrSceneSoSystem(ctx, s, sys, []);
+    const directive = usePreset ? sys + '\n\n' + user : user;
+    const opts = { history: [], directive, systemText, usePreset, maxTokens: soThrSceneMaxTokens(s), stripMvuRules: true, onDelta };
+    Object.assign(opts, soThrPickOpts(s, usePreset));
+    const place = usePreset ? soThrScenePlaceArm() : null;
+    if (place && place.addOnly) opts.hooks = { onSettingsReady: (d) => { soThrScenePlaceLast = soThrSceneAoApply(d, THEATER_RELOOK_AO_BEAT); } };
+    if (conc && usePreset && !(item && item.owner && item.owner.kind === 'if')) soThrSceneMirrorHooks(ctx, opts);
+    return opts;
+}
+/* —— 重做美化的一趟（Task 5）+ 查看层的外观栏（Task 6）——
+ * 一次按下 = 一趟引擎（同「更多」：排队等主聊天、等待行 +「不等了」、停止、自动重试设置、连接 / 预设选择；没有第二条调用模型的路）。
+ * 回复读得出 → 在开着的查看层里「试穿」（soThrSceneView.trial），贴图检查连续两次不过 = 不换；过了才 soThrRelookAdd 存下。
+ * 查看层没开 / 开的是别的场景 / 纯文本 / 素颜兜底 → 放进 soThrRelookPending（只在内存里，刷新页面就没了），下次打开这个场景时试穿。
+ * 换聊天 = 结果作废（一条提示）、待试穿的全清。同一个场景同一时刻只有一趟。 */
+// DRAFT 文案（待 Prince 选；btn / thin / adopted / notAdopted / step 已定 2026-11-19）
+const THEATER_RELOOK_TEXT = Object.freeze({
+    btn: '🎨 重画外观',
+    btnBusy: '正在重画…',
+    thin: '外观有点素？点「重画外观」让模型再画一版（会多用一次调用）',
+    writing: (n, sec) => `正在重做外观…（已 ${n} 字 · ${sec} 秒）`,
+    checking: '新外观写好了，正在检查按钮有没有被挡住…',
+    adopted: '新外观已换上',
+    notAdopted: (why) => `重做没成功：${why}。外观没变`,
+    why: Object.freeze({
+        length: '回复被截断了', empty: '模型没有交回外观', noskin: '没写出能用的样式', nostyle: '样式没有作用到 App 上',
+        big: '新外观太大，存不下', roundtrip: '格式读不准', guard: '新外观挡住了按钮', gone: '这个场景已经不在了', aborted: '已中断', chat: '已切换聊天',
+    }),
+    step: (n, total) => `第 ${n} 版外观（共 ${total}）`,
+    original: '原版',
+    prev: '换回上一个外观',
+    next: '下一个外观',
+    ready: (name) => `${name}的新外观写好了（点这里查看）`,
+    chatSwitched: '已切换聊天，这次重做的外观没有用上',
+});
+const soThrRelookFlights = new Map();   // sceneId → { token, t0, chars, run, waiting（等待行 | null）, timer }：在路上的那一趟
+const soThrRelookPending = new Map();   // sceneId → { token, chatKey, look: { skin, extras }, text, path }：写好了、等下次打开时试穿
+let soThrRelookSeq = 0;
+// 查看层此刻能不能当场试穿这个场景（开着、是它、App 视图、不是素颜兜底）。
+function soThrRelookViewable(sceneId) {
+    const v = soThrSceneView;
+    return !!(v && v.id === sceneId && !v.plain && !v.fellBack);
+}
+// → { error:'off' } | { busy:true } | { failed: why, text, token } | { cancelled:true, token } | { trial:true, token } | { pending:true, token }。
+// why = soThrRelookParse 的原因 ∪ 'gone' 'conn' 'group' 'chat' 'aborted' 'error' 'filtered' 'emptyReply' 'timeout' 'retries' 'relay'；text = 「重做没成功：」后面那半句。
+async function soThrRelookRun(sceneId) {
+    if (!soThrRelookOn()) return { error: 'off' };
+    // 先占槽（同步，绝不在 await 之后）——两次同时按也只有一次走得下去；查看层里正在试穿的那一份也算在路上。
+    if (soThrRelookFlights.has(sceneId) || (soThrSceneView && soThrSceneView.id === sceneId && soThrSceneView.trial)) return { busy: true };
+    const fl = { token: ++soThrRelookSeq, t0: Date.now(), chars: 0, run: null, waiting: null, timer: null };
+    soThrRelookFlights.set(sceneId, fl);
+    const T = THEATER_RELOOK_TEXT;
+    let out = null;
+    let showT = null;
+    const fail = (why, text) => { out = { failed: why, text: String(text || ''), token: fl.token }; return out; };
+    const dropWait = () => {
+        if (showT) { clearTimeout(showT); showT = null; }
+        if (fl.waiting) { fl.waiting.stop(); fl.waiting = null; soThrRelookRowPaint(sceneId); }
+    };
+    try {
+        soThrRelookRowPaint(sceneId);
+        const item = soThrSceneGet(sceneId);
+        if (!item) return fail('gone', T.why.gone);
+        const s = getSettings();
+        const ctx = getCtx();
+        const conn = soThrSceneConnIssue(s, soThrUsePreset(s, ctx));
+        if (conn) return fail('conn', conn);
+        if (soThrGroupBlocked(ctx)) return fail('group', THEATER_GROUP_REASON);
+        const chatKey = fixChatKey();
+        const scene = item.scene;
+        fl.timer = setInterval(() => soThrRelookRowPaint(sceneId), 1000);
+        let lastQ = null, queuedSeen = false, r = null;
+        const onState = (st) => {
+            if (!st || typeof st !== 'object') return;
+            lastQ = st;
+            if (st.phase === 'queued') {
+                queuedSeen = true;
+                if (fl.waiting) { fl.waiting.set(st); return; }
+                if (!showT) showT = setTimeout(() => {
+                    showT = null;
+                    if (!lastQ || lastQ.phase !== 'queued' || fl.waiting || soThrRelookFlights.get(sceneId) !== fl || fixChatKey() !== chatKey) return;
+                    fl.waiting = soThrWaitRow({ state: lastQ, variant: 'box', onCancel: () => soThrAbortRun(fl.run, 'user') });
+                    soThrRelookRowPaint(sceneId);
+                }, THEATER_WAIT_SHOW_MS);
+            } else if (st.phase === 'stream' || !fl.waiting) dropWait();
+        };
+        try {
+            const merged = soThrSceneMerge(item);
+            const sys = soThrRelookPrompt('system', scene);
+            const user = soThrRelookPrompt('user', scene, soThrRelookContext(scene, merged));
+            const opts = await soThrRelookOpts(ctx, s, item, sys, user, (full) => { fl.chars = [...String(full || '')].length; });
+            opts.onState = onState;
+            // 排队中玩家走了（查看层关了 / 换成别的场景 / 离开小剧场 / 关神谕窗口 / 换聊天）→ 不发；只从真的排上队起算（同「更多」）。
+            opts.stillWanted = () => !queuedSeen || soThrStillThere(chatKey, sceneId);
+            opts.onRun = (run) => { fl.run = run; };
+            r = await soThrGenerateRecovered(opts, { isStale: () => fixChatKey() !== chatKey, onRetry: () => { fl.chars = 0; },
+                cutOff: (text, finish) => !soThrRelookParse(scene, text, finish).ok });
+        } catch (e) {
+            r = { text: '', aborted: false, error: errChainMessage(e) || String(e) };
+        } finally {
+            dropWait();
+        }
+        r = r || { text: '', aborted: false, error: null };
+        if (fixChatKey() !== chatKey) {   // 换了聊天：两个聊天都不存；排队时换的那一下引擎已经说过一句（chatTold）就不再叠
+            const told = r.ended === 'chat' && !!fl.run && fl.run.chatTold === true;
+            if (!told && typeof toastr !== 'undefined') toastr.info(escapeHtml(T.chatSwitched));
+            return fail('chat', T.why.chat);
+        }
+        if (r.relay) return fail('relay', THEATER_WAIT_COPY.t9t);
+        if (r.sent === false && r.ended === 'cancel') { out = { cancelled: true, token: fl.token }; return out; }
+        if (r.sent === false && r.ended === 'timeout') return fail('timeout', THEATER_WAIT_COPY.t7m);
+        if (r.sent === false && r.ended === 'retries') return fail('retries', THEATER_WAIT_COPY.t7rNoLine);
+        if (r.aborted) return fail('aborted', T.why.aborted);
+        if (r.error) return fail('error', explainProviderError(String(r.error)));
+        if (r.emptyFinal) return r.filtered ? fail('filtered', soThrRetryNote(THEATER_FILTERED_REPLY, r)) : fail('emptyReply', THEATER_EMPTY_REPLY);
+        const p = soThrRelookParse(scene, r.text, r.finish);   // 最后用的那一份再判一次
+        if (!p.ok) return fail(p.why, T.why[p.why] || p.why);
+        if (!soThrSceneGet(sceneId)) return fail('gone', T.why.gone);
+        const tr = { token: fl.token, look: { skin: p.skin, extras: p.extras }, text: p.text, path: r.path === 'preset' ? 'preset' : 'so' };
+        if (soThrRelookViewable(sceneId)) {
+            soThrSceneOpen(sceneId, { trial: tr });
+            out = { trial: true, token: fl.token };
+            return out;
+        }
+        soThrRelookPending.set(sceneId, Object.assign({ chatKey }, tr));
+        if (typeof toastr !== 'undefined') toastr.success(escapeHtml(T.ready(THEATER_SCENE_NAMES[scene] || '')), '', { timeOut: 8000, onclick: () => soThrSceneOpen(sceneId) });
+        out = { pending: true, token: fl.token };
+        return out;
+    } finally {
+        if (showT) clearTimeout(showT);
+        if (fl.timer) { clearInterval(fl.timer); fl.timer = null; }
+        if (fl.waiting) { fl.waiting.stop(); fl.waiting = null; }
+        if (soThrRelookFlights.get(sceneId) === fl) soThrRelookFlights.delete(sceneId);
+        soThrRelookRowPaint(sceneId, out && out.failed ? { outcome: out } : undefined);
+    }
+}
+// 打开查看层时决定这一次要不要试穿（soThrSceneOpen 在旗开时调）：先把上一个查看层没试完的那一份放回待试穿；
+// opts.trial = 刚写好的那一份；否则 App 视图里接走这个场景待试穿的那一份（不是这个聊天的 = 丢掉）。→ 试穿的那一份 | null。
+function soThrRelookTrialFor(id, opts, plain, fellBack) {
+    const prev = soThrSceneView;
+    if (prev && prev.trial) { soThrRelookPending.set(prev.id, Object.assign({ chatKey: fixChatKey() }, prev.trial)); prev.trial = null; }
+    const given = opts && opts.trial && typeof opts.trial === 'object' ? opts.trial : null;
+    if (given) { soThrRelookPending.delete(id); return given; }
+    if (plain || fellBack) return null;
+    const pd = soThrRelookPending.get(id);
+    if (!pd) return null;
+    soThrRelookPending.delete(id);
+    if (pd.chatKey !== fixChatKey()) return null;
+    return { token: pd.token, look: pd.look, text: pd.text, path: pd.path };
+}
+// 试穿的结局（贴图检查交回）：过了 → 存下（新的一份成了最新、显示的就是它）；没过 → 回到原来那一套，场景一个字节都不动。
+function soThrRelookTrialEnd(v, ok, r) {
+    if (!v || soThrSceneView !== v || !v.trial) return;
+    const tr = v.trial;
+    v.trial = null;
+    if (ok) {
+        if (!soThrRelookAdd(v.id, tr.text, tr.path)) { soThrRelookRowPaint(v.id, { outcome: { failed: 'gone', text: THEATER_RELOOK_TEXT.why.gone } }); return; }
+        soThrRefreshScenePanel();
+        soThrRelookRowPaint(v.id, { adopted: true });
+        return;
+    }
+    console.warn('[Story Oracle] 小剧场：重画的外观挡住了这些按钮，没有换上：', r && r.blocked);
+    soThrSceneOpen(v.id);
+    soThrRelookRowPaint(v.id, { outcome: { failed: 'guard', text: THEATER_RELOOK_TEXT.why.guard } });
+}
+// 外观栏 HTML（查看层建一次时插在顶栏和备注行之间；文案都是代码里的常量）。
+function soThrRelookRowHtml() {
+    const T = THEATER_RELOOK_TEXT;
+    return '<div id="so-thr-scene-look-row" class="so-thr-scene-look-row" hidden>'
+        + `<button type="button" class="so-thr-scene-mini" id="so-thr-scene-relook">${escapeHtml(T.btn)}</button>`
+        + '<span id="so-thr-scene-look-step" class="so-thr-scene-look-step" hidden>'
+        + `<button type="button" class="so-thr-scene-mini" id="so-thr-scene-look-prev" title="${escapeHtml(T.prev)}" aria-label="${escapeHtml(T.prev)}">‹</button>`
+        + '<span id="so-thr-scene-look-n"></span>'
+        + `<button type="button" class="so-thr-scene-mini" id="so-thr-scene-look-next" title="${escapeHtml(T.next)}" aria-label="${escapeHtml(T.next)}">›</button>`
+        + '</span>'
+        + '<div class="so-hint" id="so-thr-scene-look-line" aria-live="polite" hidden></div>'
+        + '</div>';
+}
+// 外观栏的点击（建查看层时绑一次）：重画 / ‹ › / 「再试一次」（只认第一下）。
+function soThrRelookBindRow(el) {
+    const row = el && el.querySelector('#so-thr-scene-look-row');
+    if (!row) return;
+    const go = () => { const v = soThrSceneView; if (v) soThrRelookRun(v.id).catch((e) => console.warn('[Story Oracle] 小剧场：重画外观出错', e)); };
+    row.querySelector('#so-thr-scene-relook').addEventListener('click', (e) => { if (!e.currentTarget.disabled) go(); });
+    const step = (dir) => {
+        const v = soThrSceneView;
+        if (!v || v.trial || soThrRelookFlights.has(v.id)) return;
+        if (soThrRelookStep(v.id, dir) === null) return;
+        soThrSceneOpen(v.id);
+    };
+    row.querySelector('#so-thr-scene-look-prev').addEventListener('click', (e) => { if (!e.currentTarget.disabled) step(-1); });
+    row.querySelector('#so-thr-scene-look-next').addEventListener('click', (e) => { if (!e.currentTarget.disabled) step(1); });
+    row.querySelector('#so-thr-scene-look-line').addEventListener('click', (e) => {
+        const b = e.target && e.target.closest ? e.target.closest('#so-thr-scene-look-retry') : null;
+        if (!b || b.disabled) return;
+        b.disabled = true;
+        go();
+    });
+}
+// 外观栏的唯一写者。state：没给 = 按此刻的状态（在路上 → 等待行 / 正在写；试穿中 → 正在检查；闲着 → 外观偏素就一行提示）；
+// { adopted:true } | { outcome:{ failed, text } } = 一次的结局；{ wait: 节点 } / { writing:{ n, sec } } / { checking:true } = 指定那一行。
+// 查看层没在看这个场景 / 旗关 = 什么都不做。
+function soThrRelookRowPaint(sceneId, state) {
+    if (!soThrRelookOn() || !win) return;
+    const v = soThrSceneView;
+    if (!v || v.id !== sceneId) return;
+    const row = win.querySelector('#so-thr-scene-look-row');
+    if (!row) return;
+    const T = THEATER_RELOOK_TEXT;
+    row.hidden = !!(v.plain || v.fellBack);
+    const item = soThrSceneGet(sceneId);
+    const fl = soThrRelookFlights.get(sceneId) || null;
+    const busy = !!fl || !!v.trial;
+    const btn = row.querySelector('#so-thr-scene-relook');
+    btn.disabled = busy;
+    btn.textContent = busy ? T.btnBusy : T.btn;
+    const n = (item && Array.isArray(item.looks)) ? item.looks.length : 0;
+    const act = soThrRelookActive(item);
+    const stepEl = row.querySelector('#so-thr-scene-look-step');
+    stepEl.hidden = n === 0;
+    row.querySelector('#so-thr-scene-look-n').textContent = n ? T.step(act + 2, n + 1) + (act === -1 ? ' · ' + T.original : '') : '';
+    row.querySelector('#so-thr-scene-look-prev').disabled = busy || act <= -1;
+    row.querySelector('#so-thr-scene-look-next').disabled = busy || act >= n - 1;
+    const line = row.querySelector('#so-thr-scene-look-line');
+    line.textContent = '';
+    const st = (state && typeof state === 'object') ? state : null;
+    if (st && st.outcome && st.outcome.failed) {
+        const t = document.createElement('span');
+        t.textContent = T.notAdopted(String(st.outcome.text || st.outcome.failed));
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'so-thr-scene-mini';
+        b.id = 'so-thr-scene-look-retry';
+        b.textContent = THEATER_WAIT_COPY.retry;
+        b.disabled = busy;
+        line.append(t, ' ', b);
+    } else if (st && st.adopted) line.textContent = T.adopted;
+    else if (st && st.wait && typeof st.wait === 'object' && st.wait.nodeType === 1) line.appendChild(st.wait);
+    else if (st && st.writing) line.textContent = T.writing(Number(st.writing.n) || 0, Number(st.writing.sec) || 0);
+    else if (st && st.checking) line.textContent = T.checking;
+    else if (fl && fl.waiting) line.appendChild(fl.waiting.el);
+    else if (fl) line.textContent = T.writing(fl.chars, Math.round((Date.now() - fl.t0) / 1000));
+    else if (v.trial) line.textContent = T.checking;
+    else if (item && soThrRelookThin(soThrRelookMeasure(soThrSceneMerge(item)))) line.textContent = T.thin;
+    line.hidden = !line.firstChild;
+}
+
 /* —— 💬 微谕 · Lane B 的十一块（tests/unit/_weiyu/<name>.js 原样拼入；改块文件、再跑 tests/unit/_weiyu/_splice.mjs，绝不手改这里的拷贝）—— */
 /* <<WEIYU:model>> */
 // [WEIYU] model — spliced verbatim into index.js by the join plan; edit HERE, re-splice, never hand-edit the copy.
@@ -14984,8 +15593,10 @@ async function soThrSceneMore(sceneId, kind, target) {
 //   Person { id, name, idLine?, sig?, area?, extra?:1, main?:1, gone?:1, remark?, blocked?:1 }   pid 'me' = the player's character
 //            gone = removed from the contacts (删除联系人, only the person): the tombstone {id, name, gone:1, main?} that renders
 //            their old lines (soWyDeletePerson)
-//            remark = the player's 备注 for them (≤ 24; the phone shows it, NO model ever reads it — soWyShownName) · blocked = 拉黑
+//            remark = the player's 备注 for them (≤ 60; the phone shows it, NO model ever reads it — soWyShownName) · blocked = 拉黑
 //            (soWySetBlocked: their new lines in his private chat with them land refused; the brief tells the model)
+//            origin?: 'story'|'new' · about? = a person added by hand (2026-11-21, soWyAcAdd): 故事里的人 / 故事外的新人 and the 人物说明
+//            (only for the AI — soWyBrief prints them behind args.ac); absent on everyone else
 //   Chat   { id, type:'group'|'dm', name?, kind?, members:pid[], count?, notice?, why?, floor?:number|null,
 //            muted?:1, dissolved?:1, msgs:Msg[], read:mid|null, sum?:{text, through, at, next?}, rank?:number, own?:1, closed?:1, pin?:1 }
 //            rank = list place at 开机 · own = a group the player made (its 由来 is worded per audience, soWyChatWhy)
@@ -15189,6 +15800,12 @@ function soWyClip(s, n) {
     return a.length > n ? a.slice(0, n).join('') : a.join('');
 }
 
+// The length of what the player typed, as every ceiling counts it: code points of the trimmed text (an emoji = 1). The screen's over-line
+// and the store's refusal both use it, so they agree on "over" (length limits 2026-11-21).
+function soWyLen(s) {
+    return Array.from(String(s == null ? '' : s).trim()).length;
+}
+
 function soWyAddPerson(state, o) {
     const src = soWyIsObj(o) ? o : {};
     const name = soWyNameKey(src.name);
@@ -15300,19 +15917,24 @@ function soWyIsEmojiOnly(s) {
 //   fwd  = {from: <the source chat's title>, lines: [{name, v}]}   1–6 lines, a snapshot made by soWyForward (never by a model)
 const THEATER_WEIYU_CARD_WORDS = Object.freeze({ loc: '位置', file: '文件', link: '链接', contact: '名片', music: '音乐' });
 const THEATER_WEIYU_CARD_MAX = Object.freeze({ title: 40, sub: 60 });
-const THEATER_WEIYU_FWD_MAX = Object.freeze({ lines: 6, from: 40, name: 24, v: 120, text: 300 });
+// The player's ceilings, code points (soWyLen): over one = refused visibly, never cut; AI text keeps CARD_MAX / EV_MAX / CALL_CAP (length limits 2026-11-21)
+const THEATER_WEIYU_TYPED_MAX = Object.freeze({ text: 4000, title: 120, sub: 300, amt: 40, note: 200, group: 40 });
+// name 40 (was 24; adding contacts by hand 2026-11-21): a typed name may have 40 characters and must not be cut in a forward's snapshot; only
+// typed names exceed 24, so no stored forward reads differently.
+const THEATER_WEIYU_FWD_MAX = Object.freeze({ lines: 6, from: 40, name: 40, v: 120, text: 300 });
 
 // One line, single-spaced, trimmed.
 function soWyLine1(s) {
     return String(s == null ? '' : s).replace(/\s+/g, ' ').trim();
 }
 
+// The read cap is the PLAYER's ceiling (120 / 300): an AI card is cut to the model ceiling CARD_MAX in parse.js before it gets here.
 function soWyCardNorm(card) {
     if (!soWyIsObj(card) || typeof card.k !== 'string' || !soWyOwn(THEATER_WEIYU_CARD_WORDS, card.k)) return null;
-    const title = soWyClip(soWyLine1(card.title), THEATER_WEIYU_CARD_MAX.title);
+    const title = soWyClip(soWyLine1(card.title), THEATER_WEIYU_TYPED_MAX.title);
     if (!title) return null;
     const out = { k: card.k, title };
-    const sub = soWyClip(soWyLine1(card.sub), THEATER_WEIYU_CARD_MAX.sub);
+    const sub = soWyClip(soWyLine1(card.sub), THEATER_WEIYU_TYPED_MAX.sub);
     if (sub) out.sub = sub;
     if (card.k === 'contact' && typeof card.pid === 'string' && card.pid && !THEATER_WEIYU_UNSAFE_IDS.includes(card.pid)) out.pid = card.pid;
     return out;
@@ -15367,7 +15989,8 @@ function soWyMsgPlain(m) {
 // Like the card: {t: 'text', u, v: <readable fallback>, <key>} — never a new t (an older build keeps the key and shows v).
 //   call = {mode: 'voice'|'video', st: 'missed'|'cancel'|'reject'|'done', dur?, gist?}   on the CALLER's line; the callee = msg.to (a private
 //          chat's other member). dur ('m:ss' / 'h:mm:ss') and gist (≤ 80) only on a connected call. Private chats only.
-//   pay  = {amt?, note?, to, mark?}   a transfer; amt = free text ≤ 12 (no number when missing — never a default), note = 附言 ≤ 60,
+//   pay  = {amt?, note?, to, mark?}   a transfer; amt = free text (no number when missing — never a default), note = 附言 — his ≤ 40 / 200
+//          (THEATER_WEIYU_TYPED_MAX, refused over), a character's ≤ 12 / 60 (EV_MAX, cut in parse.js),
 //          to = the recipient's pid (the other member), mark = the player's manual 当作已收 / 已退 on a transfer TO A CHARACTER (soWyPayMark).
 //   ans  = {ref, res: 'taken'|'back', note?}   an answer (收款 / 退回) to the transfer `ref` of the same chat.
 // No wallet, no balance, no arithmetic. A transfer's STATUS IS DERIVED (soWyPayStatus) — never stored on it: open until a LATER line of the
@@ -15442,9 +16065,11 @@ const THEATER_WEIYU_CALL_ENDS = ['me', 'them', 'cut'];
 // Free: punctuation, spaces, emoji, symbols, a （…） / (…) bracket inside the words (tone / action), the leading tags (stored apart), 画面.
 const THEATER_WEIYU_CALL_SPEAK = Object.freeze({ han: 250, latin: 70, gap: 500, floor: 1000 });
 
-function soWyCallLineNorm(l) {
+// cap = the read cap of the line's words (absent = CALL_CAP.said): soWyCallTurnNorm passes his ceiling for his lines, said for hers — her
+// later turns are stored raw, so her lines must keep reading at 300 (never map this function bare: the index would land in cap)
+function soWyCallLineNorm(l, cap = THEATER_WEIYU_CALL_CAP.said) {
     if (!soWyIsObj(l) || typeof l.text !== 'string') return null;
-    const text = soWyClip(soWyLine1(l.text), THEATER_WEIYU_CALL_CAP.said);
+    const text = soWyClip(soWyLine1(l.text), cap);
     const tags = (Array.isArray(l.tags) ? l.tags : []).filter((t) => typeof t === 'string')
         .map((t) => soWyClip(soWyLine1(t), THEATER_WEIYU_CALL_CAP.tagMax)).filter(Boolean);
     if (!text && !tags.length) return null;
@@ -15456,7 +16081,8 @@ function soWyCallLineNorm(l) {
 
 function soWyCallTurnNorm(t) {
     if (!soWyIsObj(t) || typeof t.u !== 'string' || !t.u || THEATER_WEIYU_UNSAFE_IDS.includes(t.u)) return null;
-    const lines = (Array.isArray(t.lines) ? t.lines : []).map(soWyCallLineNorm).filter(Boolean);
+    const cap = t.u === THEATER_WEIYU_ME ? THEATER_WEIYU_TYPED_MAX.text : THEATER_WEIYU_CALL_CAP.said;
+    const lines = (Array.isArray(t.lines) ? t.lines : []).map((l) => soWyCallLineNorm(l, cap)).filter(Boolean);
     const visual = soWyClip(soWyLine1(t.visual), THEATER_WEIYU_CALL_CAP.visual);
     if (!lines.length && !visual) return null;
     const out = { u: t.u, lines };
@@ -15579,12 +16205,13 @@ function soWyCallSettle(state, keep) {
     return n;
 }
 
+// The read caps of a transfer / an answer are the PLAYER's ceilings (40 / 200): a character's is cut to EV_MAX in parse.js first.
 function soWyPayNorm(pay) {
     if (!soWyIsObj(pay) || typeof pay.to !== 'string' || !pay.to || THEATER_WEIYU_UNSAFE_IDS.includes(pay.to)) return null;
     const out = {};
-    const amt = soWyClip(soWyLine1(pay.amt), THEATER_WEIYU_EV_MAX.amt);
+    const amt = soWyClip(soWyLine1(pay.amt), THEATER_WEIYU_TYPED_MAX.amt);
     if (amt) out.amt = amt;
-    const note = soWyClip(soWyLine1(pay.note), THEATER_WEIYU_EV_MAX.note);
+    const note = soWyClip(soWyLine1(pay.note), THEATER_WEIYU_TYPED_MAX.note);
     if (note) out.note = note;
     out.to = pay.to;
     if (pay.mark === 'taken' || pay.mark === 'back') out.mark = pay.mark;
@@ -15593,15 +16220,15 @@ function soWyPayNorm(pay) {
 
 // 「[转账 200] 奶茶钱」 · 「[转账] 奶茶钱」 · 「[转账 200]」 (the amount is shown as written; none = no number).
 function soWyPayText(pay) {
-    const amt = soWyClip(soWyLine1(soWyIsObj(pay) ? pay.amt : ''), THEATER_WEIYU_EV_MAX.amt);
-    const note = soWyClip(soWyLine1(soWyIsObj(pay) ? pay.note : ''), THEATER_WEIYU_EV_MAX.note);
+    const amt = soWyClip(soWyLine1(soWyIsObj(pay) ? pay.amt : ''), THEATER_WEIYU_TYPED_MAX.amt);
+    const note = soWyClip(soWyLine1(soWyIsObj(pay) ? pay.note : ''), THEATER_WEIYU_TYPED_MAX.note);
     return '[转账' + (amt ? ' ' + amt : '') + ']' + (note ? ' ' + note : '');
 }
 
 function soWyAnsNorm(ans) {
     if (!soWyIsObj(ans) || typeof ans.ref !== 'string' || !ans.ref || (ans.res !== 'taken' && ans.res !== 'back')) return null;
     const out = { ref: ans.ref, res: ans.res };
-    const note = soWyClip(soWyLine1(ans.note), THEATER_WEIYU_EV_MAX.note);
+    const note = soWyClip(soWyLine1(ans.note), THEATER_WEIYU_TYPED_MAX.note);
     if (note) out.note = note;
     return out;
 }
@@ -15610,7 +16237,7 @@ function soWyAnsNorm(ans) {
 function soWyAnsText(ans) {
     const res = soWyIsObj(ans) && soWyOwn(THEATER_WEIYU_ANS_WORDS, ans.res) ? ans.res : '';
     if (!res) return '';
-    const note = soWyClip(soWyLine1(ans.note), THEATER_WEIYU_EV_MAX.note);
+    const note = soWyClip(soWyLine1(ans.note), THEATER_WEIYU_TYPED_MAX.note);
     return '[' + THEATER_WEIYU_ANS_WORDS[res] + ']' + (note ? ' ' + note : '');
 }
 
@@ -15979,6 +16606,8 @@ function soWyCreateGroup(state, pids, name) {
         if (pid !== THEATER_WEIYU_ME && soWyPerson(state, pid) && !picked.includes(pid)) picked.push(pid);
     }
     if (picked.length < 2) return null;
+    // a TYPED name over his ceiling is refused, never cut (the code-made default name below is still cut by soWyAddChat, as before)
+    if (typeof name === 'string' && soWyLen(name) > THEATER_WEIYU_TYPED_MAX.group) return null;
     const title = typeof name === 'string' && name.trim() ? name.trim() : picked.slice(0, 3).map((pid) => soWyPersonName(state, pid)).join('、');
     const cid = soWyAddChat(state, { type: 'group', name: title, members: [THEATER_WEIYU_ME, ...picked], floor: null });
     if (!cid) return null;
@@ -16003,11 +16632,13 @@ function soWyLeave(state, cid) {
     return mid;
 }
 
-// The player's own line: stored verbatim as ONE text message — never parsed, whatever it looks like.
+// The player's own line: stored verbatim as ONE text message — never parsed, whatever it looks like. Over his ceiling
+// (THEATER_WEIYU_TYPED_MAX.text) → null, nothing stored — never cut (the screen says so first).
 function soWySendLine(state, cid, text, quote) {
     const chat = soWyChat(state, cid);
     if (!chat || !soWyCanSendIn(state, chat)) return null;   // = live, his, and not his private chat with someone he blocked
-    const v = soWyClip(text, 300);
+    if (soWyLen(text) > THEATER_WEIYU_TYPED_MAX.text) return null;
+    const v = soWyClip(text, THEATER_WEIYU_TYPED_MAX.text);
     if (!v) return null;
     const msg = { t: 'text', u: THEATER_WEIYU_ME, v };
     if (soWyIsObj(quote) && soWyPerson(state, quote.u)) msg.q = { u: quote.u, v: soWyClip(quote.v, 120) };
@@ -16056,11 +16687,12 @@ function soWyCanRecall(state, chat, msg) {
 // voice: v = his words, sec computed
 // (soWyVoiceSec; any given sec is ignored). photo / video: v = what the camera shows; em = the tile's emoji (kept only when it is one
 // emoji); dur 'm:ss', required for a video (1 s – 99:59). nudge: to = soWyCanNudge. card (more functions phase 1): k = 'loc' | 'file' |
-// 'link' | 'contact' | 'music' (位置 / 文件 / 链接 / 名片 / 音乐), title required (one line, ≤ 40), sub optional (≤ 60); a 名片 of someone
+// 'link' | 'contact' | 'music' (位置 / 文件 / 链接 / 名片 / 音乐), title required (one line, ≤ 120), sub optional (≤ 300); a 名片 of someone
 // on the phone passes pid (a living person, the player included) and takes his name as the title, any other 名片 is free text. Stored
 // as {t: 'text', u: 'me', v: soWyCardText(card), card}. Phase 2: {t: 'call', mode: 'voice'|'video'} (his 已取消 call, to = the other
 // member) and {t: 'pay', amt?, note?} (his transfer) — his own private chat only (soWyEvPeer). Stored like soWySendLine (src 'me', read, touched),
-// never parsed. → the new id, or null (nothing changed).
+// never parsed. Each typed field over its ceiling (THEATER_WEIYU_TYPED_MAX: words 4000, card 120 / 300, transfer 40 / 200) → null, never cut.
+// → the new id, or null (nothing changed).
 function soWySendKind(state, cid, o) {
     const chat = soWyChat(state, cid);
     const x = soWyIsObj(o) ? o : {};
@@ -16076,6 +16708,7 @@ function soWySendKind(state, cid, o) {
             const call = { mode: x.mode, st: 'cancel' };
             msg = { t: 'text', u: THEATER_WEIYU_ME, to, v: soWyCallText(call), call };
         } else {
+            if (soWyLen(soWyLine1(x.amt)) > THEATER_WEIYU_TYPED_MAX.amt || soWyLen(soWyLine1(x.note)) > THEATER_WEIYU_TYPED_MAX.note) return null;
             const pay = soWyPayNorm({ amt: x.amt, note: x.note, to });
             msg = { t: 'text', u: THEATER_WEIYU_ME, v: soWyPayText(pay), pay };
         }
@@ -16088,6 +16721,7 @@ function soWySendKind(state, cid, o) {
             pid = x.pid;
             title = p.name;
         }
+        if (soWyLen(soWyLine1(title)) > THEATER_WEIYU_TYPED_MAX.title || soWyLen(soWyLine1(x.sub)) > THEATER_WEIYU_TYPED_MAX.sub) return null;
         const card = soWyCardNorm({ k: x.k, title, sub: x.sub, pid });
         if (!card) return null;
         msg = { t: 'text', u: THEATER_WEIYU_ME, v: soWyCardText(card), card };
@@ -16095,7 +16729,8 @@ function soWySendKind(state, cid, o) {
         if (!soWyCanNudge(state, chat, x.to)) return null;
         msg.to = x.to;
     } else {
-        msg.v = soWyClip(x.v, 300);
+        if (soWyLen(x.v) > THEATER_WEIYU_TYPED_MAX.text) return null;
+        msg.v = soWyClip(x.v, THEATER_WEIYU_TYPED_MAX.text);
         if (!msg.v) return null;
         if (x.t === 'voice') msg.sec = soWyVoiceSec(msg.v);
         if (x.t !== 'voice' && typeof x.em === 'string' && soWyIsEmojiOnly(x.em) && Array.from(x.em.match(/\p{Extended_Pictographic}/gu) || []).length === 1) msg.em = x.em.trim();
@@ -16198,6 +16833,108 @@ function soWySetNumOpt(state, key, value, def, clamp) {
     return true;
 }
 
+// ---- 每几次回复更新一次 · story sync every N replies (owner #160, 2026-11-21; design docs/superpowers/specs/2026-11-21-weiyu-sync-every-design.md) ---
+// opts.syncEvery = N, a whole number ≥ 1, per chat next to opts.sync; absent = 1 = today (a sync after every story reply). soWyDefaultOpts is
+// unchanged, so a phone that never sets it stores nothing new. The flag gate lives in the UI (env.stages.syncEvery) and the join
+// (ENABLE_THR_WEIYU_SYNC_EVERY); these are pure and never throw. Nothing is clamped: what the player types is taken or refused (owner's rule).
+function soWySyncEvery(state) {
+    const v = soWyIsObj(state) && soWyIsObj(state.opts) ? state.opts.syncEvery : undefined;
+    return Number.isSafeInteger(v) && v >= 1 ? v : 1;
+}
+
+// The typed text → {ok: true, n} | {ok: false, why: 'bad' | 'big'}. Taken: digits only (ASCII or full-width), spaces around ignored, value ≥ 1.
+// 'bad' = anything else (empty, 0, a sign, a decimal point, letters); 'big' = more than the largest whole number the phone counts exactly
+// (Number.MAX_SAFE_INTEGER, 9007199254740991) — the only ceiling, and it is said, never applied silently.
+function soWySyncEveryParse(text) {
+    const t = String(text == null ? '' : text).trim().replace(/[０-９]/g, (c) => String(c.charCodeAt(0) - 0xFF10));
+    if (!/^[0-9]+$/.test(t)) return { ok: false, why: 'bad' };
+    const n = Number(t);
+    if (!(n >= 1)) return { ok: false, why: 'bad' };
+    if (!Number.isSafeInteger(n)) return { ok: false, why: 'big' };
+    return { ok: true, n };
+}
+
+// 1 deletes the key (= today); any other safe whole number ≥ 1 is stored as it is; anything else is refused → false.
+function soWySetSyncEvery(state, n) {
+    if (!soWyIsObj(state) || !Number.isSafeInteger(n) || n < 1) return false;
+    if (!soWyIsObj(state.opts)) state.opts = soWyDefaultOpts();
+    if (n === 1) delete state.opts.syncEvery;
+    else state.opts.syncEvery = n;
+    return true;
+}
+
+// ---- AI 自动回复 · the AI auto-reply switch (owner 2026-11-20; spec 2026-11-20-weiyu-hold-reply-design.md §5 / §6) -------------------
+// ONE switch for the whole phone: opts.autoReply — absent = ON (today: every send asks for a reply; a player who never touches it stores
+// nothing new, soWyDefaultOpts is unchanged), false = OFF (what he sends is stored and shown, no request; the UI's 「AI 现在回复」 asks once).
+// Anything else stored reads as ON and is kept as stored (soWyKeepExtra), like opts.motion. The flag gate lives in the UI / engine
+// (env.stages.autoReply / deps.autoReply); these readers are pure and never throw.
+function soWyArOpt(state) {
+    return !(soWyIsObj(state) && soWyIsObj(state.opts) && state.opts.autoReply === false);
+}
+
+// on true → the key goes (ON = absent); false → opts.autoReply = false. Creates opts (the defaults) when missing; no state → false.
+// → true when the stored option changed.
+function soWyArSet(state, on) {
+    if (!soWyIsObj(state)) return false;
+    if (!soWyIsObj(state.opts)) state.opts = soWyDefaultOpts();
+    const had = soWyOwn(state.opts, 'autoReply');
+    const was = state.opts.autoReply;
+    if (on) delete state.opts.autoReply;
+    else state.opts.autoReply = false;
+    return on ? had : !(had && was === false);
+}
+
+// One of HIS items a reply has not answered yet: his own send (src 'me'), not a line the AI wrote for him (ai), not refused. A time line is
+// neither (skipped); anything else (a character's line, a sys / event line, a line from a story sync) ends the run.
+function soWyArItem(m) {
+    return soWyIsObj(m) && m.u === THEATER_WEIYU_ME && m.src === 'me' && !m.ai && m.refused !== 1;
+}
+
+// What waits for a reply at the END of a chat he can send in (derived from the chat, nothing stored — it survives reload, undo and sync):
+// walking back from the end, time lines skipped, every item of his (soWyArItem) is taken until anything else. ids = the run, oldest first;
+// last = the newest taken (it may be a recall or a call record — the request shows everything); n = the taken items that are not a recall,
+// not a call record and not his 收款 / 退回 answer to her transfer (root ruling 2026-11-20: that tap asks for nothing today, so it alone
+// never makes 「AI 现在回复」 appear). → {n, last, ids} when n ≥ 1, else null (also for a chat he only watches, a dissolved / closed / blocked one).
+function soWyWaiting(state, cid) {
+    try {
+        const chat = soWyChat(state, cid);
+        if (!chat || !Array.isArray(chat.msgs) || !soWyCanSendIn(state, chat)) return null;
+        const ids = [];
+        let n = 0;
+        for (let i = chat.msgs.length - 1; i >= 0; i--) {
+            const m = chat.msgs[i];
+            if (soWyIsObj(m) && m.t === 'time') continue;
+            if (!soWyArItem(m)) break;
+            ids.unshift(m.id);
+            const ek = soWyEvKind(m);
+            if (m.t !== 'recall' && ek !== 'call' && ek !== 'ans') n++;
+        }
+        return n >= 1 ? { n, last: ids[ids.length - 1], ids } : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+// 重新回复 on one of his items inside an unbroken run of his items (time lines skipped) acts on the run's LAST item — else the model would not
+// see the later ones and the replies would land between them. → that newest id; `mid` itself when it is not such an item. Never throws.
+function soWyArRunEnd(state, cid, mid) {
+    try {
+        const chat = soWyChat(state, cid);
+        const i = soWyMsgIndex(chat, mid);
+        if (i < 0 || !soWyArItem(chat.msgs[i])) return mid;
+        let end = mid;
+        for (let j = i + 1; j < chat.msgs.length; j++) {
+            const m = chat.msgs[j];
+            if (soWyIsObj(m) && m.t === 'time') continue;
+            if (!soWyArItem(m)) break;
+            end = m.id;
+        }
+        return end;
+    } catch (e) {
+        return mid;
+    }
+}
+
 // Options and the id counter survive a reset; people / chats / deltas / alts do not. Pictures are never stored here.
 function soWyReset(state) {
     const me = soWyPerson(state, THEATER_WEIYU_ME);
@@ -16226,6 +16963,8 @@ function soWyEditMsg(state, cid, mid, text) {
     const v = String(text == null ? '' : text).trim();
     if (!v) return false;
     const m = chat.msgs[i];
+    // over his ceiling AND longer than the line it replaces → refused (an AI line can be longer than 4000: he may still shorten it)
+    if (soWyLen(v) > THEATER_WEIYU_TYPED_MAX.text && soWyLen(v) > soWyLen(m.v)) return false;
     m.v = v;
     if (m.t === 'text' || m.t === 'emoji') m.t = soWyIsEmojiOnly(v) ? 'emoji' : 'text';
     soWyTouch(state, cid);
@@ -16552,12 +17291,14 @@ function soWyScreenChats(state) {
     return all.filter(pinned).concat(all.filter((cid) => !pinned(cid)));
 }
 
-const THEATER_WEIYU_REMARK_MAX = 24;
+const THEATER_WEIYU_REMARK_MAX = 60;
 
-// 备注: one line, ≤ 24 characters; empty (or the name itself) clears it. Never the player, never a removed contact.
+// 备注: one line, ≤ 60 characters (over → false, nothing changed — never cut); empty (or the name itself) clears it. Never the player, never
+// a removed contact.
 function soWySetRemark(state, pid, text) {
     const p = soWyPerson(state, pid);
     if (!p || pid === THEATER_WEIYU_ME || p.gone === 1) return false;
+    if (soWyLen(soWyLine1(text)) > THEATER_WEIYU_REMARK_MAX) return false;
     const r = soWyClip(soWyLine1(text), THEATER_WEIYU_REMARK_MAX);
     if (r && r !== p.name) p.remark = r;
     else delete p.remark;
@@ -16667,6 +17408,278 @@ function soWyAddContact(state, pid) {
         if (soWyIsObj(d) && !d.final && soWyMentions(d, pid)) d.touched = 1;
     }
     return cid;
+}
+
+// ---- adding contacts by hand (2026-11-21; spec 2026-11-21-weiyu-add-contact-design.md) ----------------------------------------------------
+// Two additive Person keys: origin ('story' = a story person the player added · 'new' = 故事外的新人, invented by him) and about (the 人物说明,
+// only for the AI — soWyBrief prints both behind args.ac). A person without them is today's person, byte for byte. The TYPED path validates
+// first and REFUSES (never soWyAddPerson / soWyClip: what he typed is stored as typed, ends trimmed); AI-made people keep their own caps.
+//   soWyAcName(state, name, max = AC_MAX.name) → {why: 'empty'|'long'(+m)|'lead'|'chars'|'me'} | {why: 'contact', pid} | {why: 'group', g} |
+//     {ok: true, info?: 'extra'|'gone', pid?, m} — THE name check (the typed form with 40, the find list with 24), in this order.
+//   soWyAcCheck(state, f) → {ok, name, over: {name?, sig?, area?, about?: m}, need}   f = {name, origin, about?, sig?, area?}
+//   soWyAcAdd(state, f) → {pid, cid} | null · soWyAcPromote(state, pid) → bool · soWyAcEdit(state, pid, f) → bool
+const THEATER_WEIYU_AC_MAX = Object.freeze({ name: 40, sig: 200, area: 200, about: 2000 });
+// The characters the reader splits on (names 、，, · fields ｜| · speakers ：: · tags 〔〕[] · records 【】 and line breaks), both widths.
+const THEATER_WEIYU_AC_BAD_RE = /[、，,｜\|：:〔〕\[\]【】\r\n]/;
+
+// The group a person of this name would collide with ('' = none): ANY group, dissolved or closed included, by the exact key or the
+// resolver's tolerant key (soWyChatKey: no spaces, no trailing member count) — a 【聊天】 heading resolves to a group first.
+function soWyAcGroupClash(state, name) {
+    const k = soWyNameKey(name);
+    if (!k || !state || !soWyIsObj(state.chats)) return '';
+    const t = soWyChatKey(name);
+    for (const c of Object.values(state.chats)) {
+        if (!soWyIsObj(c) || c.type !== 'group') continue;
+        const nm = typeof c.name === 'string' ? c.name : '';
+        if (!soWyNameKey(nm)) continue;
+        if (soWyNameKey(nm) === k || (t && soWyChatKey(nm) === t)) return nm;
+    }
+    return '';
+}
+
+function soWyAcName(state, name, max) {
+    const raw = String(name == null ? '' : name).trim();
+    if (!raw) return { why: 'empty' };
+    const cap = Number(max) > 0 ? Math.floor(Number(max)) : THEATER_WEIYU_AC_MAX.name;
+    const m = soWyLen(raw);
+    if (m > cap) return { why: 'long', m };
+    if (/^[@＠]/.test(raw) || /^\*\*/.test(raw)) return { why: 'lead' };
+    if (THEATER_WEIYU_AC_BAD_RE.test(raw)) return { why: 'chars' };
+    const pid = soWyFindPerson(state, raw);
+    if (pid === THEATER_WEIYU_ME) return { why: 'me' };
+    const p = pid ? soWyPerson(state, pid) : null;
+    if (p && !p.extra) return { why: 'contact', pid };
+    const g = soWyAcGroupClash(state, raw);
+    if (g) return { why: 'group', g };
+    if (p) return { ok: true, info: 'extra', pid, m };
+    const key = soWyNameKey(raw);
+    const gone = soWyIsObj(state && state.people) && Object.values(state.people).some((x) => soWyIsObj(x) && x.gone === 1 && soWyNameKey(x.name) === key);
+    return gone ? { ok: true, info: 'gone', m } : { ok: true, m };
+}
+
+function soWyAcCheck(state, f) {
+    const x = soWyIsObj(f) ? f : {};
+    const M = THEATER_WEIYU_AC_MAX;
+    const name = soWyAcName(state, x.name, M.name);
+    const over = {};
+    if (name.why === 'long') over.name = name.m;
+    for (const k of ['sig', 'area', 'about']) {
+        const m = soWyLen(x[k]);
+        if (m > M[k]) over[k] = m;
+    }
+    const need = x.origin === 'new' && !soWyLen(x.about);
+    const ok = name.ok === true && !Object.keys(over).length && !need && (x.origin === 'story' || x.origin === 'new');
+    return { ok, name, over, need };
+}
+
+// The typed add: a NEW person {id, name, sig?, area?, about?, origin, extra: 1} or the background member of that name (his typed non-empty
+// fields set — the player's words win), then soWyAddContact (extra goes, the private chat with the grey 你们已经是好友了). Nothing on refusal.
+function soWyAcAdd(state, f) {
+    if (!state || !soWyIsObj(state.people) || !soWyIsObj(state.chats)) return null;
+    const chk = soWyAcCheck(state, f);
+    if (!chk.ok) return null;
+    const typed = {};
+    for (const k of ['sig', 'area', 'about']) {
+        const v = typeof f[k] === 'string' ? f[k].trim() : '';
+        if (v) typed[k] = v;
+    }
+    let pid = chk.name.info === 'extra' ? chk.name.pid : '';
+    if (pid) {
+        Object.assign(state.people[pid], typed, { origin: f.origin });
+    } else {
+        pid = soWyNewId(state, 'p');
+        state.people[pid] = Object.assign({ id: pid, name: String(f.name).trim() }, typed, { origin: f.origin, extra: 1 });
+    }
+    const cid = soWyAddContact(state, pid);
+    return cid ? { pid, cid } : null;
+}
+
+// The list's add of a background member (no chat — the owner's decision 3): soWyAddContact's first half. extra goes, every live delta that
+// mentions him is touched (same pid, so every group line stays). A contact / removed person / the player → false.
+function soWyAcPromote(state, pid) {
+    const p = soWyPerson(state, pid);
+    if (!p || pid === THEATER_WEIYU_ME || p.gone === 1 || p.extra !== 1) return false;
+    delete p.extra;
+    for (const d of Array.isArray(state.deltas) ? state.deltas : []) {
+        if (soWyIsObj(d) && !d.final && soWyMentions(d, pid)) d.touched = 1;
+    }
+    return true;
+}
+
+// 编辑资料 of a hand-added / list-added person (origin or about set; a 开机 contact has no edit page → false): the keys present in f among
+// about / sig / area (ends trimmed; empty deletes the key) and origin. Over a ceiling, an unknown origin or 故事外的新人 without a 人物说明 →
+// false, nothing changed. A player edit: live deltas mentioning him are touched.
+function soWyAcEdit(state, pid, f) {
+    const p = soWyPerson(state, pid);
+    const x = soWyIsObj(f) ? f : {};
+    if (!p || pid === THEATER_WEIYU_ME || p.gone === 1 || p.extra) return false;
+    if (!(p.origin === 'story' || p.origin === 'new' || (typeof p.about === 'string' && p.about.trim()))) return false;
+    const next = {};
+    for (const k of ['sig', 'area', 'about']) {
+        if (!soWyOwn(x, k)) continue;
+        const v = typeof x[k] === 'string' ? x[k].trim() : '';
+        if (soWyLen(v) > THEATER_WEIYU_AC_MAX[k]) return false;
+        next[k] = v;
+    }
+    if (soWyOwn(x, 'origin') && x.origin !== 'story' && x.origin !== 'new') return false;
+    const origin = soWyOwn(x, 'origin') ? x.origin : p.origin;
+    const about = soWyOwn(next, 'about') ? next.about : (typeof p.about === 'string' ? p.about.trim() : '');
+    if (origin === 'new' && !about) return false;
+    for (const k of Object.keys(next)) {
+        if (next[k]) p[k] = next[k];
+        else delete p[k];
+    }
+    if (soWyOwn(x, 'origin')) p.origin = origin;
+    for (const d of Array.isArray(state.deltas) ? state.deltas : []) {
+        if (soWyIsObj(d) && !d.final && soWyMentions(d, pid)) d.touched = 1;
+    }
+    return true;
+}
+
+// ---- 从故事里找人: matching, the code-made excerpt, the list's add (adding contacts by hand, pass B; spec §5 / §6) ----------------------
+// The find request's records are a DRAFT: soWyFindMatch reads them against the phone and the text actually sent and NEVER changes the state;
+// only the player's 添加 on one row (soWyAcAddFound, on a clone the UI commits) adds anyone.
+//   src = {floors: [{n, text}]} — the story messages the request carried (n = the chat index; the join's soThrWeiyuFindSource, read once
+//     at press time). Story prose only (the owner, 2026-11-21): a person only the card or the world book names is never listed.
+//   soWyFindEx(src, name) → {floor: n | null, text} | null — where the text mentions the name: the NEWEST floor containing it (floor null
+//     only for a floor without a usable index); text = up to THEATER_WEIYU_FIND_EX code points each side of the first occurrence, whitespace
+//     flattened, … at a cut end. Occurrence = the exact name as a substring, case-insensitive (Latin letters). null = not in the sent floors.
+//   soWyAcNear(state, name) → the first living contact's / background member's name that is near this one ('' = none): one contains the
+//     other (both ≥ 2 code points), or the same length ≥ 3 with exactly one code point different (spec: ≥ 2; at 2 every pair sharing a
+//     surname — 苏朗 / 苏晚 — would be "near"). A tag only — never a merge.
+//   soWyFindMatch(state, recs, src) → {rows, have, drop}: per record in order — a repeat → drop.dup; soWyAcName with the typed ceiling
+//     (THEATER_WEIYU_AC_MAX.name, root's ruling: a found name may be as long as a typed one) — empty / long / lead / chars / me → drop[why];
+//     a living contact → have (his name, once); not in the sent text → drop.unfound; a group's name → an un-addable row {add: 'none', why:
+//     'group', g}; else a row {add: 'new'} or, for a background member, {add: 'promote', pid}. Tags in order:
+//     extra (在群里出现过), gone (以前删除过), near {w}. 来自 / 签名 come clipped to the AI caps (80) — what the row shows is what 添加 stores.
+//     Row = {name, sig?, area?, tags: [{k, w?}], add, why?, g?, pid?, ex: {floor, text}}.
+//   soWyAcAddFound(state, row) → pid | null — re-checked against the phone as it is NOW (a contact meanwhile / a group clash / any refusal →
+//     null, nothing changed). New (a removed name included: a NEW person) → soWyAddPerson (AI caps 24 / 80 / 80; the name itself kept whole,
+//     ≤ 40) + origin 'story', NO chat. Background member → his empty 签名 / 来自 filled from the row, soWyAcPromote (same pid: every group line
+//     stays; NO chat), origin 'story'.
+const THEATER_WEIYU_FIND_EX = 24;
+
+// The first occurrence of `name` in `text` (case-insensitive) → its code-point index and length, or null.
+function soWyFindAt(text, name) {
+    const t = String(text == null ? '' : text);
+    const n = String(name == null ? '' : name);
+    if (!n || !t) return null;
+    let m = null;
+    try {
+        m = new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'iu').exec(t);
+    } catch (e) {
+        m = null;
+    }
+    if (!m) return null;
+    return { i: Array.from(t.slice(0, m.index)).length, len: Array.from(m[0]).length };
+}
+
+function soWyFindEx(src, name) {
+    const s = soWyIsObj(src) ? src : {};
+    const n = soWyNameKey(name);
+    if (!n) return null;
+    const flat = (v) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+    const cut = (text, at) => {
+        const cps = Array.from(text);
+        const a = Math.max(0, at.i - THEATER_WEIYU_FIND_EX);
+        const b = Math.min(cps.length, at.i + at.len + THEATER_WEIYU_FIND_EX);
+        return (a > 0 ? '…' : '') + cps.slice(a, b).join('') + (b < cps.length ? '…' : '');
+    };
+    const floors = Array.isArray(s.floors) ? s.floors : [];
+    for (let i = floors.length - 1; i >= 0; i--) {
+        const f = floors[i];
+        if (!soWyIsObj(f)) continue;
+        const text = flat(f.text);
+        const at = soWyFindAt(text, n);
+        if (at) return { floor: Number.isFinite(Number(f.n)) ? Math.floor(Number(f.n)) : null, text: cut(text, at) };
+    }
+    return null;
+}
+
+function soWyAcNear(state, name) {
+    const k = soWyNameKey(name);
+    const a = Array.from(k);
+    if (a.length < 2 || !state || !soWyIsObj(state.people)) return '';
+    for (const pid of Object.keys(state.people)) {
+        if (pid === THEATER_WEIYU_ME) continue;
+        const p = soWyPerson(state, pid);
+        if (!p || p.gone === 1) continue;
+        const o = soWyNameKey(p.name);
+        const b = Array.from(o);
+        if (o === k || b.length < 2) continue;
+        if (k.includes(o) || o.includes(k)) return p.name;
+        if (a.length >= 3 && a.length === b.length && a.filter((c, i) => c !== b[i]).length === 1) return p.name;
+    }
+    return '';
+}
+
+function soWyFindMatch(state, recs, src) {
+    const out = { rows: [], have: [], drop: {} };
+    const drop = (why) => { out.drop[why] = (out.drop[why] || 0) + 1; };
+    const seen = new Set();
+    for (const rec of Array.isArray(recs) ? recs : []) {
+        if (!soWyIsObj(rec)) continue;
+        const name = soWyNameKey(rec.name);
+        const key = name.toLowerCase();
+        if (name && seen.has(key)) {
+            drop('dup');
+            continue;
+        }
+        if (name) seen.add(key);
+        const r = soWyAcName(state, name, THEATER_WEIYU_AC_MAX.name);
+        if (r.why === 'contact') {
+            const p = soWyPerson(state, r.pid);
+            const shown = p && typeof p.name === 'string' ? p.name : name;
+            if (!out.have.includes(shown)) out.have.push(shown);
+            continue;
+        }
+        if (!r.ok && r.why !== 'group') {
+            drop(r.why || 'empty');
+            continue;
+        }
+        const ex = soWyFindEx(src, name);
+        if (!ex) {
+            drop('unfound');
+            continue;
+        }
+        const row = { name, tags: [], add: 'new', ex };
+        if (typeof rec.sig === 'string' && rec.sig.trim()) row.sig = soWyClip(rec.sig, 80);
+        if (typeof rec.area === 'string' && rec.area.trim()) row.area = soWyClip(rec.area, 80);
+        if (r.why === 'group') {
+            Object.assign(row, { add: 'none', why: 'group', g: r.g });
+            out.rows.push(row);
+            continue;
+        }
+        if (r.info === 'extra') {
+            row.tags.push({ k: 'extra' });
+            row.add = 'promote';
+            row.pid = r.pid;
+        }
+        if (r.info === 'gone') row.tags.push({ k: 'gone' });
+        const w = soWyAcNear(state, name);
+        if (w) row.tags.push({ k: 'near', w });
+        out.rows.push(row);
+    }
+    return out;
+}
+
+function soWyAcAddFound(state, row) {
+    if (!state || !soWyIsObj(state.people) || !soWyIsObj(row) || typeof row.name !== 'string') return null;
+    const r = soWyAcName(state, row.name, THEATER_WEIYU_AC_MAX.name);
+    if (!r.ok) return null;
+    const fill = { name: row.name };
+    if (typeof row.sig === 'string' && row.sig.trim()) fill.sig = row.sig;
+    if (typeof row.area === 'string' && row.area.trim()) fill.area = row.area;
+    if (r.info === 'extra') {
+        if (soWyAddPerson(state, fill) !== r.pid || !soWyAcPromote(state, r.pid)) return null;
+        state.people[r.pid].origin = 'story';
+        return r.pid;
+    }
+    const pid = soWyAddPerson(state, fill);
+    if (!pid || soWyPerson(state, pid).extra) return null;
+    state.people[pid].name = soWyNameKey(row.name);
+    state.people[pid].origin = 'story';
+    return pid;
 }
 
 // ---- calls and transfers: the player's side and the derived status (phase 2 slice A; shapes above soWyCallNorm) -----------------------
@@ -17241,6 +18254,7 @@ function soWyParseCall(line, ck, after) {
 // ---- the live call scene (call scene slice A, 2026-11-18): one reply of the person HE called, read line by line --------------------------
 // Ported from probe gm-callscene's reader (reader.mjs parseCall) with root's code rulings; the shapes (one per line):
 //   未接 · 拒接｜原因        no speech in the reply = no pick-up (st 'missed' / 'reject', why); with speech, such a line is dropped (speech wins)
+//                          乙：未接｜原因 (her name in front) = the same decline ONLY when it is the reply's one row (then strict false)
 //   画面：……               what his screen shows — VIDEO only (a voice call has no picture: dropped)
 //   乙：（tag）（tag）话     her spoken line; leading （） / () tags of 1–40 characters, stored as written (over 40 stay in the words); the
 //                          VOICE length limit is judged by soWyCallTagLong, never here
@@ -17272,6 +18286,23 @@ const THEATER_WEIYU_CALL_RE = Object.freeze({
     tag: /^[（(]([^（）()]{1,40})[）)]\s*/,
 });
 
+// A call row's speaker → {who, body} | null. Today's rule (RE.speaker: a name of ≤ 10 before ：/:) first, exactly as it was; ONLY where it
+// finds no speaker, a row that begins with the KNOWN name of her or of the player (name / me, 11–40 code points — English names, hand-added
+// people), then spaces, then ：/: is that speaker's row (body = the rest, leading spaces dropped, as RE.speaker's \s* does). A row that merely
+// holds a colon is never a speaker row by the new rule: it must start with one of those two names.
+function soWyCallSpeakerOf(l, name, me) {
+    const sp = THEATER_WEIYU_CALL_RE.speaker.exec(l);
+    if (sp) return { who: soWyNameKey(sp[1]), body: sp[2] };
+    for (const n of [name, me]) {
+        const len = typeof n === 'string' ? Array.from(n).length : 0;
+        if (len < 11 || len > THEATER_WEIYU_AC_MAX.name || !l.startsWith(n)) continue;
+        let j = n.length;
+        while (/\s/.test(l[j] || '')) j++;
+        if (l[j] === '：' || l[j] === ':') return { who: n, body: l.slice(j + 1).replace(/^\s+/, '') };
+    }
+    return null;
+}
+
 // The comparison key of one call line for the echo: a 画面 row → 'v:' + its picture; anything else → 's:' + its words without her / his
 // name and without leading tags (a tags-only line: its tags). NFKC (full-width colon / brackets → half-width), every space removed.
 // '' = nothing to compare. tail item {k: 'pic' | 'her' | 'me', tags?, text} → the same key its row would give.
@@ -17290,9 +18321,9 @@ function soWyCallEchoKey(row, name, me) {
         return k ? 'v:' + k : '';
     }
     let b = l;
-    const sp = RE.speaker.exec(l);
-    const who = sp ? soWyNameKey(sp[1]) : '';
-    if (who && (who === name || who === me)) b = sp[2];
+    const sp = soWyCallSpeakerOf(l, name, me);
+    const who = sp ? sp.who : '';
+    if (who && (who === name || who === me)) b = sp.body;
     const tags = [];
     let m;
     while ((m = RE.tag.exec(b))) { tags.push(m[1].trim()); b = b.slice(m[0].length); }
@@ -17327,12 +18358,23 @@ function soWyCallRead(text, o) {
         }
         rows = kept.concat(rows.slice(i));
     }
+    // her name in front of a decline (gm-add 2026-11-21, DeepSeek DS-P4: 「程一舟：未接｜手机在自习室静音，没听见」): ONLY when that one row is
+    // the whole reply (after the wrappers and the echo above) and its speaker (soWyCallSpeakerOf) is her, it is read as the bare decline
+    // (loose: not strict). With any other row beside it, it stays her spoken line, as before.
+    let named = false;
+    if (name && rows.length === 1) {
+        const sp1 = soWyCallSpeakerOf(rows[0], name, me);
+        if (sp1 && sp1.who === name && RE.decline.test(sp1.body.trim())) {
+            rows = [sp1.body.trim()];
+            named = true;
+        }
+    }
     const visuals = [];
     let decline = null;
     let declines = 0;
     let last = '';   // the speaker of the last spoken / player / other line: 'her' | 'me' | 'other'
     let cut = false;
-    let loose = false;
+    let loose = named;
     // her words (tags first) → a line, or the loose hang-up
     const said = (body, contd) => {
         let b = body;
@@ -17374,10 +18416,10 @@ function soWyCallRead(text, o) {
             if (!decline) decline = { st: d[1] === '未接' ? 'missed' : 'reject', why: soWyClip(soWyLine1(d[2]), THEATER_WEIYU_CALL_CAP.why) };
             continue;
         }
-        const sp = RE.speaker.exec(l);
+        const sp = soWyCallSpeakerOf(l, name, me);
         if (sp) {
-            const who = soWyNameKey(sp[1]);
-            if (name && who === name) { said(sp[2], false); continue; }
+            const who = sp.who;
+            if (name && who === name) { said(sp.body, false); continue; }
             if (me && who === me) { drop.player++; last = 'me'; continue; }
             drop.other++;
             last = 'other';
@@ -17474,13 +18516,30 @@ function soWyFwdCount(from) {
 }
 
 // A forward's body → its lines: split on ／; each piece 名字：话 (the first ：/: splits); a piece without one joins the line before it.
-function soWyFwdLines(body) {
+// sorted (optional; soWyParseLine's known names, longest first): adding contacts by hand allows names of 25–40 code points (typed / from the
+// find list), which the 24-character rule above cannot split. ONLY where that rule finds no speaker, a piece that starts with a KNOWN name
+// of 25–40 code points followed (spaces allowed) by ：/: and words is that person's line (soWySpeaker's guard). Names have no colon, so the
+// rule above never matches such a piece: every piece it reads today reads exactly as before; no phone had a name over 24 before this.
+function soWyFwdLines(body, sorted) {
     const lines = [];
+    const long = (Array.isArray(sorted) ? sorted : []).filter((n) => typeof n === 'string' && Array.from(n).length > 24 && Array.from(n).length <= THEATER_WEIYU_FWD_MAX.name);
+    const known = (t) => {
+        for (const n of long) {
+            if (!t.startsWith(n)) continue;
+            let j = n.length;
+            while (t[j] === ' ') j++;
+            const v = t[j] === '：' || t[j] === ':' ? t.slice(j + 1).trim() : '';
+            if (v) return { name: soWyNameKey(n), v };
+        }
+        return null;
+    };
     for (const piece of String(body == null ? '' : body).split('／')) {
         const t = piece.trim();
         if (!t) continue;
         const m = /^([^：:]{1,24})[：:]([\s\S]*)$/.exec(t);
+        const k = m && m[2].trim() ? null : known(t);
         if (m && m[2].trim()) lines.push({ name: soWyNameKey(m[1]), v: m[2].trim() });
+        else if (k) lines.push(k);
         else if (lines.length) lines[lines.length - 1].v += '／' + t;
         else lines.push({ name: '', v: t });
     }
@@ -17489,7 +18548,8 @@ function soWyFwdLines(body) {
 
 // net (world words, step 2; optional): the set's tag words count as today's for the KIND only (soWyNetTag) — `raw`, the words as written
 // (`asWritten` / `v`), `alt`, `line` and card titles stay as written. Absent / null = today's path.
-function soWyParseMsg(line, sp, net) {
+// sorted (optional, trailing): the known names (soWyParseLine's), handed to soWyFwdLines for a forwarded line of a 25–40-character name.
+function soWyParseMsg(line, sp, net, sorted) {
     const drop = (why) => ({ r: 'drop', why, line });
     let rest = sp.rest;
     let tag = null;
@@ -17565,6 +18625,12 @@ function soWyParseMsg(line, sp, net) {
         }
         const c = soWyCardNorm({ k: card.k, title, sub });
         if (!c) return asText();
+        // the MODEL ceiling (length limits 2026-11-21): soWyCardNorm reads the player's 120 / 300, so the AI's card is cut here to CARD_MAX
+        // exactly as the norm cut it before — the same bytes, a trailing space at the cut included (the stored sync ops keep it)
+        c.title = soWyClip(soWyLine1(title), THEATER_WEIYU_CARD_MAX.title);
+        const sub1 = soWyClip(soWyLine1(sub), THEATER_WEIYU_CARD_MAX.sub);
+        if (sub1) c.sub = sub1;
+        else delete c.sub;
         rec.v = soWyCardText(c);
         rec.card = c;
         return rec;
@@ -17576,8 +18642,8 @@ function soWyParseMsg(line, sp, net) {
         // copies the real lines. Lines written out (the phase-1 shape) stay what they were: a plain line of the speaker (below).
         const cnt = soWyFwdCount(from);
         if (cnt) return Object.assign(rec, { v, fref: { from: cnt.name, n: cnt.n } });
-        if (!soWyFwdLines(v).some((l) => l.name)) return Object.assign(rec, { v, fref: { from, n: null } });
-        const f = soWyFwdNorm({ from, lines: soWyFwdLines(v) });
+        if (!soWyFwdLines(v, sorted).some((l) => l.name)) return Object.assign(rec, { v, fref: { from, n: null } });
+        const f = soWyFwdNorm({ from, lines: soWyFwdLines(v, sorted) });
         if (!f) return asText();
         rec.v = soWyFwdText(f);
         rec.fwd = f;
@@ -17737,7 +18803,7 @@ function soWyParseLine(line, sorted, net) {
         return n >= 1 && n <= 16 ? { r: 'time', v: inner } : null;
     }
     const sp = soWySpeaker(line, sorted);
-    if (sp) return net ? soWyParseMsg(line, sp, net) : soWyParseMsg(line, sp);
+    if (sp) return net ? soWyParseMsg(line, sp, net, sorted) : soWyParseMsg(line, sp, undefined, sorted);
     if (/^[^\s\p{P}\p{S}]{1,12}\s*[：:〔[]/u.test(line)) return { r: 'drop', why: 'speaker', line };
     return null;
 }
@@ -18731,7 +19797,8 @@ function soWyFormSection(line) {
 // The "nothing changed" line: 无 / 没有 / 无变化 / 没有群变化 / 群变化：无 … (punctuation and brackets ignored).
 function soWyFormIsNone(line) {
     const t = String(line == null ? '' : line).replace(/[\s。．.、，,：:！!（）()【】〔〕「」]/g, '').replace(/^群的?变化/, '');
-    return /^(?:无|没有|暂无|none)(?:任何)?(?:群的?)?(?:变化|变动)?$/i.test(t) || /^这一楼(?:没有|无)(?:任何)?群的?(?:变化|变动)$/.test(t);
+    // 这一楼… = the one-floor form's words; 这几楼… = the multi-floor sync variant's (2026-11-21, prompts.js THEATER_WEIYU_P_SYNC_MULTI.none)
+    return /^(?:无|没有|暂无|none)(?:任何)?(?:群的?)?(?:变化|变动)?$/i.test(t) || /^这[一几]楼(?:没有|无)(?:任何)?群的?(?:变化|变动)$/.test(t);
 }
 
 // The change kind of a line's first field (and a group name written into it: 入群：群名 / 入群 群名 / 【入群】群名) or null.
@@ -19103,6 +20170,143 @@ function soWySyncFormJudge(text, finish, state, ctx, opts) {
     const r = soWySyncFormRead(t, state, ctx, opts).rr;
     return { ok: r.ok, why: r.ok ? '' : r.why };
 }
+
+// ---- 从故事里找人: the find reply reader (adding contacts by hand, 2026-11-21; spec 2026-11-21-weiyu-add-contact-design.md §5 / §6) ----
+// soWyFindRead(text) → {ok, none, recs: [{name, sig?, area?, src?}], other}. Every line starting 【人】 (after soWyLineClean) is a record read by
+// the 【人】 record reader (soWyParseRecord: name · 签名 · 简介), plus 出处 / 原文 / 来源 → src (read for the probe; never shown, never stored).
+// A field written as an empty placeholder (THEATER_WEIYU_FIND_BLANK) counts as empty. === … === header lines are ignored; any other non-empty
+// line is counted in `other`. ok = at least one record, OR no record and the reply's only non-empty line (a trailing 。 / . stripped) is one of
+// THEATER_WEIYU_FIND_NONE (none: true — a valid empty answer is a success). Pure; never throws.
+// The loose record (gm-add 2026-11-21, DeepSeek DS-F3: 「周知远｜读书如见山｜…｜故事里写到 TA 的一小段原文：…」 — no 【人】, no labels, a
+// placeholder of the format line echoed as a label): a line WITHOUT 【人】 (a list marker with no space after it also dropped) that has the
+// record's shape is a record too (soWyFindLoose) instead of an `other` line. A line that starts with 【人】 is read as before, except (root
+// 2026-11-21) a labelled 签名 / 简介 / 出处 value that is only a placeholder word (THEATER_WEIYU_FIND_ECHO) is empty, and a name that is only
+// 名字 / 姓名 is an empty record (counted in `other`) — soWyFindEcho, applied here after soWyParseRecord, which stays as it is.
+const THEATER_WEIYU_FIND_NONE = Object.freeze(['无', '没有', '无人', '（无）', 'none']);
+const THEATER_WEIYU_FIND_BLANK = Object.freeze(['无', '空', '（空）', '（无）', '未知', '不详', '-', '—', '/']);
+// a loose line's labels (spaces ignored) → its field; the format line's placeholders (THEATER_WEIYU_P_FIND) count as labels of their field
+const THEATER_WEIYU_FIND_SLOTS = Object.freeze([
+    ['名字', 'name'], ['姓名', 'name'],
+    ['一句个性签名', 'sig'], ['个性签名', 'sig'], ['签名', 'sig'],
+    ['身份', 'area'], ['简介', 'area'], ['来自', 'area'], ['地区', 'area'],
+    ['故事里写到TA的一小段原文', 'src'], ['出处', 'src'], ['原文', 'src'], ['来源', 'src'],
+    ['微谕号', 'id'], ['号', 'id'], ['ID', 'id'],
+]);
+// the format line's placeholder words (spaces removed): written as a VALUE on a loose line they count as empty, as a name → no record
+const THEATER_WEIYU_FIND_ECHO = Object.freeze(['名字', '一句个性签名', '身份', '故事里写到TA的一小段原文']);
+// a list marker soWyLineClean leaves (it needs a space after it): 1. 1、 1) - • or one * (never the ** of bold)
+const THEATER_WEIYU_FIND_MARK = /^(?:\d{1,2}[.)、．]|[-•]|\*(?!\*))\s*/;
+
+// soWyFindLoose(line) → {name, sig?, area?, src?} | null. The shape: ≥ 2 ｜/| fields; the first = the name (or 名字：/姓名： + the name) —
+// non-empty, with a letter, ≤ THEATER_WEIYU_AC_MAX.name code points, no sentence punctuation / quote / bracket / reserved character, not a
+// placeholder nor an empty / 无 word; AND either ≥ 3 fields or a later field with a known label (THEATER_WEIYU_FIND_SLOTS). The later fields:
+// a labelled one goes to its label's field; an unlabelled one by position (2nd = 签名, 3rd = 简介, 4th = 出处; more are ignored). The first
+// non-empty value per field wins; an empty word (THEATER_WEIYU_FIND_BLANK) or an echoed placeholder is empty; 签名 loses its quotes, as on
+// the 【人】 path. The name is only a proposal: soWyFindMatch checks it exactly as a 【人】 name (soWyAcName, in the text actually sent).
+// soWyFindEcho(v, asName) → true when v (spaces ignored) is a placeholder word of the format line (THEATER_WEIYU_FIND_ECHO) or, as a
+// name, a name label (名字 / 姓名) — both readers' "this is the format line talking, not the story".
+function soWyFindEcho(v, asName) {
+    const k = String(v == null ? '' : v).replace(/\s+/g, '');
+    return THEATER_WEIYU_FIND_ECHO.includes(k) || (asName === true && THEATER_WEIYU_FIND_SLOTS.some((s) => s[1] === 'name' && s[0] === k));
+}
+
+function soWyFindLoose(line) {
+    const key = (s) => String(s).replace(/\s+/g, '');
+    const echo = (v) => soWyFindEcho(v, false);
+    const f = soWyFields(String(line).replace(THEATER_WEIYU_FIND_MARK, '').trim());
+    if (f.length < 2) return null;
+    const cell = (x) => {
+        const m = /^([^：:]+)[：:]([\s\S]*)$/.exec(x);
+        const hit = m ? THEATER_WEIYU_FIND_SLOTS.find((s) => s[0] === key(m[1])) : null;
+        return hit ? { slot: hit[1], v: m[2].trim() } : { slot: '', v: x.trim() };
+    };
+    const head = cell(f[0]);
+    if (head.slot && head.slot !== 'name') return null;
+    const name = soWyNameKey(head.v);
+    if (!name || soWyFindEcho(name, true) || THEATER_WEIYU_FIND_BLANK.includes(name) || THEATER_WEIYU_FIND_NONE.includes(name.toLowerCase())) return null;
+    if (!/\p{L}/u.test(name) || Array.from(name).length > THEATER_WEIYU_AC_MAX.name) return null;
+    if (/[。！？!?，,、；;：:“”"「」『』《》…【】〔〕\[\]（）()]/.test(name)) return null;
+    const cells = f.slice(1).map(cell);
+    if (f.length < 3 && !head.slot && !cells.some((c) => c.slot)) return null;
+    const pos = ['sig', 'area', 'src'];
+    const got = {};
+    cells.forEach((c, i) => {
+        const slot = c.slot || pos[i] || '';
+        if (!slot || slot === 'name' || slot === 'id' || soWyOwn(got, slot)) return;
+        let v = c.v;
+        if (slot === 'sig') {
+            const q = /^[“"「『]([\s\S]+)[”"」』]$/.exec(v);
+            if (q) v = q[1].trim();
+        }
+        if (!v || THEATER_WEIYU_FIND_BLANK.includes(v) || echo(v)) return;
+        got[slot] = v;
+    });
+    const rec = { name };
+    for (const k of pos) if (soWyOwn(got, k)) rec[k] = got[k];
+    return rec;
+}
+
+function soWyFindRead(text) {
+    const out = { ok: false, none: false, recs: [], other: 0 };
+    try {
+        // empty: no value, an empty word, or (root 2026-11-21) a placeholder of the format line echoed as the value
+        const blank = (v) => !v || THEATER_WEIYU_FIND_BLANK.includes(v) || soWyFindEcho(v, false);
+        const unq = (v) => {
+            const m = /^[“"「『]([\s\S]+)[”"」』]$/.exec(v);
+            return m ? m[1].trim() : v;
+        };
+        const plain = [];
+        for (const raw of soWyLineBreaks(typeof text === 'string' ? text : '').split('\n')) {
+            let line = soWyLineClean(raw);
+            if (!line) continue;
+            if (/^={2,}[\s\S]*={2,}$/.test(line)) continue;
+            let pm = /^【人】([\s\S]*)$/.exec(line);
+            if (!pm) {
+                // a list marker glued to 【人】 (1.【人】…) → the 【人】 path; else a loose record, else an `other` line as before
+                const bare = line.replace(THEATER_WEIYU_FIND_MARK, '');
+                pm = bare !== line ? /^【人】([\s\S]*)$/.exec(bare) : null;
+                if (pm) line = bare;
+            }
+            if (!pm) {
+                const loose = soWyFindLoose(line);
+                if (loose) {
+                    out.recs.push(loose);
+                    continue;
+                }
+                out.other++;
+                plain.push(line);
+                continue;
+            }
+            const r = soWyParseRecord(line, '人', pm[1], []);
+            // root 2026-11-21: the placeholder name 名字 / 姓名 = an empty record (soWyParseRecord itself, shared with boot / sync, is untouched)
+            if (r.r !== 'person' || soWyFindEcho(r.name, true)) {
+                out.other++;
+                continue;
+            }
+            const rec = { name: r.name };
+            const sig = typeof r.sig === 'string' ? unq(r.sig.trim()) : '';
+            const area = typeof r.area === 'string' ? r.area.trim() : '';
+            if (!blank(sig)) rec.sig = sig;
+            if (!blank(area)) rec.area = area;
+            for (const field of soWyFields(pm[1]).slice(1)) {
+                const kv = soWyKeyVal(field);
+                if (kv && ['出处', '原文', '来源'].includes(kv[0]) && !blank(kv[1])) {
+                    rec.src = kv[1];
+                    break;
+                }
+            }
+            out.recs.push(rec);
+        }
+        if (out.recs.length) out.ok = true;
+        else if (plain.length === 1 && THEATER_WEIYU_FIND_NONE.includes(plain[0].replace(/[。．.]+$/, '').trim().toLowerCase())) {
+            out.ok = true;
+            out.none = true;
+        }
+    } catch (e) {
+        out.ok = false;
+    }
+    return out;
+}
 /* <</WEIYU:parse>> */
 /* <<WEIYU:delta>> */
 // [WEIYU] delta — spliced verbatim into index.js by the join plan; edit HERE, re-splice, never hand-edit the copy.
@@ -19136,11 +20340,14 @@ function soWyDeltaApply(state, ops, src) {
     }
     const floor = Number(s.floor);
     const swipe = Number(s.swipe);
-    state.deltas.push({
+    const d = {
         id, floor: Number.isFinite(floor) ? floor : -1, swipes: [Number.isFinite(swipe) ? swipe : 0], key: String(s.key == null ? '' : s.key),
         chats, mids, newChats: res.newChats.slice(), newPeople: res.newPeople.slice(),
         ops: JSON.parse(JSON.stringify(Array.isArray(ops) ? ops : [])), touched: 0, final: 0,
-    });
+    };
+    // sync every N (src.n, only from the join's ENABLE_THR_WEIYU_SYNC_EVERY path): the story floors this one sync covered, kept only when ≥ 2
+    if (Number.isSafeInteger(s.n) && s.n >= 2) d.n = s.n;
+    state.deltas.push(d);
     return { id, added: res.added, chats };
 }
 
@@ -19178,7 +20385,9 @@ function soWyDeltaRevert(state, id, stash) {
         if (stash && Array.isArray(d.ops)) {
             if (!soWyIsObj(state.alts) || state.alts.floor !== d.floor || !soWyIsObj(state.alts.bySwipe)) state.alts = { floor: d.floor, bySwipe: {} };
             for (const sw of Array.isArray(d.swipes) ? d.swipes : []) {
-                if (Number.isFinite(sw)) state.alts.bySwipe[sw] = { ops: JSON.parse(JSON.stringify(d.ops)), key: d.key };
+                if (!Number.isFinite(sw)) continue;
+                state.alts.bySwipe[sw] = { ops: JSON.parse(JSON.stringify(d.ops)), key: d.key };
+                if (Number.isSafeInteger(d.n) && d.n >= 2) state.alts.bySwipe[sw].n = d.n;   // sync every N: a restore covers the same floors
             }
         }
         return true;
@@ -19240,7 +20449,7 @@ function soWyDeltaRestore(state, floor, swipe) {
         const st = state.alts.bySwipe[swipe];
         delete state.alts.bySwipe[swipe];
         if (!soWyIsObj(st) || !Array.isArray(st.ops)) return false;
-        soWyDeltaApply(state, soWyDeltaReplayable(state, st.ops), { floor, swipe, key: st.key });
+        soWyDeltaApply(state, soWyDeltaReplayable(state, st.ops), { floor, swipe, key: st.key, n: st.n });
         return true;
     } catch (e) {
         return false;
@@ -19315,6 +20524,85 @@ function soWyDeltaRun(state, actions) {
         } catch (e) { /* one broken action never stops the rest */ }
     }
     return out;
+}
+
+// ---- sync every N story replies (owner #160, 2026-11-21; design docs/superpowers/specs/2026-11-21-weiyu-sync-every-design.md §4) -----------
+// Reached ONLY through the join's ENABLE_THR_WEIYU_SYNC_EVERY lines (and soWyCall's landing when the join passed args.n); with the flag off
+// nothing here runs and nothing is stored. N = soWySyncEvery (model.js, opts.syncEvery; absent = 1).
+//   state.syncWait = {n, floor} | absent — n = story replies counted since the last sync that landed; floor = the floor counted last (the same
+//   reply announced twice — the translator and the post-reply step — or swiped / regenerated is not counted again; -1 = none). With N = 1 and
+//   no syncWait stored, nothing is ever written (today's phone, byte for byte).
+//   A sync covers n floors (args.n): its delta stores n (only when ≥ 2) and stays anchored to the LAST floor it covered — today's undo rules,
+//   unchanged (swipe / regenerate / delete of that reply take it back; ST lets only the last message be swiped or regenerated, so an earlier
+//   covered floor can only be deleted, which leaves the phone as it is — as an older floor's final delta does today).
+
+// The floors a delta's sync covered (1 for every delta made before this, or with n < 2).
+function soWySyncCov(d) {
+    return soWyIsObj(d) && Number.isSafeInteger(d.n) && d.n >= 2 ? d.n : 1;
+}
+
+// A live delta was taken back (its reply deleted or replaced) and no sync runs in its place: the floors it covered, but the removed reply, wait
+// again; floor -1 = the reply that comes to stand in its place counts as a new one. → whether syncWait was written.
+function soWySyncWaitBack(state, d) {
+    if (!soWyIsObj(state)) return false;
+    const w = soWyIsObj(state.syncWait) ? state.syncWait : null;
+    const cov = soWySyncCov(d);
+    if (!w && cov === 1 && soWySyncEvery(state) === 1) return false;   // today: nothing stored
+    const n0 = w && Number.isSafeInteger(w.n) && w.n >= 0 ? w.n : 0;
+    state.syncWait = { n: n0 + cov - 1, floor: -1 };
+    return true;
+}
+
+// After the delta table ran event ev on state (the join's soThrWeiyuApplyOn): sync = what the table asked for ({floor, swipe} | null),
+// prev = the live delta of ev.floor BEFORE the table ran (null = none). → the sync to run, carrying n = the floors it covers, or null (fewer
+// than N replies wait). Counts into state.syncWait. Never throws (a failure hands the table's answer back unchanged).
+function soWySyncGate(state, ev, sync, prev) {
+    try {
+        if (!soWyIsObj(state) || !soWyIsObj(ev)) return sync;
+        const floor = Number(ev.floor);
+        const gone = soWyIsObj(prev) && !(Array.isArray(state.deltas) && state.deltas.includes(prev));
+        const w0 = soWyIsObj(state.syncWait) ? state.syncWait : null;
+        if (ev.type === 'swipe-back') {
+            // a swipe with stored content came back: the reply shown is covered again, nothing waits on it
+            const live = soWyDeltaLive(state, floor);
+            if (w0 && live && live !== prev && Array.isArray(live.swipes) && live.swipes.includes(Number(ev.swipe))) state.syncWait = { n: 0, floor };
+            else if (gone) soWySyncWaitBack(state, prev);
+            return sync;
+        }
+        if (!soWyIsObj(sync)) {
+            if (gone) soWySyncWaitBack(state, prev);
+            return sync;
+        }
+        const N = soWySyncEvery(state);
+        if (soWyIsObj(prev)) {
+            // the reply a sync covered is replaced (a swipe to a new generation, a regeneration, a rewrite): the same floors are synced again;
+            // until that sync lands they wait (a failure keeps them for the next reply)
+            const cov = soWySyncCov(prev);
+            if (w0 || cov >= 2 || N !== 1) state.syncWait = { n: cov, floor };
+            return Object.assign({}, sync, { n: cov });
+        }
+        if (N === 1 && !w0) return Object.assign({}, sync, { n: 1 });   // today: a sync for every reply, nothing stored
+        let n = w0 && Number.isSafeInteger(w0.n) && w0.n >= 0 ? w0.n : 0;
+        if (!(w0 && Number(w0.floor) === floor)) {
+            n += 1;   // a story reply not counted yet
+            state.syncWait = { n, floor };
+        }
+        const c = Math.max(1, n);
+        return c >= N ? Object.assign({}, sync, { n: c }) : null;
+    } catch (e) {
+        return sync;
+    }
+}
+
+// A sync covering args.n floors landed on floor (soWyCall's landing, only when the join passed args.n): nothing waits any more. N = 1 →
+// the key goes (today's phone); otherwise {n: 0, floor} — the same reply announced again is then not counted.
+function soWySyncWaitDone(state, floor) {
+    if (!soWyIsObj(state)) return;
+    if (soWySyncEvery(state) === 1) {
+        if (soWyOwn(state, 'syncWait')) delete state.syncWait;
+        return;
+    }
+    state.syncWait = { n: 0, floor: Number(floor) };
 }
 /* <</WEIYU:delta>> */
 /* <<WEIYU:note>> */
@@ -19810,7 +21098,8 @@ const THEATER_WEIYU_SUM_GUESS = 300;
 
 function soWyPhoneText(state) {
     if (!soWyIsObj(state) || !state.booted || !soWyIsObj(state.chats)) return '';
-    return [soWyBrief(state)].concat(soWyChatList(state).filter((cid) => !soWyChatClosed(state, soWyChat(state, cid)))
+    // {ac: true}: a stored 人物说明 / marker counts whatever the flag (an estimate, never sent — adding contacts by hand, plan D7)
+    return [soWyBrief(state, undefined, { ac: true })].concat(soWyChatList(state).filter((cid) => !soWyChatClosed(state, soWyChat(state, cid)))
         .map((cid) => soWyLog(state, cid, { keep: Number.MAX_SAFE_INTEGER, callLines: THEATER_WEIYU_CALL_CAP.logOther }))).filter(Boolean).join('\n\n');
 }
 
@@ -20350,7 +21639,9 @@ function soWyOverlayFill(put, words) {
 function soWyOverlay(at, text, words) {
     if (!soWyIsObj(words)) return text;
     let out = String(text == null ? '' : text);
-    for (const r of typeof THEATER_WEIYU_WORD_OVERLAY_PHONE !== 'undefined' ? THEATER_WEIYU_WORD_OVERLAY.concat(THEATER_WEIYU_WORD_OVERLAY_PHONE) : THEATER_WEIYU_WORD_OVERLAY) {
+    const rows = typeof THEATER_WEIYU_WORD_OVERLAY_PHONE !== 'undefined' ? THEATER_WEIYU_WORD_OVERLAY.concat(THEATER_WEIYU_WORD_OVERLAY_PHONE) : THEATER_WEIYU_WORD_OVERLAY;
+    // sync every N (2026-11-21): the multi-floor sync variant's own row, after the phone rows (its `at` matches nothing else)
+    for (const r of typeof THEATER_WEIYU_WORD_OVERLAY_SYNC_MULTI !== 'undefined' ? rows.concat(THEATER_WEIYU_WORD_OVERLAY_SYNC_MULTI) : rows) {
         if (r.at !== at || r.stage !== words.stage) continue;
         const filled = soWyOverlayFill(r.put, words);
         if (filled !== null) out = out.split(r.find).join(filled);
@@ -20641,7 +21932,7 @@ function soWyWordsLorePick(books, o) {
 // What the 微谕 writer is shown, written in the very tagged format the parser reads (parse.js header), so the model reads the
 // format it is asked to write. Pure text builders, no AI call:
 //   soWyBrief(state) — 这部手机的主人是「甲」。 · 【人】名字｜签名：…｜简介：…[｜已被「甲」拉黑] per person (no 号, no `extra` people, not the
-//     player; never a remark — names are always the real ones)
+//     player; never a remark — names are always the real ones; with o.ac a hand-added person's ｜还没在故事里出现过｜人物说明：… — below)
 //     · 【群】群名｜类：…｜成员：…｜由来：…｜人数：…｜公告：…｜已解散 per group · 【私聊】甲、乙 per private chat
 //   soWyLog(state, cid, {keep = 40, upTo?}) — 【聊天】<reference> · （此前：…） when summarised · the last `keep` word-for-word
 //     lines (only up to and including `upTo` when given — regenerate; `upTo: null` = none), one line each
@@ -20776,10 +22067,55 @@ function soWyWordsAt(at, text, words) {
     return words ? soWyOverlay(at, text, words) : text;
 }
 
-// words (optional, trailing): the phone-stage set (soWyPhoneWords) — only the owner row changes (row 7); every 【人】【群】【私聊】 row as today.
-function soWyBrief(state, words) {
+// ---- adding contacts by hand: the 【人】 row (FROZEN 2026-11-21 after gm-add) ----------------------------------------------------------------
+// With o.ac === true (args.ac ← deps.ac ← the join's ENABLE_THR_WEIYU_ADD) a person's row carries, after 简介 and before the blocked fact, the
+// marker for origin 'new' and the 人物说明 (about). Only people who store those keys (added by hand) change; o absent / not ac = today's row.
+// Candidate ① of spec §7, FROZEN 2026-11-21 (THEATER_WEIYU_AC_WORDS_FROZEN = true, sha256-pinned in weiyu-ac-words-pin.test.mjs) after the
+// real-model probe gm-add, round 1 + round GA2: Gemini passed every line, DeepSeek after two reader fixes (find list without 【人】, a call
+// decline with her name); owner confirmed. A byte change of these four constants = re-run gm-add before re-pinning.
+const THEATER_WEIYU_AC_WORDS_FROZEN = true;
+const THEATER_WEIYU_AC_MARK = '还没在故事里出现过';
+const THEATER_WEIYU_AC_ABOUT = '人物说明：{v}';
+
+// The row's two words and whether they are still DRAFT (the brief reads them here; draft false since the freeze).
+function soWyAcWords() {
+    return { draft: !THEATER_WEIYU_AC_WORDS_FROZEN, mark: THEATER_WEIYU_AC_MARK, about: THEATER_WEIYU_AC_ABOUT };
+}
+
+// ---- 从故事里找人: the find request (spec §7; same pin as the row's words above) ------------------------------------------------------------
+// A request of its own (flow.js soWyFindCall): system = THEATER_WEIYU_P_FIND (describes the list and allows 「无」 — no quota, no "must"); user =
+// the owner line (the phone-stage world-words set changes only it, as in every brief) + the have line naming the living contacts (soWyField,
+// joined by 、, in the 通讯录's order — soWyShownName, localeCompare 'zh'; names always the real ones). No contact → the owner line only.
+// Background members are NOT in the have line (they are offered). Besides these two the request carries the story floors only (the owner,
+// 2026-11-21: story prose only) — the join keeps the card and the world book out of it (soThrWeiyuFindOpts).
+// First line = the owner's pick (#162 "look for story prose people only" / #163 "Do 1 for the wording": candidate 1), FROZEN 2026-11-21 after
+// the real-model re-check GA4 (tests/unit/_weiyu/_probes/gm-add/PREREG-GA4.md); lines 2–5 unchanged since the gm-add freeze.
+const THEATER_WEIYU_P_FIND = [
+    '这一次不写聊天，只交一份名单：只从上文的故事正文里找，在正文里出场或被提到、还不在这部手机通讯录里的人。',
+    '每人一行，格式：',
+    '【人】名字｜签名：一句个性签名｜简介：身份｜出处：故事里写到 TA 的一小段原文',
+    '名字照故事里的写法；签名和简介照 TA 在故事里的样子写，故事里看不出来的就空着。',
+    '一个这样的人都没有，就只写一个字：无',
+].join('\n');
+const THEATER_WEIYU_FIND_HAVE = '通讯录里已经有：{list}';
+
+function soWyFindPrompt(state, words) {
+    const me = soWyPromptMe(state);
+    const owner = soWyWordsAt('THEATER_WEIYU_OWNER_LINE', THEATER_WEIYU_OWNER_LINE, soWyPhoneWords(words)).split('{me}').join(me);
+    const people = soWyIsObj(state) && soWyIsObj(state.people) ? Object.values(state.people) : [];
+    const have = people.filter((p) => soWyIsObj(p) && p.id !== THEATER_WEIYU_ME && !p.extra && p.gone !== 1 && typeof p.name === 'string' && p.name.trim())
+        .sort((a, b) => String(soWyShownName(state, a.id)).localeCompare(String(soWyShownName(state, b.id)), 'zh'))
+        .map((p) => soWyField(p.name));
+    const user = have.length ? owner + '\n' + THEATER_WEIYU_FIND_HAVE.split('{list}').join(have.join('、')) : owner;
+    return { system: THEATER_WEIYU_P_FIND, user };
+}
+
+// words (optional): the phone-stage set (soWyPhoneWords) — only the owner row changes (row 7); every 【人】【群】【私聊】 row as today.
+// o (optional, trailing): {ac: true} → the 【人】 rows of hand-added people carry their marker / 人物说明 (above); anything else = today's rows.
+function soWyBrief(state, words, o) {
     try {
         if (!soWyIsObj(state) || !soWyIsObj(state.people) || !soWyIsObj(state.chats)) return '';
+        const ac = soWyIsObj(o) && o.ac === true ? soWyAcWords() : null;
         const meName = soWyFlat(soWyPersonName(state, THEATER_WEIYU_ME));
         const out = [soWyWordsAt('THEATER_WEIYU_OWNER_LINE', THEATER_WEIYU_OWNER_LINE, soWyPhoneWords(words)).split('{me}').join(meName)];
         for (const pid of Object.keys(state.people)) {
@@ -20788,6 +22124,8 @@ function soWyBrief(state, words) {
             let line = '【人】' + soWyField(p.name);
             if (typeof p.sig === 'string' && p.sig.trim()) line += '｜签名：' + soWyField(p.sig);
             if (typeof p.area === 'string' && p.area.trim()) line += '｜简介：' + soWyField(p.area);
+            if (ac && p.origin === 'new') line += '｜' + ac.mark;
+            if (ac && typeof p.about === 'string' && p.about.trim()) line += '｜' + ac.about.split('{v}').join(soWyField(p.about));
             if (p.blocked === 1) line += '｜' + THEATER_WEIYU_BLOCKED_FACT.split('{me}').join(soWyField(meName));
             out.push(line);
         }
@@ -21014,12 +22352,12 @@ function soWyLogMem(state, cid, opts) {
 // soWyBriefMem(state, cid, pids): pids = [] → soWyBrief itself. Otherwise soWyBrief's rows for the chats THIS request shows: the owner
 // line; the 【群】 / 【私聊】 rows of the target and of every chat one of `pids` was ever a member of; the 【人】 rows of `pids` and of
 // everyone in those chats today. (= soWyBriefFor's rule with "every pid" → "any pid" and "a member today" → "ever a member".)
-// words (optional, trailing): the phone-stage set, handed to soWyBrief (the owner row).
-function soWyBriefMem(state, cid, pids, words) {
+// words (optional): the phone-stage set, handed to soWyBrief (the owner row). o (optional, trailing): handed to soWyBrief ({ac: true}).
+function soWyBriefMem(state, cid, pids, words, o) {
     const p = Array.isArray(pids) ? pids.filter((x) => typeof x === 'string') : [];
-    if (!p.length) return soWyBrief(state, words);
+    if (!p.length) return soWyBrief(state, words, o);
     try {
-        const rows = soWyBrief(state, words).split('\n');
+        const rows = soWyBrief(state, words, o).split('\n');
         const chats = soWyChatList(state).map((id) => soWyChat(state, id))
             .filter((c) => c && !soWyChatClosed(state, c) && Array.isArray(c.members)
                 && (c.id === cid || p.some((x) => soWyMemberSpans(c, x).length)));
@@ -21270,6 +22608,53 @@ const THEATER_WEIYU_P_SYNC_FORM = [
     '回复必须以「=== 内容 ===」开始，之前不得有任何内容；各部分之间仅有换行，无任何其余内容。',
     '检查两部分和「=== 完 ===」是否都已输出，再决定是否结束输出。',
 ].join('\n');
+
+// FROZEN 2026-11-22 after the real-model rounds SY3 (clean seed) and SYB (baseline read-out) — tests/unit/_weiyu/_probes/gm-sync/PREREG-SY3.md
+// / PREREG-SYB.md: on one mixed blind sheet the multi-floor sync was not worse than today's every-reply sync on any line. (History: owner #160
+// "Phone sync do a." = option A of docs/superpowers/specs/2026-11-21-weiyu-sync-every-design.md §3; the counting lead REPLACED after SY1 by
+// the owner's structure #166 / #167: the story history carries a divider line.) The multi-floor variant of a story sync, used ONLY when one
+// sync covers n ≥ 2 story floors (args.n ← the join's ENABLE_THR_WEIYU_SYNC_EVERY). n = 1 or absent → THEATER_WEIYU_P_SYNC and
+// THEATER_WEIYU_P_SYNC_FORM exactly as frozen above (their pins untouched), no divider. sha256 pinned in weiyu-sync-every-pin.test.mjs; a byte
+// change = re-run the gm-sync rounds first. It describes what the floors brought — no quota, nothing anyone must do (the little-theatre rule).
+//   lead    = in place of P_SYNC's lines 1–2 when the story history the request carries holds the divider (args.at, a chat index the join
+//             gives only then; THEATER_WEIYU_SYNC_DIVIDER sits right before the first story floor the phone has not followed yet).
+//   leadAll = in place of P_SYNC's lines 1–2 when it does not (the read-last-N setting cut the history down to floors the phone has not
+//             followed, or no history at all): everything sent is not yet followed. P_SYNC's lines 3–4 follow either lead, unchanged.
+//   none    = [the form's one-floor phrase, its variant] — P_SYNC_FORM's only one-floor words; the rest of the form is unchanged.
+//   (An empty-answer form line — "nothing changed" accepted for a multi-floor sync — was REMOVED 2026-11-21 by the owner: "drop the nothing
+//   changed sentence"; no model answered that way in 20 real replies. A multi-floor sync reads replies exactly as the one-floor sync does.)
+const THEATER_WEIYU_P_SYNC_MULTI = Object.freeze({
+    lead: Object.freeze([
+        '故事里有一道分隔线：线以下的剧情，手机还没跟上。',
+        '这份回复只写线以下的剧情在手机上带来的变化，分两部分：先是群的变化，再是被牵动的聊天里的新消息。',
+    ]),
+    leadAll: Object.freeze([
+        '上文的剧情，手机都还没跟上。',
+        '这份回复只写这些剧情在手机上带来的变化，分两部分：先是群的变化，再是被牵动的聊天里的新消息。',
+    ]),
+    none: Object.freeze(['这一楼没有群的变化', '这几楼没有群的变化']),
+});
+
+// FROZEN 2026-11-22 with the variant above (SY3 + SYB; root's wording, #166 / #167) — the divider: ONE entry of the story history a multi-floor sync carries (role system — on
+// SO's own route a system message, on the preset route ST's narrator message, as the IF divider THEATER_IF_DIVIDER rides), placed by the join
+// (soThrWeiyuDivide) right before the first story floor the phone has not followed yet, or before the player's message directly in front of
+// it. flow.js hands it to deps.generate as req.divider = {at, text} (text = this, with the request's world words). Pinned with the variant.
+const THEATER_WEIYU_SYNC_DIVIDER = '—— 以上的剧情，手机已经跟上；以下的剧情，手机还没跟上 ——';
+
+// The sync lead for n floors: n ≥ 2 → the variant (divided: the divider lead, else the whole-history lead; + P_SYNC's lines 3–4);
+// otherwise THEATER_WEIYU_P_SYNC itself.
+function soWySyncLead(n, divided) {
+    if (!(Number.isSafeInteger(n) && n >= 2)) return THEATER_WEIYU_P_SYNC;
+    const M = THEATER_WEIYU_P_SYNC_MULTI;
+    return (divided === true ? M.lead : M.leadAll).concat(THEATER_WEIYU_P_SYNC.split('\n').slice(2)).join('\n');
+}
+
+// The sync form for n floors: n ≥ 2 → P_SYNC_FORM with its one-floor phrase swapped; otherwise THEATER_WEIYU_P_SYNC_FORM itself.
+function soWySyncForm(n) {
+    if (!(Number.isSafeInteger(n) && n >= 2)) return THEATER_WEIYU_P_SYNC_FORM;
+    const [one, many] = THEATER_WEIYU_P_SYNC_MULTI.none;
+    return THEATER_WEIYU_P_SYNC_FORM.split(one).join(many);
+}
 
 // DRAFT 2026-11-16 (pending the owner's eye) — the dice paragraph: soWyCall rolls 0 / 1 / 2 kinds per request (flow.js
 // soWyRollKinds, table THEATER_WEIYU_DICE) and soWyPrompt names each rolled kind WITH its moment, with a way out. Candidate "A4" of
@@ -21528,12 +22913,19 @@ function soWyPromptBuild(kind, state, a) {
     // P_COMMON (rows 1–4), P_BOOT (5), P_SYNC (6), the owner line (7, brief / 开机 / 总结) and the dice moments (8–14) are overlaid as TEMPLATES,
     // before {me} / {chat} and every name, log, summary and notice are filled in by the code below. 总结 included (root's ruling A6).
     const words = soWyPhoneWords(a.words);
+    // adding contacts by hand (deps.ac → args.ac): the 【人】 rows of hand-added people carry their marker / 人物说明; not true = the brief as before
+    const ac = a.ac === true ? { ac: true } : undefined;
     const plan = kind === 'regen' ? soWyRegenPlan(state, a.cid, a.mid) : null;
     const own = soWyPromptKind(kind, plan);
     if (!own) return { system: '', user: '' };
-    const ownAt = kind === 'boot' ? 'THEATER_WEIYU_P_BOOT' : (kind === 'sync' ? 'THEATER_WEIYU_P_SYNC' : '');
-    const parts = words ? [soWyWordsAt('THEATER_WEIYU_P_COMMON', THEATER_WEIYU_P_COMMON, words), THEATER_WEIYU_P_FORMAT, ownAt ? soWyWordsAt(ownAt, own, words) : own]
-        : [THEATER_WEIYU_P_COMMON, THEATER_WEIYU_P_FORMAT, own];
+    // sync every N (args.n ≥ 2, only from the join's ENABLE_THR_WEIYU_SYNC_EVERY path): the multi-floor variant (soWySyncLead / soWySyncForm);
+    // args.at (a chat index) = the story history carries the divider → its lead; absent → the whole-history lead. n = 1 / absent → 0 here =
+    // the frozen lead and form, byte for byte
+    const multi = kind === 'sync' && Number.isSafeInteger(a.n) && a.n >= 2 ? a.n : 0;
+    const ownAt = kind === 'boot' ? 'THEATER_WEIYU_P_BOOT' : (kind === 'sync' ? (multi ? 'THEATER_WEIYU_P_SYNC_MULTI' : 'THEATER_WEIYU_P_SYNC') : '');
+    const ownText = multi ? soWySyncLead(multi, Number.isSafeInteger(a.at)) : own;
+    const parts = words ? [soWyWordsAt('THEATER_WEIYU_P_COMMON', THEATER_WEIYU_P_COMMON, words), THEATER_WEIYU_P_FORMAT, ownAt ? soWyWordsAt(ownAt, ownText, words) : ownText]
+        : [THEATER_WEIYU_P_COMMON, THEATER_WEIYU_P_FORMAT, ownText];
     const bound = kind === 'send' || kind === 'more' || kind === 'group' || kind === 'regen';
     const chat = bound ? soWyChat(state, a.cid) : null;
     if (chat && Array.isArray(chat.members) && !chat.members.includes(THEATER_WEIYU_ME)) parts.push(THEATER_WEIYU_P_UNSEEN);
@@ -21551,7 +22943,7 @@ function soWyPromptBuild(kind, state, a) {
     if (kind === 'boot') {
         user = owner;
     } else if (kind === 'sync') {
-        user = [soWyBrief(state, words)].concat(soWyChatList(state).filter((cid) => !soWyChatClosed(state, soWyChat(state, cid)))
+        user = [soWyBrief(state, words, ac)].concat(soWyChatList(state).filter((cid) => !soWyChatClosed(state, soWyChat(state, cid)))
             .map((cid) => soWyLog(state, cid, { keep: mem ? THEATER_WEIYU_SYNC_KEEP : 8, callLines: THEATER_WEIYU_CALL_CAP.logOther }))).filter(Boolean).join('\n\n');
     } else if (kind === 'sum') {
         const sp = typeof soWySumPlan === 'function' ? soWySumPlan(state) : null;
@@ -21562,10 +22954,10 @@ function soWyPromptBuild(kind, state, a) {
         const pids = soWyMemFor(state, chat);
         const keep = soWyMemKeepOpt(state);
         const log = kind === 'regen' && plan ? soWyLogMem(state, a.cid, { keep, upTo: plan.anchor }) : soWyLogMem(state, a.cid, { keep });
-        user = [soWyBriefMem(state, a.cid, pids, words), soWyOthersMem(state, a.cid, pids), log].filter(Boolean).join('\n\n');
+        user = [soWyBriefMem(state, a.cid, pids, words, ac), soWyOthersMem(state, a.cid, pids), log].filter(Boolean).join('\n\n');
     } else {
         const log = kind === 'regen' && plan ? soWyLog(state, a.cid, { upTo: plan.anchor }) : soWyLog(state, a.cid);
-        user = [soWyBrief(state, words), soWyOthers(state, a.cid), log].filter(Boolean).join('\n\n');
+        user = [soWyBrief(state, words, ac), soWyOthers(state, a.cid), log].filter(Boolean).join('\n\n');
     }
     // the dice (args.kinds, rolled once per call by soWyCall): [] / missing = no paragraph = the request byte for byte without it
     const dice = soWyDiceText(kind, a.kinds, words);
@@ -21575,7 +22967,7 @@ function soWyPromptBuild(kind, state, a) {
     if (kind === 'sync') {
         // round 3 "the form": the heading hand-over · the sync 防抢话 block (抢话 off) · the dice · the strict form, LAST
         const heads = [THEATER_WEIYU_P_SYNC_HEADS_INTRO].concat(soWySyncHeads(state), [THEATER_WEIYU_P_SYNC_HEADS_NEW]).join('\n');
-        user = [user, heads.split('{me}').join(me), offBlock, pend, dice, THEATER_WEIYU_P_SYNC_FORM.split('{me}').join(me)].filter(Boolean).join('\n\n');
+        user = [user, heads.split('{me}').join(me), offBlock, pend, dice, soWySyncForm(multi).split('{me}').join(me)].filter(Boolean).join('\n\n');
         return { system, user };
     }
     // round 5: send / more / regen close the request by naming the target chat (after the 抢话-off block when 抢话 is off); the
@@ -21664,6 +23056,18 @@ const THEATER_WEIYU_WORD_OVERLAY_PHONE = Object.freeze([
     ['THEATER_WEIYU_CALL_FORM.video', '〈「{me}」屏幕上此刻看到的；手机在「{name}」自己手里或架着〉', '〈「{me}」{w:screenAt}此刻看到的；{w:holder}在「{name}」自己手里或架着〉', true, true],
 ].map(([at, find, put, dir, fid]) => Object.freeze({ at, find, put, n: 1, stage: 2, dir, fid })));
 
+// FROZEN 2026-11-22 with the multi-floor sync variant (THEATER_WEIYU_P_SYNC_MULTI + THEATER_WEIYU_SYNC_DIVIDER; SY3 + SYB): the device word
+// of both leads ("…在手机上带来的变化" = the P_SYNC row above, the same word in the same place; "手机还没跟上") and of the divider. A table of its
+// own so the pinned THEATER_WEIYU_WORD_OVERLAY_PHONE keeps its bytes; note.js soWyOverlay reads it after that one (its `at`s are only ever the
+// variant's and the divider's). sha256 pinned in weiyu-sync-every-pin.test.mjs; a byte change = re-run the gm-sync rounds (and gm-words).
+const THEATER_WEIYU_WORD_OVERLAY_SYNC_MULTI = Object.freeze([
+    ['THEATER_WEIYU_P_SYNC_MULTI', '在手机上带来的变化', '在{w:device}上带来的变化', false, true],
+    ['THEATER_WEIYU_P_SYNC_MULTI', '手机还没跟上', '{w:device}还没跟上', false, true],
+    ['THEATER_WEIYU_P_SYNC_MULTI', '手机都还没跟上', '{w:device}都还没跟上', false, true],
+    ['THEATER_WEIYU_SYNC_DIVIDER', '手机已经跟上', '{w:device}已经跟上', false, true],
+    ['THEATER_WEIYU_SYNC_DIVIDER', '手机还没跟上', '{w:device}还没跟上', false, true],
+].map(([at, find, put, dir, fid]) => Object.freeze({ at, find, put, n: 1, stage: 2, dir, fid })));
+
 // A call's transcript as lines: her spoken lines with their tags in （）, his lines, a VIDEO turn's picture before her words (how 'live' =
 // the probe's 画面：… for the call request; 'log' = THEATER_WEIYU_CALL_PIC for later views). A voice call never prints a picture.
 function soWyCallSaid(state, call, how) {
@@ -21714,12 +23118,12 @@ function soWyOthersFor(state, cid, pids, n) {
 // soWyBriefFor(state, pids): pids = [] → soWyBrief(state) itself. Otherwise soWyBrief's rows kept only where every pid is concerned (probe
 // gm-callscene, ported as is): the owner line; a 【人】 row of a pid or of anyone who shares a (live) chat with every pid; a 【群】 / 【私聊】 row
 // of a chat every pid is a member of.
-// words (optional, trailing): the phone-stage set, handed to soWyBrief (the owner row).
-function soWyBriefFor(state, pids, words) {
+// words (optional): the phone-stage set, handed to soWyBrief (the owner row). o (optional, trailing): handed to soWyBrief ({ac: true}).
+function soWyBriefFor(state, pids, words, o) {
     const p = Array.isArray(pids) ? pids.filter((x) => typeof x === 'string') : [];
-    if (!p.length) return soWyBrief(state, words);
+    if (!p.length) return soWyBrief(state, words, o);
     try {
-        const rows = soWyBrief(state, words).split('\n');
+        const rows = soWyBrief(state, words, o).split('\n');
         const live = soWyChatList(state).map((id) => soWyChat(state, id)).filter((c) => c && !c.dissolved && !soWyChatClosed(state, c) && Array.isArray(c.members));
         const theirs = live.filter((c) => p.every((x) => c.members.includes(x)));
         const names = new Set();
@@ -21771,9 +23175,10 @@ function soWyCallPrompt(state, a) {
     // 「电话还在响时」 / video picture slot (16–18) overlaid as templates. The {mode} split: the LEAD alone takes the set's call word; CALL_HEAD
     // (〔语音通话〕…, a record the reader reads) and CALL_FORM keep THEATER_WEIYU_CALL_KIND.
     const words = soWyPhoneWords(a.words);
+    const ac = a.ac === true ? { ac: true } : undefined;   // adding contacts by hand: the 【人】 rows' marker / 人物说明 (not true = as before)
     const ctx = a.mem === true
-        ? [soWyBriefMem(view, a.cid, [her], words), soWyOthersMem(view, a.cid, [her]), soWyLogMem(view, a.cid, { keep: soWyMemKeepOpt(view) })]
-        : [soWyBriefFor(view, [her], words), soWyOthersFor(view, a.cid, [her], Infinity), soWyLog(view, a.cid)];
+        ? [soWyBriefMem(view, a.cid, [her], words, ac), soWyOthersMem(view, a.cid, [her]), soWyLogMem(view, a.cid, { keep: soWyMemKeepOpt(view) })]
+        : [soWyBriefFor(view, [her], words, ac), soWyOthersFor(view, a.cid, [her], Infinity), soWyLog(view, a.cid)];
     if (!words) {
         const user = ctx.concat([[head].concat(said).join('\n'), soWyTpl(THEATER_WEIYU_CALL_FORM[mode], vals)]).filter(Boolean).join('\n\n');
         return { system: soWyTpl(THEATER_WEIYU_CALL_LEAD, vals), user };
@@ -21908,7 +23313,9 @@ function soWyWordsFixPrompt(land, failed) {
 //
 //   soWyCall(kind, args, deps): Promise<Result> — never throws.
 //     kind / args: 'boot' {} · 'send' {cid, text, quote?} | {cid, msg} (msg = soWySendKind's o) | {cid, fwd: {from, mids}} (soWyForward)
-//                  · 'more' {cid} · 'group' {cid} · 'regen' {cid, mid} · 'sync' {floor, swipe, key} · 'sum' {}
+//                  · 'more' {cid} · 'group' {cid} · 'regen' {cid, mid} · 'sync' {floor, swipe, key, n?} · 'sum' {}
+//                  (sync n = the story floors this sync covers — sync every N, only from the join's ENABLE_THR_WEIYU_SYNC_EVERY path; n ≥ 2 → the
+//                  request's multi-floor variant, prompts.js THEATER_WEIYU_P_SYNC_MULTI; absent / 1 = today's request)
 //     deps: { getState(): State|null, commit(state, why: kind): void, meName(): string, cardName(): string, floor(): number|null,
 //             chatKey(): string, canStart(): string ('' = may start, else the reason to show),
 //             prompt(kind, state, args): {system, user},
@@ -21927,6 +23334,7 @@ function soWyWordsFixPrompt(land, failed) {
 //             call panel's reader get no net (plan C4); the naming kind ('words') never reads it; its `off` card kinds are never offered
 //             by the event dice (soWyRollEvents ctx.off). Absent = every request, every reading and every roll exactly as before. }
 //     'send' {cid, msg: {t: 'call', mode} | {t: 'pay', amt?, note?}} (phase 2) — 'gone' before any call unless deps.events is true.
+//     'put' (a send's args; the AI auto-reply switch, 2026-11-20) — zero calls, only with deps.autoReply === true: soWyPutCall below.
 //     The dice (2026-11-16): sync / send / more / regen roll once per call (soWyRollKinds) and pass the kinds to deps.prompt as
 //     args.kinds; nothing rolled → the args exactly as given. A sync reply is read as the form (soWySyncFormRead).
 //     Result: {ok:true, kind, at, added, dropped: number, delta?} | {busy:true, at, kind} | {wait} | {failed:true, why, cause?}
@@ -22159,6 +23567,8 @@ function soWyBootPromptState(state, meName) {
 async function soWyCall(kind, args, deps) {
     if (kind === 'call') return soWyCallScene(args, deps);   // the live call scene (2026-11-18): its own branch below, the same slot
     if (kind === 'words') return soWyWordsCall(args, deps);   // 「✨ 让 AI 按这个世界起名」 (world wording 1b): its own branch at the end, the same slot
+    if (kind === 'put') return soWyPutCall(args, deps);   // the AI auto-reply switch OFF (2026-11-20): his item stored, zero calls (below; deps.autoReply only)
+    if (kind === 'find') return soWyFindCall(args, deps);   // 从故事里找人 (2026-11-21): a DRAFT-only request, its own branch at the end (deps.findSource only)
     let mine = null;
     try {
         const a = soWyIsObj(args) ? args : {};
@@ -22219,6 +23629,8 @@ async function soWyCall(kind, args, deps) {
         // the 抢话 switch (opts.steal) only chooses the prompt text (soWyPrompt); the resolver keeps the player's lines either way
         const ctx = { mode: kind, chatId: a.cid };
         if (kind === 'sync') ctx.floor = Number.isFinite(a.floor) ? a.floor : null;
+        // sync every N (args.n ≥ 2, the join's ENABLE_THR_WEIYU_SYNC_EVERY path only): a multi-floor sync — its request may carry the divider (below)
+        const multiSync = kind === 'sync' && Number.isSafeInteger(a.n) && a.n >= 2;
         if (kind === 'regen') ctx.after = plan.anchor; // the line the new ones land after (the quote rule's "line above")
         if (net && kind !== 'sum') ctx.net = net;   // world words: the judge, the sync form and the landing read with the set's net
         const names = () => (typeof d.names === 'function' ? d.names() : undefined);
@@ -22267,14 +23679,19 @@ async function soWyCall(kind, args, deps) {
         }
         // the memory slice (deps.mem = ENABLE_THR_WEIYU_MEMORY): args.mem tells soWyPrompt to read the …Mem views; anything but true → the args as before
         const mem = d.mem === true;
+        // adding contacts by hand (deps.ac = ENABLE_THR_WEIYU_ADD): args.ac → the 【人】 rows of hand-added people carry their marker / 人物说明
+        const ac = d.ac === true;
         // world words: args.words = the set read above (only when there is one); none → the args exactly as before
-        const pa = words ? Object.assign({}, a, kinds.length ? { kinds } : {}, pend ? { pending: pend.text } : {}, mem ? { mem: true } : {}, { words })
-            : kinds.length || pend || mem ? Object.assign({}, a, kinds.length ? { kinds } : {}, pend ? { pending: pend.text } : {}, mem ? { mem: true } : {}) : a;
+        const pa = words ? Object.assign({}, a, kinds.length ? { kinds } : {}, pend ? { pending: pend.text } : {}, mem ? { mem: true } : {}, ac ? { ac: true } : {}, { words })
+            : kinds.length || pend || mem || ac ? Object.assign({}, a, kinds.length ? { kinds } : {}, pend ? { pending: pend.text } : {}, mem ? { mem: true } : {}, ac ? { ac: true } : {}) : a;
         const pr = d.prompt(kind, kind === 'boot' ? soWyBootPromptState(held, env().meName) : held, pa);
         const req = {
             kind, system: String(pr && pr.system != null ? pr.system : ''), user: String(pr && pr.user != null ? pr.user : ''),
             maxTokens: THEATER_WEIYU_MAXTOK[kind],
         };
+        // sync every N: args.at (a chat index, given by the join only when its story history will hold the divider) → req.divider = {at, text}
+        // for deps.generate to place; text = THEATER_WEIYU_SYNC_DIVIDER with this request's world words (the set read once above)
+        if (multiSync && Number.isSafeInteger(a.at)) req.divider = { at: a.at, text: soWyWordsAt('THEATER_WEIYU_SYNC_DIVIDER', THEATER_WEIYU_SYNC_DIVIDER, words) };
         if (kind === 'boot') {
             req.onDelta = (full) => {
                 try {
@@ -22338,7 +23755,11 @@ async function soWyCall(kind, args, deps) {
         let added = 0;
         let delta = '';
         if (kind === 'sync') {
-            const dd = soWyDeltaApply(c, rr.ops, { floor: a.floor, swipe: a.swipe, key: a.key });
+            // sync every N (args.n — only the join's ENABLE_THR_WEIYU_SYNC_EVERY path passes it): the delta keeps the floors it covered and
+            // nothing waits any more (delta.js soWySyncWaitDone); without args.n the landing is today's, byte for byte
+            const every = Number.isSafeInteger(a.n);
+            const dd = soWyDeltaApply(c, rr.ops, every ? { floor: a.floor, swipe: a.swipe, key: a.key, n: a.n } : { floor: a.floor, swipe: a.swipe, key: a.key });
+            if (every && typeof soWySyncWaitDone === 'function') soWySyncWaitDone(c, a.floor);
             added = dd && dd.added ? dd.added : 0;
             delta = dd && dd.id ? dd.id : '';
         } else {
@@ -22360,6 +23781,41 @@ async function soWyCall(kind, args, deps) {
     }
 }
 
+// ---- the AI auto-reply switch (owner 2026-11-20; spec 2026-11-20-weiyu-hold-reply-design.md §7): the zero-call kind `put` ----------------
+// soWyCall('put', args, deps) — his item stored exactly as a send's step (2) stores it, and NO request: no slot, no prompt, no generate.
+//   args = a send's args ({cid, text, quote?} | {cid, msg} | {cid, fwd}). The UI turns a 'send' into a 'put' while the switch is OFF; the
+//   reply comes later from today's 'regen' of his last waiting item (soWyWaiting) — byte for byte the send that item would have made.
+//   deps.autoReply (ENABLE_THR_WEIYU_AUTOREPLY ∧ the phone): anything but true → {error: 'kind'}, today's answer for an unknown kind.
+//   Order: busy (any request in the air — he never puts between a reply and the line it answers) · the phone booted · his call / transfer
+//   only with deps.events · not into the chat of this page's live call ({failed, why: 'call'}) · soWySendPut on a clone (null = 'gone') ·
+//   deps.commit(c, 'send') (the same commit reason as a send: the join's commit wrapper treats it as one).
+//   → {ok: true, kind: 'put', at: cid, added: 1, mid} | {busy: true, at, kind} | {failed: true, why: 'gone' | 'call'} | {error}
+async function soWyPutCall(args, deps) {
+    try {
+        const a = soWyIsObj(args) ? args : {};
+        if (!soWyIsObj(deps)) return { error: 'deps' };
+        const d = deps;
+        if (d.autoReply !== true) return { error: 'kind' };
+        const gone = { failed: true, why: 'gone' };
+        const cid = String(a.cid == null ? '' : a.cid);
+        if (wy_flightBox.cur) return { busy: true, at: wy_flightBox.cur.at, kind: wy_flightBox.cur.kind };
+        const state = d.getState();
+        if (!state || !state.booted) return gone;
+        if (soWyIsObj(a.msg) && (a.msg.t === 'call' || a.msg.t === 'pay') && d.events !== true) return gone;
+        if (wy_callBox.cur) {
+            const lv = soWyCallLive(state, d.chatKey());
+            if (lv && lv.cid === cid) return { failed: true, why: 'call' };
+        }
+        const c = soWyClone(state);
+        const mid = soWySendPut(c, a);
+        if (!mid) return gone;
+        d.commit(c, 'send');
+        return { ok: true, kind: 'put', at: cid, added: 1, mid };
+    } catch (e) {
+        return { error: soWyErrText(e) };
+    }
+}
+
 // ---- the live call scene (call scene slice A, 2026-11-18; probe gm-callscene) --------------------------------------------------------------
 // soWyCall('call', args, deps) — the SAME single-flight slot as every kind; deps as above plus callscene?: boolean (ENABLE_THR_WEIYU_CALLSCENE;
 // anything but true → 'gone' before any call) and now?(): ms (the clock; Date.now when absent).
@@ -22370,7 +23826,8 @@ async function soWyCall(kind, args, deps) {
 //     → the existing record st 'missed' / 'reject' (+ why) → {ok, …, st, why?}; unreadable → {failed, why: 'unheard'} (nothing stored; the same
 //     reader is the engine's retry test). He hangs up while it rings = the UI aborts the request → {aborted, cancelled: mid} with the existing
 //     已取消 record (soWySendKind) and NO reaction request — the pending-state block carries it into a later request. stale / error: nothing.
-//   TURN {cid, mid, text} — his line joins the transcript FIRST (committed, never lost), then one request ({cid, mid}); her reply is appended
+//   TURN {cid, mid, text} — his line (over THEATER_WEIYU_TYPED_MAX.text → {failed, why: 'long'} before the slot, nothing stored) joins the
+//     transcript FIRST (committed, never lost), then one request ({cid, mid}); her reply is appended
 //     → {ok, kind, at, mid, st: 'live', turn} (a last-line 挂断: st 'done', dur = now − at as m:ss — never under soWyCallSpeakMs — end 'them' → ended: 'them'). {cid, mid,
 //     again: true} = ask again when the transcript ends on his line (after a failed turn or soWyCallRedo). Unreadable / a decline mid-call →
 //     {failed, why: 'unheard'} (his line stays). The reader gets soWyCallTail of the call: a reply that opens by repeating her previous turn /
@@ -22456,8 +23913,10 @@ async function soWyCallScene(args, deps) {
                 const t = call.turns[call.turns.length - 1];
                 if (!t || t.u !== THEATER_WEIYU_ME) return gone;
             } else {
-                said = soWyClip(soWyLine1(a.text), THEATER_WEIYU_CALL_CAP.said);
+                said = soWyLine1(a.text);
                 if (!said) return gone;
+                // his line over his ceiling: refused before the slot, nothing stored — never cut (length limits 2026-11-21)
+                if (soWyLen(said) > THEATER_WEIYU_TYPED_MAX.text) return { failed: true, why: 'long' };
             }
         }
         // start = a START in flight (soWyCallCancel may mark it: cancel = true)
@@ -22500,8 +23959,9 @@ async function soWyCallScene(args, deps) {
             }
             return r.ok && (!turn || r.pickup) ? r : null;
         };
-        const pr = words ? d.prompt('call', held, Object.assign(turn ? { cid, mid: a.mid } : { cid, mode }, d.mem === true ? { mem: true } : {}, { words }))
-            : d.prompt('call', held, Object.assign(turn ? { cid, mid: a.mid } : { cid, mode }, d.mem === true ? { mem: true } : {}));
+        // adding contacts by hand: deps.ac → args.ac (the 【人】 rows' marker / 人物说明); absent = the args as before
+        const pr = words ? d.prompt('call', held, Object.assign(turn ? { cid, mid: a.mid } : { cid, mode }, d.mem === true ? { mem: true } : {}, d.ac === true ? { ac: true } : {}, { words }))
+            : d.prompt('call', held, Object.assign(turn ? { cid, mid: a.mid } : { cid, mode }, d.mem === true ? { mem: true } : {}, d.ac === true ? { ac: true } : {}));
         const req = { kind: 'call', system: String(pr && pr.system != null ? pr.system : ''), user: String(pr && pr.user != null ? pr.user : ''),
             maxTokens: THEATER_WEIYU_CALL_TOK };
         const ctl = {
@@ -22707,6 +24167,68 @@ async function soWyWordsCall(args, deps) {
         if (mine && wy_flightBox.cur === mine) wy_flightBox.cur = null;
     }
 }
+
+// ---- 从故事里找人 (adding contacts by hand, pass B, 2026-11-21; spec 2026-11-21-weiyu-add-contact-design.md §4 / §6) ------------------------
+// soWyCall('find', args, deps) — ONE request that returns a DRAFT list; it never commits, so nothing joins the phone until the player taps
+// 添加 on a row (the UI's soWyAcFindAdd). The soWyWordsCall shape: deps.findSource (the join hands it only while ENABLE_THR_WEIYU_FIND is on)
+// absent → {error: 'kind'} (today's answer for an unknown kind); busy / wait before the slot; an un-booted phone → {failed, why: 'gone'};
+// the corpus (deps.findSource(): {floors: [{n, text}]} — the story floors the request carries; the owner 2026-11-21: story prose only, no card,
+// no world book) read ONCE before the call; the slot {kind:
+// 'find', at: '*find'}; the request {kind: 'find', system, user, maxTokens: THEATER_WEIYU_FIND_MAXTOK} (prompts.js soWyFindPrompt, the
+// phone-stage world-words set for the owner line); ctl.cutOff = the reply is NOT a valid list — a valid 「无」 is a success and never sends
+// the engine's recovery retry; stale / aborted / error as they come; a reply that is not a list → {failed, why: 'unparsed', cause}.
+//   → {ok: true, kind: 'find', at: '*find', draft: soWyFindMatch(the phone NOW, records, corpus)} | {busy, at, kind} | {wait} | {stale: true}
+//     | {aborted: true} | {error} | {failed: true, why: 'gone' | 'unparsed', cause?}
+const THEATER_WEIYU_FIND_MAXTOK = 4096;   // a ceiling, not spend (a short list); thinking models need the room
+
+async function soWyFindCall(args, deps) {
+    let mine = null;
+    try {
+        if (!soWyIsObj(deps)) return { error: 'deps' };
+        const d = deps;
+        if (typeof d.findSource !== 'function') return { error: 'kind' };
+        if (typeof soWyFindRead !== 'function' || typeof soWyFindMatch !== 'function' || typeof soWyFindPrompt !== 'function') return { error: 'unavailable' };
+        // (1) synchronous checks, then the corpus, then the slot
+        if (wy_flightBox.cur) return { busy: true, at: wy_flightBox.cur.at, kind: wy_flightBox.cur.kind };
+        const wait = typeof d.canStart === 'function' ? String(d.canStart() || '') : '';
+        if (wait) return { wait };
+        const state = d.getState();
+        if (!state || !state.booted) return { failed: true, why: 'gone' };
+        const s0 = d.findSource();
+        const src = {
+            floors: (soWyIsObj(s0) && Array.isArray(s0.floors) ? s0.floors : []).filter((f) => soWyIsObj(f) && typeof f.text === 'string')
+                .map((f) => ({ n: Number.isFinite(Number(f.n)) ? Math.floor(Number(f.n)) : null, text: f.text })),
+        };
+        mine = { token: ++wy_flightBox.seq, kind: 'find', at: '*find', t0: Date.now() };
+        wy_flightBox.cur = mine;
+        // (2) the request (world words: only the owner line follows a phone-stage set)
+        const w0 = d.words;
+        const words = soWyIsObj(w0) && typeof THEATER_WEIYU_WORDS_STAGE !== 'undefined' && w0.stage === THEATER_WEIYU_WORDS_STAGE.phone ? w0 : null;
+        const pr = soWyFindPrompt(state, words);
+        const key = String(d.chatKey());
+        const isStale = () => String(d.chatKey()) !== key;
+        const ctl = {
+            cutOff: (t) => {
+                try { return !soWyFindRead(t).ok; } catch (e) { return true; }
+            },
+            isStale,
+        };
+        const r0 = await d.generate({ kind: 'find', system: String(pr.system), user: String(pr.user), maxTokens: THEATER_WEIYU_FIND_MAXTOK }, ctl);
+        // (3) what came back — read against the phone as it is NOW; never written
+        const r = soWyIsObj(r0) ? r0 : {};
+        if (isStale()) return { stale: true };
+        if (r.aborted) return { aborted: true };
+        if (r.error) return { error: String(r.error) };
+        const text = typeof r.text === 'string' ? r.text : '';
+        const read = soWyFindRead(text);
+        if (!read.ok) return { failed: true, why: 'unparsed', cause: soWyReplyCause(text, r.finish, r) };
+        return { ok: true, kind: 'find', at: '*find', draft: soWyFindMatch(d.getState() || state, read.recs, src) };
+    } catch (e) {
+        return { error: soWyErrText(e) };
+    } finally {
+        if (mine && wy_flightBox.cur === mine) wy_flightBox.cur = null;
+    }
+}
 /* <</WEIYU:flow>> */
 /* <<WEIYU:icons>> */
 // [WEIYU] icons — GENERATED by tests/unit/_weiyu/dev/build.mjs from the weiyu-assets SVGs; never hand-edit, re-run the build.
@@ -22735,6 +24257,8 @@ const THEATER_WEIYU_ICONS = {
     'mute': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20A3.3 3.3 0 0 0 15 20M5 8.5V12L3 17H14M10 3.3A6.5 6.5 0 0 1 19 9V12L21 17H19M3 3L21 21"/></svg>',
     'nudge': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12.5V6.5A1.5 1.5 0 0 1 11 6.5V11.5"/><path d="M11 11V5A1.5 1.5 0 0 1 14 5V11"/><path d="M14 11V6.5A1.5 1.5 0 0 1 17 6.5V14.5A6.5 6.5 0 0 1 10.5 21H10A5 5 0 0 1 5.6 18.4L3.9 15.3A1.4 1.4 0 0 1 6.2 13.8L8 16V12.5"/></svg>',
     'observer': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C7 3 17 3 22 12C17 21 7 21 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>',
+    'person-add': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20C2.5 14.5 15.5 14.5 15.5 20"/><path d="M19 8V14M16 11H22"/></svg>',
+    'person-find': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20C2.5 15.6 7.6 13.9 11.5 14.7"/><circle cx="16.5" cy="16" r="3.2"/><path d="M18.8 18.3L21.5 21"/></svg>',
     'play': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path fill="currentColor" stroke="none" d="M7 4.7Q7 3.6 8 4.2L20 11.1Q21.5 12 20 12.9L8 19.8Q7 20.4 7 19.3Z"/></svg>',
     'plus-circle': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12H16M12 8V16"/></svg>',
     'power': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3V11M6.25 5.75A8.5 8.5 0 1 0 17.75 5.75"/></svg>',
@@ -22761,7 +24285,7 @@ const THEATER_WEIYU_ICONS = {
 /* <</WEIYU:icons>> */
 /* <<WEIYU:css>> */
 // [WEIYU] css — GENERATED by tests/unit/_weiyu/dev/build.mjs from tests/unit/_weiyu/weiyu.css; never hand-edit, re-run the build.
-const THEATER_WEIYU_CSS = "/* 微谕 · the phone — lives in an OPEN SHADOW ROOT (soWyMount); shipped as the generated block css.js (THEATER_WEIYU_CSS).\n   Locked look: SO's themes cannot reach a shadow tree by selector; what crosses the boundary (inherited properties, custom\n   properties) is cut on :host — `all: initial !important` + every --wy-* token `!important` on :host (inside the shadow tree an\n   !important :host declaration beats the outer document's). Token discipline: a colour literal appears ONLY as the value of a\n   --wy-* declaration in the two token rules; light and dark differ only by tokens. Order: reset → light tokens → dark tokens →\n   components → @keyframes → @media (prefers-reduced-motion: reduce) (fallback) → the .wy[data-wy-motion=\"off\"] zeroing rule LAST.\n   No position: fixed, no vh, no url(), no @import. */\n\n:host {\n    all: initial !important;\n    display: block !important;\n    position: relative !important;\n    box-sizing: border-box !important;\n    width: 100% !important;\n    height: 100% !important;\n    min-width: 0 !important;\n    min-height: 0 !important;\n    overflow: hidden !important;\n    font-family: system-ui, -apple-system, \"Segoe UI\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif !important;\n    font-size: 15px !important;\n    font-style: normal !important;\n    font-weight: 400 !important;\n    line-height: 1.45 !important;\n    letter-spacing: normal !important;\n    word-spacing: normal !important;\n    text-align: left !important;\n    text-transform: none !important;\n    text-shadow: none !important;\n    color: var(--wy-ink) !important;\n    -webkit-text-fill-color: currentColor !important;\n    -webkit-tap-highlight-color: transparent !important;\n}\n\n:host {\n    --wy-tile-a: #48CE82 !important;\n    --wy-tile-b: #15965B !important;\n    --wy-own: #A6E78F !important;\n    --wy-own-ink: #14251B !important;\n    --wy-accent: #167848 !important;\n    --wy-chat-bg: #EDEDED !important;\n    --wy-bubble: #FFFFFF !important;\n    --wy-panel: #FFFFFF !important;\n    --wy-line: #E3E3E3 !important;\n    --wy-sub: #6B6B6B !important;\n    --wy-ink: #191919 !important;\n    --wy-alert: #E5484D !important;\n    --wy-warn: #B26A00 !important;\n    --wy-warn-ink: #8A5300 !important;\n    --wy-on-fill: #FFFFFF !important;\n    --wy-scrim: rgba(0,0,0,.45) !important;\n    --wy-shadow: rgba(0,0,0,.18) !important;\n    --wy-hover: rgba(0,0,0,.05) !important;\n    --wy-quote: rgba(0,0,0,.05) !important;\n    --wy-frame: #2A332D !important;\n    --wy-so-ink: #f4f5f7 !important;\n    --wy-so-bg: rgba(17,19,24,.84) !important;\n    --wy-mos: #DCDCDC !important;\n    --wy-tag: rgba(0,0,0,.05) !important;\n    --wy-av-hi: rgba(255,255,255,.24) !important;\n    --wy-av-lo: rgba(0,0,0,.14) !important;\n    --wy-av-edge: rgba(255,255,255,.09) !important;\n    --wy-av-ts: rgba(0,0,0,.16) !important;\n    --wy-boot-bg: #FAFCFA !important;\n    --wy-pin-bg: #F5F5F5 !important;\n    --wy-hl: rgba(22,120,72,.13) !important;\n    --wy-card-line: #EDEDED !important;\n    --wy-pay: #B05E10 !important;\n    --wy-pay-done: #F3C89A !important;\n    --wy-pay-ink: #FFFFFF !important;\n    --wy-pay-line: rgba(255,255,255,.34) !important;\n    --wy-pay-done-ink: #5C2D04 !important;\n    --wy-pay-done-sub: #6E3A0E !important;\n    --wy-pay-done-ic: #9A6634 !important;\n    --wy-pay-done-line: rgba(110,58,14,.22) !important;\n    --wy-callscr-bg: #1F2421 !important;\n    --wy-callscr-sub: rgba(255,255,255,.72) !important;\n    --wy-cs-cam: #0C0F0D !important;\n    --wy-cs-soft: rgba(255,255,255,.1) !important;\n    --wy-cs-tag: rgba(255,255,255,.16) !important;\n    --wy-cs-dim: rgba(255,255,255,.52) !important;\n    --wy-cs-fade: rgba(0,0,0,.55) !important;\n    --wy-hue-0: #E0765A !important;\n    --wy-hue-1: #3D9970 !important;\n    --wy-hue-2: #4A88CF !important;\n    --wy-hue-3: #9268C9 !important;\n    --wy-hue-4: #D2802E !important;\n    --wy-hue-5: #2A9E98 !important;\n    --wy-hue-6: #C25478 !important;\n    --wy-hue-7: #6683B5 !important;\n    --wy-hue-8: #7F8F35 !important;\n    --wy-hue-9: #AE6A3A !important;\n    --wy-hue-10: #5A72E0 !important;\n    --wy-hue-11: #748595 !important;\n}\n\n:host([data-wy-theme=\"dark\"]) {\n    --wy-tile-a: #48CE82 !important;\n    --wy-tile-b: #15965B !important;\n    --wy-own: #58BC87 !important;\n    --wy-own-ink: #14251B !important;\n    --wy-accent: #69D69B !important;\n    --wy-chat-bg: #111111 !important;\n    --wy-bubble: #2C2C2C !important;\n    --wy-panel: #191919 !important;\n    --wy-line: #2C2C2C !important;\n    --wy-sub: #8A8A8A !important;\n    --wy-ink: #D9D9D9 !important;\n    --wy-alert: #F2555A !important;\n    --wy-warn: #E8A33D !important;\n    --wy-warn-ink: #E8A33D !important;\n    --wy-on-fill: #FFFFFF !important;\n    --wy-scrim: rgba(0,0,0,.6) !important;\n    --wy-shadow: rgba(0,0,0,.5) !important;\n    --wy-hover: rgba(255,255,255,.06) !important;\n    --wy-quote: rgba(255,255,255,.07) !important;\n    --wy-frame: #0B0E0C !important;\n    --wy-so-ink: #f4f5f7 !important;\n    --wy-so-bg: rgba(17,19,24,.84) !important;\n    --wy-mos: #2E2E2E !important;\n    --wy-tag: rgba(255,255,255,.07) !important;\n    --wy-av-hi: rgba(255,255,255,.24) !important;\n    --wy-av-lo: rgba(0,0,0,.14) !important;\n    --wy-av-edge: rgba(255,255,255,.09) !important;\n    --wy-av-ts: rgba(0,0,0,.16) !important;\n    --wy-boot-bg: #1B211E !important;\n    --wy-pin-bg: #232323 !important;\n    --wy-hl: rgba(105,214,155,.15) !important;\n    --wy-card-line: #3A3A3A !important;\n    --wy-pay: #C46F1F !important;\n    --wy-pay-done: #8A5A2C !important;\n    --wy-pay-ink: #FFFFFF !important;\n    --wy-pay-line: rgba(255,255,255,.28) !important;\n    --wy-pay-done-ink: #FFFFFF !important;\n    --wy-pay-done-sub: #FFFFFF !important;\n    --wy-pay-done-ic: #FFFFFF !important;\n    --wy-pay-done-line: rgba(255,255,255,.28) !important;\n    --wy-callscr-bg: #161A18 !important;\n    --wy-callscr-sub: rgba(255,255,255,.72) !important;\n    --wy-cs-cam: #0C0F0D !important;\n    --wy-cs-soft: rgba(255,255,255,.1) !important;\n    --wy-cs-tag: rgba(255,255,255,.16) !important;\n    --wy-cs-dim: rgba(255,255,255,.52) !important;\n    --wy-cs-fade: rgba(0,0,0,.55) !important;\n    --wy-hue-0: #E0765A !important;\n    --wy-hue-1: #3D9970 !important;\n    --wy-hue-2: #4A88CF !important;\n    --wy-hue-3: #9268C9 !important;\n    --wy-hue-4: #D2802E !important;\n    --wy-hue-5: #2A9E98 !important;\n    --wy-hue-6: #C25478 !important;\n    --wy-hue-7: #6683B5 !important;\n    --wy-hue-8: #7F8F35 !important;\n    --wy-hue-9: #AE6A3A !important;\n    --wy-hue-10: #5A72E0 !important;\n    --wy-hue-11: #748595 !important;\n}\n\n/* ---- base: the phone column ------------------------------------------------------------------------------------------- */\n.wy {\n    position: relative;\n    box-sizing: border-box;\n    display: flex;\n    flex-direction: column;\n    width: 100%;\n    max-width: 420px;\n    height: 100%;\n    max-height: 860px;\n    min-height: 0;\n    margin: 0 auto;\n    overflow: hidden;\n    /* the screen's corners: set from OUTSIDE by the frame (the device, style.css) — a custom property is the one thing that crosses\n       the shadow boundary; absent = 0 (today's square screen). Deliberately not a :host token. */\n    border-radius: var(--wy-screen-radius, 0);\n    /* the top bar's height (refined list 52 px): ONE value read by the bar and by the condensing bar's scroller padding (integration) */\n    --wy-top-h: 52px;\n    background: var(--wy-panel);\n    color: var(--wy-ink);\n    user-select: none;\n    -webkit-user-select: none;\n}\n.wy *, .wy *::before, .wy *::after { box-sizing: border-box; }\n.wy svg { display: block; flex: none; }\n.wy button { font: inherit; color: inherit; background: none; border: 0; margin: 0; padding: 0; cursor: pointer; }\n.wy button:disabled { cursor: default; }\n.wy textarea, .wy input { font: inherit; color: var(--wy-ink); }\n.wy :focus-visible { outline: 2px solid var(--wy-accent); outline-offset: -2px; }\n.wy-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin; }\n\n/* ---- SO's own controls inside the phone: the dark pill of THEATER_GUARD_PILL, both themes ----------------------------- */\n/* `.wy .wy-so` (0,2,0) beats the `.wy button` reset (0,1,1) on SO's own buttons (the hold control, menu powers) */\n.wy-so, .wy .wy-so { color: var(--wy-so-ink); -webkit-text-fill-color: var(--wy-so-ink); background: var(--wy-so-bg); border-radius: 999px; }\n\n/* ---- the hold-to-load control (Task 16 ports the behaviour; the locks hold from day one) ------------------------------ */\n[data-wy-hold] {\n    position: relative;\n    display: inline-flex;\n    align-items: center;\n    justify-content: center;\n    min-height: 44px;\n    padding: 0 16px;\n    overflow: hidden;\n    touch-action: pan-y;\n    user-select: none;\n    -webkit-user-select: none;\n    -webkit-touch-callout: none;\n}\n\n/* ---- shell (Task 13): pages, top bar, tab bar, badge, empty / foreign page, the layer, toast, banner, wide frame ------- */\n.wy-page { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; background: var(--wy-panel); color: var(--wy-ink); }\n/* the refined list (redesign D2, mock section 4): a 52 px top bar, title 17 px. A page is no stacking context, so its bar's z-index 2 competes\n   at the phone's root with the motion layers (ghost 1 · dim 2 · sliding page 3) — it stays 2; a list row's unread badge is 1 (below) */\n.wy-top { flex: none; position: relative; z-index: 2; display: grid; grid-template-columns: 76px minmax(0, 1fr) 76px; align-items: center; min-height: var(--wy-top-h); padding: 0 4px; background: var(--wy-panel); }\n.wy-top.wy-line { border-bottom: 1px solid var(--wy-line); }\n.wy-top-l { display: flex; align-items: center; min-width: 0; }\n.wy-top-r { display: flex; align-items: center; justify-content: flex-end; gap: 2px; min-width: 0; }\n.wy-ttl { min-width: 0; text-align: center; font-weight: 600; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n.wy-ttl-n { font-weight: 500; }\n/* `.wy .wy-back` / `.wy .wy-tab` (0,2,0): the `.wy button` reset (0,1,1) ate the back button's side padding and the tab labels' 11 px\n   (they rendered at the phone's 15 px) — the designer's finding 2026-11-16, fixed in redesign slice 1 */\n.wy .wy-back { display: inline-flex; align-items: center; gap: 2px; min-width: 44px; min-height: 44px; padding: 0 6px; }\n.wy-back svg { width: 24px; height: 24px; }\n.wy-back-n { font-size: 15px; }\n.wy-ib { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 10px; }\n.wy-ib svg { width: 24px; height: 24px; }\n.wy-ib:hover { background: var(--wy-hover); }\n/* tab bar (refined list): a hairline on top, labels 10.5 px, icons 26 px, the inactive tabs at 86 % */\n.wy-tabbar { flex: none; display: flex; background: var(--wy-panel); border-top: 0; box-shadow: 0 -0.5px 0 var(--wy-line); padding: 5px 0 7px; }\n.wy .wy-tab { flex: 1 1 0; position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 46px; padding-top: 2px; font-size: 10.5px; color: var(--wy-ink); }\n.wy-tab svg { width: 26px; height: 26px; }\n.wy-tab.wy-on { color: var(--wy-accent); }\n.wy-tab:not(.wy-on) > svg, .wy-tab:not(.wy-on) > .wy-tab-label { opacity: 0.86; }\n.wy-badge { position: absolute; top: -6px; right: -7px; z-index: 2; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--wy-alert); color: var(--wy-on-fill); font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; box-shadow: 0 0 0 1.5px var(--wy-panel); }\n.wy-tab .wy-badge { top: 0; right: calc(50% - 26px); box-shadow: 0 0 0 2px var(--wy-panel); }\n.wy-empty { align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center; }\n.wy-empty-logo svg { width: 96px; height: 96px; }\n.wy-empty-name { font-size: 22px; font-weight: 600; }\n.wy-empty-who { max-width: 280px; margin: 0; color: var(--wy-sub); font-size: 14px; }\n.wy-layer { position: absolute; inset: 0; z-index: 40; pointer-events: none; }\n.wy-layer > * { pointer-events: auto; }\n/* toasts sit just under the top bar (redesign D2): at the bottom they covered the conversation's hold line and the dock */\n.wy-toast { position: absolute; left: 50%; top: 64px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 12px; background: var(--wy-so-bg); color: var(--wy-so-ink); font-size: 14px; animation: wy-fadeup 0.25s ease both; }\n.wy .wy-toast-act { min-height: 32px; color: var(--wy-tile-a); font-weight: 600; }\n/* dock F (2026-11-17): a toast lets presses through (only its action button takes them), and sizes to its text instead of wrapping at\n   half the screen */\n.wy-layer > .wy-toast { width: max-content; pointer-events: none; }\n.wy-layer > .wy-toast .wy-toast-act { pointer-events: auto; }\n.wy-banner { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: var(--wy-bubble); color: var(--wy-ink); box-shadow: 0 8px 24px var(--wy-shadow); cursor: pointer; animation: wy-drop 0.3s ease both; }\n.wy-banner-logo svg { width: 32px; height: 32px; }\n.wy-banner-body { display: flex; flex-direction: column; min-width: 0; }\n.wy-banner-who { font-size: 14px; font-weight: 600; }\n.wy-banner-text { overflow: hidden; color: var(--wy-sub); font-size: 13px; white-space: nowrap; text-overflow: ellipsis; }\n:host([data-wy-wide]) { padding: 16px !important; }\n:host([data-wy-wide]) .wy { border: 10px solid var(--wy-frame); border-radius: 36px; box-shadow: 0 18px 50px var(--wy-shadow); }\n\n/* ---- lists (Task 14): avatars, mosaics, chat rows, contacts, short lists, the + menu --------------------------------- */\n.wy-av { --wy-av-size: 40px; position: relative; display: inline-flex; align-items: center; justify-content: center; flex: none; width: var(--wy-av-size); height: var(--wy-av-size); overflow: hidden; border-radius: 6px; color: var(--wy-on-fill); font-size: calc(var(--wy-av-size) * 0.42); font-weight: 600; line-height: 1; }\n.wy-av img { display: block; width: 100%; height: 100%; object-fit: cover; }\n.wy-av-img { background: var(--wy-line); }\n.wy-hue-0 { background: var(--wy-hue-0); }\n.wy-hue-1 { background: var(--wy-hue-1); }\n.wy-hue-2 { background: var(--wy-hue-2); }\n.wy-hue-3 { background: var(--wy-hue-3); }\n.wy-hue-4 { background: var(--wy-hue-4); }\n.wy-hue-5 { background: var(--wy-hue-5); }\n.wy-hue-6 { background: var(--wy-hue-6); }\n.wy-hue-7 { background: var(--wy-hue-7); }\n.wy-hue-8 { background: var(--wy-hue-8); }\n.wy-hue-9 { background: var(--wy-hue-9); }\n.wy-hue-10 { background: var(--wy-hue-10); }\n.wy-hue-11 { background: var(--wy-hue-11); }\n/* letter avatars that look designed (refined list, redesign D2): a soft top-light gradient, a 1 px inner highlight; two characters\n   (soWyAvLabel) a size down; calmer in the dark theme. Not on mosaic tiles or the start-up orbit (they carry no wy-av-t). */\n.wy-av-t { background-image: linear-gradient(172deg, var(--wy-av-hi), transparent 52%, var(--wy-av-lo)); box-shadow: inset 0 0 0 1px var(--wy-av-edge); font-weight: 500; text-shadow: 0 1px 1px var(--wy-av-ts); }\n.wy-av-two { font-size: calc(var(--wy-av-size) * 0.3); letter-spacing: 0.5px; }\n:host([data-wy-theme=\"dark\"]) .wy-av-t { filter: saturate(0.8) brightness(0.9); }\n/* the familiar mosaic: rows of --wy-t tiles (soWyMosaicEl), the short row first, every row centred, on a neutral tile */\n.wy-mos { --wy-av-size: 48px; display: flex; flex-direction: column; justify-content: center; flex: none; gap: 1.5px; width: var(--wy-av-size); height: var(--wy-av-size); padding: 2.5px; overflow: hidden; border-radius: 6px; background: var(--wy-mos); }\n.wy-mos-r { display: flex; justify-content: center; gap: 1.5px; }\n.wy-mos .wy-av { width: var(--wy-t, 12px); height: var(--wy-t, 12px); border-radius: 2px; font-size: calc(var(--wy-t, 12px) * 0.52); }\n.wy-mos.wy-dis { filter: grayscale(1); opacity: 0.55; }\n.wy-avw { position: relative; flex: none; display: inline-flex; }\n/* unread badges on the avatar's corner, ringed in the row colour; z-index 1 (2026-11-18, the designer's finding, reproduced in the browser):\n   at 2 it tied with the top bar and drew OVER the condensed bar when the list scrolled under it */\n.wy-avw .wy-badge { top: -7px; right: -7px; z-index: 1; box-shadow: 0 0 0 2px var(--wy-panel); }\n.wy-avw .wy-badge.wy-dot { top: -4px; right: -4px; width: 10px; min-width: 10px; height: 10px; padding: 0; }\n/* rows: 72 px, 16 px sides; a hairline divider inset to the text column (16 + 48 + 12 = 76 px), none under the last / pressed row */\n.wy-row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 12px 16px; background: var(--wy-panel); cursor: pointer; }\n.wy-row::after { content: \"\"; position: absolute; left: 76px; right: 0; bottom: 0; height: 1px; background: var(--wy-line); transform: scaleY(0.5); transform-origin: bottom; }\n.wy-row:last-child::after, .wy-row:hover::after, .wy-row:active::after { display: none; }\n.wy-row:hover { background: var(--wy-hover); }\n.wy-row .wy-avw > .wy-av, .wy-row .wy-mos { border-radius: 7px; }\n.wy-grow { flex: 1 1 auto; min-width: 0; }\n.wy-t1, .wy-t2 { display: flex; align-items: center; gap: 6px; min-width: 0; }\n.wy-row .wy-t1 { align-items: flex-start; }\n.wy-t2 { margin-top: 4px; }\n.wy-nm { min-width: 0; overflow: hidden; font-size: 16px; white-space: nowrap; text-overflow: ellipsis; }\n.wy-row .wy-nm { font-size: 16.5px; line-height: 1.3; }\n.wy-tm { flex: none; margin-left: auto; padding-top: 2px; color: var(--wy-sub); font-size: 12px; line-height: 1.3; }\n.wy-pv { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--wy-sub); font-size: 13.5px; white-space: nowrap; text-overflow: ellipsis; }\n.wy-pv .wy-at { color: var(--wy-alert); }\n.wy-mute { flex: none; width: 14px; height: 14px; color: var(--wy-sub); }\n.wy-mute svg { width: 14px; height: 14px; }\n.wy-row.wy-dis .wy-nm, .wy-row.wy-dis .wy-pv { color: var(--wy-sub); opacity: 0.8; }\n/* 窥屏: a quiet tinted tag, no border */\n.wy-obs { flex: none; margin-top: 2px; padding: 0 5px 0 4px; border: 0; border-radius: 4px; background: var(--wy-tag); color: var(--wy-sub); font-size: 10.5px; font-weight: 500; line-height: 17px; white-space: nowrap; }\n.wy-new { flex: none; margin-top: 3px; padding: 0 4px; border-radius: 5px; background: var(--wy-accent); color: var(--wy-on-fill); font-size: 10px; font-weight: 600; line-height: 15px; }\n.wy-prow { position: relative; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 16px; background: var(--wy-panel); cursor: pointer; }\n.wy-prow::after { content: \"\"; position: absolute; left: 68px; right: 0; bottom: 0; height: 1px; background: var(--wy-line); transform: scaleY(0.5); transform-origin: bottom; }\n.wy-prow:hover { background: var(--wy-hover); }\n.wy-prow .wy-nm { flex: 1 1 auto; font-size: 15.5px; }\n.wy-sq { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 40px; height: 40px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); }\n.wy-sq svg { width: 24px; height: 24px; }\n.wy-sq-observed { background: var(--wy-sub); }\n.wy-sub2 { flex: none; color: var(--wy-sub); font-size: 13px; }\n.wy-gap { height: 8px; background: var(--wy-chat-bg); }\n.wy-foot { padding: 16px 14px 24px; color: var(--wy-sub); font-size: 12.5px; text-align: center; }\n/* the 我 page: the note under the two story switches is that group's footer — left-aligned like the switches' descriptions */\n.wy-foot.wy-grpfoot { padding: 6px 16px 10px; line-height: 1.45; text-align: left; }\n.wy-none { padding: 40px 24px; color: var(--wy-sub); font-size: 13px; text-align: center; }\n.wy-pop-wrap { position: absolute; inset: 0; }\n.wy-backdrop { position: absolute; inset: 0; }\n.wy-pop { position: absolute; z-index: 1; min-width: 150px; padding: 4px; border-radius: 10px; background: var(--wy-bubble); color: var(--wy-ink); box-shadow: 0 8px 28px var(--wy-shadow); }\n.wy-pop button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0 12px; border-radius: 8px; font-size: 15px; text-align: left; }\n.wy-pop button:hover { background: var(--wy-hover); }\n.wy-pop button svg { width: 20px; height: 20px; }\n.wy-pop-plus { top: 48px; right: 8px; }\n\n/* ---- the chat screen (Task 15): bubbles with tails, big emoji, voice, frames, grey lines, footers, typing row ----------- */\n.wy-chat { background: var(--wy-chat-bg); }\n.wy-chat .wy-top { background: var(--wy-chat-bg); border-bottom: 1px solid var(--wy-line); }\n.wy-msgs { padding: 6px 0 12px; }\n.wy-m { position: relative; display: flex; align-items: flex-start; gap: 9px; min-width: 0; padding: 7px 12px; }\n.wy-m[data-wy-side=\"me\"] { flex-direction: row-reverse; }\n.wy-m > .wy-av { cursor: pointer; touch-action: manipulation; }\n.wy-av-ghost { background: var(--wy-line); }\n.wy-mb { position: relative; display: flex; flex-direction: column; align-items: flex-start; min-width: 0; max-width: 70%; }\n.wy-m[data-wy-side=\"me\"] .wy-mb { align-items: flex-end; }\n.wy-mn { margin: -2px 0 3px 2px; color: var(--wy-sub); font-size: 12px; }\n.wy-bubble { position: relative; max-width: 100%; padding: 9px 11px; border-radius: 6px; background: var(--wy-bubble); color: var(--wy-ink); font-size: 15px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; user-select: text; -webkit-user-select: text; }\n.wy-bubble::before { content: \"\"; position: absolute; top: 13px; left: -6px; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 6px solid var(--wy-bubble); }\n.wy-m[data-wy-side=\"me\"] .wy-bubble { background: var(--wy-own); color: var(--wy-own-ink); }\n.wy-m[data-wy-side=\"me\"] .wy-bubble::before { left: auto; right: -6px; border-right: 0; border-left: 6px solid var(--wy-own); }\n.wy-bubble .wy-at { color: var(--wy-accent); font-weight: 500; }\n.wy-m[data-wy-side=\"me\"] .wy-bubble .wy-at { color: var(--wy-own-ink); font-weight: 600; }\n.wy-big { position: relative; padding: 0 2px; font-size: 44px; line-height: 1.15; letter-spacing: 2px; overflow-wrap: anywhere; }\n.wy-voice { display: flex; align-items: center; gap: 8px; width: var(--wy-voice-w, 90px); max-width: 100%; height: 40px; cursor: pointer; user-select: none; -webkit-user-select: none; }\n.wy-voice svg { width: 20px; height: 20px; }\n.wy-m[data-wy-side=\"me\"] .wy-voice { flex-direction: row-reverse; }\n.wy-m[data-wy-side=\"me\"] .wy-voice svg { transform: scaleX(-1); }\n.wy-sec { font-size: 14px; }\n.wy-vtext { margin-top: 5px; max-width: 100%; padding: 6px 9px; border-radius: 6px; background: var(--wy-quote); color: var(--wy-ink); font-size: 13.5px; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n.wy-frame { position: relative; display: flex; flex-direction: column; width: 190px; max-width: 100%; overflow: hidden; border-radius: 8px; color: var(--wy-on-fill); }\n/* the picture area keeps the ratio; the description (.wy-cap) is below it in the same tile (2026-11-16: a long one covered ▶ / duration) */\n.wy-pic { position: relative; display: block; flex: none; aspect-ratio: 4 / 3; }\n.wy-video .wy-pic { aspect-ratio: 16 / 10; }\n.wy-em { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -62%); font-size: 40px; line-height: 1; }\n.wy-play { position: absolute; top: 10px; right: 10px; display: inline-flex; padding: 4px; border-radius: 999px; background: var(--wy-scrim); }\n.wy-play svg { width: 18px; height: 18px; }\n.wy-dur { position: absolute; top: 12px; left: 10px; padding: 0 6px; border-radius: 6px; background: var(--wy-scrim); font-size: 11.5px; line-height: 18px; }\n.wy-cap { position: relative; padding: 6px 9px; background: var(--wy-scrim); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-q { max-width: 100%; margin-top: 5px; padding: 4px 8px; border-radius: 4px; background: var(--wy-quote); color: var(--wy-sub); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }\n.wy-line-mid { position: relative; padding: 5px 40px; color: var(--wy-sub); font-size: 12px; line-height: 1.5; text-align: center; overflow-wrap: anywhere; }\n.wy-line-mid.wy-time { padding-top: 12px; font-size: 11.5px; }\n.wy .wy-peek { margin-left: 4px; color: var(--wy-accent); font-size: 11.5px; }\n/* playtest 2026-11-19 A15: hit areas larger than what is drawn (nothing visible moves) — 偷看, the row ⋯, the switches, the 我 card's name */\n.wy .wy-peek { position: relative; }\n.wy .wy-peek::before { content: \"\"; position: absolute; inset: -10px -6px; }\n.wy-peekpill, .wy-note { display: inline-block; max-width: 100%; margin-top: 4px; padding: 3px 10px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-peekpill { display: block; width: fit-content; margin: 4px auto 0; }\n.wy-noteline { display: flex; flex-direction: column; align-items: center; padding: 8px 20px; }\n/* pt8 (owner's playtest 2026-11-18): the cause line — WHY a request failed, one small secondary line; selectable (he copies it into a report) */\n.wy-cause { display: block; max-width: 100%; margin-top: 3px; color: var(--wy-sub); font-size: 11.5px; line-height: 1.45; text-align: center; overflow-wrap: anywhere; }\n.wy-cause, .wy-note-error, .wy-cs-why, .wy-cs-note, .wy-boot-fail-why { user-select: text; -webkit-user-select: text; cursor: text; }\n.wy-dots { display: flex; align-items: center; gap: 4px; height: 38px; padding: 0 13px; }\n.wy-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--wy-sub); animation: wy-dots 1.1s infinite ease-in-out; }\n.wy-dots i:nth-child(2) { animation-delay: 0.15s; }\n.wy-dots i:nth-child(3) { animation-delay: 0.3s; }\n/* the dock (layout F, redesign Lane D slice D1): ONE row [mic ↔ keyboard 40] [field] [+ 40 ↔ 发送 56]; + gives way to 发送 while the field\n   has text (.wy-has-text), both give way to the stop square while this chat's call runs (.wy-running); watching = one slim line */\n.wy-chatfoot { flex: none; display: flex; flex-direction: column; gap: 8px; padding: 8px 10px 9px; border-top: 1px solid var(--wy-line); background: var(--wy-panel); }\n.wy-chatfoot.wy-watch { padding: 4px 12px 6px; }\n.wy-inrow { display: flex; align-items: flex-end; gap: 8px; min-width: 0; }\n.wy-input { flex: 1 1 auto; min-width: 0; min-height: 40px; max-height: 120px; padding: 9px 10px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-bubble); font-size: 15px; line-height: 1.4; resize: none; outline: none; user-select: text; -webkit-user-select: text; }\n/* playtest 2026-11-19 A6: the field grows with its lines up to max-height (a second line no longer scrolls the first one's top out of\n   the one-line box); a browser without field-sizing keeps today's one-line box. One line keeps today's height (the rows=\"1\" box). */\n@supports (field-sizing: content) {\n    .wy-input { field-sizing: content; }\n}\n.wy-input:focus { border-color: var(--wy-accent); }\n.wy-input::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy .wy-dk { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; color: var(--wy-ink); }\n.wy-dk svg { width: 28px; height: 28px; }\n.wy-dk:hover { background: var(--wy-hover); }\n.wy .wy-send { flex: none; min-width: 56px; min-height: 40px; padding: 0 14px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); font-weight: 600; }\n.wy-send:disabled { opacity: 0.45; }\n.wy-inrow:not(.wy-has-text) > .wy-send, .wy-inrow.wy-has-text > .wy-plus, .wy-inrow.wy-running > .wy-send, .wy-inrow.wy-running > .wy-plus { display: none; }\n.wy .wy-stopsq { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 56px; min-height: 40px; border-radius: 6px; background: var(--wy-alert); color: var(--wy-on-fill); }\n.wy-stopsq-i { width: 12px; height: 12px; border-radius: 2px; background: currentColor; }\n.wy-obsbar { display: flex; flex-direction: column; align-items: center; gap: 6px; }\n.wy-obs-t { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 12px; color: var(--wy-sub); font-size: 13px; }\n.wy-obs-t b { font-weight: 500; }\n.wy-disbar { padding: 10px 12px; color: var(--wy-sub); font-size: 13px; text-align: center; }\n.wy-hold { font-size: 14px; }\n/* the hold line: the last element of the conversation, a quiet dashed line centred in the COLUMN — widened under a classic scrollbar by\n   its measured width (--wy-sbw, soWyAfterRender) so the scrollbar does not push it left; the label centred in the box */\n.wy-holdline { display: flex; justify-content: center; margin-right: calc(-1 * var(--wy-sbw, 0px)); padding: 4px 16px 14px; }\n.wy .wy-holdline .wy-hold { width: 100%; max-width: 340px; min-width: 0; min-height: 46px; padding: 0 14px; border: 1.5px dashed var(--wy-line); border-radius: 14px; background: transparent; color: var(--wy-sub); -webkit-text-fill-color: var(--wy-sub); font-size: 13.5px; }\n.wy-holdline .wy-hold-t { text-align: center; }\n.wy-holdline .wy-hold-fill { transform-origin: center; opacity: 0.22; }\n/* the \"+\" sheet (照片 · 视频; a grid of 68 px+ cells — 4 per row at 375 px — with room for more) and the 照片 / 视频 composer */\n.wy-attach { padding-top: 14px; }\n.wy-att-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); gap: 12px 6px; padding: 4px 12px 14px; }\n.wy .wy-att { display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 84px; color: var(--wy-sub); font-size: 12.5px; }\n.wy-att-i { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 14px; background: var(--wy-chat-bg); color: var(--wy-ink); }\n.wy-att-i svg { width: 26px; height: 26px; }\n.wy-att:hover .wy-att-i { background: var(--wy-hover); }\n.wy-sheet.wy-compose { gap: 10px; max-height: calc(100% - 12px); overflow-y: auto; overscroll-behavior: contain; padding: 8px 14px 14px; }\n.wy-cmp-head { position: sticky; top: -8px; z-index: 1; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 44px; margin: -8px -14px 0; padding: 8px 14px 0; background: var(--wy-bubble); }\n.wy .wy-cmp-x { justify-self: start; min-width: 44px; min-height: 40px; padding: 0 4px; color: var(--wy-sub); font-size: 15px; text-align: left; }\n.wy-cmp-t { font-size: 16px; font-weight: 600; }\n.wy .wy-cmp-go { justify-self: end; min-width: 56px; min-height: 40px; padding: 0 14px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); font-weight: 600; }\n.wy .wy-cmp-go:disabled { opacity: 0.45; cursor: default; }\n.wy-cmp-prev { display: flex; justify-content: center; }\n.wy-cmp-prev .wy-frame { width: 144px; }\n.wy-cmp-in { flex: none; width: 100%; min-height: 56px; max-height: 120px; padding: 8px 10px; border: 1px solid var(--wy-line); border-radius: 8px; background: var(--wy-chat-bg); font-size: 15px; line-height: 1.45; resize: none; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-cmp-in:focus { border-color: var(--wy-accent); }\n.wy-cmp-in::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy-cmp-lab { margin-bottom: -4px; color: var(--wy-sub); font-size: 12.5px; }\n.wy-cmp-emo { display: flex; flex-wrap: wrap; gap: 6px; }\n.wy .wy-cmp-e { width: 40px; height: 40px; border-radius: 10px; background: var(--wy-chat-bg); box-shadow: inset 0 0 0 1px var(--wy-line); font-size: 20px; line-height: 1; }\n.wy .wy-cmp-e[aria-checked=\"true\"] { box-shadow: inset 0 0 0 2px var(--wy-accent); }\n.wy .wy-cmp-dur .wy-seg-i { min-height: 40px; }\n\n/* ---- the hold control (Task 16): the fill runs for --wy-hold-ms while held, snaps back on release ---------------------- */\n.wy-hold { min-width: 200px; max-width: 100%; border-radius: 999px; cursor: pointer; }\n.wy-hold-t { position: relative; z-index: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }\n.wy-hold-fill { position: absolute; inset: 0; z-index: 0; border-radius: inherit; background: var(--wy-accent); opacity: 0.5; transform: scaleX(0); transform-origin: left center; pointer-events: none; }\n.wy-hold.holding .wy-hold-fill { transform: scaleX(1); transition: transform var(--wy-hold-ms, 2000ms) linear; }\n\n/* ---- the message menu (Task 17): popover, ⋯ opener, inline editor, quote chip --------------------------------------- */\n.wy-backdrop.wy-clear { background: transparent; }\n.wy-pop-msg { display: flex; flex-direction: column; gap: 4px; min-width: 0; max-width: calc(100% - 16px); padding: 6px; top: 64px; left: 8px; }\n.wy-pop-cap { padding: 0 6px; color: var(--wy-sub); font-size: 11.5px; }\n/* the familiar bubble menu is a grid of icon + label: one row up to five items, two even rows beyond (--wy-mi-cols, soWyMenuCols:\n   6 → 3 + 3, 7 → 4 + 3) — never a lone item on a second row (more functions phase 2, 2026-11-17) */\n.wy-mi-row { display: grid; grid-template-columns: repeat(var(--wy-mi-cols, 5), 56px); gap: 4px; }\n.wy-pop .wy-mi { flex-direction: column; justify-content: center; gap: 3px; width: 56px; min-height: 56px; padding: 6px 0; border-radius: 10px; font-size: 12px; text-align: center; }\n.wy-pop .wy-mi.wy-so { border-radius: 10px; }\n.wy-pop .wy-mi.wy-so:hover { background: var(--wy-so-bg); opacity: 0.9; }\n.wy-pop .wy-mi[aria-disabled=\"true\"] { opacity: 0.45; cursor: default; }\n/* the ⋯ (消息菜单 = 点 ⋯, the default since redesign D2): a 32 px round target on the outer side of every message, ALWAYS in the layout\n   (opacity only — nothing moves when it shows): on hover / keyboard focus of the row, or after a tap on the bubble (.wy-sel, touch).\n   On a grey-line notice it sits in the line's right padding (absolute) so the text stays centred. Hidden = not a target on touch. */\n.wy-mmore { flex: none; align-self: center; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--wy-hover); color: var(--wy-sub); opacity: 0; }\n.wy-mmore svg { width: 18px; height: 18px; }\n.wy-line-mid .wy-mmore { position: absolute; top: 50%; right: 4px; width: 32px; height: 32px; margin-top: -16px; }\n.wy-mmore:focus-visible, .wy-m:focus-within > .wy-mmore, .wy-line-mid:focus-within > .wy-mmore, .wy-sel > .wy-mmore { opacity: 1; }\n@media (hover: hover) {\n    .wy-m:hover > .wy-mmore, .wy-line-mid:hover > .wy-mmore { opacity: 1; }\n    .wy-mmore:hover { color: var(--wy-ink); }\n}\n@media (hover: none) {\n    .wy-mmore { pointer-events: none; }\n    .wy-sel > .wy-mmore, .wy-mmore:focus-visible { pointer-events: auto; }\n}\n.wy-bubble, .wy-big, .wy-frame, .wy-sys-t, .wy-cardmsg, .wy-fwdmsg, .wy-paymsg { -webkit-touch-callout: none; }\n/* 消息菜单 = 长按气泡 (.wy-menu-hold on the chat page): while held the bubble lifts and a tint charges from the finger over the hold\n   (.wy-lp, --wy-lp-ms / --wy-lp-x / --wy-lp-y set by soWyLift); let go early and it settles back. Transform / opacity only, and only\n   with the phone's motion flag on (soWyLift never adds .wy-lp with it off; the menu still opens). Grey-line notices (inline) only open. */\n.wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-bubble, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-big, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-frame, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-cardmsg, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-fwdmsg, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-paymsg { transition: transform 0.2s ease; }\n.wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-bubble::after, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-big::after, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-frame::after, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-cardmsg::after, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-fwdmsg::after, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-paymsg::after { content: \"\"; position: absolute; inset: 0; z-index: 2; border-radius: inherit; background: var(--wy-accent); opacity: 0; transform: scale(0); transform-origin: var(--wy-lp-x, 50%) var(--wy-lp-y, 50%); pointer-events: none; transition: transform 0.15s ease, opacity 0.15s ease; }\n.wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-lp { transform: translateY(-2px) scale(1.035); transition: transform var(--wy-lp-ms, 500ms) cubic-bezier(0.2, 0.8, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-lp::after { opacity: 0.18; transform: scale(1); transition: transform var(--wy-lp-ms, 500ms) cubic-bezier(0.3, 0.2, 0.3, 1), opacity 0.15s ease; }\n.wy-edit { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 0 4px; }\n.wy-edit-in { width: 100%; min-height: 72px; max-height: 200px; padding: 8px 10px; border: 1px solid var(--wy-accent); border-radius: 8px; background: var(--wy-bubble); font-size: 15px; line-height: 1.45; resize: vertical; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-edit-btns { display: flex; justify-content: flex-end; gap: 8px; }\n.wy-edit-btns button { min-height: 36px; padding: 0 14px; border-radius: 6px; font-size: 14px; }\n.wy .wy-edit-no { background: var(--wy-hover); }\n.wy .wy-edit-ok { background: var(--wy-accent); color: var(--wy-on-fill); font-weight: 600; }\n.wy-qchip { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 4px 4px 4px 10px; border-radius: 6px; background: var(--wy-quote); color: var(--wy-sub); font-size: 12.5px; }\n.wy-qchip-t { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }\n.wy-qchip-x { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; }\n.wy-qchip-x svg { width: 16px; height: 16px; }\n\n/* ---- group info, profile, pictures, pick (Task 18) --------------------------------------------------------------------- */\n.wy-info .wy-scroll, .wy-profile .wy-scroll { background: var(--wy-chat-bg); }\n.wy-card { background: var(--wy-panel); }\n.wy-mgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 12px 6px; padding: 16px 12px; }\n.wy-mcell { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; cursor: pointer; }\n.wy-mcell-n { max-width: 100%; overflow: hidden; color: var(--wy-sub); font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }\n.wy-mcell-plus { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border: 1.5px dashed var(--wy-line); border-radius: 6px; color: var(--wy-sub); }\n.wy-mcell-plus svg { width: 24px; height: 24px; }\n.wy-countnote { padding: 10px 16px; background: var(--wy-panel); color: var(--wy-sub); font-size: 12.5px; text-align: center; }\n.wy-kv { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 10px 16px; background: var(--wy-panel); border-bottom: 1px solid var(--wy-line); }\n.wy-kv-top { align-items: flex-start; }\n.wy-k { flex: none; font-size: 15px; }\n/* A13 (2026-11-19): the oracle's ☾ hangs in the row's left padding — 「怎么来的」 starts where every other label starts */\n.wy-k-how .wy-moon { display: inline-block; width: 13px; margin-left: -13px; color: var(--wy-sub); font-size: 12px; text-align: left; }\n.wy-v { flex: 1 1 auto; min-width: 0; color: var(--wy-sub); font-size: 14px; text-align: right; overflow-wrap: anywhere; }\n.wy-kv-top .wy-v { display: flex; flex-direction: column; gap: 4px; }\n.wy-floor { color: var(--wy-accent); font-size: 12.5px; }\n.wy-setrow { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 10px 16px; background: var(--wy-panel); border-bottom: 1px solid var(--wy-line); }\n.wy-setrow-t { display: flex; flex: 1 1 auto; flex-direction: column; gap: 3px; min-width: 0; }\n.wy-setrow-n { font-size: 15px; font-weight: 500; }\n.wy-setrow-d { color: var(--wy-sub); font-size: 12.5px; line-height: 1.45; }\n.wy .wy-switch { position: relative; flex: none; width: 50px; height: 30px; border-radius: 15px; background: var(--wy-line); transition: background 0.2s ease; }\n.wy .wy-switch::after { content: \"\"; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: var(--wy-on-fill); box-shadow: 0 1px 3px var(--wy-shadow); transition: transform 0.2s ease; }\n.wy .wy-switch.wy-on { background: var(--wy-accent); }\n.wy .wy-switch.wy-on::after { transform: translateX(20px); }\n.wy .wy-switch::before { content: \"\"; position: absolute; inset: -7px -4px; border-radius: 22px; }   /* A15: 58 × 44 to the finger */\n/* 动画 (redesign slice 1): the text above, a three-stop control below — a recessed well (the chat background) with a raised thumb (the\n   bubble colour) on the choice, both themes */\n.wy-setrow.wy-setrow-seg { flex-direction: column; align-items: stretch; gap: 10px; }\n.wy-seg { display: flex; gap: 2px; padding: 2px; border-radius: 9px; background: var(--wy-chat-bg); box-shadow: inset 0 0 0 1px var(--wy-line); }\n.wy .wy-seg-i { flex: 1 1 0; min-width: 0; min-height: 32px; padding: 0 8px; border-radius: 7px; color: var(--wy-ink); font-size: 13.5px; text-align: center; white-space: nowrap; transition: background 0.2s ease, color 0.2s ease; }\n.wy .wy-seg-i.wy-on { background: var(--wy-bubble); color: var(--wy-ink); font-weight: 600; box-shadow: 0 1px 3px var(--wy-shadow), inset 0 0 0 1px var(--wy-line); }\n.wy .wy-btnrow { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 52px; padding: 0 16px; background: var(--wy-panel); color: var(--wy-ink); font-size: 15px; font-weight: 500; }\n.wy .wy-btnrow.wy-danger { color: var(--wy-alert); }\n.wy .wy-btnrow.wy-muted-t { color: var(--wy-sub); font-size: 14px; font-weight: 400; }\n.wy-endpad { height: 32px; }\n.wy-pcard { display: flex; align-items: center; gap: 16px; padding: 24px 18px 22px; }\n.wy-pcard .wy-av { border-radius: 8px; cursor: pointer; }\n.wy-pname { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 20px; font-weight: 600; overflow-wrap: anywhere; }\n.wy-meta { margin-top: 4px; color: var(--wy-sub); font-size: 13px; overflow-wrap: anywhere; }\n.wy-sigcard { padding: 13px 16px; }\n.wy-sigcard .wy-k { margin-bottom: 4px; color: var(--wy-sub); font-size: 13px; }\n.wy-sig { font-size: 14.5px; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n.wy-sechead { padding: 14px 16px 6px; color: var(--wy-sub); font-size: 12.5px; }\n.wy-backdrop.wy-dim { background: var(--wy-scrim); }\n.wy-sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; padding: 6px 0 10px; border-radius: 14px 14px 0 0; background: var(--wy-bubble); color: var(--wy-ink); box-shadow: 0 -8px 24px var(--wy-shadow); animation: wy-rise 0.22s ease both; }\n.wy-sheet-t { padding: 10px 16px 8px; color: var(--wy-sub); font-size: 12.5px; text-align: center; }\n.wy .wy-sheet-i { min-height: 50px; padding: 0 16px; border-top: 1px solid var(--wy-line); font-size: 16px; text-align: center; }\n.wy .wy-sheet-c { margin-top: 6px; border-top: 6px solid var(--wy-chat-bg); }\n/* 删除联系人 (2026-11-17): both options are destructive (red); the one that also deletes the lines is set apart (bold) */\n.wy .wy-sheet-i.wy-danger { color: var(--wy-alert); }\n.wy .wy-sheet-i.wy-danger-all { font-weight: 600; }\n.wy .wy-done { min-width: 64px; min-height: 34px; margin-right: 6px; padding: 0 10px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); font-size: 14px; font-weight: 600; white-space: nowrap; }\n.wy .wy-done:disabled { opacity: 0.4; }\n.wy-pickpage .wy-top { grid-template-columns: 76px minmax(0, 1fr) 96px; }\n.wy-pickstrip { flex: none; display: flex; align-items: center; gap: 6px; min-height: 52px; padding: 8px 14px; overflow-x: auto; border-bottom: 1px solid var(--wy-line); }\n.wy-ph { color: var(--wy-sub); font-size: 13px; }\n.wy-gname { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--wy-line); }\n.wy-gname span { flex: none; color: var(--wy-sub); font-size: 13px; }\n.wy-gname input { flex: 1 1 auto; min-width: 0; min-height: 36px; padding: 0 10px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-bubble); outline: none; user-select: text; -webkit-user-select: text; }\n.wy-gname input:focus { border-color: var(--wy-accent); }\n.wy-pick { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 14px; cursor: pointer; }\n.wy-pick:hover { background: var(--wy-hover); }\n.wy-ck { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 1.5px solid var(--wy-line); border-radius: 50%; color: transparent; }\n.wy-ck svg { width: 14px; height: 14px; }\n.wy-pick.wy-on .wy-ck { border-color: var(--wy-accent); background: var(--wy-accent); color: var(--wy-on-fill); }\n.wy-pick.wy-lock { cursor: default; opacity: 0.5; }\n\n/* ---- the 我 tab (Task 19): own card, switches, note link, size, summarise, background, reset; chat background */\n.wy-tabs-me .wy-scroll { background: var(--wy-chat-bg); }\n.wy-mecard { padding-top: 26px; }\n.wy-mecard .wy-grow { cursor: pointer; }\n/* A15: the name block fills the card's height (its lines stay centred where they were), so the tap is not a 29 px strip */\n.wy-mecard .wy-grow { align-self: stretch; display: flex; flex-direction: column; justify-content: center; }\n.wy-chev { flex: none; display: inline-flex; color: var(--wy-sub); }\n.wy-chev svg { width: 18px; height: 18px; }\n.wy-linkrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 2px 16px 10px; background: var(--wy-panel); border-bottom: 1px solid var(--wy-line); }\n.wy .wy-link { min-height: 32px; color: var(--wy-accent); font-size: 13.5px; }\n/* B5 (2026-11-19): the no-reply note as the way to 重新回复 — the phone's link, centred under the conversation like the note it replaces */\n.wy .wy-link.wy-note-retry { display: inline-flex; align-items: center; margin-top: 0; padding: 0 12px; cursor: pointer; }\n.wy-size { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 10px 16px; background: var(--wy-panel); color: var(--wy-sub); font-size: 13px; border-bottom: 1px solid var(--wy-line); }\n.wy-size.wy-lv-amber .wy-size-note { color: var(--wy-warn); font-weight: 600; }\n.wy-size.wy-lv-red .wy-size-note { color: var(--wy-alert); font-weight: 600; }\n.wy-sumrow { display: flex; flex-direction: column; align-items: center; background: var(--wy-panel); }\n.wy .wy-btnrow svg { width: 20px; height: 20px; margin-right: 8px; }\n/* A20: the profile's 音视频通话 sits right under 发消息 — one block, a hairline between the two rows */\n.wy .wy-btnrow.wy-pcall { border-top: 1px solid var(--wy-line); }\n.wy .wy-sum { color: var(--wy-accent); }\n.wy .wy-sum:disabled { color: var(--wy-sub); cursor: default; }\n.wy-sumrow .wy-note { margin: 0 0 10px; }\n.wy-sheet-note { max-height: 80%; }\n/* the memory slice, UI (2026-11-18; owner #44, the designer's mock option ①): the size sheet (soWyMeterSheet) and the 我 page's 「记忆与长度」\n   rows (soWyMemRows). Amber TEXT reads --wy-warn-ink (the light theme's #B26A00 is under 4.5 : 1 on white at these sizes; dark = --wy-warn);\n   bars and fills read --wy-warn. The level never rests on colour alone: ⚠ + the words on red, the bar's fill and the sentence on every level. */\n.wy-msheet { max-height: calc(100% - 12px); overflow-y: auto; overscroll-behavior: contain; }\n.wy-ms-num { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; font-size: 30px; font-weight: 600; line-height: 1.3; font-variant-numeric: tabular-nums; }\n.wy-ms-num.wy-lv-amber { color: var(--wy-warn-ink); }\n.wy-ms-num.wy-lv-red { color: var(--wy-alert); }\n.wy-ms-warn { display: inline-flex; }\n.wy-ms-warn svg { width: 26px; height: 26px; }\n.wy-ms-sub { padding: 0 16px 14px; color: var(--wy-sub); font-size: 12.5px; text-align: center; }\n.wy-ms-bar { position: relative; height: 6px; margin: 0 22px; border-radius: 3px; background: var(--wy-chat-bg); box-shadow: inset 0 0 0 1px var(--wy-line); }\n.wy-ms-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--wy-sub); }\n.wy-ms-bar.wy-lv-amber .wy-ms-fill { background: var(--wy-warn); }\n.wy-ms-bar.wy-lv-red .wy-ms-fill { background: var(--wy-alert); }\n.wy-ms-mark { position: absolute; left: 80%; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--wy-ink); opacity: 0.45; }\n.wy-ms-scale { position: relative; height: 18px; margin: 5px 22px 0; color: var(--wy-sub); font-size: 11px; }\n.wy-ms-scale span { position: absolute; top: 0; white-space: nowrap; }\n.wy-ms-scale .wy-ms-at { left: 80%; transform: translateX(-50%); }\n.wy-ms-why { margin: 10px 22px 6px; font-size: 14px; line-height: 1.6; text-align: center; }\n.wy-ms-after { margin: 0 22px 10px; color: var(--wy-sub); font-size: 12.5px; text-align: center; }\n.wy-ms-after.wy-lv-amber { color: var(--wy-warn-ink); }\n.wy-ms-after.wy-lv-red { color: var(--wy-alert); }\n.wy .wy-sheet-i.wy-ms-go { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; color: var(--wy-accent); font-weight: 600; }\n.wy .wy-sheet-i.wy-ms-go svg { width: 20px; height: 20px; }\n.wy .wy-sheet-i.wy-ms-go:disabled { color: var(--wy-sub); font-weight: 400; cursor: default; }\n.wy-memrow .wy-mem-v { flex: none; display: inline-flex; align-items: center; gap: 4px; color: var(--wy-sub); font-size: 14px; font-variant-numeric: tabular-nums; }\n.wy-memrow .wy-mem-v svg { width: 15px; height: 15px; }\n.wy-memrow .wy-mem-v.wy-lv-amber { color: var(--wy-warn-ink); font-weight: 600; }\n.wy-memrow .wy-mem-v.wy-lv-red { color: var(--wy-alert); font-weight: 600; }\n.wy-memrow::after { left: 16px; }\n.wy .wy-memset .wy-seg-i { padding: 0 4px; font-variant-numeric: tabular-nums; }\n.wy-pre { flex: 1 1 auto; min-height: 0; margin: 0; padding: 10px 16px; overflow: auto; color: var(--wy-ink); font: 12.5px/1.6 ui-monospace, \"Cascadia Mono\", Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n.wy-chat.wy-has-bg { background-color: var(--wy-chat-bg); background-position: center; background-size: cover; background-repeat: no-repeat; }\n.wy-chat.wy-has-bg .wy-top { background: var(--wy-panel); }\n.wy-chat.wy-has-bg .wy-scroll { background: var(--wy-scrim); }\n.wy-chat.wy-has-bg .wy-line-mid .wy-sys-t { display: inline-block; padding: 2px 8px; border-radius: 6px; background: var(--wy-panel); }\n.wy-chat.wy-has-bg .wy-mn { display: inline-block; padding: 0 6px; border-radius: 5px; background: var(--wy-panel); }\n.wy-chat.wy-has-bg .wy-q, .wy-chat.wy-has-bg .wy-vtext { background: var(--wy-panel); }\n\n/* ---- the empty phone, 开机 and the start-up show (Task 20) ------------------------------------------------------------ */\n.wy .wy-bootbtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 168px; min-height: 48px; margin-top: 16px; padding: 0 26px; border-radius: 999px; background: var(--wy-accent); color: var(--wy-on-fill); font-size: 16px; font-weight: 600; box-shadow: 0 6px 18px var(--wy-shadow); }\n.wy .wy-bootbtn:disabled { opacity: 0.5; }\n.wy-bootbtn svg { width: 20px; height: 20px; }\n.wy-boot-cost { max-width: 260px; margin: 0; color: var(--wy-sub); font-size: 12.5px; line-height: 1.5; }\n/* the start-up overlay keeps its own (green-tinted) background — the owner: \"the start-up animation is fine\" (redesign D2 moved the\n   rest of the phone to neutral greys) */\n.wy-boot { position: absolute; inset: 0; z-index: 5; overflow: hidden; background: var(--wy-boot-bg); color: var(--wy-ink); }\n.wy-boot-art { position: absolute; inset: 0; width: 100%; height: 100%; }\n.wy-boot-art #ring { animation: wy-pulse 2.4s ease-in-out infinite; }\n/* #logo carries its own transform=\"translate(…)\" — a CSS transform would replace it, so the logo only fades */\n.wy-boot-art #logo { animation: wy-logo-in 0.6s ease both; }\n.wy-boot-art #contacts { transform-box: view-box; transform-origin: 195px 390px; animation: wy-spin 18s linear infinite; transition: opacity 0.4s ease; }\n.wy-boot:not([data-wy-phase=\"splash\"]) .wy-boot-art #contacts { opacity: 0; }\n.wy-boot-orbit { position: absolute; left: 50%; top: 50%; width: 0; height: 0; animation: wy-spin 18s linear infinite; }\n.wy-boot-contact { position: absolute; left: 0; top: 0; transform: rotate(var(--wy-a, -90deg)) translateY(calc(-1 * var(--wy-orbit-r, 120px))) rotate(calc(-1 * var(--wy-a, -90deg))); transition: transform 0.45s ease; }\n.wy-boot-unspin { position: absolute; left: -32px; top: -23px; display: flex; flex-direction: column; align-items: center; gap: 3px; width: 64px; animation: wy-spin-rev 18s linear infinite; }\n.wy-boot-unspin .wy-av { border-radius: 10px; box-shadow: 0 4px 12px var(--wy-shadow); animation: wy-pop 0.35s ease both; }\n.wy-boot-contact.wy-boot-flown { visibility: hidden; }   /* its copy (.wy-fly) has taken off to the row: never two of one name (landing) */\n.wy-boot-cn { max-width: 64px; overflow: hidden; color: var(--wy-ink); font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }\n.wy-boot-text { position: absolute; left: 16px; right: 16px; bottom: 7%; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }\n.wy-boot-name { font-size: 22px; font-weight: 600; letter-spacing: 2px; }\n.wy-boot-line { color: var(--wy-sub); font-size: 13px; }\n.wy-boot-failed .wy-boot-text, .wy-boot-failed .wy-boot-orbit { display: none; }\n.wy-boot-failed .wy-boot-art #ring, .wy-boot-failed .wy-boot-art #contacts { animation: none; }\n.wy-boot-fail { position: absolute; left: 16px; right: 16px; bottom: 6%; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px; border-radius: 14px; background: var(--wy-bubble); color: var(--wy-ink); box-shadow: 0 8px 24px var(--wy-shadow); text-align: center; animation: wy-drop 0.25s ease both; }\n.wy-boot-fail-t { font-size: 15px; font-weight: 600; }\n.wy-boot-fail-why { color: var(--wy-sub); font-size: 13px; overflow-wrap: anywhere; }\n.wy-boot-fail-btns { display: flex; gap: 10px; margin-top: 4px; }\n.wy .wy-boot-back, .wy .wy-boot-retry { min-width: 96px; min-height: 40px; padding: 0 16px; border-radius: 999px; font-size: 14.5px; }\n.wy .wy-boot-back { background: var(--wy-hover); }\n.wy .wy-boot-retry { background: var(--wy-accent); color: var(--wy-on-fill); font-weight: 600; }\n.wy-boot-out { animation: wy-fade-out 0.55s ease 0.25s both; pointer-events: none; }\n.wy-fly { position: absolute; left: 0; top: 0; z-index: 6; border-radius: 10px; transform-origin: 0 0; pointer-events: none; animation: wy-fly 0.8s cubic-bezier(0.5, 0, 0.2, 1) both; }\n.wy-fly.wy-fly-fade { animation: wy-fly-fade 0.5s ease both; }\n.wy-boot-in .wy-row { animation: wy-row-in 0.4s ease both; animation-delay: calc(var(--wy-i, 0) * 110ms + 120ms); }\n\n/* ---- more functions, phase 1 (slice B, 2026-11-17): cards, the chat record, forward select, the @ picker, pin, remark, block, search ---- */\n/* the card bubble: the same card on both sides (the familiar app keeps cards light on its green side too) — title + sub beside an icon\n   tile (a 名片 / 音乐: the tile leads), a hairline and a small kind label; no tail */\n.wy-cardmsg { position: relative; display: flex; flex-direction: column; width: 232px; max-width: 100%; overflow: hidden; border-radius: 6px; background: var(--wy-bubble); color: var(--wy-ink); }\n.wy-cardmsg[data-wy-act] { cursor: pointer; }\n.wy-card-main { display: flex; align-items: center; gap: 10px; min-height: 66px; padding: 11px 12px 10px; }\n.wy-card-tx { display: flex; flex: 1 1 auto; flex-direction: column; gap: 3px; min-width: 0; }\n/* the card is the only place its title (≤ 40) and line (≤ 60) live: both wrap in full, the card grows taller (owner's playtest 2026-11-18) */\n.wy-card-t { font-size: 15px; line-height: 1.35; overflow-wrap: anywhere; }\n.wy-card-s { color: var(--wy-sub); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-card-i { flex: none; display: inline-flex; }\n.wy-card-contact .wy-card-i, .wy-card-music .wy-card-i { order: -1; }\n.wy-card-ic { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 6px; color: var(--wy-on-fill); }\n.wy-card-ic svg { width: 24px; height: 24px; }\n.wy-card-ic-loc { background: var(--wy-hue-5); }\n.wy-card-ic-file { background: var(--wy-hue-2); }\n.wy-card-ic-link { background: var(--wy-hue-10); }\n.wy-card-ic-music { background: var(--wy-hue-6); }\n.wy-card-ic-contact { background: var(--wy-hue-7); }\n.wy-card-k { margin: 0 12px; padding: 5px 0 6px; border-top: 1px solid var(--wy-card-line); color: var(--wy-sub); font-size: 11.5px; line-height: 1.4; }\n.wy-card-ph { opacity: 0.5; }\n/* the forwarded chat record: 「「来源」的聊天记录」, the first lines, a label; tap = the whole snapshot in a sheet */\n.wy-fwdmsg { position: relative; display: flex; flex-direction: column; width: 232px; max-width: 100%; padding: 10px 12px 0; overflow: hidden; border-radius: 6px; background: var(--wy-bubble); color: var(--wy-ink); cursor: pointer; }\n.wy-fwd-t { font-size: 15px; line-height: 1.35; overflow-wrap: anywhere; }\n.wy-fwd-ls { display: flex; flex-direction: column; gap: 1px; margin-top: 5px; }\n.wy-fwd-l { overflow: hidden; color: var(--wy-sub); font-size: 12.5px; line-height: 1.45; white-space: nowrap; text-overflow: ellipsis; }\n.wy-fwd-k { margin-top: 8px; padding: 5px 0 6px; border-top: 1px solid var(--wy-card-line); color: var(--wy-sub); font-size: 11.5px; line-height: 1.4; }\n.wy-sheet.wy-fwdsheet, .wy-sheet.wy-refsheet { max-height: 80%; }\n.wy-fwd-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px 8px; }\n.wy-fwd-row { display: flex; flex-direction: column; gap: 2px; padding: 9px 0; border-bottom: 1px solid var(--wy-line); }\n.wy-fwd-row:last-child { border-bottom: 0; }\n.wy-fwd-n { color: var(--wy-sub); font-size: 12.5px; }\n.wy-fwd-v { font-size: 14.5px; line-height: 1.5; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n/* a leading unknown bracket tag (〔晚上 8:50〕…) as a quiet small tag before the words */\n.wy-tagq { display: inline-block; margin-right: 6px; padding: 0 5px; border-radius: 4px; background: var(--wy-quote); color: var(--wy-sub); font-size: 11.5px; line-height: 18px; vertical-align: 1px; white-space: nowrap; }\n.wy-m[data-wy-side=\"me\"] .wy-tagq { color: var(--wy-own-ink); }\n/* picking lines to forward: a check circle on the left of every line that can go, the rest dimmed; 取消 top left, the select bar below */\n.wy-fselmode .wy-m, .wy-fselmode .wy-line-mid { padding-left: 48px; }\n.wy-fselmode .wy-m.wy-fok { cursor: pointer; }\n.wy-fselmode .wy-fno { opacity: 0.4; }\n.wy-fck { position: absolute; left: 14px; top: 16px; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 1.5px solid var(--wy-sub); border-radius: 50%; color: transparent; }\n.wy-fck svg { width: 14px; height: 14px; }\n.wy-fon > .wy-fck { border-color: var(--wy-accent); background: var(--wy-accent); color: var(--wy-on-fill); }\n.wy .wy-fsel-x { min-height: 44px; padding: 0 12px; font-size: 15px; }\n.wy-chatfoot.wy-fbar { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px 9px; }\n.wy-fbar-n { min-width: 0; color: var(--wy-sub); font-size: 13px; }\n.wy .wy-fbar-go { flex: none; min-width: 88px; min-height: 40px; padding: 0 16px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); font-weight: 600; }\n.wy .wy-fbar-go:disabled { opacity: 0.45; }\n/* the @ picker: a compact list floating just above the input row (the dock is its anchor) */\n.wy-chatfoot { position: relative; }\n.wy-atpick { position: absolute; left: 10px; right: 10px; bottom: calc(100% + 6px); z-index: 3; display: flex; flex-direction: column; max-height: 216px; overflow-y: auto; overscroll-behavior: contain; padding: 4px; border-radius: 10px; background: var(--wy-bubble); color: var(--wy-ink); box-shadow: 0 8px 28px var(--wy-shadow); }\n.wy .wy-at-i { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 4px 8px; border-radius: 8px; text-align: left; }\n.wy-at-i:hover { background: var(--wy-hover); }\n.wy-at-i .wy-nm { flex: 0 1 auto; font-size: 14.5px; }\n.wy-at-real { flex: none; color: var(--wy-sub); font-size: 12px; }\n.wy-av.wy-at-all { --wy-av-size: 28px; background: var(--wy-accent); font-size: 15px; }\n/* the jump to a line (@ / search): a brief tint */\n.wy-m.wy-hl, .wy-line-mid.wy-hl { background: var(--wy-hl); }\n/* 置顶: pinned rows wear the familiar soft tint; the row menu; with 消息菜单 = 点 ⋯ a hover device shows a ⋯ on the row */\n.wy-row.wy-pin { background: var(--wy-pin-bg); }\n.wy-row.wy-pin:hover { background: var(--wy-hover); }\n/* the ⋯ sits at the right end of the row's LOWER line (playtest 2026-11-18: centred on the row it covered the time — 「周六 2⋯」); while it\n   can show (hover, its keyboard focus) that line gives it room: the preview ellipsizes earlier, the mute icon moves left — the name, the\n   time and the tags of the top line never move and are never covered. Hidden it takes no room (absolute, transparent). */\n.wy-t2-more { position: relative; }\n.wy .wy-rmore { position: absolute; top: 50%; right: -4px; z-index: 1; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; margin-top: -14px; border-radius: 50%; background: var(--wy-bubble); color: var(--wy-sub); box-shadow: 0 1px 4px var(--wy-shadow); opacity: 0; pointer-events: none; }\n.wy-rmore svg { width: 18px; height: 18px; }\n.wy .wy-rmore::before { content: \"\"; position: absolute; inset: -6px; border-radius: 50%; }   /* A15: 40 × 40 to the pointer */\n.wy-rmore:focus-visible { opacity: 1; pointer-events: auto; }\n.wy-t2-more:focus-within { padding-right: 30px; }\n@media (hover: hover) {\n    .wy-row:hover .wy-rmore { opacity: 1; pointer-events: auto; }\n    .wy-row:hover .wy-t2-more { padding-right: 30px; }\n}\n.wy-pop-row { top: 120px; left: 24px; min-width: 132px; }\n.wy .wy-pop .wy-danger { color: var(--wy-alert); }\n/* 备注 (the profile's inline editor), the card composer's fields, 添加到通讯录 */\n.wy-remarkrow .wy-nm { flex: 1 0 auto; }\n/* a long 备注 (up to THEATER_WEIYU_REMARK_MAX) gives way, one line with an ellipsis; the label never does (playtest 2026-11-19 A4) */\n.wy-remarkrow .wy-sub2 { flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }\n.wy-remarkedit { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; background: var(--wy-panel); }\n.wy-remark-in, .wy-cf-in { width: 100%; min-height: 40px; padding: 0 10px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-chat-bg); font-size: 15px; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-remark-in:focus, .wy-cf-in:focus { border-color: var(--wy-accent); }\n.wy-remark-in::placeholder, .wy-cf-in::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy-cardcmp .wy-cmp-prev { padding: 12px; border-radius: 10px; background: var(--wy-chat-bg); }   /* the preview card on the chat's own ground */\n.wy-cf { display: flex; flex-direction: column; gap: 5px; }\n.wy-cf-l { color: var(--wy-sub); font-size: 12.5px; }\n.wy-cf-pick { flex: none; display: flex; flex-direction: column; max-height: 176px; overflow-y: auto; overscroll-behavior: contain; border-radius: 8px; background: var(--wy-chat-bg); }\n.wy-cf-pick .wy-pick { min-height: 46px; padding: 6px 10px; }\n/* the 名片 pick list sits on the chat's ground, where a --wy-line ring (and a hovered row's --wy-hover) swallowed the empty ring (playtest A11) */\n.wy-cf-pick .wy-ck { border-color: var(--wy-sub); }\n.wy .wy-btnrow.wy-primary { color: var(--wy-accent); font-weight: 600; }\n/* 黑名单: the notice that replaces the input row in his private chat with a blocked contact */\n.wy-blockbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 12px; min-height: 40px; padding: 2px 4px; color: var(--wy-sub); font-size: 13px; text-align: center; }\n.wy .wy-unblock { min-height: 34px; padding: 0 14px; border-radius: 6px; background: var(--wy-hover); color: var(--wy-accent); font-size: 14px; font-weight: 600; }\n/* 搜索: the field heading the chat list; the search page's [field][取消]; results with the match in the accent colour */\n.wy-srchbar { padding: 6px 12px 8px; background: var(--wy-panel); }\n.wy .wy-srch { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 36px; border-radius: 8px; background: var(--wy-chat-bg); color: var(--wy-sub); font-size: 14.5px; }\n.wy-srch svg, .wy-srchf svg { width: 17px; height: 17px; }\n.wy-top.wy-srchtop { display: flex; align-items: center; gap: 6px; padding: 0 4px 0 12px; }\n.wy-srchf { display: flex; flex: 1 1 auto; align-items: center; gap: 6px; min-width: 0; min-height: 36px; padding: 0 10px; border-radius: 8px; background: var(--wy-chat-bg); color: var(--wy-sub); }\n.wy-srch-in { flex: 1 1 auto; min-width: 0; height: 34px; padding: 0; border: 0; background: transparent; font-size: 15px; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-srch-in::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy .wy-srch-in:focus-visible { outline: none; }   /* the pill is the field; the caret shows the focus (no second ring inside it) */\n.wy .wy-srch-x { flex: none; min-height: 44px; padding: 0 10px; color: var(--wy-accent); font-size: 15px; }\n.wy-search .wy-scroll { background: var(--wy-chat-bg); }\n.wy-srch-tx { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-width: 0; }\n.wy-srch-tx .wy-nm { flex: none; }\n.wy-srch-sub { overflow: hidden; color: var(--wy-sub); font-size: 13px; white-space: nowrap; text-overflow: ellipsis; }\n.wy-hit { color: var(--wy-accent); font-weight: 600; }\n\n/* ---- more functions, phase 2 (slice B, 2026-11-17): the call bubble, the calling screen, the transfer card / receipt, its sheet + composer ---- */\n/* the call bubble = the ordinary bubble (tail, both colours) holding a handset / camera and the words; on his side the icon follows them */\n.wy-callmsg { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; user-select: none; -webkit-user-select: none; }\n.wy-callmsg svg { flex: none; width: 19px; height: 19px; }\n.wy-m[data-wy-side=\"me\"] .wy-callmsg { flex-direction: row-reverse; }\n.wy-callmsg[data-wy-act] { cursor: pointer; }\n.wy .wy-callpeek { margin: 4px 0 0 2px; }\n.wy-callgist { max-width: 100%; margin-top: 4px; padding: 6px 9px; border-radius: 6px; background: var(--wy-quote); color: var(--wy-ink); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n/* the brief \"calling…\" screen (动画 开 only): their picture and name, 正在等待…, a red hang-up — the familiar call screen in miniature */\n.wy-callscr { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 76px 24px 48px; border-radius: inherit; background: var(--wy-callscr-bg); color: var(--wy-on-fill); }\n.wy-callscr-who { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; max-width: 100%; text-align: center; }\n.wy-callscr-who .wy-av { margin-bottom: 8px; border-radius: 12px; }\n.wy-callscr-nm { max-width: 100%; overflow: hidden; font-size: 22px; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }\n.wy-callscr-st { color: var(--wy-callscr-sub); font-size: 14px; }\n.wy[data-wy-motion=\"on\"] .wy-callscr-st { animation: wy-pulse 1.4s ease-in-out infinite; }\n.wy-callscr-mode { display: inline-flex; align-items: center; gap: 5px; color: var(--wy-callscr-sub); font-size: 12.5px; }\n.wy-callscr-mode svg { width: 15px; height: 15px; }\n.wy .wy-callscr-end { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--wy-on-fill); font-size: 13px; }\n.wy-callscr-x { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: 50%; background: var(--wy-alert); }\n.wy-callscr-x svg { width: 30px; height: 30px; transform: rotate(135deg); }\n/* keyboard focus on a round call-screen button (挂断 / 取消 / 重拨 / 关闭): the phone's ring follows the circle, not the button's box (circle + label) */\n.wy .wy-callscr-end:focus-visible { outline: none; }\n.wy .wy-callscr-end:focus-visible > .wy-callscr-x { outline: 2px solid var(--wy-accent); outline-offset: 3px; }\n/* the live call scene, slice B (2026-11-18): the calling screen is the START request in flight (both 动画 states) and grows into the call\n   panel (.wy-cs-on) — the familiar call screen as a pattern: full screen and dark in BOTH themes (a call screen is dark in the familiar app\n   whichever theme it wears, and a video's \"camera\" is dark), the picture and name with a running timer, her words large, his smaller on the\n   right, the field above the big round red hang-up at the bottom centre. A video call: her camera fills the top (the 画面 text as the scene,\n   no fake photo), his own small preview in a corner. A START that did not get through: 取消 (grey) · 重拨 (green) side by side. */\n.wy-cs { z-index: 6; }\n.wy-cs-why { max-width: 100%; max-height: 10.5em; overflow-y: auto; color: var(--wy-callscr-sub); font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-callscr-foot.wy-cs-two { display: flex; justify-content: center; gap: 56px; }\n.wy-cs-quiet .wy-callscr-x { background: var(--wy-cs-soft); }\n.wy-cs-redial .wy-callscr-x { background: var(--wy-tile-b); }\n.wy-cs-quiet .wy-callscr-x svg, .wy-cs-redial .wy-callscr-x svg { transform: none; }\n.wy-cs.wy-cs-on { align-items: stretch; justify-content: flex-start; padding: 0; }\n.wy-cs-head { flex: none; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 34px 20px 10px; text-align: center; }\n.wy-cs-head .wy-av { border-radius: 12px; }\n.wy-cs-who { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; max-width: 100%; }\n.wy-cs-nm { max-width: 100%; overflow: hidden; font-size: 19px; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }\n.wy-cs-time { color: var(--wy-callscr-sub); font-size: 13.5px; font-variant-numeric: tabular-nums; }\n.wy-cs-log { display: flex; flex-direction: column; gap: 14px; padding: 10px 20px 12px; }\n.wy-cs-turn { display: flex; flex-direction: column; gap: 5px; min-width: 0; }\n.wy-cs-her { align-items: flex-start; }\n.wy-cs-mine { align-items: flex-end; }\n.wy-cs-l { max-width: 100%; font-size: 17px; line-height: 1.5; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n.wy-cs-tag { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 5px; background: var(--wy-cs-tag); color: var(--wy-callscr-sub); font-size: 12px; line-height: 20px; vertical-align: 2px; white-space: nowrap; }\n.wy-cs-snd { color: var(--wy-cs-dim); font-size: 12.5px; font-style: italic; line-height: 1.45; overflow-wrap: anywhere; }\n.wy-cs-act { color: var(--wy-callscr-sub); font-size: 13px; font-style: italic; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-cs-me { max-width: 82%; padding: 6px 10px; border-radius: 10px; background: var(--wy-cs-soft); color: var(--wy-callscr-sub); font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n.wy .wy-cs-redo { min-height: 28px; padding: 0 11px; border-radius: 999px; background: var(--wy-cs-soft); color: var(--wy-callscr-sub); font-size: 12px; }\n.wy .wy-cs-again { align-self: flex-end; min-height: 32px; padding: 0 13px; border-radius: 999px; background: var(--wy-cs-soft); color: var(--wy-on-fill); font-size: 13px; }\n.wy-cs-speaking { display: flex; align-items: center; gap: 2px; color: var(--wy-callscr-sub); font-size: 13px; }\n.wy-cs-speaking .wy-dots { height: 20px; padding: 0 4px; }\n.wy-cs-speaking .wy-dots i { background: var(--wy-callscr-sub); }\n.wy-cs-note { color: var(--wy-callscr-sub); font-size: 12px; overflow-wrap: anywhere; }\n.wy-cs-foot { flex: none; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 8px 16px 24px; }\n.wy-cs-foot > [hidden] { display: none; }\n.wy-cs-inrow { display: flex; align-items: center; gap: 8px; width: 100%; }\n.wy .wy-cs-in { border-color: transparent; background: var(--wy-cs-soft); color: var(--wy-on-fill); }\n.wy .wy-cs-in:focus { border-color: var(--wy-cs-dim); }\n.wy .wy-cs-in::placeholder { color: var(--wy-cs-dim); }\n.wy-cs-ended { padding: 4px 0 0; color: var(--wy-callscr-sub); font-size: 15px; }   /* her hang-up: this line, then 关闭 below it */\n.wy-cs-on .wy-callscr-x { width: 60px; height: 60px; }\n.wy-cs-cam { position: relative; flex: 0 0 46%; min-height: 168px; overflow: hidden; border-radius: inherit; border-bottom-left-radius: 0; border-bottom-right-radius: 0; background: var(--wy-cs-cam); }\n.wy-cs-cam .wy-cs-head { position: absolute; top: 0; left: 0; right: 0; z-index: 1; flex-direction: row; align-items: center; padding: 14px 16px 26px; background: linear-gradient(var(--wy-cs-fade), transparent); text-align: left; }\n.wy-cs-cam .wy-cs-who { align-items: flex-start; }\n.wy-cs-scene { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 60px 24px 24px; }\n.wy-cs-scene-t { max-height: 100%; overflow-y: auto; color: var(--wy-callscr-sub); font-size: 14.5px; font-style: italic; line-height: 1.7; text-align: center; overflow-wrap: anywhere; scrollbar-width: none; }\n.wy-cs-scene-av { opacity: 0.4; }\n.wy-cs-self { position: absolute; right: 12px; bottom: 12px; z-index: 1; display: flex; align-items: center; justify-content: center; width: 64px; height: 88px; border-radius: 10px; background: var(--wy-callscr-bg); box-shadow: 0 2px 12px var(--wy-cs-fade); }\n.wy-cs-self .wy-av { border-radius: 8px; }\n.wy[data-wy-motion=\"on\"] .wy-cs-new { animation: wy-cs-fade 0.45s ease both; }\n/* her reason for declining, under his call record */\n.wy-callwhy { margin-top: 4px; color: var(--wy-sub); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }\n/* the transcript of a finished call: a sheet in the phone's own theme (the same line pieces as the panel, in the sheet's colours) */\n.wy-sheet.wy-calllog { max-height: 80%; }\n.wy-calllog-head { flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 16px 9px; border-bottom: 1px solid var(--wy-line); }\n.wy-calllog-h { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; }\n.wy-calllog-h svg { width: 18px; height: 18px; }\n.wy-calllog-at { color: var(--wy-sub); font-size: 12px; }\n.wy-calllog-list { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; overscroll-behavior: contain; padding: 10px 16px 12px; }\n.wy-calllog-row { display: flex; flex-direction: column; gap: 2px; }\n.wy-calllog-n { color: var(--wy-sub); font-size: 12px; }\n.wy-calllog-v { display: flex; flex-direction: column; gap: 3px; }\n.wy-calllog .wy-cs-l { font-size: 15px; }\n.wy-calllog .wy-cs-tag { background: var(--wy-tag); color: var(--wy-sub); }\n.wy-calllog .wy-cs-snd, .wy-calllog .wy-cs-act { color: var(--wy-sub); }\n.wy-calllog-pic { padding: 6px 10px; border-radius: 6px; background: var(--wy-quote); color: var(--wy-sub); font-size: 13px; font-style: italic; line-height: 1.55; overflow-wrap: anywhere; }\n.wy .wy-calllog-back { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--wy-accent); }\n.wy-calllog-back svg { width: 20px; height: 20px; }\n/* the transfer card (the familiar orange card, the same on both sides, no tail): icon · amount large · 附言 · state, a 「转账」 label under a\n   hairline; closed (已收款 / 已退回 / 已过期) = the paler colour, as the familiar app does (the text stays full white — opacity made it\n   muddy on the dark theme); the receipt (wy-pay-ans) is a closed card */\n.wy-paymsg { position: relative; display: flex; flex-direction: column; width: 232px; max-width: 100%; overflow: hidden; border-radius: 6px; background: var(--wy-pay); color: var(--wy-pay-ink); user-select: none; -webkit-user-select: none; }\n.wy-paymsg[data-wy-act] { cursor: pointer; }\n.wy-pay-closed { background: var(--wy-pay-done); color: var(--wy-pay-done-ink); }\n/* closed card ink (owner's pick \"B\" of the 11-18 transfer mock; light theme: dark brown on pale orange — white on the old pale orange was\n   ≈ 2.1:1; the dark theme's tokens are all white / the old hairline, so it draws exactly as before) */\n.wy-pay-closed .wy-pay-note, .wy-pay-closed .wy-pay-st, .wy-pay-closed .wy-pay-k { color: var(--wy-pay-done-sub); }\n.wy-pay-closed .wy-pay-ic { color: var(--wy-pay-done-ic); }\n.wy-pay-closed .wy-pay-k { border-top-color: var(--wy-pay-done-line); }\n.wy-pay-main { display: flex; align-items: center; gap: 11px; min-height: 66px; padding: 11px 12px 10px; }\n.wy-pay-ic { flex: none; display: inline-flex; }\n.wy-pay-ic svg { width: 34px; height: 34px; }\n.wy-pay-tx { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-width: 0; }\n.wy-pay-amt { font-size: 18px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }\n.wy-pay-note { font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-pay-st { font-size: 12.5px; line-height: 1.4; }\n.wy-pay-k { margin: 0 12px; padding: 5px 0 6px; border-top: 1px solid var(--wy-pay-line); font-size: 11.5px; line-height: 1.4; }\n/* the transfer composer (the card composer's pattern) and the 收款 / 退回 sheet (the familiar 待你收款 page, as a sheet) */\n.wy-paycmp .wy-cmp-prev { padding: 12px; border-radius: 10px; background: var(--wy-chat-bg); }\n.wy-pay-to { display: flex; align-items: center; gap: 10px; min-width: 0; }\n.wy-pay-to .wy-nm { font-size: 15px; }\n.wy-paycaution { color: var(--wy-sub); font-size: 12px; line-height: 1.5; }\n.wy-paysheet-amt { padding: 4px 16px 0; font-size: 30px; font-weight: 600; line-height: 1.3; text-align: center; overflow-wrap: anywhere; }\n.wy-paysheet-note { padding: 2px 16px 0; color: var(--wy-sub); font-size: 14px; text-align: center; overflow-wrap: anywhere; }\n.wy-paysheet-free { padding: 8px 16px 12px; color: var(--wy-sub); font-size: 12px; text-align: center; }\n.wy .wy-sheet-i.wy-pay-take { color: var(--wy-accent); font-weight: 600; }\n\n/* ---- 世界用语 (ENABLE_THR_WEIYU_WORDS): the 我 row, the 开机 link, the editor page (the familiar settings page: grey ground, white\n   groups; chips wrap; fields ≥ 32 px; nothing wider than the phone) ------------------------------------------------------------ */\n.wy .wy-link.wy-words-boot { margin-top: 2px; }\n.wy-words .wy-scroll { display: flex; flex-direction: column; gap: 0; padding-bottom: 16px; background: var(--wy-chat-bg); }\n.wy-words-using { padding: 12px 16px 6px; color: var(--wy-sub); font-size: 12.5px; overflow-wrap: anywhere; }\n.wy-words-chips { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }\n.wy-words-using + .wy-words-chips { padding: 12px 16px; background: var(--wy-panel); border-top: 1px solid var(--wy-line); border-bottom: 1px solid var(--wy-line); }\n.wy .wy-chip { display: inline-flex; align-items: center; min-height: 32px; max-width: 100%; padding: 0 12px; border: 1px solid var(--wy-line); border-radius: 999px; background: var(--wy-bubble); color: var(--wy-ink); font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n.wy .wy-chip.wy-on { border-color: var(--wy-accent); background: var(--wy-hl); color: var(--wy-accent); font-weight: 600; }\n.wy .wy-chip.wy-chip-new { border-style: dashed; color: var(--wy-accent); }\n.wy .wy-chip.wy-chip-new.wy-on { border-style: solid; }\n.wy-words-noteonly { padding: 8px 16px 0; color: var(--wy-warn-ink); font-size: 12.5px; line-height: 1.45; }\n.wy-words-form { display: flex; flex-direction: column; margin-top: 10px; padding: 4px 0; background: var(--wy-panel); border-top: 1px solid var(--wy-line); border-bottom: 1px solid var(--wy-line); }\n.wy-words-f { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 16px; }\n.wy-words-l { flex: none; width: 64px; color: var(--wy-ink); font-size: 14px; }\n.wy-words-l.wy-words-l2 { width: auto; color: var(--wy-sub); }\n.wy-words-in { flex: 1 1 auto; width: 0; min-width: 0; min-height: 36px; padding: 0 10px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-panel); font-size: 15px; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-words-in:focus { border-color: var(--wy-accent); }\n.wy-words-in::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy-words-in.wy-words-mw { flex: none; width: 48px; text-align: center; }\n.wy-words-in.wy-dis { border-color: transparent; background: var(--wy-tag); color: var(--wy-sub); cursor: default; }\n.wy-words-basef { flex-direction: column; align-items: stretch; gap: 6px; }\n.wy-words-basef .wy-words-l { width: auto; }\n.wy-words-slot:empty { display: none; }\n.wy-words-slot { padding: 0 16px 4px 90px; }\n.wy-words-err { color: var(--wy-alert); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n/* A17 (2026-11-19): 「最多 N 个字」 under a field he is typing past — the editor's hint colour, the error line's size */\n.wy-words-max { color: var(--wy-sub); font-size: 12.5px; line-height: 1.4; }\n.wy-words-none { color: var(--wy-sub); font-size: 12.5px; }\n.wy-words-saveasrow { padding: 4px 16px 2px; }\n.wy .wy-words-morebtn { display: flex; align-items: center; gap: 6px; min-height: 40px; margin: 2px 16px 0; color: var(--wy-accent); font-size: 14px; }\n.wy .wy-words-morebtn svg { width: 16px; height: 16px; transition: transform 0.18s ease; }\n.wy .wy-words-morebtn.wy-on svg { transform: rotate(90deg); }\n.wy-words-prevrow { padding: 10px 16px 0; }\n.wy-words-def { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 16px; color: var(--wy-ink); font-size: 14px; cursor: pointer; }\n.wy-words-def input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--wy-accent); }\n.wy-words-hint { padding: 0 16px 8px; color: var(--wy-sub); font-size: 12.5px; line-height: 1.5; }\n.wy-words-btns { display: flex; gap: 10px; padding: 8px 16px 4px; }\n.wy .wy-words-cancel, .wy .wy-words-save { flex: 1 1 0; min-height: 44px; border-radius: 8px; font-size: 15px; font-weight: 500; }\n.wy .wy-words-cancel { background: var(--wy-panel); color: var(--wy-ink); box-shadow: inset 0 0 0 1px var(--wy-line); }\n.wy .wy-words-save { background: var(--wy-accent); color: var(--wy-on-fill); }\n.wy .wy-btnrow.wy-words-del { margin-top: 14px; border-top: 1px solid var(--wy-line); border-bottom: 1px solid var(--wy-line); }\n/* 1b (ENABLE_THR_WEIYU_WORDS_AI): 「✨ 让 AI 按这个世界起名」 under the base picker — one wide outlined action (正在写… greyed, 停止 beside it),\n   two small lines under it; after a landing a tinted check strip with 撤销建议; a dot + 「AI 建议」 / the flag line under each field */\n.wy-words-ai { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 6px 16px 8px; }\n.wy-words-airow { display: flex; align-items: center; gap: 8px; min-width: 0; }\n.wy .wy-words-aibtn { flex: 1 1 auto; min-width: 0; min-height: 40px; padding: 4px 14px; border-radius: 8px; background: var(--wy-hl); color: var(--wy-accent); box-shadow: inset 0 0 0 1px var(--wy-accent); font-size: 14.5px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }\n.wy .wy-words-aibtn:disabled { background: var(--wy-tag); color: var(--wy-sub); box-shadow: none; cursor: default; }\n.wy .wy-words-aistop { flex: none; min-height: 40px; padding: 0 14px; border-radius: 8px; background: var(--wy-panel); color: var(--wy-alert); box-shadow: inset 0 0 0 1px var(--wy-line); font-size: 14px; }\n.wy-words-aicost, .wy-words-nopreset { color: var(--wy-sub); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }\n.wy-words-aistate { color: var(--wy-accent); font-size: 12.5px; line-height: 1.4; }\n.wy-words-aiempty, .wy-words-cause { color: var(--wy-alert); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-words-ainote { color: var(--wy-warn-ink); font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; }\n.wy-words-aicheckrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 10px; min-width: 0; margin-top: 4px; padding: 6px 10px; border-radius: 6px; background: var(--wy-hl); }\n.wy-words-aicheck { min-width: 0; color: var(--wy-ink); font-size: 13px; line-height: 1.4; }\n.wy-words-mark { display: inline-flex; align-items: center; gap: 5px; margin-right: 10px; color: var(--wy-accent); font-size: 12px; line-height: 1.4; }\n.wy-words-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--wy-accent); }\n.wy-words-flag { color: var(--wy-warn-ink); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-words-basef + .wy-words-flag { padding: 0 16px 2px; }\n/* ---- @keyframes ------------------------------------------------------------------------------------------------------ */\n@keyframes wy-fadeup { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }\n@keyframes wy-drop { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }\n@keyframes wy-rise { from { transform: translateY(100%); } to { transform: none; } }\n@keyframes wy-dots { 0%, 80%, 100% { opacity: 0.35; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }\n@keyframes wy-spin { to { transform: rotate(360deg); } }\n@keyframes wy-spin-rev { to { transform: rotate(-360deg); } }\n@keyframes wy-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }\n@keyframes wy-logo-in { from { opacity: 0; } to { opacity: 1; } }\n@keyframes wy-pop { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: none; } }\n@keyframes wy-fade-out { from { opacity: 1; } to { opacity: 0; } }\n@keyframes wy-fly { from { opacity: 1; transform: translate(var(--wy-fx), var(--wy-fy)); } to { opacity: 0.15; transform: translate(var(--wy-tx), var(--wy-ty)) scale(var(--wy-ts)); } }\n@keyframes wy-fly-fade { from { opacity: 1; transform: translate(var(--wy-fx), var(--wy-fy)); } to { opacity: 0; transform: translate(var(--wy-fx), var(--wy-fy)) scale(0.6); } }\n@keyframes wy-row-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }\n@keyframes wy-cs-fade { from { opacity: 0; } to { opacity: 1; } }\n\n/* ====== MOTION (lane M) ====== */\n/* The phone's motion (designer's mock-up 2026-11-16 §3, the MOTION table; JS in ui-core.js under \"MOTION (lane M)\"). Every rule that moves\n   something is scoped .wy[data-wy-motion=\"on\"] — 关 never even matches it, and the zeroing rule below still covers anything left.\n   Only transform / opacity animate. Sits BEFORE the reduced-motion fallback + zeroing rule (they stay the last two rules, pinned).\n   Override of an existing rule (noted): the hold fill's snap-back (.wy-hold-fill has no transition) → a 200 ms drain while on. */\n\n/* Tier 1 · push / back: the page that is leaving stays, absolute and inert (soWyMoKeep); the slide is Web Animations (soWyMoSlide).\n   push: leaving page z 1 < dim 2 < arriving page z 3 (its left edge casts a shadow); back: arriving page < dim 2 < leaving page z 3. */\n.wy > .wy-page.wy-mo-ghost { position: absolute; inset: 0; z-index: 1; pointer-events: none; }\n.wy > .wy-page.wy-mo-ghost.wy-mo-over { z-index: 3; box-shadow: -10px 0 28px var(--wy-shadow); }\n.wy > .wy-page.wy-mo-top { z-index: 3; box-shadow: -10px 0 28px var(--wy-shadow); }\n.wy > .wy-mo-dim { position: absolute; inset: 0; z-index: 2; background: var(--wy-frame); opacity: 0; pointer-events: none; }\n\n/* Tier 1 · the top bar lies over its scroller (content scrolls under it) and condenses after 4 px: translucent + blur + a hairline; the\n   list title shrinks a touch. Padding = the bar's height, --wy-top-h (border-box: its bottom line is inside it; integration 2026-11-17 —\n   was 48 / 49 px, the bar's height before the refined list's 52). */\n.wy[data-wy-motion=\"on\"] .wy-mo-ovl > .wy-top { position: absolute; top: 0; left: 0; right: 0; transition: background-color 0.2s ease, box-shadow 0.2s ease; }\n.wy[data-wy-motion=\"on\"] .wy-mo-ovl > .wy-scroll { padding-top: var(--wy-top-h); scroll-padding-top: var(--wy-top-h); }\n.wy[data-wy-motion=\"on\"] .wy-mo-ovl > .wy-top.wy-mo-cond { box-shadow: 0 0.5px 0 var(--wy-line); }\n/* playtest 2026-11-19 A1: at 76% + 14 px the lines under the bar read through it (an avatar, a bubble's text behind ‹ and the title — it looked\n   like content spilling over the bar); 92% + 24 px keeps the frosted look (a soft tint of what passes under) without legible content */\n@supports (color: color-mix(in srgb, red 50%, blue)) {\n    .wy[data-wy-motion=\"on\"] .wy-mo-ovl > .wy-top.wy-mo-cond { background: color-mix(in srgb, var(--wy-panel) 92%, transparent); -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4); }\n    .wy[data-wy-motion=\"on\"] .wy-chat.wy-mo-ovl:not(.wy-has-bg) > .wy-top.wy-mo-cond { background: color-mix(in srgb, var(--wy-chat-bg) 92%, transparent); }\n}\n.wy[data-wy-motion=\"on\"] .wy-mo-ovl > .wy-top .wy-ttl { transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] .wy-tabs.wy-mo-ovl > .wy-top.wy-mo-cond .wy-ttl { transform: scale(0.94); }\n\n/* Tier 1 · row press on pointer-down (not release): tint 120 ms, the picture dips to .93 */\n.wy[data-wy-motion=\"on\"] .wy-row, .wy[data-wy-motion=\"on\"] .wy-prow { transition: background-color 0.12s ease; }\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-press, .wy[data-wy-motion=\"on\"] .wy-prow.wy-mo-press { background: var(--wy-hover); }\n@supports (color: color-mix(in srgb, red 50%, blue)) {\n    .wy[data-wy-motion=\"on\"] .wy-row.wy-mo-press, .wy[data-wy-motion=\"on\"] .wy-prow.wy-mo-press { background: color-mix(in srgb, var(--wy-ink) 9%, var(--wy-panel)); }\n}\n.wy[data-wy-motion=\"on\"] .wy-row .wy-avw, .wy[data-wy-motion=\"on\"] .wy-prow > .wy-av { transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-press .wy-avw, .wy[data-wy-motion=\"on\"] .wy-prow.wy-mo-press > .wy-av { transform: scale(0.93); }\n\n/* Tier 1 · a line arrives (soWyMoChat marks the new ones): own = rises from its tail with a slight overshoot; incoming = from the top-left */\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new[data-wy-side=\"me\"] > .wy-mb { transform-origin: 100% 100%; animation: wy-mo-own 0.26s cubic-bezier(0.2, 1.15, 0.4, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new:not([data-wy-side=\"me\"]) { transform-origin: 0 0; animation: wy-mo-inc 0.28s cubic-bezier(0.2, 1.1, 0.4, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-line-mid.wy-mo-new { animation: wy-mo-fadein 0.25s ease both; }\n\n/* Tier 1 · the ⊕ menu springs from the ⊕; sheets rise; the dim fades in; a closing one fades out in 140 ms (soWyMoClosePop) */\n.wy[data-wy-motion=\"on\"] .wy-pop-plus { transform-origin: calc(100% - 20px) -6px; animation: wy-mo-spring 0.22s cubic-bezier(0.2, 1.3, 0.4, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-sheet { animation: wy-mo-sheet 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-backdrop.wy-dim { animation: wy-mo-fadein 0.2s ease both; }\n.wy .wy-layer > .wy-mo-gone { position: absolute; inset: 0; pointer-events: none; animation: wy-mo-fadeout 0.14s ease both; }\n\n/* Tier 1 · the hold: pressed .97; the fill charges for --wy-hold-ms (linear, predictable) and DRAINS in 200 ms on an early release\n   (overrides today's snap-back); on completion a pop (.97 → 1.06 → 1) while the full fill fades */\n.wy[data-wy-motion=\"on\"] [data-wy-hold] { transition: transform 0.14s cubic-bezier(0.2, 0.8, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] [data-wy-hold].holding { transform: scale(0.97); }\n.wy[data-wy-motion=\"on\"] [data-wy-hold] .wy-hold-fill { transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] [data-wy-hold].holding .wy-hold-fill { transition: transform var(--wy-hold-ms, 2000ms) linear; }\n.wy[data-wy-motion=\"on\"] [data-wy-hold].wy-mo-fired { animation: wy-mo-hdone 0.42s cubic-bezier(0.2, 1.5, 0.4, 1); }\n.wy[data-wy-motion=\"on\"] [data-wy-hold].wy-mo-fired .wy-hold-fill { animation: wy-mo-hfill 0.42s ease-out; }\n\n/* Tier 1 · the tab bar's tab: nothing here (the content cross-fade and the icon pop are Web Animations, soWyMoTab) */\n\n/* Tier 2 · bubbles settle in when a chat opens (the last 8 items, bottom first) */\n.wy[data-wy-motion=\"on\"] .wy-mo-si { animation: wy-mo-stag 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(var(--wy-mo-i, 0) * 28ms + 80ms); }\n/* Tier 2 · ripple from the press point (a child of the row; rows clip it) */\n.wy[data-wy-motion=\"on\"] .wy-row { overflow: hidden; }\n.wy[data-wy-motion=\"on\"] .wy-mo-rip { position: absolute; z-index: 0; border-radius: 50%; background: var(--wy-accent); opacity: 0.18; transform: scale(0); pointer-events: none; animation: wy-mo-rip 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }\n/* Tier 2 · edge swipe: horizontal moves reach the page (vertical scrolling and pinch stay the browser's) */\n.wy[data-wy-motion=\"on\"] > .wy-page { touch-action: pan-y pinch-zoom; }\n/* Tier 2 · rows reveal once (first time a row scrolls into view; remembered per chat) */\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-pre { opacity: 0; transform: translateY(16px); }\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-rv { transition: opacity 0.32s ease, transform 0.38s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.12s ease; }\n/* Tier 2 · a reply moves its row: the row glows, its preview swaps in, the badge pops (the slide itself is a FLIP, soWyMoRows) */\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-glow::before { content: \"\"; position: absolute; inset: 0; background: var(--wy-accent); opacity: 0; pointer-events: none; animation: wy-mo-glow 0.9s ease; }\n.wy[data-wy-motion=\"on\"] .wy-row .wy-pv.wy-mo-swap { animation: wy-mo-pvswap 0.3s ease both; }\n.wy[data-wy-motion=\"on\"] .wy-badge.wy-mo-pop { animation: wy-mo-bpop 0.34s cubic-bezier(0.2, 1.6, 0.4, 1) both; }\n/* Tier 2 · the tab bar lifts (a soft shadow above it) while there is list under it */\n.wy[data-wy-motion=\"on\"] .wy-tabbar { position: relative; }\n.wy[data-wy-motion=\"on\"] .wy-tabbar::before { content: \"\"; position: absolute; left: 0; right: 0; top: -14px; height: 14px; background: linear-gradient(to top, var(--wy-shadow), transparent); opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }\n.wy[data-wy-motion=\"on\"] .wy-tabbar.wy-mo-lift::before { opacity: 0.7; }\n/* Tier 2 · per kind: a voice bar stretches to its length; its text drops in when opened; a photo / video develops under a paper veil\n   (900 ms, deliberate, non-blocking) while its caption rises; a recall folds a phantom bubble away into the grey line */\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new .wy-voice { transform-origin: 0 50%; animation: wy-mo-vgrow 0.32s cubic-bezier(0.2, 1.1, 0.4, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new[data-wy-side=\"me\"] .wy-voice { transform-origin: 100% 50%; }\n.wy[data-wy-motion=\"on\"] .wy-mo-vt { transform-origin: 50% 0; animation: wy-mo-vt 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new .wy-pic::after { content: \"\"; position: absolute; inset: 0; background: var(--wy-bubble); opacity: 0; pointer-events: none; animation: wy-mo-dev 0.9s cubic-bezier(0.3, 0.6, 0.3, 1); }\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new .wy-em { animation: wy-mo-devem 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new .wy-cap { animation: wy-mo-capup 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) 0.45s both; }\n.wy[data-wy-motion=\"on\"] .wy-line-mid.wy-recall.wy-mo-new { position: relative; animation-delay: 0.16s; }\n.wy[data-wy-motion=\"on\"] .wy-mo-phantom { position: absolute; top: 50%; left: 61px; width: min(46%, 180px); height: 36px; margin-top: -18px; border-radius: 6px; background: var(--wy-bubble); transform-origin: 0 50%; pointer-events: none; animation: wy-mo-fold 0.22s cubic-bezier(0.4, 0, 1, 1) 0.06s both; }\n.wy[data-wy-motion=\"on\"] .wy-mo-phantom.wy-mo-phantom-me { left: auto; right: 61px; background: var(--wy-own); transform-origin: 100% 50%; }\n.wy[data-wy-motion=\"on\"] .wy-mo-folding { position: absolute; left: 0; right: 0; z-index: 0; pointer-events: none; }\n/* Tier 2 · the pressed bubble dips (the menu then rises from it — soWyMoMenu) */\n.wy[data-wy-motion=\"on\"] .wy-bubble, .wy[data-wy-motion=\"on\"] .wy-big, .wy[data-wy-motion=\"on\"] .wy-frame { transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] .wy-mo-lp { transform: scale(0.96); }\n/* Tier 2 · helpers: a scroller that holds a folding copy; a row sliding up over the others */\n.wy[data-wy-motion=\"on\"] .wy-scroll.wy-mo-rel { position: relative; }\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-up { z-index: 2; }\n\n/* Tier 3 · the chat header's picture (24 px, beside the title — the shared element's landing place; soWyMoHeadAv) */\n/* Integration 2026-11-17: the picture IS the list row's 48 px picture at half size (soWyMoHeadAv) — same label, gradient, mosaic rows and\n   corner as the row (7 px), so the flying copy lands on exactly it; the ::after spacer (its width) keeps the title text centred. */\n.wy[data-wy-motion=\"on\"] .wy-ttl.wy-mo-ttl { display: flex; align-items: center; justify-content: center; gap: 7px; }\n.wy[data-wy-motion=\"on\"] .wy-ttl.wy-mo-ttl::after { content: \"\"; flex: none; width: 24px; }\n.wy[data-wy-motion=\"on\"] .wy-mo-tt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }\n.wy-mo-hav { display: inline-flex; flex: none; align-items: flex-start; width: 24px; height: 24px; }\n.wy-mo-hav > * { transform: scale(0.5); transform-origin: 0 0; }\n.wy-mo-hav > .wy-av, .wy-mo-hav > .wy-mos, .wy .wy-layer > .wy-mo-fly.wy-av, .wy .wy-layer > .wy-mo-fly.wy-mos { border-radius: 7px; }\n/* Tier 3 · the flying copies (picture + name) in the layer */\n.wy .wy-layer > .wy-mo-fly { position: absolute; z-index: 61; margin: 0; transform-origin: 0 0; pointer-events: none; }\n/* Tier 3 · power-on: black → a green bloom from the centre (600 ms, deliberate) */\n.wy > .wy-mo-pwr { position: absolute; inset: 0; z-index: 60; background: var(--wy-frame); pointer-events: none; animation: wy-mo-pwr 0.55s cubic-bezier(0.3, 0.6, 0.3, 1) 0.1s both; }\n.wy > .wy-mo-pwr::after { content: \"\"; position: absolute; left: 50%; top: 46%; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; background: radial-gradient(circle, var(--wy-tile-a), transparent 65%); animation: wy-mo-bloom 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }\n\n@keyframes wy-mo-fadein { from { opacity: 0; } }\n@keyframes wy-mo-fadeout { to { opacity: 0; } }\n@keyframes wy-mo-own { from { opacity: 0; transform: translateY(14px) scale(0.9); } }\n@keyframes wy-mo-inc { from { opacity: 0; transform: translateY(8px) scale(0.94); } }\n@keyframes wy-mo-spring { from { opacity: 0; transform: scale(0.6); } }\n@keyframes wy-mo-sheet { from { transform: translateY(100%); } }\n@keyframes wy-mo-hdone { 0% { transform: scale(0.97); } 45% { transform: scale(1.06); } }\n@keyframes wy-mo-hfill { from { transform: scaleX(1); } to { transform: scaleX(1); opacity: 0; } }\n@keyframes wy-mo-stag { from { opacity: 0; transform: translateY(18px); } }\n@keyframes wy-mo-rip { to { transform: scale(1); opacity: 0; } }\n@keyframes wy-mo-glow { 0%, 30% { opacity: 0.16; } to { opacity: 0; } }\n@keyframes wy-mo-pvswap { from { opacity: 0; transform: translateY(5px); } }\n@keyframes wy-mo-bpop { from { transform: scale(0); } }\n@keyframes wy-mo-vgrow { from { opacity: 0.4; transform: scaleX(0.3); } }\n@keyframes wy-mo-vt { from { opacity: 0; transform: translateY(-4px) scaleY(0.9); } }\n@keyframes wy-mo-dev { from { opacity: 1; } to { opacity: 0; } }\n@keyframes wy-mo-devem { from { transform: translate(-50%, -62%) scale(1.25); } }\n@keyframes wy-mo-capup { from { transform: translateY(100%); } }\n@keyframes wy-mo-fold { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(0.55) translateY(-6px); } }\n@keyframes wy-mo-pwr { to { opacity: 0; } }\n@keyframes wy-mo-bloom { from { opacity: 0.8; transform: scale(0.15); } to { opacity: 0; transform: scale(1.8); } }\n/* ====== /MOTION ====== */\n\n/* No motion =the phone's root flag (动画 setting, redesign slice 1): soWyApplyMotion resolves 跟随系统 / 开 / 关 with the system's\n   reduced-motion setting into .wy[data-wy-motion=\"on|off\"]. The media query is only the fallback for a phone with no flag yet. */\n@media (prefers-reduced-motion: reduce) {\n    .wy:not([data-wy-motion]) *, .wy:not([data-wy-motion]) *::before, .wy:not([data-wy-motion]) *::after {\n        animation-duration: 0.001ms !important;\n        animation-delay: 0s !important;\n        animation-iteration-count: 1 !important;\n        transition-duration: 0.001ms !important;\n        transition-delay: 0s !important;\n        scroll-behavior: auto !important;\n    }\n}\n.wy[data-wy-motion=\"off\"] *, .wy[data-wy-motion=\"off\"] *::before, .wy[data-wy-motion=\"off\"] *::after {\n    animation-duration: 0.001ms !important;\n    animation-delay: 0s !important;\n    animation-iteration-count: 1 !important;\n    transition-duration: 0.001ms !important;\n    transition-delay: 0s !important;\n    scroll-behavior: auto !important;\n}\n";
+const THEATER_WEIYU_CSS = "/* 微谕 · the phone — lives in an OPEN SHADOW ROOT (soWyMount); shipped as the generated block css.js (THEATER_WEIYU_CSS).\n   Locked look: SO's themes cannot reach a shadow tree by selector; what crosses the boundary (inherited properties, custom\n   properties) is cut on :host — `all: initial !important` + every --wy-* token `!important` on :host (inside the shadow tree an\n   !important :host declaration beats the outer document's). Token discipline: a colour literal appears ONLY as the value of a\n   --wy-* declaration in the two token rules; light and dark differ only by tokens. Order: reset → light tokens → dark tokens →\n   components → @keyframes → @media (prefers-reduced-motion: reduce) (fallback) → the .wy[data-wy-motion=\"off\"] zeroing rule LAST.\n   No position: fixed, no vh, no url(), no @import. */\n\n:host {\n    all: initial !important;\n    display: block !important;\n    position: relative !important;\n    box-sizing: border-box !important;\n    width: 100% !important;\n    height: 100% !important;\n    min-width: 0 !important;\n    min-height: 0 !important;\n    overflow: hidden !important;\n    font-family: system-ui, -apple-system, \"Segoe UI\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif !important;\n    font-size: 15px !important;\n    font-style: normal !important;\n    font-weight: 400 !important;\n    line-height: 1.45 !important;\n    letter-spacing: normal !important;\n    word-spacing: normal !important;\n    text-align: left !important;\n    text-transform: none !important;\n    text-shadow: none !important;\n    color: var(--wy-ink) !important;\n    -webkit-text-fill-color: currentColor !important;\n    -webkit-tap-highlight-color: transparent !important;\n}\n\n:host {\n    --wy-tile-a: #48CE82 !important;\n    --wy-tile-b: #15965B !important;\n    --wy-own: #A6E78F !important;\n    --wy-own-ink: #14251B !important;\n    --wy-accent: #167848 !important;\n    --wy-chat-bg: #EDEDED !important;\n    --wy-bubble: #FFFFFF !important;\n    --wy-panel: #FFFFFF !important;\n    --wy-line: #E3E3E3 !important;\n    --wy-sub: #6B6B6B !important;\n    --wy-ink: #191919 !important;\n    --wy-alert: #E5484D !important;\n    --wy-warn: #B26A00 !important;\n    --wy-warn-ink: #8A5300 !important;\n    --wy-on-fill: #FFFFFF !important;\n    --wy-scrim: rgba(0,0,0,.45) !important;\n    --wy-shadow: rgba(0,0,0,.18) !important;\n    --wy-hover: rgba(0,0,0,.05) !important;\n    --wy-quote: rgba(0,0,0,.05) !important;\n    --wy-frame: #2A332D !important;\n    --wy-so-ink: #f4f5f7 !important;\n    --wy-so-bg: rgba(17,19,24,.84) !important;\n    --wy-mos: #DCDCDC !important;\n    --wy-tag: rgba(0,0,0,.05) !important;\n    --wy-av-hi: rgba(255,255,255,.24) !important;\n    --wy-av-lo: rgba(0,0,0,.14) !important;\n    --wy-av-edge: rgba(255,255,255,.09) !important;\n    --wy-av-ts: rgba(0,0,0,.16) !important;\n    --wy-boot-bg: #FAFCFA !important;\n    --wy-pin-bg: #F5F5F5 !important;\n    --wy-hl: rgba(22,120,72,.13) !important;\n    --wy-card-line: #EDEDED !important;\n    --wy-pay: #B05E10 !important;\n    --wy-pay-done: #F3C89A !important;\n    --wy-pay-ink: #FFFFFF !important;\n    --wy-pay-line: rgba(255,255,255,.34) !important;\n    --wy-pay-done-ink: #5C2D04 !important;\n    --wy-pay-done-sub: #6E3A0E !important;\n    --wy-pay-done-ic: #9A6634 !important;\n    --wy-pay-done-line: rgba(110,58,14,.22) !important;\n    --wy-callscr-bg: #1F2421 !important;\n    --wy-callscr-sub: rgba(255,255,255,.72) !important;\n    --wy-cs-cam: #0C0F0D !important;\n    --wy-cs-soft: rgba(255,255,255,.1) !important;\n    --wy-cs-tag: rgba(255,255,255,.16) !important;\n    --wy-cs-dim: rgba(255,255,255,.52) !important;\n    --wy-cs-fade: rgba(0,0,0,.55) !important;\n    --wy-hue-0: #E0765A !important;\n    --wy-hue-1: #3D9970 !important;\n    --wy-hue-2: #4A88CF !important;\n    --wy-hue-3: #9268C9 !important;\n    --wy-hue-4: #D2802E !important;\n    --wy-hue-5: #2A9E98 !important;\n    --wy-hue-6: #C25478 !important;\n    --wy-hue-7: #6683B5 !important;\n    --wy-hue-8: #7F8F35 !important;\n    --wy-hue-9: #AE6A3A !important;\n    --wy-hue-10: #5A72E0 !important;\n    --wy-hue-11: #748595 !important;\n}\n\n:host([data-wy-theme=\"dark\"]) {\n    --wy-tile-a: #48CE82 !important;\n    --wy-tile-b: #15965B !important;\n    --wy-own: #58BC87 !important;\n    --wy-own-ink: #14251B !important;\n    --wy-accent: #69D69B !important;\n    --wy-chat-bg: #111111 !important;\n    --wy-bubble: #2C2C2C !important;\n    --wy-panel: #191919 !important;\n    --wy-line: #2C2C2C !important;\n    --wy-sub: #8A8A8A !important;\n    --wy-ink: #D9D9D9 !important;\n    --wy-alert: #F2555A !important;\n    --wy-warn: #E8A33D !important;\n    --wy-warn-ink: #E8A33D !important;\n    --wy-on-fill: #FFFFFF !important;\n    --wy-scrim: rgba(0,0,0,.6) !important;\n    --wy-shadow: rgba(0,0,0,.5) !important;\n    --wy-hover: rgba(255,255,255,.06) !important;\n    --wy-quote: rgba(255,255,255,.07) !important;\n    --wy-frame: #0B0E0C !important;\n    --wy-so-ink: #f4f5f7 !important;\n    --wy-so-bg: rgba(17,19,24,.84) !important;\n    --wy-mos: #2E2E2E !important;\n    --wy-tag: rgba(255,255,255,.07) !important;\n    --wy-av-hi: rgba(255,255,255,.24) !important;\n    --wy-av-lo: rgba(0,0,0,.14) !important;\n    --wy-av-edge: rgba(255,255,255,.09) !important;\n    --wy-av-ts: rgba(0,0,0,.16) !important;\n    --wy-boot-bg: #1B211E !important;\n    --wy-pin-bg: #232323 !important;\n    --wy-hl: rgba(105,214,155,.15) !important;\n    --wy-card-line: #3A3A3A !important;\n    --wy-pay: #C46F1F !important;\n    --wy-pay-done: #8A5A2C !important;\n    --wy-pay-ink: #FFFFFF !important;\n    --wy-pay-line: rgba(255,255,255,.28) !important;\n    --wy-pay-done-ink: #FFFFFF !important;\n    --wy-pay-done-sub: #FFFFFF !important;\n    --wy-pay-done-ic: #FFFFFF !important;\n    --wy-pay-done-line: rgba(255,255,255,.28) !important;\n    --wy-callscr-bg: #161A18 !important;\n    --wy-callscr-sub: rgba(255,255,255,.72) !important;\n    --wy-cs-cam: #0C0F0D !important;\n    --wy-cs-soft: rgba(255,255,255,.1) !important;\n    --wy-cs-tag: rgba(255,255,255,.16) !important;\n    --wy-cs-dim: rgba(255,255,255,.52) !important;\n    --wy-cs-fade: rgba(0,0,0,.55) !important;\n    --wy-hue-0: #E0765A !important;\n    --wy-hue-1: #3D9970 !important;\n    --wy-hue-2: #4A88CF !important;\n    --wy-hue-3: #9268C9 !important;\n    --wy-hue-4: #D2802E !important;\n    --wy-hue-5: #2A9E98 !important;\n    --wy-hue-6: #C25478 !important;\n    --wy-hue-7: #6683B5 !important;\n    --wy-hue-8: #7F8F35 !important;\n    --wy-hue-9: #AE6A3A !important;\n    --wy-hue-10: #5A72E0 !important;\n    --wy-hue-11: #748595 !important;\n}\n\n/* ---- base: the phone column ------------------------------------------------------------------------------------------- */\n.wy {\n    position: relative;\n    box-sizing: border-box;\n    display: flex;\n    flex-direction: column;\n    width: 100%;\n    max-width: 420px;\n    height: 100%;\n    max-height: 860px;\n    min-height: 0;\n    margin: 0 auto;\n    overflow: hidden;\n    /* the screen's corners: set from OUTSIDE by the frame (the device, style.css) — a custom property is the one thing that crosses\n       the shadow boundary; absent = 0 (today's square screen). Deliberately not a :host token. */\n    border-radius: var(--wy-screen-radius, 0);\n    /* the top bar's height (refined list 52 px): ONE value read by the bar and by the condensing bar's scroller padding (integration) */\n    --wy-top-h: 52px;\n    background: var(--wy-panel);\n    color: var(--wy-ink);\n    user-select: none;\n    -webkit-user-select: none;\n}\n.wy *, .wy *::before, .wy *::after { box-sizing: border-box; }\n.wy svg { display: block; flex: none; }\n.wy button { font: inherit; color: inherit; background: none; border: 0; margin: 0; padding: 0; cursor: pointer; }\n.wy button:disabled { cursor: default; }\n.wy textarea, .wy input { font: inherit; color: var(--wy-ink); }\n.wy :focus-visible { outline: 2px solid var(--wy-accent); outline-offset: -2px; }\n.wy-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin; }\n\n/* ---- SO's own controls inside the phone: the dark pill of THEATER_GUARD_PILL, both themes ----------------------------- */\n/* `.wy .wy-so` (0,2,0) beats the `.wy button` reset (0,1,1) on SO's own buttons (the hold control, menu powers) */\n.wy-so, .wy .wy-so { color: var(--wy-so-ink); -webkit-text-fill-color: var(--wy-so-ink); background: var(--wy-so-bg); border-radius: 999px; }\n\n/* ---- the hold-to-load control (Task 16 ports the behaviour; the locks hold from day one) ------------------------------ */\n[data-wy-hold] {\n    position: relative;\n    display: inline-flex;\n    align-items: center;\n    justify-content: center;\n    min-height: 44px;\n    padding: 0 16px;\n    overflow: hidden;\n    touch-action: pan-y;\n    user-select: none;\n    -webkit-user-select: none;\n    -webkit-touch-callout: none;\n}\n\n/* ---- shell (Task 13): pages, top bar, tab bar, badge, empty / foreign page, the layer, toast, banner, wide frame ------- */\n.wy-page { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; background: var(--wy-panel); color: var(--wy-ink); }\n/* the refined list (redesign D2, mock section 4): a 52 px top bar, title 17 px. A page is no stacking context, so its bar's z-index 2 competes\n   at the phone's root with the motion layers (ghost 1 · dim 2 · sliding page 3) — it stays 2; a list row's unread badge is 1 (below) */\n.wy-top { flex: none; position: relative; z-index: 2; display: grid; grid-template-columns: 76px minmax(0, 1fr) 76px; align-items: center; min-height: var(--wy-top-h); padding: 0 4px; background: var(--wy-panel); }\n.wy-top.wy-line { border-bottom: 1px solid var(--wy-line); }\n.wy-top-l { display: flex; align-items: center; min-width: 0; }\n.wy-top-r { display: flex; align-items: center; justify-content: flex-end; gap: 2px; min-width: 0; }\n.wy-ttl { min-width: 0; text-align: center; font-weight: 600; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n.wy-ttl-n { font-weight: 500; }\n/* `.wy .wy-back` / `.wy .wy-tab` (0,2,0): the `.wy button` reset (0,1,1) ate the back button's side padding and the tab labels' 11 px\n   (they rendered at the phone's 15 px) — the designer's finding 2026-11-16, fixed in redesign slice 1 */\n.wy .wy-back { display: inline-flex; align-items: center; gap: 2px; min-width: 44px; min-height: 44px; padding: 0 6px; }\n.wy-back svg { width: 24px; height: 24px; }\n.wy-back-n { font-size: 15px; }\n.wy-ib { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 10px; }\n.wy-ib svg { width: 24px; height: 24px; }\n.wy-ib:hover { background: var(--wy-hover); }\n/* tab bar (refined list): a hairline on top, labels 10.5 px, icons 26 px, the inactive tabs at 86 % */\n.wy-tabbar { flex: none; display: flex; background: var(--wy-panel); border-top: 0; box-shadow: 0 -0.5px 0 var(--wy-line); padding: 5px 0 7px; }\n.wy .wy-tab { flex: 1 1 0; position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 46px; padding-top: 2px; font-size: 10.5px; color: var(--wy-ink); }\n.wy-tab svg { width: 26px; height: 26px; }\n.wy-tab.wy-on { color: var(--wy-accent); }\n.wy-tab:not(.wy-on) > svg, .wy-tab:not(.wy-on) > .wy-tab-label { opacity: 0.86; }\n.wy-badge { position: absolute; top: -6px; right: -7px; z-index: 2; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--wy-alert); color: var(--wy-on-fill); font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; box-shadow: 0 0 0 1.5px var(--wy-panel); }\n.wy-tab .wy-badge { top: 0; right: calc(50% - 26px); box-shadow: 0 0 0 2px var(--wy-panel); }\n.wy-empty { align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center; }\n.wy-empty-logo svg { width: 96px; height: 96px; }\n.wy-empty-name { font-size: 22px; font-weight: 600; }\n.wy-empty-who { max-width: 280px; margin: 0; color: var(--wy-sub); font-size: 14px; }\n.wy-layer { position: absolute; inset: 0; z-index: 40; pointer-events: none; }\n.wy-layer > * { pointer-events: auto; }\n/* toasts sit just under the top bar (redesign D2): at the bottom they covered the conversation's hold line and the dock */\n.wy-toast { position: absolute; left: 50%; top: 64px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 12px; background: var(--wy-so-bg); color: var(--wy-so-ink); font-size: 14px; animation: wy-fadeup 0.25s ease both; }\n.wy .wy-toast-act { min-height: 32px; color: var(--wy-tile-a); font-weight: 600; }\n/* dock F (2026-11-17): a toast lets presses through (only its action button takes them), and sizes to its text instead of wrapping at\n   half the screen */\n.wy-layer > .wy-toast { width: max-content; pointer-events: none; }\n.wy-layer > .wy-toast .wy-toast-act { pointer-events: auto; }\n.wy-banner { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: var(--wy-bubble); color: var(--wy-ink); box-shadow: 0 8px 24px var(--wy-shadow); cursor: pointer; animation: wy-drop 0.3s ease both; }\n.wy-banner-logo svg { width: 32px; height: 32px; }\n.wy-banner-body { display: flex; flex-direction: column; min-width: 0; }\n.wy-banner-who { font-size: 14px; font-weight: 600; }\n.wy-banner-text { overflow: hidden; color: var(--wy-sub); font-size: 13px; white-space: nowrap; text-overflow: ellipsis; }\n:host([data-wy-wide]) { padding: 16px !important; }\n:host([data-wy-wide]) .wy { border: 10px solid var(--wy-frame); border-radius: 36px; box-shadow: 0 18px 50px var(--wy-shadow); }\n\n/* ---- lists (Task 14): avatars, mosaics, chat rows, contacts, short lists, the + menu --------------------------------- */\n.wy-av { --wy-av-size: 40px; position: relative; display: inline-flex; align-items: center; justify-content: center; flex: none; width: var(--wy-av-size); height: var(--wy-av-size); overflow: hidden; border-radius: 6px; color: var(--wy-on-fill); font-size: calc(var(--wy-av-size) * 0.42); font-weight: 600; line-height: 1; }\n.wy-av img { display: block; width: 100%; height: 100%; object-fit: cover; }\n.wy-av-img { background: var(--wy-line); }\n.wy-hue-0 { background: var(--wy-hue-0); }\n.wy-hue-1 { background: var(--wy-hue-1); }\n.wy-hue-2 { background: var(--wy-hue-2); }\n.wy-hue-3 { background: var(--wy-hue-3); }\n.wy-hue-4 { background: var(--wy-hue-4); }\n.wy-hue-5 { background: var(--wy-hue-5); }\n.wy-hue-6 { background: var(--wy-hue-6); }\n.wy-hue-7 { background: var(--wy-hue-7); }\n.wy-hue-8 { background: var(--wy-hue-8); }\n.wy-hue-9 { background: var(--wy-hue-9); }\n.wy-hue-10 { background: var(--wy-hue-10); }\n.wy-hue-11 { background: var(--wy-hue-11); }\n/* letter avatars that look designed (refined list, redesign D2): a soft top-light gradient, a 1 px inner highlight; two characters\n   (soWyAvLabel) a size down; calmer in the dark theme. Not on mosaic tiles or the start-up orbit (they carry no wy-av-t). */\n.wy-av-t { background-image: linear-gradient(172deg, var(--wy-av-hi), transparent 52%, var(--wy-av-lo)); box-shadow: inset 0 0 0 1px var(--wy-av-edge); font-weight: 500; text-shadow: 0 1px 1px var(--wy-av-ts); }\n.wy-av-two { font-size: calc(var(--wy-av-size) * 0.3); letter-spacing: 0.5px; }\n:host([data-wy-theme=\"dark\"]) .wy-av-t { filter: saturate(0.8) brightness(0.9); }\n/* the familiar mosaic: rows of --wy-t tiles (soWyMosaicEl), the short row first, every row centred, on a neutral tile */\n.wy-mos { --wy-av-size: 48px; display: flex; flex-direction: column; justify-content: center; flex: none; gap: 1.5px; width: var(--wy-av-size); height: var(--wy-av-size); padding: 2.5px; overflow: hidden; border-radius: 6px; background: var(--wy-mos); }\n.wy-mos-r { display: flex; justify-content: center; gap: 1.5px; }\n.wy-mos .wy-av { width: var(--wy-t, 12px); height: var(--wy-t, 12px); border-radius: 2px; font-size: calc(var(--wy-t, 12px) * 0.52); }\n.wy-mos.wy-dis { filter: grayscale(1); opacity: 0.55; }\n.wy-avw { position: relative; flex: none; display: inline-flex; }\n/* unread badges on the avatar's corner, ringed in the row colour; z-index 1 (2026-11-18, the designer's finding, reproduced in the browser):\n   at 2 it tied with the top bar and drew OVER the condensed bar when the list scrolled under it */\n.wy-avw .wy-badge { top: -7px; right: -7px; z-index: 1; box-shadow: 0 0 0 2px var(--wy-panel); }\n.wy-avw .wy-badge.wy-dot { top: -4px; right: -4px; width: 10px; min-width: 10px; height: 10px; padding: 0; }\n/* rows: 72 px, 16 px sides; a hairline divider inset to the text column (16 + 48 + 12 = 76 px), none under the last / pressed row */\n.wy-row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 12px 16px; background: var(--wy-panel); cursor: pointer; }\n.wy-row::after { content: \"\"; position: absolute; left: 76px; right: 0; bottom: 0; height: 1px; background: var(--wy-line); transform: scaleY(0.5); transform-origin: bottom; }\n.wy-row:last-child::after, .wy-row:hover::after, .wy-row:active::after { display: none; }\n.wy-row:hover { background: var(--wy-hover); }\n.wy-row .wy-avw > .wy-av, .wy-row .wy-mos { border-radius: 7px; }\n.wy-grow { flex: 1 1 auto; min-width: 0; }\n.wy-t1, .wy-t2 { display: flex; align-items: center; gap: 6px; min-width: 0; }\n.wy-row .wy-t1 { align-items: flex-start; }\n.wy-t2 { margin-top: 4px; }\n.wy-nm { min-width: 0; overflow: hidden; font-size: 16px; white-space: nowrap; text-overflow: ellipsis; }\n.wy-row .wy-nm { font-size: 16.5px; line-height: 1.3; }\n.wy-tm { flex: none; margin-left: auto; padding-top: 2px; color: var(--wy-sub); font-size: 12px; line-height: 1.3; }\n.wy-pv { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--wy-sub); font-size: 13.5px; white-space: nowrap; text-overflow: ellipsis; }\n.wy-pv .wy-at { color: var(--wy-alert); }\n.wy-mute { flex: none; width: 14px; height: 14px; color: var(--wy-sub); }\n.wy-mute svg { width: 14px; height: 14px; }\n.wy-row.wy-dis .wy-nm, .wy-row.wy-dis .wy-pv { color: var(--wy-sub); opacity: 0.8; }\n/* 窥屏: a quiet tinted tag, no border */\n.wy-obs { flex: none; margin-top: 2px; padding: 0 5px 0 4px; border: 0; border-radius: 4px; background: var(--wy-tag); color: var(--wy-sub); font-size: 10.5px; font-weight: 500; line-height: 17px; white-space: nowrap; }\n.wy-new { flex: none; margin-top: 3px; padding: 0 4px; border-radius: 5px; background: var(--wy-accent); color: var(--wy-on-fill); font-size: 10px; font-weight: 600; line-height: 15px; }\n.wy-prow { position: relative; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 16px; background: var(--wy-panel); cursor: pointer; }\n.wy-prow::after { content: \"\"; position: absolute; left: 68px; right: 0; bottom: 0; height: 1px; background: var(--wy-line); transform: scaleY(0.5); transform-origin: bottom; }\n.wy-prow:hover { background: var(--wy-hover); }\n.wy-prow .wy-nm { flex: 1 1 auto; font-size: 15.5px; }\n.wy-sq { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 40px; height: 40px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); }\n.wy-sq svg { width: 24px; height: 24px; }\n.wy-sq-observed { background: var(--wy-sub); }\n.wy-sub2 { flex: none; color: var(--wy-sub); font-size: 13px; }\n.wy-gap { height: 8px; background: var(--wy-chat-bg); }\n.wy-foot { padding: 16px 14px 24px; color: var(--wy-sub); font-size: 12.5px; text-align: center; }\n/* the 我 page: the note under the two story switches is that group's footer — left-aligned like the switches' descriptions */\n.wy-foot.wy-grpfoot { padding: 6px 16px 10px; line-height: 1.45; text-align: left; }\n.wy-none { padding: 40px 24px; color: var(--wy-sub); font-size: 13px; text-align: center; }\n.wy-pop-wrap { position: absolute; inset: 0; }\n.wy-backdrop { position: absolute; inset: 0; }\n.wy-pop { position: absolute; z-index: 1; min-width: 150px; padding: 4px; border-radius: 10px; background: var(--wy-bubble); color: var(--wy-ink); box-shadow: 0 8px 28px var(--wy-shadow); }\n.wy-pop button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0 12px; border-radius: 8px; font-size: 15px; text-align: left; }\n.wy-pop button:hover { background: var(--wy-hover); }\n.wy-pop button svg { width: 20px; height: 20px; }\n.wy-pop-plus { top: 48px; right: 8px; }\n\n/* ---- the chat screen (Task 15): bubbles with tails, big emoji, voice, frames, grey lines, footers, typing row ----------- */\n.wy-chat { background: var(--wy-chat-bg); }\n.wy-chat .wy-top { background: var(--wy-chat-bg); border-bottom: 1px solid var(--wy-line); }\n.wy-msgs { padding: 6px 0 12px; }\n.wy-m { position: relative; display: flex; align-items: flex-start; gap: 9px; min-width: 0; padding: 7px 12px; }\n.wy-m[data-wy-side=\"me\"] { flex-direction: row-reverse; }\n.wy-m > .wy-av { cursor: pointer; touch-action: manipulation; }\n.wy-av-ghost { background: var(--wy-line); }\n.wy-mb { position: relative; display: flex; flex-direction: column; align-items: flex-start; min-width: 0; max-width: 70%; }\n.wy-m[data-wy-side=\"me\"] .wy-mb { align-items: flex-end; }\n.wy-mn { margin: -2px 0 3px 2px; color: var(--wy-sub); font-size: 12px; }\n.wy-bubble { position: relative; max-width: 100%; padding: 9px 11px; border-radius: 6px; background: var(--wy-bubble); color: var(--wy-ink); font-size: 15px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; user-select: text; -webkit-user-select: text; }\n.wy-bubble::before { content: \"\"; position: absolute; top: 13px; left: -6px; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 6px solid var(--wy-bubble); }\n.wy-m[data-wy-side=\"me\"] .wy-bubble { background: var(--wy-own); color: var(--wy-own-ink); }\n.wy-m[data-wy-side=\"me\"] .wy-bubble::before { left: auto; right: -6px; border-right: 0; border-left: 6px solid var(--wy-own); }\n.wy-bubble .wy-at { color: var(--wy-accent); font-weight: 500; }\n.wy-m[data-wy-side=\"me\"] .wy-bubble .wy-at { color: var(--wy-own-ink); font-weight: 600; }\n.wy-big { position: relative; padding: 0 2px; font-size: 44px; line-height: 1.15; letter-spacing: 2px; overflow-wrap: anywhere; }\n.wy-voice { display: flex; align-items: center; gap: 8px; width: var(--wy-voice-w, 90px); max-width: 100%; height: 40px; cursor: pointer; user-select: none; -webkit-user-select: none; }\n.wy-voice svg { width: 20px; height: 20px; }\n.wy-m[data-wy-side=\"me\"] .wy-voice { flex-direction: row-reverse; }\n.wy-m[data-wy-side=\"me\"] .wy-voice svg { transform: scaleX(-1); }\n.wy-sec { font-size: 14px; }\n.wy-vtext { margin-top: 5px; max-width: 100%; padding: 6px 9px; border-radius: 6px; background: var(--wy-quote); color: var(--wy-ink); font-size: 13.5px; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n.wy-frame { position: relative; display: flex; flex-direction: column; width: 190px; max-width: 100%; overflow: hidden; border-radius: 8px; color: var(--wy-on-fill); }\n/* the picture area keeps the ratio; the description (.wy-cap) is below it in the same tile (2026-11-16: a long one covered ▶ / duration) */\n.wy-pic { position: relative; display: block; flex: none; aspect-ratio: 4 / 3; }\n.wy-video .wy-pic { aspect-ratio: 16 / 10; }\n.wy-em { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -62%); font-size: 40px; line-height: 1; }\n.wy-play { position: absolute; top: 10px; right: 10px; display: inline-flex; padding: 4px; border-radius: 999px; background: var(--wy-scrim); }\n.wy-play svg { width: 18px; height: 18px; }\n.wy-dur { position: absolute; top: 12px; left: 10px; padding: 0 6px; border-radius: 6px; background: var(--wy-scrim); font-size: 11.5px; line-height: 18px; }\n.wy-cap { position: relative; padding: 6px 9px; background: var(--wy-scrim); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-q { max-width: 100%; margin-top: 5px; padding: 4px 8px; border-radius: 4px; background: var(--wy-quote); color: var(--wy-sub); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }\n.wy-line-mid { position: relative; padding: 5px 40px; color: var(--wy-sub); font-size: 12px; line-height: 1.5; text-align: center; overflow-wrap: anywhere; }\n.wy-line-mid.wy-time { padding-top: 12px; font-size: 11.5px; }\n.wy .wy-peek { margin-left: 4px; color: var(--wy-accent); font-size: 11.5px; }\n/* playtest 2026-11-19 A15: hit areas larger than what is drawn (nothing visible moves) — 偷看, the row ⋯, the switches, the 我 card's name */\n.wy .wy-peek { position: relative; }\n.wy .wy-peek::before { content: \"\"; position: absolute; inset: -10px -6px; }\n.wy-peekpill, .wy-note { display: inline-block; max-width: 100%; margin-top: 4px; padding: 3px 10px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-peekpill { display: block; width: fit-content; margin: 4px auto 0; }\n.wy-noteline { display: flex; flex-direction: column; align-items: center; padding: 8px 20px; }\n/* pt8 (owner's playtest 2026-11-18): the cause line — WHY a request failed, one small secondary line; selectable (he copies it into a report) */\n.wy-cause { display: block; max-width: 100%; margin-top: 3px; color: var(--wy-sub); font-size: 11.5px; line-height: 1.45; text-align: center; overflow-wrap: anywhere; }\n.wy-cause, .wy-note-error, .wy-cs-why, .wy-cs-note, .wy-boot-fail-why { user-select: text; -webkit-user-select: text; cursor: text; }\n.wy-dots { display: flex; align-items: center; gap: 4px; height: 38px; padding: 0 13px; }\n.wy-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--wy-sub); animation: wy-dots 1.1s infinite ease-in-out; }\n.wy-dots i:nth-child(2) { animation-delay: 0.15s; }\n.wy-dots i:nth-child(3) { animation-delay: 0.3s; }\n/* the dock (layout F, redesign Lane D slice D1): ONE row [mic ↔ keyboard 40] [field] [+ 40 ↔ 发送 56]; + gives way to 发送 while the field\n   has text (.wy-has-text), both give way to the stop square while this chat's call runs (.wy-running); watching = one slim line */\n.wy-chatfoot { flex: none; display: flex; flex-direction: column; gap: 8px; padding: 8px 10px 9px; border-top: 1px solid var(--wy-line); background: var(--wy-panel); }\n.wy-chatfoot.wy-watch { padding: 4px 12px 6px; }\n.wy-inrow { display: flex; align-items: flex-end; gap: 8px; min-width: 0; }\n.wy-input { flex: 1 1 auto; min-width: 0; min-height: 40px; max-height: 120px; padding: 9px 10px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-bubble); font-size: 15px; line-height: 1.4; resize: none; outline: none; user-select: text; -webkit-user-select: text; }\n/* playtest 2026-11-19 A6: the field grows with its lines up to max-height (a second line no longer scrolls the first one's top out of\n   the one-line box); a browser without field-sizing keeps today's one-line box. One line keeps today's height (the rows=\"1\" box). */\n@supports (field-sizing: content) {\n    .wy-input { field-sizing: content; }\n}\n.wy-input:focus { border-color: var(--wy-accent); }\n.wy-input::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy .wy-dk { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; color: var(--wy-ink); }\n.wy-dk svg { width: 28px; height: 28px; }\n.wy-dk:hover { background: var(--wy-hover); }\n.wy .wy-send { flex: none; min-width: 56px; min-height: 40px; padding: 0 14px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); font-weight: 600; }\n.wy-send:disabled { opacity: 0.45; }\n.wy-inrow:not(.wy-has-text) > .wy-send, .wy-inrow.wy-has-text > .wy-plus, .wy-inrow.wy-running > .wy-send, .wy-inrow.wy-running > .wy-plus { display: none; }\n.wy .wy-stopsq { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 56px; min-height: 40px; border-radius: 6px; background: var(--wy-alert); color: var(--wy-on-fill); }\n.wy-stopsq-i { width: 12px; height: 12px; border-radius: 2px; background: currentColor; }\n.wy-obsbar { display: flex; flex-direction: column; align-items: center; gap: 6px; }\n.wy-obs-t { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 12px; color: var(--wy-sub); font-size: 13px; }\n.wy-obs-t b { font-weight: 500; }\n.wy-disbar { padding: 10px 12px; color: var(--wy-sub); font-size: 13px; text-align: center; }\n.wy-hold { font-size: 14px; }\n/* the hold line: the last element of the conversation, a quiet dashed line centred in the COLUMN — widened under a classic scrollbar by\n   its measured width (--wy-sbw, soWyAfterRender) so the scrollbar does not push it left; the label centred in the box */\n.wy-holdline { display: flex; justify-content: center; margin-right: calc(-1 * var(--wy-sbw, 0px)); padding: 4px 16px 14px; }\n.wy .wy-holdline .wy-hold { width: 100%; max-width: 340px; min-width: 0; min-height: 46px; padding: 0 14px; border: 1.5px dashed var(--wy-line); border-radius: 14px; background: transparent; color: var(--wy-sub); -webkit-text-fill-color: var(--wy-sub); font-size: 13.5px; }\n.wy-holdline .wy-hold-t { text-align: center; }\n.wy-holdline .wy-hold-fill { transform-origin: center; opacity: 0.22; }\n/* the \"+\" sheet (照片 · 视频; a grid of 68 px+ cells — 4 per row at 375 px — with room for more) and the 照片 / 视频 composer */\n.wy-attach { padding-top: 14px; }\n.wy-att-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); gap: 12px 6px; padding: 4px 12px 14px; }\n.wy .wy-att { display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 84px; color: var(--wy-sub); font-size: 12.5px; }\n.wy-att-i { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 14px; background: var(--wy-chat-bg); color: var(--wy-ink); }\n.wy-att-i svg { width: 26px; height: 26px; }\n.wy-att:hover .wy-att-i { background: var(--wy-hover); }\n.wy-sheet.wy-compose { gap: 10px; max-height: calc(100% - 12px); overflow-y: auto; overscroll-behavior: contain; padding: 8px 14px 14px; }\n.wy-cmp-head { position: sticky; top: -8px; z-index: 1; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 44px; margin: -8px -14px 0; padding: 8px 14px 0; background: var(--wy-bubble); }\n.wy .wy-cmp-x { justify-self: start; min-width: 44px; min-height: 40px; padding: 0 4px; color: var(--wy-sub); font-size: 15px; text-align: left; }\n.wy-cmp-t { font-size: 16px; font-weight: 600; }\n.wy .wy-cmp-go { justify-self: end; min-width: 56px; min-height: 40px; padding: 0 14px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); font-weight: 600; }\n.wy .wy-cmp-go:disabled { opacity: 0.45; cursor: default; }\n.wy-cmp-prev { display: flex; justify-content: center; }\n.wy-cmp-prev .wy-frame { width: 144px; }\n.wy-cmp-in { flex: none; width: 100%; min-height: 56px; max-height: 120px; padding: 8px 10px; border: 1px solid var(--wy-line); border-radius: 8px; background: var(--wy-chat-bg); font-size: 15px; line-height: 1.45; resize: none; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-cmp-in:focus { border-color: var(--wy-accent); }\n.wy-cmp-in::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy-cmp-lab { margin-bottom: -4px; color: var(--wy-sub); font-size: 12.5px; }\n.wy-cmp-emo { display: flex; flex-wrap: wrap; gap: 6px; }\n.wy .wy-cmp-e { width: 40px; height: 40px; border-radius: 10px; background: var(--wy-chat-bg); box-shadow: inset 0 0 0 1px var(--wy-line); font-size: 20px; line-height: 1; }\n.wy .wy-cmp-e[aria-checked=\"true\"] { box-shadow: inset 0 0 0 2px var(--wy-accent); }\n.wy .wy-cmp-dur .wy-seg-i { min-height: 40px; }\n\n/* ---- the hold control (Task 16): the fill runs for --wy-hold-ms while held, snaps back on release ---------------------- */\n.wy-hold { min-width: 200px; max-width: 100%; border-radius: 999px; cursor: pointer; }\n.wy-hold-t { position: relative; z-index: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }\n.wy-hold-fill { position: absolute; inset: 0; z-index: 0; border-radius: inherit; background: var(--wy-accent); opacity: 0.5; transform: scaleX(0); transform-origin: left center; pointer-events: none; }\n.wy-hold.holding .wy-hold-fill { transform: scaleX(1); transition: transform var(--wy-hold-ms, 2000ms) linear; }\n\n/* ---- the message menu (Task 17): popover, ⋯ opener, inline editor, quote chip --------------------------------------- */\n.wy-backdrop.wy-clear { background: transparent; }\n.wy-pop-msg { display: flex; flex-direction: column; gap: 4px; min-width: 0; max-width: calc(100% - 16px); padding: 6px; top: 64px; left: 8px; }\n.wy-pop-cap { padding: 0 6px; color: var(--wy-sub); font-size: 11.5px; }\n/* the familiar bubble menu is a grid of icon + label: one row up to five items, two even rows beyond (--wy-mi-cols, soWyMenuCols:\n   6 → 3 + 3, 7 → 4 + 3) — never a lone item on a second row (more functions phase 2, 2026-11-17) */\n.wy-mi-row { display: grid; grid-template-columns: repeat(var(--wy-mi-cols, 5), 56px); gap: 4px; }\n.wy-pop .wy-mi { flex-direction: column; justify-content: center; gap: 3px; width: 56px; min-height: 56px; padding: 6px 0; border-radius: 10px; font-size: 12px; text-align: center; }\n.wy-pop .wy-mi.wy-so { border-radius: 10px; }\n.wy-pop .wy-mi.wy-so:hover { background: var(--wy-so-bg); opacity: 0.9; }\n.wy-pop .wy-mi[aria-disabled=\"true\"] { opacity: 0.45; cursor: default; }\n/* the ⋯ (消息菜单 = 点 ⋯, the default since redesign D2): a 32 px round target on the outer side of every message, ALWAYS in the layout\n   (opacity only — nothing moves when it shows): on hover / keyboard focus of the row, or after a tap on the bubble (.wy-sel, touch).\n   On a grey-line notice it sits in the line's right padding (absolute) so the text stays centred. Hidden = not a target on touch. */\n.wy-mmore { flex: none; align-self: center; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--wy-hover); color: var(--wy-sub); opacity: 0; }\n.wy-mmore svg { width: 18px; height: 18px; }\n.wy-line-mid .wy-mmore { position: absolute; top: 50%; right: 4px; width: 32px; height: 32px; margin-top: -16px; }\n.wy-mmore:focus-visible, .wy-m:focus-within > .wy-mmore, .wy-line-mid:focus-within > .wy-mmore, .wy-sel > .wy-mmore { opacity: 1; }\n@media (hover: hover) {\n    .wy-m:hover > .wy-mmore, .wy-line-mid:hover > .wy-mmore { opacity: 1; }\n    .wy-mmore:hover { color: var(--wy-ink); }\n}\n@media (hover: none) {\n    .wy-mmore { pointer-events: none; }\n    .wy-sel > .wy-mmore, .wy-mmore:focus-visible { pointer-events: auto; }\n}\n.wy-bubble, .wy-big, .wy-frame, .wy-sys-t, .wy-cardmsg, .wy-fwdmsg, .wy-paymsg { -webkit-touch-callout: none; }\n/* 消息菜单 = 长按气泡 (.wy-menu-hold on the chat page): while held the bubble lifts and a tint charges from the finger over the hold\n   (.wy-lp, --wy-lp-ms / --wy-lp-x / --wy-lp-y set by soWyLift); let go early and it settles back. Transform / opacity only, and only\n   with the phone's motion flag on (soWyLift never adds .wy-lp with it off; the menu still opens). Grey-line notices (inline) only open. */\n.wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-bubble, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-big, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-frame, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-cardmsg, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-fwdmsg, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-paymsg { transition: transform 0.2s ease; }\n.wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-bubble::after, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-big::after, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-frame::after, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-cardmsg::after, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-fwdmsg::after, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-paymsg::after { content: \"\"; position: absolute; inset: 0; z-index: 2; border-radius: inherit; background: var(--wy-accent); opacity: 0; transform: scale(0); transform-origin: var(--wy-lp-x, 50%) var(--wy-lp-y, 50%); pointer-events: none; transition: transform 0.15s ease, opacity 0.15s ease; }\n.wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-lp { transform: translateY(-2px) scale(1.035); transition: transform var(--wy-lp-ms, 500ms) cubic-bezier(0.2, 0.8, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-lp::after { opacity: 0.18; transform: scale(1); transition: transform var(--wy-lp-ms, 500ms) cubic-bezier(0.3, 0.2, 0.3, 1), opacity 0.15s ease; }\n.wy-edit { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 0 4px; }\n.wy-edit-in { width: 100%; min-height: 72px; max-height: 200px; padding: 8px 10px; border: 1px solid var(--wy-accent); border-radius: 8px; background: var(--wy-bubble); font-size: 15px; line-height: 1.45; resize: vertical; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-edit-btns { display: flex; justify-content: flex-end; gap: 8px; }\n.wy-edit-btns button { min-height: 36px; padding: 0 14px; border-radius: 6px; font-size: 14px; }\n.wy .wy-edit-no { background: var(--wy-hover); }\n.wy .wy-edit-ok { background: var(--wy-accent); color: var(--wy-on-fill); font-weight: 600; }\n.wy-qchip { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 4px 4px 4px 10px; border-radius: 6px; background: var(--wy-quote); color: var(--wy-sub); font-size: 12.5px; }\n.wy-qchip-t { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }\n.wy-qchip-x { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; }\n.wy-qchip-x svg { width: 16px; height: 16px; }\n\n/* ---- group info, profile, pictures, pick (Task 18) --------------------------------------------------------------------- */\n.wy-info .wy-scroll, .wy-profile .wy-scroll { background: var(--wy-chat-bg); }\n.wy-card { background: var(--wy-panel); }\n.wy-mgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 12px 6px; padding: 16px 12px; }\n.wy-mcell { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; cursor: pointer; }\n.wy-mcell-n { max-width: 100%; overflow: hidden; color: var(--wy-sub); font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }\n.wy-mcell-plus { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border: 1.5px dashed var(--wy-line); border-radius: 6px; color: var(--wy-sub); }\n.wy-mcell-plus svg { width: 24px; height: 24px; }\n.wy-countnote { padding: 10px 16px; background: var(--wy-panel); color: var(--wy-sub); font-size: 12.5px; text-align: center; }\n.wy-kv { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 10px 16px; background: var(--wy-panel); border-bottom: 1px solid var(--wy-line); }\n.wy-kv-top { align-items: flex-start; }\n.wy-k { flex: none; font-size: 15px; }\n/* A13 (2026-11-19): the oracle's ☾ hangs in the row's left padding — 「怎么来的」 starts where every other label starts */\n.wy-k-how .wy-moon { display: inline-block; width: 13px; margin-left: -13px; color: var(--wy-sub); font-size: 12px; text-align: left; }\n.wy-v { flex: 1 1 auto; min-width: 0; color: var(--wy-sub); font-size: 14px; text-align: right; overflow-wrap: anywhere; }\n.wy-kv-top .wy-v { display: flex; flex-direction: column; gap: 4px; }\n.wy-floor { color: var(--wy-accent); font-size: 12.5px; }\n.wy-setrow { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 10px 16px; background: var(--wy-panel); border-bottom: 1px solid var(--wy-line); }\n.wy-setrow-t { display: flex; flex: 1 1 auto; flex-direction: column; gap: 3px; min-width: 0; }\n.wy-setrow-n { font-size: 15px; font-weight: 500; }\n.wy-setrow-d { color: var(--wy-sub); font-size: 12.5px; line-height: 1.45; }\n.wy .wy-switch { position: relative; flex: none; width: 50px; height: 30px; border-radius: 15px; background: var(--wy-line); transition: background 0.2s ease; }\n.wy .wy-switch::after { content: \"\"; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: var(--wy-on-fill); box-shadow: 0 1px 3px var(--wy-shadow); transition: transform 0.2s ease; }\n.wy .wy-switch.wy-on { background: var(--wy-accent); }\n.wy .wy-switch.wy-on::after { transform: translateX(20px); }\n.wy .wy-switch::before { content: \"\"; position: absolute; inset: -7px -4px; border-radius: 22px; }   /* A15: 58 × 44 to the finger */\n/* 动画 (redesign slice 1): the text above, a three-stop control below — a recessed well (the chat background) with a raised thumb (the\n   bubble colour) on the choice, both themes */\n.wy-setrow.wy-setrow-seg { flex-direction: column; align-items: stretch; gap: 10px; }\n.wy-seg { display: flex; gap: 2px; padding: 2px; border-radius: 9px; background: var(--wy-chat-bg); box-shadow: inset 0 0 0 1px var(--wy-line); }\n.wy .wy-seg-i { flex: 1 1 0; min-width: 0; min-height: 32px; padding: 0 8px; border-radius: 7px; color: var(--wy-ink); font-size: 13.5px; text-align: center; white-space: nowrap; transition: background 0.2s ease, color 0.2s ease; }\n.wy .wy-seg-i.wy-on { background: var(--wy-bubble); color: var(--wy-ink); font-weight: 600; box-shadow: 0 1px 3px var(--wy-shadow), inset 0 0 0 1px var(--wy-line); }\n.wy .wy-btnrow { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 52px; padding: 0 16px; background: var(--wy-panel); color: var(--wy-ink); font-size: 15px; font-weight: 500; }\n.wy .wy-btnrow.wy-danger { color: var(--wy-alert); }\n.wy .wy-btnrow.wy-muted-t { color: var(--wy-sub); font-size: 14px; font-weight: 400; }\n.wy-endpad { height: 32px; }\n.wy-pcard { display: flex; align-items: center; gap: 16px; padding: 24px 18px 22px; }\n.wy-pcard .wy-av { border-radius: 8px; cursor: pointer; }\n.wy-pname { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 20px; font-weight: 600; overflow-wrap: anywhere; }\n.wy-meta { margin-top: 4px; color: var(--wy-sub); font-size: 13px; overflow-wrap: anywhere; }\n.wy-sigcard { padding: 13px 16px; }\n.wy-sigcard .wy-k { margin-bottom: 4px; color: var(--wy-sub); font-size: 13px; }\n.wy-sig { font-size: 14.5px; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n.wy-sechead { padding: 14px 16px 6px; color: var(--wy-sub); font-size: 12.5px; }\n.wy-backdrop.wy-dim { background: var(--wy-scrim); }\n.wy-sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; padding: 6px 0 10px; border-radius: 14px 14px 0 0; background: var(--wy-bubble); color: var(--wy-ink); box-shadow: 0 -8px 24px var(--wy-shadow); animation: wy-rise 0.22s ease both; }\n.wy-sheet-t { padding: 10px 16px 8px; color: var(--wy-sub); font-size: 12.5px; text-align: center; }\n.wy .wy-sheet-i { min-height: 50px; padding: 0 16px; border-top: 1px solid var(--wy-line); font-size: 16px; text-align: center; }\n.wy .wy-sheet-c { margin-top: 6px; border-top: 6px solid var(--wy-chat-bg); }\n/* 删除联系人 (2026-11-17): both options are destructive (red); the one that also deletes the lines is set apart (bold) */\n.wy .wy-sheet-i.wy-danger { color: var(--wy-alert); }\n.wy .wy-sheet-i.wy-danger-all { font-weight: 600; }\n.wy .wy-done { min-width: 64px; min-height: 34px; margin-right: 6px; padding: 0 10px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); font-size: 14px; font-weight: 600; white-space: nowrap; }\n.wy .wy-done:disabled { opacity: 0.4; }\n.wy-pickpage .wy-top { grid-template-columns: 76px minmax(0, 1fr) 96px; }\n.wy-pickstrip { flex: none; display: flex; align-items: center; gap: 6px; min-height: 52px; padding: 8px 14px; overflow-x: auto; border-bottom: 1px solid var(--wy-line); }\n.wy-ph { color: var(--wy-sub); font-size: 13px; }\n.wy-gname { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--wy-line); }\n.wy-gname span { flex: none; color: var(--wy-sub); font-size: 13px; }\n.wy-gname input { flex: 1 1 auto; min-width: 0; min-height: 36px; padding: 0 10px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-bubble); outline: none; user-select: text; -webkit-user-select: text; }\n.wy-gname input:focus { border-color: var(--wy-accent); }\n.wy-pick { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 14px; cursor: pointer; }\n.wy-pick:hover { background: var(--wy-hover); }\n.wy-ck { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 1.5px solid var(--wy-line); border-radius: 50%; color: transparent; }\n.wy-ck svg { width: 14px; height: 14px; }\n.wy-pick.wy-on .wy-ck { border-color: var(--wy-accent); background: var(--wy-accent); color: var(--wy-on-fill); }\n.wy-pick.wy-lock { cursor: default; opacity: 0.5; }\n\n/* ---- the 我 tab (Task 19): own card, switches, note link, size, summarise, background, reset; chat background */\n.wy-tabs-me .wy-scroll { background: var(--wy-chat-bg); }\n.wy-mecard { padding-top: 26px; }\n.wy-mecard .wy-grow { cursor: pointer; }\n/* A15: the name block fills the card's height (its lines stay centred where they were), so the tap is not a 29 px strip */\n.wy-mecard .wy-grow { align-self: stretch; display: flex; flex-direction: column; justify-content: center; }\n.wy-chev { flex: none; display: inline-flex; color: var(--wy-sub); }\n.wy-chev svg { width: 18px; height: 18px; }\n.wy-linkrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 2px 16px 10px; background: var(--wy-panel); border-bottom: 1px solid var(--wy-line); }\n.wy .wy-link { min-height: 32px; color: var(--wy-accent); font-size: 13.5px; }\n/* B5 (2026-11-19): the no-reply note as the way to 重新回复 — the phone's link, centred under the conversation like the note it replaces */\n.wy .wy-link.wy-note-retry { display: inline-flex; align-items: center; margin-top: 0; padding: 0 12px; cursor: pointer; }\n.wy-size { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 10px 16px; background: var(--wy-panel); color: var(--wy-sub); font-size: 13px; border-bottom: 1px solid var(--wy-line); }\n.wy-size.wy-lv-amber .wy-size-note { color: var(--wy-warn); font-weight: 600; }\n.wy-size.wy-lv-red .wy-size-note { color: var(--wy-alert); font-weight: 600; }\n.wy-sumrow { display: flex; flex-direction: column; align-items: center; background: var(--wy-panel); }\n.wy .wy-btnrow svg { width: 20px; height: 20px; margin-right: 8px; }\n/* A20: the profile's 音视频通话 sits right under 发消息 — one block, a hairline between the two rows */\n.wy .wy-btnrow.wy-pcall { border-top: 1px solid var(--wy-line); }\n.wy .wy-sum { color: var(--wy-accent); }\n.wy .wy-sum:disabled { color: var(--wy-sub); cursor: default; }\n.wy-sumrow .wy-note { margin: 0 0 10px; }\n.wy-sheet-note { max-height: 80%; }\n/* the memory slice, UI (2026-11-18; owner #44, the designer's mock option ①): the size sheet (soWyMeterSheet) and the 我 page's 「记忆与长度」\n   rows (soWyMemRows). Amber TEXT reads --wy-warn-ink (the light theme's #B26A00 is under 4.5 : 1 on white at these sizes; dark = --wy-warn);\n   bars and fills read --wy-warn. The level never rests on colour alone: ⚠ + the words on red, the bar's fill and the sentence on every level. */\n.wy-msheet { max-height: calc(100% - 12px); overflow-y: auto; overscroll-behavior: contain; }\n.wy-ms-num { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; font-size: 30px; font-weight: 600; line-height: 1.3; font-variant-numeric: tabular-nums; }\n.wy-ms-num.wy-lv-amber { color: var(--wy-warn-ink); }\n.wy-ms-num.wy-lv-red { color: var(--wy-alert); }\n.wy-ms-warn { display: inline-flex; }\n.wy-ms-warn svg { width: 26px; height: 26px; }\n.wy-ms-sub { padding: 0 16px 14px; color: var(--wy-sub); font-size: 12.5px; text-align: center; }\n.wy-ms-bar { position: relative; height: 6px; margin: 0 22px; border-radius: 3px; background: var(--wy-chat-bg); box-shadow: inset 0 0 0 1px var(--wy-line); }\n.wy-ms-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--wy-sub); }\n.wy-ms-bar.wy-lv-amber .wy-ms-fill { background: var(--wy-warn); }\n.wy-ms-bar.wy-lv-red .wy-ms-fill { background: var(--wy-alert); }\n.wy-ms-mark { position: absolute; left: 80%; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--wy-ink); opacity: 0.45; }\n.wy-ms-scale { position: relative; height: 18px; margin: 5px 22px 0; color: var(--wy-sub); font-size: 11px; }\n.wy-ms-scale span { position: absolute; top: 0; white-space: nowrap; }\n.wy-ms-scale .wy-ms-at { left: 80%; transform: translateX(-50%); }\n.wy-ms-why { margin: 10px 22px 6px; font-size: 14px; line-height: 1.6; text-align: center; }\n.wy-ms-after { margin: 0 22px 10px; color: var(--wy-sub); font-size: 12.5px; text-align: center; }\n.wy-ms-after.wy-lv-amber { color: var(--wy-warn-ink); }\n.wy-ms-after.wy-lv-red { color: var(--wy-alert); }\n.wy .wy-sheet-i.wy-ms-go { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; color: var(--wy-accent); font-weight: 600; }\n.wy .wy-sheet-i.wy-ms-go svg { width: 20px; height: 20px; }\n.wy .wy-sheet-i.wy-ms-go:disabled { color: var(--wy-sub); font-weight: 400; cursor: default; }\n.wy-memrow .wy-mem-v { flex: none; display: inline-flex; align-items: center; gap: 4px; color: var(--wy-sub); font-size: 14px; font-variant-numeric: tabular-nums; }\n.wy-memrow .wy-mem-v svg { width: 15px; height: 15px; }\n.wy-memrow .wy-mem-v.wy-lv-amber { color: var(--wy-warn-ink); font-weight: 600; }\n.wy-memrow .wy-mem-v.wy-lv-red { color: var(--wy-alert); font-weight: 600; }\n.wy-memrow::after { left: 16px; }\n.wy .wy-memset .wy-seg-i { padding: 0 4px; font-variant-numeric: tabular-nums; }\n.wy-pre { flex: 1 1 auto; min-height: 0; margin: 0; padding: 10px 16px; overflow: auto; color: var(--wy-ink); font: 12.5px/1.6 ui-monospace, \"Cascadia Mono\", Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n.wy-chat.wy-has-bg { background-color: var(--wy-chat-bg); background-position: center; background-size: cover; background-repeat: no-repeat; }\n.wy-chat.wy-has-bg .wy-top { background: var(--wy-panel); }\n.wy-chat.wy-has-bg .wy-scroll { background: var(--wy-scrim); }\n.wy-chat.wy-has-bg .wy-line-mid .wy-sys-t { display: inline-block; padding: 2px 8px; border-radius: 6px; background: var(--wy-panel); }\n.wy-chat.wy-has-bg .wy-mn { display: inline-block; padding: 0 6px; border-radius: 5px; background: var(--wy-panel); }\n.wy-chat.wy-has-bg .wy-q, .wy-chat.wy-has-bg .wy-vtext { background: var(--wy-panel); }\n\n/* ---- the empty phone, 开机 and the start-up show (Task 20) ------------------------------------------------------------ */\n.wy .wy-bootbtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 168px; min-height: 48px; margin-top: 16px; padding: 0 26px; border-radius: 999px; background: var(--wy-accent); color: var(--wy-on-fill); font-size: 16px; font-weight: 600; box-shadow: 0 6px 18px var(--wy-shadow); }\n.wy .wy-bootbtn:disabled { opacity: 0.5; }\n.wy-bootbtn svg { width: 20px; height: 20px; }\n.wy-boot-cost { max-width: 260px; margin: 0; color: var(--wy-sub); font-size: 12.5px; line-height: 1.5; }\n/* the start-up overlay keeps its own (green-tinted) background — the owner: \"the start-up animation is fine\" (redesign D2 moved the\n   rest of the phone to neutral greys) */\n.wy-boot { position: absolute; inset: 0; z-index: 5; overflow: hidden; background: var(--wy-boot-bg); color: var(--wy-ink); }\n.wy-boot-art { position: absolute; inset: 0; width: 100%; height: 100%; }\n.wy-boot-art #ring { animation: wy-pulse 2.4s ease-in-out infinite; }\n/* #logo carries its own transform=\"translate(…)\" — a CSS transform would replace it, so the logo only fades */\n.wy-boot-art #logo { animation: wy-logo-in 0.6s ease both; }\n.wy-boot-art #contacts { transform-box: view-box; transform-origin: 195px 390px; animation: wy-spin 18s linear infinite; transition: opacity 0.4s ease; }\n.wy-boot:not([data-wy-phase=\"splash\"]) .wy-boot-art #contacts { opacity: 0; }\n.wy-boot-orbit { position: absolute; left: 50%; top: 50%; width: 0; height: 0; animation: wy-spin 18s linear infinite; }\n.wy-boot-contact { position: absolute; left: 0; top: 0; transform: rotate(var(--wy-a, -90deg)) translateY(calc(-1 * var(--wy-orbit-r, 120px))) rotate(calc(-1 * var(--wy-a, -90deg))); transition: transform 0.45s ease; }\n.wy-boot-unspin { position: absolute; left: -32px; top: -23px; display: flex; flex-direction: column; align-items: center; gap: 3px; width: 64px; animation: wy-spin-rev 18s linear infinite; }\n.wy-boot-unspin .wy-av { border-radius: 10px; box-shadow: 0 4px 12px var(--wy-shadow); animation: wy-pop 0.35s ease both; }\n.wy-boot-contact.wy-boot-flown { visibility: hidden; }   /* its copy (.wy-fly) has taken off to the row: never two of one name (landing) */\n.wy-boot-cn { max-width: 64px; overflow: hidden; color: var(--wy-ink); font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }\n.wy-boot-text { position: absolute; left: 16px; right: 16px; bottom: 7%; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }\n.wy-boot-name { font-size: 22px; font-weight: 600; letter-spacing: 2px; }\n.wy-boot-line { color: var(--wy-sub); font-size: 13px; }\n.wy-boot-failed .wy-boot-text, .wy-boot-failed .wy-boot-orbit { display: none; }\n.wy-boot-failed .wy-boot-art #ring, .wy-boot-failed .wy-boot-art #contacts { animation: none; }\n.wy-boot-fail { position: absolute; left: 16px; right: 16px; bottom: 6%; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px; border-radius: 14px; background: var(--wy-bubble); color: var(--wy-ink); box-shadow: 0 8px 24px var(--wy-shadow); text-align: center; animation: wy-drop 0.25s ease both; }\n.wy-boot-fail-t { font-size: 15px; font-weight: 600; }\n.wy-boot-fail-why { color: var(--wy-sub); font-size: 13px; overflow-wrap: anywhere; }\n.wy-boot-fail-btns { display: flex; gap: 10px; margin-top: 4px; }\n.wy .wy-boot-back, .wy .wy-boot-retry { min-width: 96px; min-height: 40px; padding: 0 16px; border-radius: 999px; font-size: 14.5px; }\n.wy .wy-boot-back { background: var(--wy-hover); }\n.wy .wy-boot-retry { background: var(--wy-accent); color: var(--wy-on-fill); font-weight: 600; }\n.wy-boot-out { animation: wy-fade-out 0.55s ease 0.25s both; pointer-events: none; }\n.wy-fly { position: absolute; left: 0; top: 0; z-index: 6; border-radius: 10px; transform-origin: 0 0; pointer-events: none; animation: wy-fly 0.8s cubic-bezier(0.5, 0, 0.2, 1) both; }\n.wy-fly.wy-fly-fade { animation: wy-fly-fade 0.5s ease both; }\n.wy-boot-in .wy-row { animation: wy-row-in 0.4s ease both; animation-delay: calc(var(--wy-i, 0) * 110ms + 120ms); }\n\n/* ---- more functions, phase 1 (slice B, 2026-11-17): cards, the chat record, forward select, the @ picker, pin, remark, block, search ---- */\n/* the card bubble: the same card on both sides (the familiar app keeps cards light on its green side too) — title + sub beside an icon\n   tile (a 名片 / 音乐: the tile leads), a hairline and a small kind label; no tail */\n.wy-cardmsg { position: relative; display: flex; flex-direction: column; width: 232px; max-width: 100%; overflow: hidden; border-radius: 6px; background: var(--wy-bubble); color: var(--wy-ink); }\n.wy-cardmsg[data-wy-act] { cursor: pointer; }\n.wy-card-main { display: flex; align-items: center; gap: 10px; min-height: 66px; padding: 11px 12px 10px; }\n.wy-card-tx { display: flex; flex: 1 1 auto; flex-direction: column; gap: 3px; min-width: 0; }\n/* the card is the only place its title (≤ 40) and line (≤ 60) live: both wrap in full, the card grows taller (owner's playtest 2026-11-18) */\n.wy-card-t { font-size: 15px; line-height: 1.35; overflow-wrap: anywhere; }\n.wy-card-s { color: var(--wy-sub); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-card-i { flex: none; display: inline-flex; }\n.wy-card-contact .wy-card-i, .wy-card-music .wy-card-i { order: -1; }\n.wy-card-ic { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 6px; color: var(--wy-on-fill); }\n.wy-card-ic svg { width: 24px; height: 24px; }\n.wy-card-ic-loc { background: var(--wy-hue-5); }\n.wy-card-ic-file { background: var(--wy-hue-2); }\n.wy-card-ic-link { background: var(--wy-hue-10); }\n.wy-card-ic-music { background: var(--wy-hue-6); }\n.wy-card-ic-contact { background: var(--wy-hue-7); }\n.wy-card-k { margin: 0 12px; padding: 5px 0 6px; border-top: 1px solid var(--wy-card-line); color: var(--wy-sub); font-size: 11.5px; line-height: 1.4; }\n.wy-card-ph { opacity: 0.5; }\n/* the forwarded chat record: 「「来源」的聊天记录」, the first lines, a label; tap = the whole snapshot in a sheet */\n.wy-fwdmsg { position: relative; display: flex; flex-direction: column; width: 232px; max-width: 100%; padding: 10px 12px 0; overflow: hidden; border-radius: 6px; background: var(--wy-bubble); color: var(--wy-ink); cursor: pointer; }\n.wy-fwd-t { font-size: 15px; line-height: 1.35; overflow-wrap: anywhere; }\n.wy-fwd-ls { display: flex; flex-direction: column; gap: 1px; margin-top: 5px; }\n.wy-fwd-l { overflow: hidden; color: var(--wy-sub); font-size: 12.5px; line-height: 1.45; white-space: nowrap; text-overflow: ellipsis; }\n.wy-fwd-k { margin-top: 8px; padding: 5px 0 6px; border-top: 1px solid var(--wy-card-line); color: var(--wy-sub); font-size: 11.5px; line-height: 1.4; }\n.wy-sheet.wy-fwdsheet, .wy-sheet.wy-refsheet { max-height: 80%; }\n.wy-fwd-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px 8px; }\n.wy-fwd-row { display: flex; flex-direction: column; gap: 2px; padding: 9px 0; border-bottom: 1px solid var(--wy-line); }\n.wy-fwd-row:last-child { border-bottom: 0; }\n.wy-fwd-n { color: var(--wy-sub); font-size: 12.5px; }\n.wy-fwd-v { font-size: 14.5px; line-height: 1.5; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n/* a leading unknown bracket tag (〔晚上 8:50〕…) as a quiet small tag before the words */\n.wy-tagq { display: inline-block; margin-right: 6px; padding: 0 5px; border-radius: 4px; background: var(--wy-quote); color: var(--wy-sub); font-size: 11.5px; line-height: 18px; vertical-align: 1px; white-space: nowrap; }\n.wy-m[data-wy-side=\"me\"] .wy-tagq { color: var(--wy-own-ink); }\n/* picking lines to forward: a check circle on the left of every line that can go, the rest dimmed; 取消 top left, the select bar below */\n.wy-fselmode .wy-m, .wy-fselmode .wy-line-mid { padding-left: 48px; }\n.wy-fselmode .wy-m.wy-fok { cursor: pointer; }\n.wy-fselmode .wy-fno { opacity: 0.4; }\n.wy-fck { position: absolute; left: 14px; top: 16px; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 1.5px solid var(--wy-sub); border-radius: 50%; color: transparent; }\n.wy-fck svg { width: 14px; height: 14px; }\n.wy-fon > .wy-fck { border-color: var(--wy-accent); background: var(--wy-accent); color: var(--wy-on-fill); }\n.wy .wy-fsel-x { min-height: 44px; padding: 0 12px; font-size: 15px; }\n.wy-chatfoot.wy-fbar { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px 9px; }\n.wy-fbar-n { min-width: 0; color: var(--wy-sub); font-size: 13px; }\n.wy .wy-fbar-go { flex: none; min-width: 88px; min-height: 40px; padding: 0 16px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); font-weight: 600; }\n.wy .wy-fbar-go:disabled { opacity: 0.45; }\n/* the @ picker: a compact list floating just above the input row (the dock is its anchor) */\n.wy-chatfoot { position: relative; }\n.wy-atpick { position: absolute; left: 10px; right: 10px; bottom: calc(100% + 6px); z-index: 3; display: flex; flex-direction: column; max-height: 216px; overflow-y: auto; overscroll-behavior: contain; padding: 4px; border-radius: 10px; background: var(--wy-bubble); color: var(--wy-ink); box-shadow: 0 8px 28px var(--wy-shadow); }\n.wy .wy-at-i { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 4px 8px; border-radius: 8px; text-align: left; }\n.wy-at-i:hover { background: var(--wy-hover); }\n.wy-at-i .wy-nm { flex: 0 1 auto; font-size: 14.5px; }\n.wy-at-real { flex: none; color: var(--wy-sub); font-size: 12px; }\n.wy-av.wy-at-all { --wy-av-size: 28px; background: var(--wy-accent); font-size: 15px; }\n/* the jump to a line (@ / search): a brief tint */\n.wy-m.wy-hl, .wy-line-mid.wy-hl { background: var(--wy-hl); }\n/* 置顶: pinned rows wear the familiar soft tint; the row menu; with 消息菜单 = 点 ⋯ a hover device shows a ⋯ on the row */\n.wy-row.wy-pin { background: var(--wy-pin-bg); }\n.wy-row.wy-pin:hover { background: var(--wy-hover); }\n/* the ⋯ sits at the right end of the row's LOWER line (playtest 2026-11-18: centred on the row it covered the time — 「周六 2⋯」); while it\n   can show (hover, its keyboard focus) that line gives it room: the preview ellipsizes earlier, the mute icon moves left — the name, the\n   time and the tags of the top line never move and are never covered. Hidden it takes no room (absolute, transparent). */\n.wy-t2-more { position: relative; }\n.wy .wy-rmore { position: absolute; top: 50%; right: -4px; z-index: 1; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; margin-top: -14px; border-radius: 50%; background: var(--wy-bubble); color: var(--wy-sub); box-shadow: 0 1px 4px var(--wy-shadow); opacity: 0; pointer-events: none; }\n.wy-rmore svg { width: 18px; height: 18px; }\n.wy .wy-rmore::before { content: \"\"; position: absolute; inset: -6px; border-radius: 50%; }   /* A15: 40 × 40 to the pointer */\n.wy-rmore:focus-visible { opacity: 1; pointer-events: auto; }\n.wy-t2-more:focus-within { padding-right: 30px; }\n@media (hover: hover) {\n    .wy-row:hover .wy-rmore { opacity: 1; pointer-events: auto; }\n    .wy-row:hover .wy-t2-more { padding-right: 30px; }\n}\n.wy-pop-row { top: 120px; left: 24px; min-width: 132px; }\n.wy .wy-pop .wy-danger { color: var(--wy-alert); }\n/* 备注 (the profile's inline editor), the card composer's fields, 添加到通讯录 */\n.wy-remarkrow .wy-nm { flex: 1 0 auto; }\n/* a long 备注 (up to THEATER_WEIYU_REMARK_MAX) gives way, one line with an ellipsis; the label never does (playtest 2026-11-19 A4) */\n.wy-remarkrow .wy-sub2 { flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }\n.wy-remarkedit { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; background: var(--wy-panel); }\n.wy-remark-in, .wy-cf-in { width: 100%; min-height: 40px; padding: 0 10px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-chat-bg); font-size: 15px; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-remark-in:focus, .wy-cf-in:focus { border-color: var(--wy-accent); }\n.wy-remark-in::placeholder, .wy-cf-in::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy-cardcmp .wy-cmp-prev { padding: 12px; border-radius: 10px; background: var(--wy-chat-bg); }   /* the preview card on the chat's own ground */\n.wy-cf { display: flex; flex-direction: column; gap: 5px; }\n.wy-cf-l { color: var(--wy-sub); font-size: 12.5px; }\n.wy-cf-pick { flex: none; display: flex; flex-direction: column; max-height: 176px; overflow-y: auto; overscroll-behavior: contain; border-radius: 8px; background: var(--wy-chat-bg); }\n.wy-cf-pick .wy-pick { min-height: 46px; padding: 6px 10px; }\n/* the 名片 pick list sits on the chat's ground, where a --wy-line ring (and a hovered row's --wy-hover) swallowed the empty ring (playtest A11) */\n.wy-cf-pick .wy-ck { border-color: var(--wy-sub); }\n.wy .wy-btnrow.wy-primary { color: var(--wy-accent); font-weight: 600; }\n/* 黑名单: the notice that replaces the input row in his private chat with a blocked contact */\n.wy-blockbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 12px; min-height: 40px; padding: 2px 4px; color: var(--wy-sub); font-size: 13px; text-align: center; }\n.wy .wy-unblock { min-height: 34px; padding: 0 14px; border-radius: 6px; background: var(--wy-hover); color: var(--wy-accent); font-size: 14px; font-weight: 600; }\n/* 搜索: the field heading the chat list; the search page's [field][取消]; results with the match in the accent colour */\n.wy-srchbar { padding: 6px 12px 8px; background: var(--wy-panel); }\n.wy .wy-srch { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 36px; border-radius: 8px; background: var(--wy-chat-bg); color: var(--wy-sub); font-size: 14.5px; }\n.wy-srch svg, .wy-srchf svg { width: 17px; height: 17px; }\n.wy-top.wy-srchtop { display: flex; align-items: center; gap: 6px; padding: 0 4px 0 12px; }\n.wy-srchf { display: flex; flex: 1 1 auto; align-items: center; gap: 6px; min-width: 0; min-height: 36px; padding: 0 10px; border-radius: 8px; background: var(--wy-chat-bg); color: var(--wy-sub); }\n.wy-srch-in { flex: 1 1 auto; min-width: 0; height: 34px; padding: 0; border: 0; background: transparent; font-size: 15px; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-srch-in::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy .wy-srch-in:focus-visible { outline: none; }   /* the pill is the field; the caret shows the focus (no second ring inside it) */\n.wy .wy-srch-x { flex: none; min-height: 44px; padding: 0 10px; color: var(--wy-accent); font-size: 15px; }\n.wy-search .wy-scroll { background: var(--wy-chat-bg); }\n.wy-srch-tx { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-width: 0; }\n.wy-srch-tx .wy-nm { flex: none; }\n.wy-srch-sub { overflow: hidden; color: var(--wy-sub); font-size: 13px; white-space: nowrap; text-overflow: ellipsis; }\n.wy-hit { color: var(--wy-accent); font-weight: 600; }\n\n/* ---- more functions, phase 2 (slice B, 2026-11-17): the call bubble, the calling screen, the transfer card / receipt, its sheet + composer ---- */\n/* the call bubble = the ordinary bubble (tail, both colours) holding a handset / camera and the words; on his side the icon follows them */\n.wy-callmsg { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; user-select: none; -webkit-user-select: none; }\n.wy-callmsg svg { flex: none; width: 19px; height: 19px; }\n.wy-m[data-wy-side=\"me\"] .wy-callmsg { flex-direction: row-reverse; }\n.wy-callmsg[data-wy-act] { cursor: pointer; }\n.wy .wy-callpeek { margin: 4px 0 0 2px; }\n.wy-callgist { max-width: 100%; margin-top: 4px; padding: 6px 9px; border-radius: 6px; background: var(--wy-quote); color: var(--wy-ink); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n/* the brief \"calling…\" screen (动画 开 only): their picture and name, 正在等待…, a red hang-up — the familiar call screen in miniature */\n.wy-callscr { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 76px 24px 48px; border-radius: inherit; background: var(--wy-callscr-bg); color: var(--wy-on-fill); }\n.wy-callscr-who { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; max-width: 100%; text-align: center; }\n.wy-callscr-who .wy-av { margin-bottom: 8px; border-radius: 12px; }\n.wy-callscr-nm { max-width: 100%; overflow: hidden; font-size: 22px; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }\n.wy-callscr-st { color: var(--wy-callscr-sub); font-size: 14px; }\n.wy[data-wy-motion=\"on\"] .wy-callscr-st { animation: wy-pulse 1.4s ease-in-out infinite; }\n.wy-callscr-mode { display: inline-flex; align-items: center; gap: 5px; color: var(--wy-callscr-sub); font-size: 12.5px; }\n.wy-callscr-mode svg { width: 15px; height: 15px; }\n.wy .wy-callscr-end { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--wy-on-fill); font-size: 13px; }\n.wy-callscr-x { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: 50%; background: var(--wy-alert); }\n.wy-callscr-x svg { width: 30px; height: 30px; transform: rotate(135deg); }\n/* keyboard focus on a round call-screen button (挂断 / 取消 / 重拨 / 关闭): the phone's ring follows the circle, not the button's box (circle + label) */\n.wy .wy-callscr-end:focus-visible { outline: none; }\n.wy .wy-callscr-end:focus-visible > .wy-callscr-x { outline: 2px solid var(--wy-accent); outline-offset: 3px; }\n/* the live call scene, slice B (2026-11-18): the calling screen is the START request in flight (both 动画 states) and grows into the call\n   panel (.wy-cs-on) — the familiar call screen as a pattern: full screen and dark in BOTH themes (a call screen is dark in the familiar app\n   whichever theme it wears, and a video's \"camera\" is dark), the picture and name with a running timer, her words large, his smaller on the\n   right, the field above the big round red hang-up at the bottom centre. A video call: her camera fills the top (the 画面 text as the scene,\n   no fake photo), his own small preview in a corner. A START that did not get through: 取消 (grey) · 重拨 (green) side by side. */\n.wy-cs { z-index: 6; }\n.wy-cs-why { max-width: 100%; max-height: 10.5em; overflow-y: auto; color: var(--wy-callscr-sub); font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-callscr-foot.wy-cs-two { display: flex; justify-content: center; gap: 56px; }\n.wy-cs-quiet .wy-callscr-x { background: var(--wy-cs-soft); }\n.wy-cs-redial .wy-callscr-x { background: var(--wy-tile-b); }\n.wy-cs-quiet .wy-callscr-x svg, .wy-cs-redial .wy-callscr-x svg { transform: none; }\n.wy-cs.wy-cs-on { align-items: stretch; justify-content: flex-start; padding: 0; }\n.wy-cs-head { flex: none; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 34px 20px 10px; text-align: center; }\n.wy-cs-head .wy-av { border-radius: 12px; }\n.wy-cs-who { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; max-width: 100%; }\n.wy-cs-nm { max-width: 100%; overflow: hidden; font-size: 19px; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }\n.wy-cs-time { color: var(--wy-callscr-sub); font-size: 13.5px; font-variant-numeric: tabular-nums; }\n.wy-cs-log { display: flex; flex-direction: column; gap: 14px; padding: 10px 20px 12px; }\n.wy-cs-turn { display: flex; flex-direction: column; gap: 5px; min-width: 0; }\n.wy-cs-her { align-items: flex-start; }\n.wy-cs-mine { align-items: flex-end; }\n.wy-cs-l { max-width: 100%; font-size: 17px; line-height: 1.5; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n.wy-cs-tag { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 5px; background: var(--wy-cs-tag); color: var(--wy-callscr-sub); font-size: 12px; line-height: 20px; vertical-align: 2px; white-space: nowrap; }\n.wy-cs-snd { color: var(--wy-cs-dim); font-size: 12.5px; font-style: italic; line-height: 1.45; overflow-wrap: anywhere; }\n.wy-cs-act { color: var(--wy-callscr-sub); font-size: 13px; font-style: italic; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-cs-me { max-width: 82%; padding: 6px 10px; border-radius: 10px; background: var(--wy-cs-soft); color: var(--wy-callscr-sub); font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n.wy .wy-cs-redo { min-height: 28px; padding: 0 11px; border-radius: 999px; background: var(--wy-cs-soft); color: var(--wy-callscr-sub); font-size: 12px; }\n.wy .wy-cs-again { align-self: flex-end; min-height: 32px; padding: 0 13px; border-radius: 999px; background: var(--wy-cs-soft); color: var(--wy-on-fill); font-size: 13px; }\n.wy-cs-speaking { display: flex; align-items: center; gap: 2px; color: var(--wy-callscr-sub); font-size: 13px; }\n.wy-cs-speaking .wy-dots { height: 20px; padding: 0 4px; }\n.wy-cs-speaking .wy-dots i { background: var(--wy-callscr-sub); }\n.wy-cs-note { color: var(--wy-callscr-sub); font-size: 12px; overflow-wrap: anywhere; }\n.wy-cs-foot { flex: none; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 8px 16px 24px; }\n.wy-cs-foot > [hidden] { display: none; }\n.wy-cs-inrow { display: flex; align-items: center; gap: 8px; width: 100%; }\n.wy .wy-cs-in { border-color: transparent; background: var(--wy-cs-soft); color: var(--wy-on-fill); }\n.wy .wy-cs-in:focus { border-color: var(--wy-cs-dim); }\n.wy .wy-cs-in::placeholder { color: var(--wy-cs-dim); }\n.wy-cs-ended { padding: 4px 0 0; color: var(--wy-callscr-sub); font-size: 15px; }   /* her hang-up: this line, then 关闭 below it */\n.wy-cs-on .wy-callscr-x { width: 60px; height: 60px; }\n.wy-cs-cam { position: relative; flex: 0 0 46%; min-height: 168px; overflow: hidden; border-radius: inherit; border-bottom-left-radius: 0; border-bottom-right-radius: 0; background: var(--wy-cs-cam); }\n.wy-cs-cam .wy-cs-head { position: absolute; top: 0; left: 0; right: 0; z-index: 1; flex-direction: row; align-items: center; padding: 14px 16px 26px; background: linear-gradient(var(--wy-cs-fade), transparent); text-align: left; }\n.wy-cs-cam .wy-cs-who { align-items: flex-start; }\n.wy-cs-scene { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 60px 24px 24px; }\n.wy-cs-scene-t { max-height: 100%; overflow-y: auto; color: var(--wy-callscr-sub); font-size: 14.5px; font-style: italic; line-height: 1.7; text-align: center; overflow-wrap: anywhere; scrollbar-width: none; }\n.wy-cs-scene-av { opacity: 0.4; }\n.wy-cs-self { position: absolute; right: 12px; bottom: 12px; z-index: 1; display: flex; align-items: center; justify-content: center; width: 64px; height: 88px; border-radius: 10px; background: var(--wy-callscr-bg); box-shadow: 0 2px 12px var(--wy-cs-fade); }\n.wy-cs-self .wy-av { border-radius: 8px; }\n.wy[data-wy-motion=\"on\"] .wy-cs-new { animation: wy-cs-fade 0.45s ease both; }\n/* her reason for declining, under his call record */\n.wy-callwhy { margin-top: 4px; color: var(--wy-sub); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }\n/* the transcript of a finished call: a sheet in the phone's own theme (the same line pieces as the panel, in the sheet's colours) */\n.wy-sheet.wy-calllog { max-height: 80%; }\n.wy-calllog-head { flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 16px 9px; border-bottom: 1px solid var(--wy-line); }\n.wy-calllog-h { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; }\n.wy-calllog-h svg { width: 18px; height: 18px; }\n.wy-calllog-at { color: var(--wy-sub); font-size: 12px; }\n.wy-calllog-list { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; overscroll-behavior: contain; padding: 10px 16px 12px; }\n.wy-calllog-row { display: flex; flex-direction: column; gap: 2px; }\n.wy-calllog-n { color: var(--wy-sub); font-size: 12px; }\n.wy-calllog-v { display: flex; flex-direction: column; gap: 3px; }\n.wy-calllog .wy-cs-l { font-size: 15px; }\n.wy-calllog .wy-cs-tag { background: var(--wy-tag); color: var(--wy-sub); }\n.wy-calllog .wy-cs-snd, .wy-calllog .wy-cs-act { color: var(--wy-sub); }\n.wy-calllog-pic { padding: 6px 10px; border-radius: 6px; background: var(--wy-quote); color: var(--wy-sub); font-size: 13px; font-style: italic; line-height: 1.55; overflow-wrap: anywhere; }\n.wy .wy-calllog-back { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--wy-accent); }\n.wy-calllog-back svg { width: 20px; height: 20px; }\n/* the transfer card (the familiar orange card, the same on both sides, no tail): icon · amount large · 附言 · state, a 「转账」 label under a\n   hairline; closed (已收款 / 已退回 / 已过期) = the paler colour, as the familiar app does (the text stays full white — opacity made it\n   muddy on the dark theme); the receipt (wy-pay-ans) is a closed card */\n.wy-paymsg { position: relative; display: flex; flex-direction: column; width: 232px; max-width: 100%; overflow: hidden; border-radius: 6px; background: var(--wy-pay); color: var(--wy-pay-ink); user-select: none; -webkit-user-select: none; }\n.wy-paymsg[data-wy-act] { cursor: pointer; }\n.wy-pay-closed { background: var(--wy-pay-done); color: var(--wy-pay-done-ink); }\n/* closed card ink (owner's pick \"B\" of the 11-18 transfer mock; light theme: dark brown on pale orange — white on the old pale orange was\n   ≈ 2.1:1; the dark theme's tokens are all white / the old hairline, so it draws exactly as before) */\n.wy-pay-closed .wy-pay-note, .wy-pay-closed .wy-pay-st, .wy-pay-closed .wy-pay-k { color: var(--wy-pay-done-sub); }\n.wy-pay-closed .wy-pay-ic { color: var(--wy-pay-done-ic); }\n.wy-pay-closed .wy-pay-k { border-top-color: var(--wy-pay-done-line); }\n.wy-pay-main { display: flex; align-items: center; gap: 11px; min-height: 66px; padding: 11px 12px 10px; }\n.wy-pay-ic { flex: none; display: inline-flex; }\n.wy-pay-ic svg { width: 34px; height: 34px; }\n.wy-pay-tx { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-width: 0; }\n.wy-pay-amt { font-size: 18px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }\n.wy-pay-note { font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-pay-st { font-size: 12.5px; line-height: 1.4; }\n.wy-pay-k { margin: 0 12px; padding: 5px 0 6px; border-top: 1px solid var(--wy-pay-line); font-size: 11.5px; line-height: 1.4; }\n/* the transfer composer (the card composer's pattern) and the 收款 / 退回 sheet (the familiar 待你收款 page, as a sheet) */\n.wy-paycmp .wy-cmp-prev { padding: 12px; border-radius: 10px; background: var(--wy-chat-bg); }\n.wy-pay-to { display: flex; align-items: center; gap: 10px; min-width: 0; }\n.wy-pay-to .wy-nm { font-size: 15px; }\n.wy-paycaution { color: var(--wy-sub); font-size: 12px; line-height: 1.5; }\n.wy-paysheet-amt { padding: 4px 16px 0; font-size: 30px; font-weight: 600; line-height: 1.3; text-align: center; overflow-wrap: anywhere; }\n.wy-paysheet-note { padding: 2px 16px 0; color: var(--wy-sub); font-size: 14px; text-align: center; overflow-wrap: anywhere; }\n.wy-paysheet-free { padding: 8px 16px 12px; color: var(--wy-sub); font-size: 12px; text-align: center; }\n.wy .wy-sheet-i.wy-pay-take { color: var(--wy-accent); font-weight: 600; }\n\n/* ---- 世界用语 (ENABLE_THR_WEIYU_WORDS): the 我 row, the 开机 link, the editor page (the familiar settings page: grey ground, white\n   groups; chips wrap; fields ≥ 32 px; nothing wider than the phone) ------------------------------------------------------------ */\n.wy .wy-link.wy-words-boot { margin-top: 2px; }\n.wy-words .wy-scroll { display: flex; flex-direction: column; gap: 0; padding-bottom: 16px; background: var(--wy-chat-bg); }\n.wy-words-using { padding: 12px 16px 6px; color: var(--wy-sub); font-size: 12.5px; overflow-wrap: anywhere; }\n.wy-words-chips { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }\n.wy-words-using + .wy-words-chips { padding: 12px 16px; background: var(--wy-panel); border-top: 1px solid var(--wy-line); border-bottom: 1px solid var(--wy-line); }\n.wy .wy-chip { display: inline-flex; align-items: center; min-height: 32px; max-width: 100%; padding: 0 12px; border: 1px solid var(--wy-line); border-radius: 999px; background: var(--wy-bubble); color: var(--wy-ink); font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n.wy .wy-chip.wy-on { border-color: var(--wy-accent); background: var(--wy-hl); color: var(--wy-accent); font-weight: 600; }\n.wy .wy-chip.wy-chip-new { border-style: dashed; color: var(--wy-accent); }\n.wy .wy-chip.wy-chip-new.wy-on { border-style: solid; }\n.wy-words-noteonly { padding: 8px 16px 0; color: var(--wy-warn-ink); font-size: 12.5px; line-height: 1.45; }\n.wy-words-form { display: flex; flex-direction: column; margin-top: 10px; padding: 4px 0; background: var(--wy-panel); border-top: 1px solid var(--wy-line); border-bottom: 1px solid var(--wy-line); }\n.wy-words-f { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 16px; }\n.wy-words-l { flex: none; width: 64px; color: var(--wy-ink); font-size: 14px; }\n.wy-words-l.wy-words-l2 { width: auto; color: var(--wy-sub); }\n.wy-words-in { flex: 1 1 auto; width: 0; min-width: 0; min-height: 36px; padding: 0 10px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-panel); font-size: 15px; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-words-in:focus { border-color: var(--wy-accent); }\n.wy-words-in::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy-words-in.wy-words-mw { flex: none; width: 48px; text-align: center; }\n.wy-words-in.wy-dis { border-color: transparent; background: var(--wy-tag); color: var(--wy-sub); cursor: default; }\n.wy-words-basef { flex-direction: column; align-items: stretch; gap: 6px; }\n.wy-words-basef .wy-words-l { width: auto; }\n.wy-words-slot:empty { display: none; }\n.wy-words-slot { padding: 0 16px 4px 90px; }\n.wy-words-err { color: var(--wy-alert); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n/* A17 (2026-11-19): 「最多 N 个字」 under a field he is typing past — the editor's hint colour, the error line's size */\n.wy-words-max { color: var(--wy-sub); font-size: 12.5px; line-height: 1.4; }\n.wy-words-none { color: var(--wy-sub); font-size: 12.5px; }\n.wy-words-saveasrow { padding: 4px 16px 2px; }\n.wy .wy-words-morebtn { display: flex; align-items: center; gap: 6px; min-height: 40px; margin: 2px 16px 0; color: var(--wy-accent); font-size: 14px; }\n.wy .wy-words-morebtn svg { width: 16px; height: 16px; transition: transform 0.18s ease; }\n.wy .wy-words-morebtn.wy-on svg { transform: rotate(90deg); }\n.wy-words-prevrow { padding: 10px 16px 0; }\n.wy-words-def { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 16px; color: var(--wy-ink); font-size: 14px; cursor: pointer; }\n.wy-words-def input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--wy-accent); }\n.wy-words-hint { padding: 0 16px 8px; color: var(--wy-sub); font-size: 12.5px; line-height: 1.5; }\n.wy-words-btns { display: flex; gap: 10px; padding: 8px 16px 4px; }\n.wy .wy-words-cancel, .wy .wy-words-save { flex: 1 1 0; min-height: 44px; border-radius: 8px; font-size: 15px; font-weight: 500; }\n.wy .wy-words-cancel { background: var(--wy-panel); color: var(--wy-ink); box-shadow: inset 0 0 0 1px var(--wy-line); }\n.wy .wy-words-save { background: var(--wy-accent); color: var(--wy-on-fill); }\n.wy .wy-btnrow.wy-words-del { margin-top: 14px; border-top: 1px solid var(--wy-line); border-bottom: 1px solid var(--wy-line); }\n/* 1b (ENABLE_THR_WEIYU_WORDS_AI): 「✨ 让 AI 按这个世界起名」 under the base picker — one wide outlined action (正在写… greyed, 停止 beside it),\n   two small lines under it; after a landing a tinted check strip with 撤销建议; a dot + 「AI 建议」 / the flag line under each field */\n.wy-words-ai { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 6px 16px 8px; }\n.wy-words-airow { display: flex; align-items: center; gap: 8px; min-width: 0; }\n.wy .wy-words-aibtn { flex: 1 1 auto; min-width: 0; min-height: 40px; padding: 4px 14px; border-radius: 8px; background: var(--wy-hl); color: var(--wy-accent); box-shadow: inset 0 0 0 1px var(--wy-accent); font-size: 14.5px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }\n.wy .wy-words-aibtn:disabled { background: var(--wy-tag); color: var(--wy-sub); box-shadow: none; cursor: default; }\n.wy .wy-words-aistop { flex: none; min-height: 40px; padding: 0 14px; border-radius: 8px; background: var(--wy-panel); color: var(--wy-alert); box-shadow: inset 0 0 0 1px var(--wy-line); font-size: 14px; }\n.wy-words-aicost, .wy-words-nopreset { color: var(--wy-sub); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }\n.wy-words-aistate { color: var(--wy-accent); font-size: 12.5px; line-height: 1.4; }\n.wy-words-aiempty, .wy-words-cause { color: var(--wy-alert); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-words-ainote { color: var(--wy-warn-ink); font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; }\n.wy-words-aicheckrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 10px; min-width: 0; margin-top: 4px; padding: 6px 10px; border-radius: 6px; background: var(--wy-hl); }\n.wy-words-aicheck { min-width: 0; color: var(--wy-ink); font-size: 13px; line-height: 1.4; }\n.wy-words-mark { display: inline-flex; align-items: center; gap: 5px; margin-right: 10px; color: var(--wy-accent); font-size: 12px; line-height: 1.4; }\n.wy-words-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--wy-accent); }\n.wy-words-flag { color: var(--wy-warn-ink); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-words-basef + .wy-words-flag { padding: 0 16px 2px; }\n/* ---- AI auto-reply row (hold reply, 2026-11-20): the owner-approved mock (phone-hold/mock/mock.html) — a slim row just above the input box:\n   [switch · label] …… [AI 现在回复 (n)]; 32 px tall, never wraps (the label ellipsises first); the button reads like his own bubble */\n.wy .wy-ar-sw { position: relative; flex: none; box-sizing: border-box; width: 28px; height: 17px; border-radius: 9px; border: 1.5px solid currentColor; }\n.wy .wy-ar-sw::after { content: \"\"; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: currentColor; }\n.wy .wy-ar-sw.wy-on { background: var(--wy-accent); border-color: var(--wy-accent); }\n.wy .wy-ar-sw.wy-on::after { left: auto; right: 2px; background: var(--wy-on-fill); }\n.wy-ar-row { display: flex; align-items: center; gap: 8px; min-height: 32px; margin: -4px 0 -2px; min-width: 0; }\n.wy .wy-ar-tg { display: inline-flex; align-items: center; gap: 6px; flex: 0 1 auto; min-width: 0; min-height: 32px; padding: 0 8px 0 4px; border-radius: 16px;\n  font-size: 12.5px; font-weight: 500; color: var(--wy-sub); -webkit-text-fill-color: var(--wy-sub); white-space: nowrap; cursor: pointer; }\n.wy .wy-ar-tg > .wy-ar-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; }\n.wy .wy-ar-tg.wy-ar-off { color: var(--wy-warn-ink); -webkit-text-fill-color: var(--wy-warn-ink); font-weight: 600; }\n.wy .wy-ar-go { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: none; margin-left: auto; min-height: 32px; padding: 0 12px 0 14px;\n  border-radius: 16px; background: var(--wy-own); color: var(--wy-own-ink); -webkit-text-fill-color: var(--wy-own-ink); font-size: 13.5px; font-weight: 600;\n  white-space: nowrap; cursor: pointer; box-shadow: 0 1px 2px var(--wy-shadow); }\n.wy .wy-ar-go.wy-ar-busy { opacity: 0.55; cursor: default; }\n.wy-ar-n { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px;\n  background: var(--wy-own-ink); color: var(--wy-own); -webkit-text-fill-color: var(--wy-own); font-size: 11px; font-weight: 700; }\n/* ---- length lines (2026-11-21): the one line a field over its ceiling shows (soWyLenMark — only while over, never on an idle screen), and\n   the photo / video caption kept inside its tile (a 4000-character description scrolls there instead of stretching the tile) ---- */\n.wy-len { flex: none; color: var(--wy-sub); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-pickpage > .wy-len { padding: 6px 14px 0; }\n.wy-cs-foot > .wy-len { align-self: stretch; text-align: center; }\n/* 每几次回复更新一次 (2026-11-21, env.stages.syncEvery only): the number box at the row's right end, and the refusal line under the row */\n.wy-every-in { flex: none; width: 5.5em; min-width: 0; min-height: 36px; padding: 0 8px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-chat-bg); font-size: 15px; text-align: center; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-every-in:focus { border-color: var(--wy-accent); }\n.wy-every > .wy-len { padding: 6px 16px 8px; background: var(--wy-panel); border-bottom: 1px solid var(--wy-line); }\n.wy-cap { max-height: 9em; overflow-y: auto; }\n/* ---- dark skin: the green primary buttons (owner-approved fix 2026-11-21): white on the light dark-skin accent measured 1.8:1 — the dark ink\n   of his own bubble instead (8.9:1), as the add-contact mock's row buttons; the light skin keeps white on its dark green (5.5:1) ---- */\n:host([data-wy-theme=\"dark\"]) .wy .wy-done, :host([data-wy-theme=\"dark\"]) .wy .wy-bootbtn, :host([data-wy-theme=\"dark\"]) .wy .wy-boot-retry,\n:host([data-wy-theme=\"dark\"]) .wy .wy-send, :host([data-wy-theme=\"dark\"]) .wy .wy-cmp-go, :host([data-wy-theme=\"dark\"]) .wy .wy-edit-ok,\n:host([data-wy-theme=\"dark\"]) .wy .wy-fbar-go, :host([data-wy-theme=\"dark\"]) .wy .wy-words-save { color: var(--wy-own-ink); }\n/* ---- dark skin, the same fix for the remaining white-on-green bits (root's extra 2026-11-21, lane ac-b): the 「新」 tag, the 通讯录's green icon\n   tiles (not the grey 窥屏 tile) and the ticked checkboxes measured 1.8:1 — the dark ink instead (8.9:1); the light skin is untouched ---- */\n:host([data-wy-theme=\"dark\"]) .wy .wy-new, :host([data-wy-theme=\"dark\"]) .wy .wy-sq:not(.wy-sq-observed),\n:host([data-wy-theme=\"dark\"]) .wy .wy-pick.wy-on .wy-ck, :host([data-wy-theme=\"dark\"]) .wy .wy-fon > .wy-fck { color: var(--wy-own-ink); }\n/* ---- adding contacts by hand (2026-11-21): the 添加朋友 form / 编辑资料 page and the profile's 人物说明 card — the approved mock's\n   tools/mock-extra.css, tokens only (both skins for free); focus = :focus (the mock drew a class), no maxlength anywhere ---- */\n.wy-ac .wy-scroll { background: var(--wy-chat-bg); }\n.wy-ac-sec { display: flex; flex-direction: column; background: var(--wy-panel); border-top: 1px solid var(--wy-line); border-bottom: 1px solid var(--wy-line); }\n.wy-ac-sechead { padding: 14px 16px 6px; color: var(--wy-sub); font-size: 12.5px; }\n.wy-ac-f { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 12px 16px; }\n.wy-ac-f + .wy-ac-f { border-top: 1px solid var(--wy-line); }\n.wy-ac-lr { display: flex; align-items: center; gap: 6px; min-width: 0; }\n.wy-ac-l { flex: none; color: var(--wy-ink); font-size: 15px; font-weight: 500; }\n.wy-ac-req { flex: none; padding: 0 5px; border-radius: 4px; background: var(--wy-alert); color: var(--wy-on-fill); font-size: 10.5px; font-weight: 600; line-height: 17px; }\n.wy-ac-opt { flex: none; padding: 0 5px; border-radius: 4px; background: var(--wy-tag); color: var(--wy-sub); font-size: 10.5px; font-weight: 500; line-height: 17px; }\n.wy-ac-n { margin-left: auto; color: var(--wy-sub); font-size: 12px; font-variant-numeric: tabular-nums; }\n.wy-ac-n.wy-ac-n-over { color: var(--wy-alert); font-weight: 600; }\n.wy .wy-ac-in, .wy .wy-ac-ta { width: 100%; box-sizing: border-box; min-height: 40px; padding: 0 10px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-chat-bg); color: var(--wy-ink); font-size: 15px; outline: none; user-select: text; -webkit-user-select: text; }\n.wy .wy-ac-ta { display: block; min-height: 84px; max-height: 220px; padding: 8px 10px; line-height: 1.5; resize: none; font-family: inherit; field-sizing: content; }\n.wy-ac-in::placeholder, .wy-ac-ta::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy .wy-ac-in:focus, .wy .wy-ac-ta:focus { border-color: var(--wy-accent); }\n.wy .wy-ac-in.wy-ac-bad { border-color: var(--wy-alert); }\n.wy-ac-ro { min-height: 24px; color: var(--wy-ink); font-size: 15px; line-height: 24px; overflow-wrap: anywhere; }\n.wy-ac-hint { color: var(--wy-sub); font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-ac-err { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; color: var(--wy-alert); font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }\n.wy .wy-ac-err .wy-link { min-height: 28px; font-size: 13px; }\n.wy-ac-seg { margin-top: 2px; }\n.wy .wy-ac-seg .wy-seg-i { min-height: 36px; font-size: 14px; }\n.wy-ac-foot { padding: 12px 16px 24px; color: var(--wy-sub); font-size: 12px; line-height: 1.55; }\n.wy-ac-desc { display: flex; align-items: flex-start; gap: 10px; padding: 13px 12px 13px 16px; background: var(--wy-panel); border-top: 1px solid var(--wy-line); cursor: pointer; }\n.wy-ac-desc-b { flex: 1 1 auto; min-width: 0; }\n.wy-ac-desc .wy-k { margin-bottom: 4px; color: var(--wy-sub); font-size: 13px; }\n.wy-ac-desc-v { font-size: 14.5px; line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere; }\n.wy-ac-chev { flex: none; display: inline-flex; align-items: center; gap: 2px; margin-top: 1px; color: var(--wy-sub); font-size: 13px; }\n.wy-ac-chev svg { width: 16px; height: 16px; }\n/* ---- 从故事里找人 (adding contacts by hand, pass B): the one page — start · running · list · nobody new · failed / stopped — the approved\n   mock's tools/mock-extra.css, tokens only; plus the group-clash reason line (.wy-ac-why), long tags wrap, and 「新」 on a 通讯录 row ---- */\n.wy-ac-intro { display: flex; gap: 12px; align-items: flex-start; padding: 16px; background: var(--wy-panel); border-bottom: 1px solid var(--wy-line); }\n.wy-ac-badge { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 10px; background: var(--wy-hl); color: var(--wy-accent); }\n.wy-ac-badge svg { width: 26px; height: 26px; }\n.wy-ac-intro-t { font-size: 15px; font-weight: 600; }\n.wy-ac-intro-d { margin-top: 3px; color: var(--wy-sub); font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }\n.wy-ac-run { display: flex; flex-direction: column; gap: 6px; padding: 12px 16px 14px; background: var(--wy-panel); border-bottom: 1px solid var(--wy-line); }\n.wy .wy-ac-run .wy-words-aibtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }\n.wy-ac-run .wy-words-aibtn svg { width: 18px; height: 18px; }\n.wy-ac-dots { display: inline-flex; gap: 3px; }\n.wy-ac-dots i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.5; }\n.wy-ac-dots i:nth-child(2) { opacity: 0.75; }\n.wy-ac-dots i:nth-child(3) { opacity: 1; }\n.wy-ac-skel { display: flex; gap: 12px; align-items: center; padding: 14px 16px; background: var(--wy-panel); }\n.wy-ac-skel + .wy-ac-skel { border-top: 1px solid var(--wy-line); }\n.wy-ac-skel-av { flex: none; width: 44px; height: 44px; border-radius: 6px; background: var(--wy-tag); }\n.wy-ac-skel-l { flex: 1 1 auto; display: flex; flex-direction: column; gap: 7px; }\n.wy-ac-skel-l i { display: block; height: 10px; border-radius: 5px; background: var(--wy-tag); }\n.wy-ac-skel-l i:nth-child(1) { width: 34%; height: 13px; }\n.wy-ac-skel-l i:nth-child(2) { width: 72%; }\n.wy-ac-skel-l i:nth-child(3) { width: 58%; }\n.wy-ac-listhead { padding: 14px 16px 6px; color: var(--wy-sub); font-size: 12.5px; }\n.wy-ac-cand { position: relative; display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px 12px 16px; background: var(--wy-panel); }\n.wy-ac-cand + .wy-ac-cand::before { content: \"\"; position: absolute; left: 72px; right: 0; top: 0; height: 1px; background: var(--wy-line); transform: scaleY(0.5); transform-origin: top; }\n.wy-ac-cand > .wy-av { flex: none; border-radius: 6px; }\n.wy-ac-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }\n.wy-ac-nl { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; min-width: 0; }\n.wy-ac-nm { min-width: 0; font-size: 16px; font-weight: 500; overflow-wrap: anywhere; }\n.wy-ac-tag { max-width: 100%; margin-top: 0; white-space: normal; overflow-wrap: anywhere; }\n.wy-ac-tag.wy-ac-tag-warn { background: var(--wy-tag); color: var(--wy-warn-ink); font-weight: 600; }\n.wy-ac-why { color: var(--wy-alert); font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; }\n.wy-ac-from { color: var(--wy-sub); font-size: 12.5px; overflow-wrap: anywhere; }\n.wy-ac-sig { font-size: 13.5px; overflow-wrap: anywhere; }\n.wy-ac-ex { margin-top: 3px; padding: 5px 8px; border-radius: 4px; background: var(--wy-quote); color: var(--wy-sub); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-ac-ex-t { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }\n.wy-ac-ex b { color: var(--wy-ink); font-weight: 500; }\n.wy .wy-ac-add { flex: none; align-self: flex-start; min-width: 56px; min-height: 32px; margin-top: 4px; padding: 0 12px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); font-size: 13.5px; font-weight: 600; white-space: nowrap; }\n/* dark skin: white on the light dark-skin accent reads poorly — the dark ink instead (as the mock drew it, as the primary buttons above) */\n:host([data-wy-theme=\"dark\"]) .wy .wy-ac-add { color: var(--wy-own-ink); }\n.wy .wy-ac-added { flex: none; align-self: flex-start; min-height: 32px; margin-top: 4px; padding: 0 4px; color: var(--wy-sub); font-size: 13.5px; line-height: 32px; white-space: nowrap; }\n.wy-ac-cand.wy-ac-done .wy-ac-ex { opacity: 0.7; }\n.wy-ac-have { padding: 12px 16px; color: var(--wy-sub); font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-ac-more { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 16px 28px; }\n.wy-ac-more .wy-words-aicost { text-align: center; }\n.wy-ac-res { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 30px 24px 18px; text-align: center; }\n.wy-ac-res-ic { display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 50%; background: var(--wy-tag); color: var(--wy-sub); }\n.wy-ac-res-ic svg { width: 28px; height: 28px; }\n.wy-ac-res-t { font-size: 16px; font-weight: 600; }\n.wy-ac-res-t.wy-ac-bad { color: var(--wy-alert); }\n.wy-ac-res-have { max-width: 290px; margin-top: 4px; color: var(--wy-sub); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-ac-res-d { max-width: 290px; color: var(--wy-sub); font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }\n.wy .wy-ac-res .wy-link { margin-top: 2px; }\n.wy-prow .wy-new { margin-top: 0; }\n/* ---- @keyframes ------------------------------------------------------------------------------------------------------ */\n@keyframes wy-fadeup { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }\n@keyframes wy-drop { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }\n@keyframes wy-rise { from { transform: translateY(100%); } to { transform: none; } }\n@keyframes wy-dots { 0%, 80%, 100% { opacity: 0.35; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }\n@keyframes wy-spin { to { transform: rotate(360deg); } }\n@keyframes wy-spin-rev { to { transform: rotate(-360deg); } }\n@keyframes wy-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }\n@keyframes wy-logo-in { from { opacity: 0; } to { opacity: 1; } }\n@keyframes wy-pop { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: none; } }\n@keyframes wy-fade-out { from { opacity: 1; } to { opacity: 0; } }\n@keyframes wy-fly { from { opacity: 1; transform: translate(var(--wy-fx), var(--wy-fy)); } to { opacity: 0.15; transform: translate(var(--wy-tx), var(--wy-ty)) scale(var(--wy-ts)); } }\n@keyframes wy-fly-fade { from { opacity: 1; transform: translate(var(--wy-fx), var(--wy-fy)); } to { opacity: 0; transform: translate(var(--wy-fx), var(--wy-fy)) scale(0.6); } }\n@keyframes wy-row-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }\n@keyframes wy-cs-fade { from { opacity: 0; } to { opacity: 1; } }\n\n/* ====== MOTION (lane M) ====== */\n/* The phone's motion (designer's mock-up 2026-11-16 §3, the MOTION table; JS in ui-core.js under \"MOTION (lane M)\"). Every rule that moves\n   something is scoped .wy[data-wy-motion=\"on\"] — 关 never even matches it, and the zeroing rule below still covers anything left.\n   Only transform / opacity animate. Sits BEFORE the reduced-motion fallback + zeroing rule (they stay the last two rules, pinned).\n   Override of an existing rule (noted): the hold fill's snap-back (.wy-hold-fill has no transition) → a 200 ms drain while on. */\n\n/* Tier 1 · push / back: the page that is leaving stays, absolute and inert (soWyMoKeep); the slide is Web Animations (soWyMoSlide).\n   push: leaving page z 1 < dim 2 < arriving page z 3 (its left edge casts a shadow); back: arriving page < dim 2 < leaving page z 3. */\n.wy > .wy-page.wy-mo-ghost { position: absolute; inset: 0; z-index: 1; pointer-events: none; }\n.wy > .wy-page.wy-mo-ghost.wy-mo-over { z-index: 3; box-shadow: -10px 0 28px var(--wy-shadow); }\n.wy > .wy-page.wy-mo-top { z-index: 3; box-shadow: -10px 0 28px var(--wy-shadow); }\n.wy > .wy-mo-dim { position: absolute; inset: 0; z-index: 2; background: var(--wy-frame); opacity: 0; pointer-events: none; }\n\n/* Tier 1 · the top bar lies over its scroller (content scrolls under it) and condenses after 4 px: translucent + blur + a hairline; the\n   list title shrinks a touch. Padding = the bar's height, --wy-top-h (border-box: its bottom line is inside it; integration 2026-11-17 —\n   was 48 / 49 px, the bar's height before the refined list's 52). */\n.wy[data-wy-motion=\"on\"] .wy-mo-ovl > .wy-top { position: absolute; top: 0; left: 0; right: 0; transition: background-color 0.2s ease, box-shadow 0.2s ease; }\n.wy[data-wy-motion=\"on\"] .wy-mo-ovl > .wy-scroll { padding-top: var(--wy-top-h); scroll-padding-top: var(--wy-top-h); }\n.wy[data-wy-motion=\"on\"] .wy-mo-ovl > .wy-top.wy-mo-cond { box-shadow: 0 0.5px 0 var(--wy-line); }\n/* playtest 2026-11-19 A1: at 76% + 14 px the lines under the bar read through it (an avatar, a bubble's text behind ‹ and the title — it looked\n   like content spilling over the bar); 92% + 24 px keeps the frosted look (a soft tint of what passes under) without legible content */\n@supports (color: color-mix(in srgb, red 50%, blue)) {\n    .wy[data-wy-motion=\"on\"] .wy-mo-ovl > .wy-top.wy-mo-cond { background: color-mix(in srgb, var(--wy-panel) 92%, transparent); -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4); }\n    .wy[data-wy-motion=\"on\"] .wy-chat.wy-mo-ovl:not(.wy-has-bg) > .wy-top.wy-mo-cond { background: color-mix(in srgb, var(--wy-chat-bg) 92%, transparent); }\n}\n.wy[data-wy-motion=\"on\"] .wy-mo-ovl > .wy-top .wy-ttl { transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] .wy-tabs.wy-mo-ovl > .wy-top.wy-mo-cond .wy-ttl { transform: scale(0.94); }\n\n/* Tier 1 · row press on pointer-down (not release): tint 120 ms, the picture dips to .93 */\n.wy[data-wy-motion=\"on\"] .wy-row, .wy[data-wy-motion=\"on\"] .wy-prow { transition: background-color 0.12s ease; }\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-press, .wy[data-wy-motion=\"on\"] .wy-prow.wy-mo-press { background: var(--wy-hover); }\n@supports (color: color-mix(in srgb, red 50%, blue)) {\n    .wy[data-wy-motion=\"on\"] .wy-row.wy-mo-press, .wy[data-wy-motion=\"on\"] .wy-prow.wy-mo-press { background: color-mix(in srgb, var(--wy-ink) 9%, var(--wy-panel)); }\n}\n.wy[data-wy-motion=\"on\"] .wy-row .wy-avw, .wy[data-wy-motion=\"on\"] .wy-prow > .wy-av { transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-press .wy-avw, .wy[data-wy-motion=\"on\"] .wy-prow.wy-mo-press > .wy-av { transform: scale(0.93); }\n\n/* Tier 1 · a line arrives (soWyMoChat marks the new ones): own = rises from its tail with a slight overshoot; incoming = from the top-left */\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new[data-wy-side=\"me\"] > .wy-mb { transform-origin: 100% 100%; animation: wy-mo-own 0.26s cubic-bezier(0.2, 1.15, 0.4, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new:not([data-wy-side=\"me\"]) { transform-origin: 0 0; animation: wy-mo-inc 0.28s cubic-bezier(0.2, 1.1, 0.4, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-line-mid.wy-mo-new { animation: wy-mo-fadein 0.25s ease both; }\n\n/* Tier 1 · the ⊕ menu springs from the ⊕; sheets rise; the dim fades in; a closing one fades out in 140 ms (soWyMoClosePop) */\n.wy[data-wy-motion=\"on\"] .wy-pop-plus { transform-origin: calc(100% - 20px) -6px; animation: wy-mo-spring 0.22s cubic-bezier(0.2, 1.3, 0.4, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-sheet { animation: wy-mo-sheet 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-backdrop.wy-dim { animation: wy-mo-fadein 0.2s ease both; }\n.wy .wy-layer > .wy-mo-gone { position: absolute; inset: 0; pointer-events: none; animation: wy-mo-fadeout 0.14s ease both; }\n\n/* Tier 1 · the hold: pressed .97; the fill charges for --wy-hold-ms (linear, predictable) and DRAINS in 200 ms on an early release\n   (overrides today's snap-back); on completion a pop (.97 → 1.06 → 1) while the full fill fades */\n.wy[data-wy-motion=\"on\"] [data-wy-hold] { transition: transform 0.14s cubic-bezier(0.2, 0.8, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] [data-wy-hold].holding { transform: scale(0.97); }\n.wy[data-wy-motion=\"on\"] [data-wy-hold] .wy-hold-fill { transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] [data-wy-hold].holding .wy-hold-fill { transition: transform var(--wy-hold-ms, 2000ms) linear; }\n.wy[data-wy-motion=\"on\"] [data-wy-hold].wy-mo-fired { animation: wy-mo-hdone 0.42s cubic-bezier(0.2, 1.5, 0.4, 1); }\n.wy[data-wy-motion=\"on\"] [data-wy-hold].wy-mo-fired .wy-hold-fill { animation: wy-mo-hfill 0.42s ease-out; }\n\n/* Tier 1 · the tab bar's tab: nothing here (the content cross-fade and the icon pop are Web Animations, soWyMoTab) */\n\n/* Tier 2 · bubbles settle in when a chat opens (the last 8 items, bottom first) */\n.wy[data-wy-motion=\"on\"] .wy-mo-si { animation: wy-mo-stag 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(var(--wy-mo-i, 0) * 28ms + 80ms); }\n/* Tier 2 · ripple from the press point (a child of the row; rows clip it) */\n.wy[data-wy-motion=\"on\"] .wy-row { overflow: hidden; }\n.wy[data-wy-motion=\"on\"] .wy-mo-rip { position: absolute; z-index: 0; border-radius: 50%; background: var(--wy-accent); opacity: 0.18; transform: scale(0); pointer-events: none; animation: wy-mo-rip 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }\n/* Tier 2 · edge swipe: horizontal moves reach the page (vertical scrolling and pinch stay the browser's) */\n.wy[data-wy-motion=\"on\"] > .wy-page { touch-action: pan-y pinch-zoom; }\n/* Tier 2 · rows reveal once (first time a row scrolls into view; remembered per chat) */\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-pre { opacity: 0; transform: translateY(16px); }\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-rv { transition: opacity 0.32s ease, transform 0.38s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.12s ease; }\n/* Tier 2 · a reply moves its row: the row glows, its preview swaps in, the badge pops (the slide itself is a FLIP, soWyMoRows) */\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-glow::before { content: \"\"; position: absolute; inset: 0; background: var(--wy-accent); opacity: 0; pointer-events: none; animation: wy-mo-glow 0.9s ease; }\n.wy[data-wy-motion=\"on\"] .wy-row .wy-pv.wy-mo-swap { animation: wy-mo-pvswap 0.3s ease both; }\n.wy[data-wy-motion=\"on\"] .wy-badge.wy-mo-pop { animation: wy-mo-bpop 0.34s cubic-bezier(0.2, 1.6, 0.4, 1) both; }\n/* Tier 2 · the tab bar lifts (a soft shadow above it) while there is list under it */\n.wy[data-wy-motion=\"on\"] .wy-tabbar { position: relative; }\n.wy[data-wy-motion=\"on\"] .wy-tabbar::before { content: \"\"; position: absolute; left: 0; right: 0; top: -14px; height: 14px; background: linear-gradient(to top, var(--wy-shadow), transparent); opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }\n.wy[data-wy-motion=\"on\"] .wy-tabbar.wy-mo-lift::before { opacity: 0.7; }\n/* Tier 2 · per kind: a voice bar stretches to its length; its text drops in when opened; a photo / video develops under a paper veil\n   (900 ms, deliberate, non-blocking) while its caption rises; a recall folds a phantom bubble away into the grey line */\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new .wy-voice { transform-origin: 0 50%; animation: wy-mo-vgrow 0.32s cubic-bezier(0.2, 1.1, 0.4, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new[data-wy-side=\"me\"] .wy-voice { transform-origin: 100% 50%; }\n.wy[data-wy-motion=\"on\"] .wy-mo-vt { transform-origin: 50% 0; animation: wy-mo-vt 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new .wy-pic::after { content: \"\"; position: absolute; inset: 0; background: var(--wy-bubble); opacity: 0; pointer-events: none; animation: wy-mo-dev 0.9s cubic-bezier(0.3, 0.6, 0.3, 1); }\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new .wy-em { animation: wy-mo-devem 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new .wy-cap { animation: wy-mo-capup 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) 0.45s both; }\n.wy[data-wy-motion=\"on\"] .wy-line-mid.wy-recall.wy-mo-new { position: relative; animation-delay: 0.16s; }\n.wy[data-wy-motion=\"on\"] .wy-mo-phantom { position: absolute; top: 50%; left: 61px; width: min(46%, 180px); height: 36px; margin-top: -18px; border-radius: 6px; background: var(--wy-bubble); transform-origin: 0 50%; pointer-events: none; animation: wy-mo-fold 0.22s cubic-bezier(0.4, 0, 1, 1) 0.06s both; }\n.wy[data-wy-motion=\"on\"] .wy-mo-phantom.wy-mo-phantom-me { left: auto; right: 61px; background: var(--wy-own); transform-origin: 100% 50%; }\n.wy[data-wy-motion=\"on\"] .wy-mo-folding { position: absolute; left: 0; right: 0; z-index: 0; pointer-events: none; }\n/* Tier 2 · the pressed bubble dips (the menu then rises from it — soWyMoMenu) */\n.wy[data-wy-motion=\"on\"] .wy-bubble, .wy[data-wy-motion=\"on\"] .wy-big, .wy[data-wy-motion=\"on\"] .wy-frame { transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] .wy-mo-lp { transform: scale(0.96); }\n/* Tier 2 · helpers: a scroller that holds a folding copy; a row sliding up over the others */\n.wy[data-wy-motion=\"on\"] .wy-scroll.wy-mo-rel { position: relative; }\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-up { z-index: 2; }\n\n/* Tier 3 · the chat header's picture (24 px, beside the title — the shared element's landing place; soWyMoHeadAv) */\n/* Integration 2026-11-17: the picture IS the list row's 48 px picture at half size (soWyMoHeadAv) — same label, gradient, mosaic rows and\n   corner as the row (7 px), so the flying copy lands on exactly it; the ::after spacer (its width) keeps the title text centred. */\n.wy[data-wy-motion=\"on\"] .wy-ttl.wy-mo-ttl { display: flex; align-items: center; justify-content: center; gap: 7px; }\n.wy[data-wy-motion=\"on\"] .wy-ttl.wy-mo-ttl::after { content: \"\"; flex: none; width: 24px; }\n.wy[data-wy-motion=\"on\"] .wy-mo-tt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }\n.wy-mo-hav { display: inline-flex; flex: none; align-items: flex-start; width: 24px; height: 24px; }\n.wy-mo-hav > * { transform: scale(0.5); transform-origin: 0 0; }\n.wy-mo-hav > .wy-av, .wy-mo-hav > .wy-mos, .wy .wy-layer > .wy-mo-fly.wy-av, .wy .wy-layer > .wy-mo-fly.wy-mos { border-radius: 7px; }\n/* Tier 3 · the flying copies (picture + name) in the layer */\n.wy .wy-layer > .wy-mo-fly { position: absolute; z-index: 61; margin: 0; transform-origin: 0 0; pointer-events: none; }\n/* Tier 3 · power-on: black → a green bloom from the centre (600 ms, deliberate) */\n.wy > .wy-mo-pwr { position: absolute; inset: 0; z-index: 60; background: var(--wy-frame); pointer-events: none; animation: wy-mo-pwr 0.55s cubic-bezier(0.3, 0.6, 0.3, 1) 0.1s both; }\n.wy > .wy-mo-pwr::after { content: \"\"; position: absolute; left: 50%; top: 46%; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; background: radial-gradient(circle, var(--wy-tile-a), transparent 65%); animation: wy-mo-bloom 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }\n\n@keyframes wy-mo-fadein { from { opacity: 0; } }\n@keyframes wy-mo-fadeout { to { opacity: 0; } }\n@keyframes wy-mo-own { from { opacity: 0; transform: translateY(14px) scale(0.9); } }\n@keyframes wy-mo-inc { from { opacity: 0; transform: translateY(8px) scale(0.94); } }\n@keyframes wy-mo-spring { from { opacity: 0; transform: scale(0.6); } }\n@keyframes wy-mo-sheet { from { transform: translateY(100%); } }\n@keyframes wy-mo-hdone { 0% { transform: scale(0.97); } 45% { transform: scale(1.06); } }\n@keyframes wy-mo-hfill { from { transform: scaleX(1); } to { transform: scaleX(1); opacity: 0; } }\n@keyframes wy-mo-stag { from { opacity: 0; transform: translateY(18px); } }\n@keyframes wy-mo-rip { to { transform: scale(1); opacity: 0; } }\n@keyframes wy-mo-glow { 0%, 30% { opacity: 0.16; } to { opacity: 0; } }\n@keyframes wy-mo-pvswap { from { opacity: 0; transform: translateY(5px); } }\n@keyframes wy-mo-bpop { from { transform: scale(0); } }\n@keyframes wy-mo-vgrow { from { opacity: 0.4; transform: scaleX(0.3); } }\n@keyframes wy-mo-vt { from { opacity: 0; transform: translateY(-4px) scaleY(0.9); } }\n@keyframes wy-mo-dev { from { opacity: 1; } to { opacity: 0; } }\n@keyframes wy-mo-devem { from { transform: translate(-50%, -62%) scale(1.25); } }\n@keyframes wy-mo-capup { from { transform: translateY(100%); } }\n@keyframes wy-mo-fold { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(0.55) translateY(-6px); } }\n@keyframes wy-mo-pwr { to { opacity: 0; } }\n@keyframes wy-mo-bloom { from { opacity: 0.8; transform: scale(0.15); } to { opacity: 0; transform: scale(1.8); } }\n/* ====== /MOTION ====== */\n\n/* No motion =the phone's root flag (动画 setting, redesign slice 1): soWyApplyMotion resolves 跟随系统 / 开 / 关 with the system's\n   reduced-motion setting into .wy[data-wy-motion=\"on|off\"]. The media query is only the fallback for a phone with no flag yet. */\n@media (prefers-reduced-motion: reduce) {\n    .wy:not([data-wy-motion]) *, .wy:not([data-wy-motion]) *::before, .wy:not([data-wy-motion]) *::after {\n        animation-duration: 0.001ms !important;\n        animation-delay: 0s !important;\n        animation-iteration-count: 1 !important;\n        transition-duration: 0.001ms !important;\n        transition-delay: 0s !important;\n        scroll-behavior: auto !important;\n    }\n}\n.wy[data-wy-motion=\"off\"] *, .wy[data-wy-motion=\"off\"] *::before, .wy[data-wy-motion=\"off\"] *::after {\n    animation-duration: 0.001ms !important;\n    animation-delay: 0s !important;\n    animation-iteration-count: 1 !important;\n    transition-duration: 0.001ms !important;\n    transition-delay: 0s !important;\n    scroll-behavior: auto !important;\n}\n";
 /* <</WEIYU:css>> */
 /* <<WEIYU:ui-core>> */
 // [WEIYU] ui-core — spliced verbatim into index.js by the join plan; edit HERE, re-splice, never hand-edit the copy.
@@ -22819,6 +24343,8 @@ function soWyFit(width) {
 //                                          absent = off — stored calls / transfers still render and an open transfer to him stays answerable)
 //                                          callscene? = ENABLE_THR_WEIYU_CALLSCENE (∧ events; the live call scene: ringing = the START
 //                                          request, the call panel, the transcript; absent = off — today's ring → 已取消 + one send)
+//                                          add? = ENABLE_THR_WEIYU_ADD (adding contacts by hand: the 「+」 menu's 添加朋友, the form, the
+//                                          profile's 人物说明 card / 编辑资料; absent = off) · find? = ENABLE_THR_WEIYU_FIND (∧ add: 从故事里找人)
 //   words?: {store(): raw|null, save(store): boolean, ready(): Ready}   世界用语 (ENABLE_THR_WEIYU_WORDS; present ONLY while that flag is
 //                                          on, never inside `stages`): store() = settings.weiyuWords as stored (the UI normalises it,
 //                                          soWyWordsStoreNorm; a newer-build store = no entry point); save(store) persists the WHOLE store it
@@ -22877,6 +24403,15 @@ const THEATER_WEIYU_TEXT = Object.freeze({
     wait: '稍等：',
     syncTitle: '跟着剧情更新',
     syncDesc: '主线每回复一次，微谕 也跟着动一次：新消息、新的群、解散的群。每次多一次调用。',
+    // the same switch's description while the sync-every stage is on (env.stages.syncEvery): the phone may update once for several replies —
+    // the owner's own wording (2026-11-22, #177 "reword it" → his final sentence); without the stage the row shows syncDesc above, byte for byte
+    syncDescEvery: '主线回复后，微谕 用一次调用跟着更新。',
+    // 每几次回复更新一次 (owner #160, 2026-11-21; only with env.stages.syncEvery and 跟着剧情更新 on) — the label and the two refusal lines
+    // approved by the owner; the row has NO explanation line (removed by the owner 2026-11-22, "do 3"). {n} = the number in effect (the
+    // refusal lines: what still holds after a refused entry)
+    everyTitle: '每几次回复更新一次',
+    everyBad: '要填 1 或更大的整数，这次没改（现在是 {n}）',
+    everyBig: '这个数太大了，这次没改（现在是 {n}）',
     tellTitle: '让主线知道这里发生的事',
     tellDesc: '主线的 AI 会读到 微谕 里发生的事，包括你窥屏看到的。',
     reset: '清空微谕，重新开机',
@@ -22907,6 +24442,13 @@ const THEATER_WEIYU_TEXT = Object.freeze({
     undo: '撤销',
     copied: '已复制',
     sendWait: '等这条回完再发',   // A16 (2026-11-19): Enter while a reply is being written (once per reply; the text stays)
+    // the AI auto-reply switch (2026-11-20): the row above the input box — arOff / arOn / arGo FINAL (owner 2026-11-20); the two screen-reader
+    // labels arGoAria / arSwitch DRAFT (candidate ①; ② in WORDING.md)
+    arOff: 'AI 不自动回复',
+    arOn: '下次发送后 AI 自动回复',
+    arGo: 'AI 现在回复',
+    arGoAria: 'AI 现在回复 · {n} 条在等',
+    arSwitch: 'AI 自动回复',
     peek: '撤回的是：',
     // micro-labels (mockup h… methods, 神谕chat → 微谕)
     tabChats: '聊天',
@@ -23055,8 +24597,12 @@ const THEATER_WEIYU_TEXT = Object.freeze({
     rowUnpin: '取消置顶',
     // 备注
     remarkSet: '设置备注',
-    remarkHint: '备注名（最多 24 个字）',
+    remarkHint: '备注名（最多 {n} 个字）',   // {n} = THEATER_WEIYU_REMARK_MAX (length limits 2026-11-21, DRAFT ①)
     realName: '昵称：',
+    // length limits (2026-11-21, DRAFT ①, the owner picks — WORDING.md): the one line under / near a field over its ceiling (soWyLenMark);
+    // {n} = the ceiling, {m} = what is there now (code points). lenOver = a message (chat · voice · photo / video · edit · call), lenField = a label field
+    lenOver: '太长了，发不出去：最多 {n} 个字（现在 {m} 个）',
+    lenField: '最多 {n} 个字（现在 {m} 个）',
     // 黑名单
     block: '加入黑名单',
     unblock: '移出黑名单',
@@ -23078,6 +24624,78 @@ const THEATER_WEIYU_TEXT = Object.freeze({
     sMsgs: '聊天记录',
     // 添加到通讯录
     addContact: '添加到通讯录',
+    // adding contacts by hand (2026-11-21; spec 2026-11-21-weiyu-add-contact-design.md §8 — ★ = the owner's approved wording, the rest DRAFT
+    // candidate ①, every row in WORDING.md). {me} = the phone owner's name, {name} = a person's / group's name, {m}/{n} = now / the ceiling.
+    acAdd: '添加朋友',
+    acFind: '从故事里找人',
+    plusAc: '发起群聊 / 添加朋友',   // DRAFT ①: the 「+」 button's tooltip with the stage on
+    acSave: '添加',
+    acSecWho: '这个人',
+    acSecCard: '资料卡上显示',
+    acName: '名字',
+    acNamePh: 'TA 叫什么',
+    acKind: 'TA 是',
+    acStory: '故事里的人',
+    acNew: '故事外的新人',
+    acHintStory: '故事里已经出现过的人。AI 会照剧情和角色卡里的样子写 TA。',
+    acHintNew: '故事里还没出现过。AI 只能靠下面的「人物说明」认识 TA。',
+    acAbout: '人物说明',
+    acAboutPhNew: 'TA 是谁、和{me}什么关系、说话什么样',
+    acAboutPhStory: '可不填。想让 AI 写得更准，可以写 TA 和{me}是什么关系',
+    acNote: '只给 AI 看，资料卡上不显示。',
+    acReq: '必填',
+    acOpt: '选填',
+    acSig: '个性签名',
+    acSigPh: '例如：快门比嘴快。',
+    acArea: '来自',
+    acAreaPh: '例如：星川大学 · 美术系',
+    acCount: '{m}/{n}',
+    acFoot: '添加不调用 AI。加好以后，TA 和别的联系人一样：能私聊、拉进群、打电话，剧情同步时也可能来找你。',
+    acRefContact: '「{name}」已经在通讯录里了',
+    acSeeProfile: '查看资料 ›',
+    acRefSelf: '这是你自己的名字',
+    acRefGroup: '已经有一个叫「{name}」的群，换个名字吧',
+    acRefChars: '名字里不能有这些符号：、｜：【】〔〕',
+    acRefLead: '名字不能以 @ 或 ** 开头',   // DRAFT ①
+    acInfoExtra: '「{name}」在群里出现过，添加后 TA 在群里说过的话都还在',
+    acInfoGone: '以前删除过一个「{name}」，这次会作为新联系人添加',
+    acTagNew: '故事外的新人',
+    acCardHead: '人物说明 · 只给 AI 看',
+    acEdit: '编辑',   // + the chevron icon (the mock's 「编辑 ›」)
+    acEditTitle: '编辑资料',   // DRAFT ①
+    // 从故事里找人 (the find page, pass B; spec §8 — ★ unless marked). {n} = a count / floor number, {name} / {names} / {area} / {sig} / {reason}.
+    acFindIntroT: '找找故事里还没加的人',
+    acFindIntroD: 'AI 读一遍最近的剧情，把还不在通讯录里的人列出来，每人附上签名和简介。想手动加谁，可以用「添加朋友」。',   // the owner's own wording (#166)
+    acFindGo: '开始找人',
+    acFindCost: '调用一次 AI。只读得到最近的剧情；更早出场的人，可以用「添加朋友」自己加。',
+    acFindRun: '正在读你们的故事…',
+    acFindRunNote: '停止、出错或者退出这一页，都不会添加任何人。',
+    acFindPh: '找到的人会出现在这里',
+    acFindList: '找到 {n} 个还不在通讯录里的人',
+    acFindFrom: '来自：{area}',
+    acFindSig: '“{sig}”',
+    acFindFloor: '第 {n} 楼',
+    acFindAdd: '添加',
+    acFindAdded: '已添加',
+    acFindAddAria: '添加 {name}',
+    acTagExtra: '在群里出现过',
+    acTagGone: '以前删除过',
+    acTagNear: '和「{name}」很像',
+    acFindGroup: '和群名「{name}」重了，不能添加',   // DRAFT ①
+    acFindHave: '已在通讯录里，没有列出：{names}',
+    acFindMore: '没找到想加的人？再找一次',
+    acFindMoreCost: '再找一次也是调用一次 AI',
+    acFindToast: '已添加「{name}」',
+    acNoneT: '这次没有找到新的人',
+    acNoneD: '最近的剧情里提到的人，都已经在通讯录里了。',
+    acNoneSelf: '自己添加一个人 ›',
+    acNoneHave: '已在通讯录里：{names}',
+    acNoneAgain: '再找一次',
+    acFailT: '这次没找成',
+    acFailD: '{reason}。什么都没有添加。',
+    acRetry: '再试一次',
+    acStopT: '已停止',
+    acStopD: '这一次什么都没有添加。',
     // more functions, phase 2 slice B (owner's go 2026-11-17; ENABLE_THR_WEIYU_EVENTS) — DRAFT
     // calls: the "+" tile, the familiar action sheet, the brief "calling" screen, the call bubble's words per viewpoint, the list marker
     attCall: '音视频通话',
@@ -23192,7 +24810,9 @@ const THEATER_WEIYU_TIMING = Object.freeze({
     ringMs: 1500,   // more functions phase 2: the brief "calling…" screen before his 已取消 lands (motion on only)
 });
 
-const THEATER_WEIYU_PAGES = ['empty', 'tabs', 'chat', 'info', 'profile', 'pick', 'sublist', 'search', 'words'];
+// acform = adding contacts by hand (2026-11-21): the 添加朋友 form / the 编辑资料 page (only reachable with env.stages.add); acfind = its
+// 从故事里找人 page (only with env.stages.find as well)
+const THEATER_WEIYU_PAGES = ['empty', 'tabs', 'chat', 'info', 'profile', 'pick', 'sublist', 'search', 'words', 'acform', 'acfind'];
 
 function soWyFmt(str, vars) {
     const v = soWyIsObj(vars) ? vars : {};
@@ -23435,6 +25055,8 @@ function soWyPageBuild(phone, page) {
         case 'sublist': fn = typeof soWyScreenSublist === 'function' ? soWyScreenSublist : null; break;
         case 'search': fn = typeof soWyScreenSearch === 'function' ? soWyScreenSearch : null; break;   // more functions phase 1
         case 'words': fn = typeof soWyScreenWords === 'function' ? soWyScreenWords : null; break;   // 世界用语 (the editor)
+        case 'acform': fn = typeof soWyScreenAcForm === 'function' ? soWyScreenAcForm : null; break;   // adding contacts by hand (the form / 编辑资料)
+        case 'acfind': fn = typeof soWyScreenAcFind === 'function' ? soWyScreenAcFind : null; break;   // adding contacts by hand (从故事里找人)
         default: fn = null;
     }
     return fn ? fn(phone, page) : soWyStubPage(phone, page);
@@ -23554,6 +25176,9 @@ function soWyGo(phone, page) {
 
 function soWyBack(phone) {
     if (phone.dead || phone.stack.length < 2) return;
+    // 从故事里找人: ‹ after an add = 完成 (→ 通讯录, where the new people carry 「新」); without an add it is today's back
+    const top = phone.stack[phone.stack.length - 1];
+    if (top && top.k === 'acfind' && Array.isArray(top.added) && top.added.length && typeof soWyAcFindDone === 'function') return soWyAcFindDone(phone);
     soWyMenuDrop(phone);
     phone.stack.pop();
     phone.moNav = 'back';   // MOTION (lane M)
@@ -23748,6 +25373,8 @@ function soWyMount(hostEl, env) {
 async function soWyDo(phone, kind, args, onProgress) {
     if (!phone || phone.dead) return { error: 'gone' };
     const a = soWyIsObj(args) ? args : {};
+    // the AI auto-reply switch OFF (2026-11-20): every send path ends here, so this ONE line turns each into the zero-call `put` (stored, no request)
+    if (kind === 'send' && typeof soWyArHolds === 'function' && soWyArHolds(phone)) kind = 'put';
     const key = typeof a.cid === 'string' && a.cid ? a.cid : '*' + kind;
     if (!soWyEnvFlight(phone)) delete phone.notes[key];
     const c0 = typeof a.cid === 'string' ? soWyChat(soWyEnvState(phone), a.cid) : null;
@@ -23852,7 +25479,9 @@ function soWyHold(doc, o) {
         if (timer) clearTimeout(timer);
         timer = null;
         armed = false;
+        const was = b.classList.contains('holding');
         b.classList.remove('holding');
+        if (was && typeof soWyMoHoldDrain === 'function') soWyMoHoldDrain(b, true); /* MOTION-HOOK (lane M): the 200 ms drain */
     };
     const hint = () => {
         if (!x.hint) return;
@@ -23864,6 +25493,7 @@ function soWyHold(doc, o) {
         if (armed || blocked()) return false;
         armed = true;
         t0 = Date.now();
+        if (typeof soWyMoHoldDrain === 'function') soWyMoHoldDrain(b, false); /* MOTION-HOOK (lane M): a new press ends a running drain */
         void b.offsetWidth; // restart the fill transition from empty
         b.classList.add('holding');
         timer = setTimeout(() => {
@@ -24027,6 +25657,9 @@ const THEATER_WEIYU_MO = Object.freeze({
     close: 140, pressOff: 90, pressMove: 10, glide: 260, glideEase: 'cubic-bezier(.2,.8,.2,1)', condense: 4, fired: 600, newMax: 8,
     linger: 260, rowMove: 340, edge: 28, swipeDone: 0.35, swipeFling: 0.5, rip: 450, menu: 200, menuEase: 'cubic-bezier(.2,1.3,.4,1)',
     shared: 340, sharedEase: 'cubic-bezier(.3,.7,.1,1)', band: 60, bandRest: 110, bandBack: 420, bandEase: 'cubic-bezier(.2,1.35,.4,1)',
+    // the hold's early-release drain: the mock-up's MOTION table, "Hold charge feel" (early release drains in 200 ms) = weiyu.css's fill
+    // transition while on (0.2s cubic-bezier(0.4, 0, 0.2, 1)) — soWyMoHoldDrain
+    drain: 200, drainEase: 'cubic-bezier(.4,0,.2,1)',
 });
 
 function soWyMoCan(phone) {
@@ -24541,6 +26174,38 @@ function soWyMoHoldFire(b) {
     if (root && root.getAttribute('data-wy-motion') === 'on' && typeof b.animate === 'function') b.classList.add('wy-mo-fired');
 }
 
+// The hold control (MOTION-HOOKs in soWyHold): any drain still running ends (a new press: the charge starts afresh from empty); then,
+// on = an early end of a charge (release, cancel, move, blur, page hidden — called just AFTER .holding went), the fill drains from where
+// it stands to empty over the full THEATER_WEIYU_MO.drain. Left alone, the class change starts the fill's CSS transition back to empty,
+// a REVERSAL of the charge, which the browser shortens in proportion to how far the charge had got (a release at a third drained in
+// ~60 ms). So: read where that transition starts (the charge's current scale), cancel the fill's own transform transition(s) (the fill
+// then rests at the base style, scaleX(0) — nothing left that could resume charging once the drain ends), and animate scaleX(k) →
+// scaleX(0) — both ends as scaleX, never a matrix (Chromium cannot interpolate a matrix into the singular scaleX(0): it flips half-way).
+// No fill-mode: when the drain ends the fill shows its resting empty style. Other animations on the fill are left alone. A completed hold
+// never comes here (its own pop). Only when the root's flag is on and the browser has Web Animations.
+function soWyMoHoldDrain(b, on) {
+    const fill = typeof b.querySelector === 'function' ? b.querySelector('.wy-hold-fill') : null;
+    if (!fill) return;
+    const old = fill._wyMoDrain;
+    fill._wyMoDrain = null;
+    if (old) {
+        try { old.cancel(); } catch (e) { /* already gone */ }
+    }
+    if (!on) return;
+    const root = typeof b.closest === 'function' ? b.closest('.wy') : null;
+    if (!root || root.getAttribute('data-wy-motion') !== 'on' || typeof fill.animate !== 'function') return;
+    const m = /^matrix(?:3d)?\(\s*([-+.\deE]+)/.exec(soWyMoNow(fill) || '');
+    const k = m ? Math.min(1, Math.max(0, Math.round(Number(m[1]) * 1e4) / 1e4)) : NaN;
+    if (!(k > 0)) return;   // empty already / unreadable: the CSS transition as it is
+    try {
+        if (typeof fill.getAnimations === 'function') {
+            for (const a of fill.getAnimations()) if (a && a.transitionProperty === 'transform') a.cancel();
+        }
+    } catch (e) { /* nothing to cancel */ }
+    const M = THEATER_WEIYU_MO;
+    fill._wyMoDrain = soWyMoAnim(fill, [{ transform: 'scaleX(' + k + ')' }, { transform: 'scaleX(0)' }], { duration: M.drain, easing: M.drainEase });
+}
+
 function soWyMoUnpress(phone, later) {
     const r = phone.moPress;
     const b = phone.moLp;
@@ -24984,7 +26649,9 @@ function soWyContactsBody(phone, state) {
         soWyEl(d, 'div', { class: 'wy-gap' }),
         people.map((p) => soWyEl(d, 'div', { class: 'wy-prow', role: 'button', tabindex: '0', data: { 'wy-act': 'profile', 'wy-pid': p.id } },
             soWyAvatarEl(phone, p.id, 40), soWyEl(d, 'span', { class: 'wy-nm', text: soWyShownName(state, p.id) }),
-            p.blocked === 1 ? soWyEl(d, 'span', { class: ['wy-obs', 'wy-blocktag'], text: T.blockedTag }) : null)),
+            p.blocked === 1 ? soWyEl(d, 'span', { class: ['wy-obs', 'wy-blocktag'], text: T.blockedTag }) : null,
+            // 从故事里找人: a person just added from the list wears 「新」 until his profile is opened (phone.acFresh, memory only)
+            phone.acFresh && typeof phone.acFresh.has === 'function' && phone.acFresh.has(p.id) ? soWyEl(d, 'span', { class: 'wy-new', text: T.newTag }) : null)),
         soWyEl(d, 'div', { class: 'wy-foot', text: soWyFmt(T.contactsCount, { n: people.length }) }),
     ];
 }
@@ -25002,7 +26669,9 @@ function soWyScreenTabs(phone, page) {
     let body = null;
     if (tab === 'chats') {
         title = [T.name, total ? soWyEl(d, 'span', { class: 'wy-ttl-n', text: '(' + total + ')' }) : null];
-        right = soWyEl(d, 'button', { type: 'button', class: 'wy-ib', data: { 'wy-act': 'plus' }, aria: { label: T.plus }, title: T.plus }, soWyIcon(d, 'plus-circle'));
+        // adding contacts by hand: with the stage on the 「+」 also adds people — its tooltip says so (plusAc)
+        const plusT = soWyAcOn(phone) ? T.plusAc : T.plus;
+        right = soWyEl(d, 'button', { type: 'button', class: 'wy-ib', data: { 'wy-act': 'plus' }, aria: { label: plusT }, title: plusT }, soWyIcon(d, 'plus-circle'));
         // more functions phase 1: the familiar search field heads the list (it scrolls under the condensing top bar with the rows)
         body = [soWyMoreOn(phone) ? soWySearchBar(phone) : null, soWyChatRows(phone, state, null)];
     } else if (tab === 'contacts') {
@@ -25046,15 +26715,20 @@ function soWyOpenChat(phone, cid, mid) {
     phone.go({ k: 'chat', cid });
 }
 
+// adding contacts by hand (env.stages.add): 添加朋友 after 发起私聊; with stages.find also 从故事里找人 (its page is the find pass's). Off = two items.
 function soWyPlusMenu(phone) {
     const d = phone.host.ownerDocument;
     const T = THEATER_WEIYU_TEXT;
     soWyMenuDrop(phone);
+    const ac = soWyAcOn(phone);
+    const find = ac && soWyIsObj(phone.env.stages) && phone.env.stages.find === true;
     const sheet = soWyEl(d, 'div', { class: 'wy-pop-wrap' },
         soWyEl(d, 'div', { class: 'wy-backdrop', data: { 'wy-act': 'pop-close' } }),
         soWyEl(d, 'div', { class: ['wy-pop', 'wy-pop-plus'], role: 'menu' },
             soWyEl(d, 'button', { type: 'button', role: 'menuitem', data: { 'wy-act': 'pick', 'wy-mode': 'create' } }, soWyIcon(d, 'group-add'), T.pickCreate),
-            soWyEl(d, 'button', { type: 'button', role: 'menuitem', data: { 'wy-act': 'pick', 'wy-mode': 'dm' } }, soWyIcon(d, 'plus-circle'), T.pickDm)));
+            soWyEl(d, 'button', { type: 'button', role: 'menuitem', data: { 'wy-act': 'pick', 'wy-mode': 'dm' } }, soWyIcon(d, 'plus-circle'), T.pickDm),
+            ac ? soWyEl(d, 'button', { type: 'button', role: 'menuitem', data: { 'wy-act': 'acform' } }, soWyIcon(d, 'person-add'), T.acAdd) : null,
+            find ? soWyEl(d, 'button', { type: 'button', role: 'menuitem', data: { 'wy-act': 'acfind' } }, soWyIcon(d, 'person-find'), T.acFind) : null));
     phone.layer.appendChild(sheet);
 }
 
@@ -25099,6 +26773,18 @@ function soWyScreensAct(phone, act, el, ev) {
         case 'sublist': phone.go({ k: 'sublist', f: el.getAttribute('data-wy-f') === 'observed' ? 'observed' : 'groups' }); return true;
         case 'profile': soWyAvatarTap(phone, el, cur); return true;
         case 'plus': soWyPlusMenu(phone); return true;
+        // adding contacts by hand (env.stages.add): the 「+」 menu's 添加朋友, the form's choice and 添加 / 保存, the profile card's 编辑 ›
+        case 'acform': soWyMenuDrop(phone); soWyAcFormOpen(phone); return true;
+        case 'ac-kind': if (cur.k === 'acform') soWyAcKind(phone, cur, el.getAttribute('data-wy-v')); return true;
+        case 'ac-save': if (cur.k === 'acform') soWyAcSave(phone, cur); return true;
+        case 'ac-edit': soWyAcEditOpen(phone, el.getAttribute('data-wy-pid')); return true;
+        // 从故事里找人 (env.stages.find): the 「+」 item, 开始找人 / 再找一次 / 再试一次, 停止, a row's 添加, 完成, 自己添加一个人 ›
+        case 'acfind': soWyMenuDrop(phone); soWyAcFindOpen(phone); return true;
+        case 'ac-find': if (cur.k === 'acfind') soWyAcFindRun(phone, cur); return true;
+        case 'ac-stop': if (cur.k === 'acfind') soWyAcFindStop(phone); return true;
+        case 'ac-add': if (cur.k === 'acfind') soWyAcFindAdd(phone, cur, Number(el.getAttribute('data-wy-i'))); return true;
+        case 'ac-done': if (cur.k === 'acfind') soWyAcFindDone(phone); return true;
+        case 'ac-self': soWyAcFormOpen(phone); return true;
         // the chat dock (redesign Lane D slice D1): mic ↔ keyboard, the "+" sheet and its composers, the stop square
         case 'mic': if (cur.k === 'chat') soWyVoiceToggle(phone, cur.cid); return true;
         // the second click of a double-click on 发送 lands on what took its place (the + once the field is empty, the stop square while
@@ -25126,6 +26812,9 @@ function soWyScreensAct(phone, act, el, ev) {
         case 'peek': soWyToggleShown(phone, 'p:' + el.getAttribute('data-wy-mid')); return true;
         case 'send': if (cur.k === 'chat') { phone.sentAt = Date.now(); soWyChatSend(phone, cur.cid); } return true;
         case 'note-retry': if (cur.k === 'chat') soWyNoteRetry(phone, cur.cid, el.getAttribute('data-wy-mid')); return true;   // B5
+        // the AI auto-reply switch (2026-11-20): the row above the input box — only rendered with env.stages.autoReply (soWyArRow)
+        case 'ar-toggle': soWyArToggle(phone); return true;
+        case 'ar-reply': if (cur.k === 'chat') soWyArReply(phone, cur.cid); return true;
         // Task 18: info, profile, pictures, pick
         case 'invite': if (cur.k === 'info') phone.go({ k: 'pick', mode: 'invite', cid: cur.cid }); return true;
         case 'mute': if (cur.k === 'info') soWyInfoMute(phone, cur.cid); return true;
@@ -25175,7 +26864,9 @@ function soWyScreensEvent(phone, type, ev) {
             return true;
         }
     }
+    if (type === 'input' && t.matches('[data-wy-every]')) { soWyEveryInput(phone, t); return true; }   // 每几次回复更新一次 (the 我 page)
     if (cur.k === 'words' && soWyWordsEvent(phone, type, ev)) return true;   // 世界用语: the editor's fields
+    if (cur.k === 'acform' && soWyAcEvent(phone, type, ev, cur)) return true;   // adding contacts by hand: the form's fields
     // more functions phase 2: the transfer composer's two fields
     if (typeof soWyEvEvent === 'function' && soWyEvEvent(phone, type, ev, cur)) return true;
     // more functions phase 1 (the card composer's fields, the remark editor, the search field, the @ picker, avatar / row long presses)
@@ -25183,10 +26874,12 @@ function soWyScreensEvent(phone, type, ev) {
     if (cur.k === 'chat' && soWyMenuEvent(phone, type, ev, cur)) return true;
     if (type === 'input' && t.matches('[data-wy-edit]') && soWyIsObj(phone.editing)) {
         phone.editing.v = t.value;
+        soWyEditSync(phone);   // length limits: the over line + 保存
         return true;
     }
     if (type === 'input' && t.matches('[data-wy-gname]') && cur.k === 'pick') {
         cur.name = t.value;
+        soWyPickSync(phone, cur);   // length limits: the over line + 完成
         return true;
     }
     // the 照片 / 视频 composer: its description (the preview follows; no re-render); Enter sends it
@@ -25207,6 +26900,7 @@ function soWyScreensEvent(phone, type, ev) {
     if (type === 'input') {
         phone.drafts[cur.cid] = t.value;
         soWySyncSend(phone);
+        soWyGrow(phone, t);   // length limits: the grow fallback where CSS field-sizing is missing (no-op elsewhere)
         soWyKeepEnd(phone);   // the field may have grown / shrunk by a line (A6): a chat at its end stays there
         if (typeof soWyAtSync === 'function') soWyAtSync(phone, cur.cid, t);   // more functions phase 1: the @ picker follows the text
         return true;
@@ -25377,6 +27071,7 @@ function soWyHoldLine(phone, state, chat, flight) {
     const T = THEATER_WEIYU_TEXT;
     if (typeof soWyHold !== 'function' || chat.dissolved || soWyChatClosed(state, chat) || soWyMoreBarred(state, chat)) return null;
     if (soWyIsObj(phone.fsel) && phone.fsel.cid === chat.id) return null;   // more functions phase 1: not while he picks lines to forward
+    if (soWyArOn(phone) && soWyWaiting(state, chat.id)) return null;   // the AI auto-reply switch: his items wait → 「AI 现在回复」 is the way on
     const note = phone.notes[chat.id];
     const label = flight && flight.at === chat.id ? T.writing : flight ? T.writingElse : note && note.kind === 'bad' ? T.holdRetry : T.hold;
     return soWyEl(d, 'div', { class: 'wy-holdline' }, soWyHold(d, {
@@ -25384,6 +27079,77 @@ function soWyHoldLine(phone, state, chat, flight) {
         blocked: () => !!soWyEnvFlight(phone),
         fire: () => soWyDo(phone, 'more', { cid: chat.id }),
     }));
+}
+
+// ---- the AI auto-reply switch (owner 2026-11-20; spec 2026-11-20-weiyu-hold-reply-design.md §5 / §6; the approved mock phone-hold/mock/) --------
+// ONE switch for the whole phone (opts.autoReply, model.js soWyArOpt / soWyArSet), shown in a slim row just above the input box of every chat
+// he can send in. Everything here exists only with env.stages.autoReply === true (the join's ENABLE_THR_WEIYU_AUTOREPLY); without it the
+// row is never built, soWyDo never turns a send into a put and 重新回复 acts on the line it was opened on — today's phone, byte for byte.
+
+// The stage is on (the flag) — not the switch.
+function soWyArOn(phone) {
+    return !!phone && !!phone.env && soWyIsObj(phone.env.stages) && phone.env.stages.autoReply === true;
+}
+
+// The switch is OFF: a send is stored with no request (soWyDo → the zero-call kind 'put').
+function soWyArHolds(phone) {
+    return soWyArOn(phone) && !soWyArOpt(soWyEnvState(phone));
+}
+
+// The row: [switch · its label] …… [AI 现在回复 (n)]. The switch is a real toggle (button[role=switch][aria-checked]); OFF reads amber
+// (.wy-ar-off). The button shows whenever his own items wait unanswered at the end of this chat (soWyWaiting, in EITHER switch state); it
+// is hidden while THIS chat's reply is written (the typing dots and the stop square show instead) and reads disabled (.wy-ar-busy) while
+// another chat's request runs (a tap → the existing 另一处正在写 toast). null without the stage. The early returns of soWyChatFoot (forward select,
+// dissolved, read-only, watched, blocked) come first, so those screens never get a row.
+function soWyArRow(phone, state, chat, flight) {
+    if (!soWyArOn(phone) || !soWyIsObj(chat)) return null;
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    const on = soWyArOpt(state);
+    const tg = soWyEl(d, 'button', {
+        type: 'button', class: ['wy-ar-tg', on ? '' : 'wy-ar-off'], role: 'switch', data: { 'wy-act': 'ar-toggle' },
+        aria: { checked: on ? 'true' : 'false', label: T.arSwitch },
+    }, soWyEl(d, 'span', { class: ['wy-ar-sw', on ? 'wy-on' : ''], aria: { hidden: 'true' } }), soWyEl(d, 'span', { class: 'wy-ar-t', text: on ? T.arOn : T.arOff }));
+    const w = soWyWaiting(state, chat.id);
+    const here = !!flight && flight.at === chat.id;
+    // "reads disabled" = .wy-ar-busy (dimmed), NOT aria-disabled: the phone's tap dispatcher (soWyMount onClick) drops every tap on an
+    // aria-disabled control, and the spec wants this tap to say why (soWyArReply → the 另一处正在写 toast)
+    const go = w && !here ? soWyEl(d, 'button', {
+        type: 'button', class: ['wy-ar-go', flight ? 'wy-ar-busy' : ''], data: { 'wy-act': 'ar-reply' }, aria: { label: soWyFmt(T.arGoAria, { n: w.n }) },
+    },soWyEl(d, 'span', { text: T.arGo }), soWyEl(d, 'span', { class: 'wy-ar-n', text: String(w.n) })) : null;
+    return soWyEl(d, 'div', { class: 'wy-ar-row' }, tg, go);
+}
+
+// A flip of the switch = one zero-call commit ('opts'); turning it ON with items waiting sends nothing (his next send or the button answers).
+function soWyArToggle(phone) {
+    if (!soWyArOn(phone)) return;
+    const st = soWyEnvState(phone);
+    if (!st) return;
+    const c = soWyClone(st);
+    if (soWyArSet(c, !soWyArOpt(st))) phone.env.commit(c, 'opts');
+    phone.refresh();
+}
+
+// 「AI 现在回复」 = today's 「重新回复」 of his LAST waiting item — ONE request, byte for byte the send that item would have made (spec §8);
+// the characters answer everything together, as one batch after it. A failure reads as the SEND note (没有收到回应 · 可以「重新回复」 + its
+// cause line): he pressed a "reply" button. Another chat writing → the existing toast.
+function soWyArReply(phone, cid) {
+    if (!soWyArOn(phone)) return;
+    const T = THEATER_WEIYU_TEXT;
+    const w = soWyWaiting(soWyEnvState(phone), cid);
+    if (!w) return;
+    if (soWyEnvFlight(phone)) {
+        phone.toast(T.writingElse, { so: true });
+        return;
+    }
+    soWyDo(phone, 'regen', { cid, mid: w.last }).then((r) => {
+        if (phone.dead || !soWyIsObj(r) || !r.failed) return;
+        const n = { kind: 'noReply', text: T.noReply };
+        const why = soWyCauseLine(r);
+        if (why) n.why = why;
+        phone.notes[cid] = n;
+        phone.refresh();
+    });
 }
 
 // The dock (layout F, the familiar messenger's row): [mic ↔ keyboard] [field] [+ ↔ 发送] — the + gives way to 发送 while the field has
@@ -25407,11 +27173,11 @@ function soWyChatFoot(phone, state, chat, flight) {
     const voice = !!(phone.voiceIn && phone.voiceIn[chat.id]);
     const running = !!flight && flight.at === chat.id && typeof phone.env.stop === 'function';
     const btn = (act, cls, label, icon) => soWyEl(d, 'button', { type: 'button', class: ['wy-dk', cls], data: { 'wy-act': act }, aria: { label }, title: label }, soWyIcon(d, icon));
-    return soWyEl(d, 'div', { class: 'wy-chatfoot' }, chip,
+    return soWyEl(d, 'div', { class: 'wy-chatfoot' }, soWyArRow(phone, state, chat, flight), chip,
         soWyEl(d, 'div', { class: ['wy-inrow', running ? 'wy-running' : ''] },
             voice ? btn('mic', 'wy-mic', T.toKeys, 'keyboard') : btn('mic', 'wy-mic', T.toVoice, 'voice-input'),
             soWyEl(d, 'textarea', {
-                class: ['wy-input', voice ? 'wy-voicein' : ''], rows: '1', maxlength: '300', enterkeyhint: 'send', placeholder: voice ? T.voiceHint : null,
+                class: ['wy-input', voice ? 'wy-voicein' : ''], rows: '1', enterkeyhint: 'send', placeholder: voice ? T.voiceHint : null,
                 data: { 'wy-input': '' }, aria: { label: voice ? T.voiceHint : T.input },
             }),
             btn('attach', 'wy-plus', T.attach, 'plus-circle'),
@@ -25453,14 +27219,71 @@ function soWyScreenChat(phone, page) {
     return screen;
 }
 
-// 发送 enabled = text and no call running; the row shows 发送 instead of + while the field has text (.wy-has-text).
+// 发送 enabled = text and no call running and not over his ceiling (the over line above the input row says so); the row shows 发送 instead
+// of + while the field has text (.wy-has-text).
 function soWySyncSend(phone) {
     const el = phone.pageEl;
     const inp = el && el.querySelector('[data-wy-input]');
     const btn = el && el.querySelector('[data-wy-act="send"]');
-    if (inp && btn) btn.disabled = !inp.value.trim() || !!soWyEnvFlight(phone);
     const row = inp && typeof inp.closest === 'function' ? inp.closest('.wy-inrow') : null;
+    const over = !!row && soWyLenMark(phone, row.parentNode, row, THEATER_WEIYU_TYPED_MAX.text, inp.value, 'msg');
+    if (inp && btn) btn.disabled = !inp.value.trim() || !!soWyEnvFlight(phone) || over;
     if (row) row.classList.toggle('wy-has-text', !!inp.value.trim());
+}
+
+// ---- length limits (2026-11-21; spec docs/superpowers/specs/2026-11-21-input-length-limits-design.md §2 rule 2, §8) ---------------------------
+// No player field carries maxlength (it ate keys and cut a paste silently). Over a ceiling, ONE plain line says so with the numbers and the
+// send / save control greys; the typed text is never touched. The store functions refuse the same text (model.js soWyLen), so both agree.
+// soWyLenMark(phone, slot, before, max, text, kind) → true when over: exactly one div.wy-len[role=status] child of `slot` (inserted before
+// `before`, or at the end when it is null / not a child of slot), its words lenOver (kind 'msg') / lenField filled with {n: max, m: soWyLen(text)}
+// and updated in place; not over → the line is removed. Nothing is added to a field within its ceiling.
+function soWyLenMark(phone, slot, before, max, text, kind) {
+    const m = soWyLen(text);
+    const over = m > max;
+    if (!slot || typeof slot.querySelector !== 'function') return over;
+    let line = null;
+    for (const c of slot.children) if (c.classList.contains('wy-len')) { line = c; break; }
+    if (!over) {
+        if (line) line.remove();
+        return false;
+    }
+    const T = THEATER_WEIYU_TEXT;
+    const words = soWyFmt(kind === 'msg' ? T.lenOver : T.lenField, { n: max, m });
+    if (!line) {
+        line = soWyEl(slot.ownerDocument, 'div', { class: 'wy-len', role: 'status', text: words });
+        slot.insertBefore(line, before && before.parentNode === slot ? before : null);
+    } else if (line.textContent !== words) line.textContent = words;
+    return true;
+}
+
+// The message box grows with its lines through CSS field-sizing; where a browser lacks it (or the test seam window.__soWyGrowJs === true) a
+// small fallback sets the height from its content, up to the box's 120 px max-height. Never anything in a browser with field-sizing.
+function soWyGrowJs(phone) {
+    const win = phone && phone.host && phone.host.ownerDocument ? phone.host.ownerDocument.defaultView : null;
+    if (!win) return false;
+    if (win.__soWyGrowJs === true) return true;
+    try {
+        return !!(win.CSS && typeof win.CSS.supports === 'function' && !win.CSS.supports('field-sizing', 'content'));
+    } catch (e) {
+        return false;
+    }
+}
+
+// height auto, then the content's height (+ the borders: the phone's boxes are border-box) up to 120 px; an empty box loses the height again.
+function soWyGrow(phone, el) {
+    if (!el || !el.style || !soWyGrowJs(phone)) return;
+    if (!el.value) {
+        if (el.style.height) el.style.removeProperty('height');
+        return;
+    }
+    el.style.height = 'auto';
+    const sh = Number(el.scrollHeight) || 0;
+    if (sh <= 0) {   // not laid out (hidden): leave it to the next input
+        el.style.removeProperty('height');
+        return;
+    }
+    const border = Math.max(0, (Number(el.offsetHeight) || 0) - (Number(el.clientHeight) || 0));
+    el.style.height = Math.min(sh + border, 120) + 'px';
 }
 
 // The hold line sits in the scroll area; a classic scrollbar takes room on the right only, so the line is widened under it by its width
@@ -25468,8 +27291,16 @@ function soWySyncSend(phone) {
 function soWyAfterRender(phone, page) {
     if (typeof soWyCsAfter === 'function') soWyCsAfter(phone);   // the live call scene: its panel follows the state; a live call opens it
     if (page && page.k === 'search' && typeof soWySearchAfter === 'function') soWySearchAfter(phone);   // more functions phase 1
+    // length limits: a re-render keeps the over line of a field that is still over (nothing for a field within its ceiling)
+    if (page && page.k === 'pick') soWyPickSync(phone, page);
+    if (page && page.k === 'profile') soWyRemarkSync(phone);
+    if (page && page.k === 'acform') soWyAcFormSync(phone);   // adding contacts by hand: counters, the name line, 添加 / 保存
+    // 从故事里找人: the page whose request is in the air is no longer on top (‹, a tab, a swipe) → that request is stopped (plan D16)
+    if (phone.acRun && phone.acRun !== page) soWyAcFindLeft(phone);
     if (!page || page.k !== 'chat') return;
     soWySyncSend(phone);
+    soWyEditSync(phone);
+    soWyGrow(phone, phone.pageEl && phone.pageEl.querySelector('[data-wy-input]'));
     if (typeof soWyJumpTo === 'function') soWyJumpTo(phone, page);   // more functions phase 1: the @ / search jump (after the scroll restore)
     const sc = phone.pageEl && phone.pageEl.querySelector('.wy-scroll');
     if (!sc) return;
@@ -25502,11 +27333,13 @@ function soWyChatSend(phone, cid) {
     if (!inp || soWyEnvFlight(phone)) return;
     const text = inp.value;
     if (!text.trim()) return;
+    if (soWyLen(text) > THEATER_WEIYU_TYPED_MAX.text) return;   // length limits: over → nothing (the over line is already there)
     const voice = !!(phone.voiceIn && phone.voiceIn[cid]);
     const q = !voice && soWyIsObj(phone.quote) && phone.quote.cid === cid ? { u: phone.quote.u, v: phone.quote.v } : undefined;
     inp.value = '';
     phone.drafts[cid] = '';
     soWySyncSend(phone);
+    soWyGrow(phone, inp);
     soWyDo(phone, 'send', voice ? { cid, msg: { t: 'voice', v: text.trim() } } : { cid, text, quote: q }).then((r) => {
         if (phone.dead) return;
         if (r && (r.wait || r.busy)) {
@@ -25599,7 +27432,7 @@ function soWyComposeOpen(phone, o) {
     soWyMenuDrop(phone);
     phone.compose = c;
     const title = video ? T.attVideo : T.attPhoto;
-    const ta = soWyEl(d, 'textarea', { class: 'wy-cmp-in', rows: '2', maxlength: '300', placeholder: video ? T.videoHint : T.photoHint, data: { 'wy-cmp': '' }, aria: { label: video ? T.videoHint : T.photoHint } });
+    const ta = soWyEl(d, 'textarea', { class: 'wy-cmp-in', rows: '2', placeholder: video ? T.videoHint : T.photoHint, data: { 'wy-cmp': '' }, aria: { label: video ? T.videoHint : T.photoHint } });
     ta.value = c.v;
     const radio = (act, v, text, on, cls) => soWyEl(d, 'button', { type: 'button', role: 'radio', class: cls, data: { 'wy-act': act, 'wy-v': v }, aria: { checked: on ? 'true' : 'false', label: text }, text });
     const sheet = soWyEl(d, 'div', { class: ['wy-sheet', 'wy-compose'], role: 'dialog', aria: { label: title }, data: { 'wy-kind': c.t } },
@@ -25642,7 +27475,10 @@ function soWyComposeSync(phone) {
         b.setAttribute('aria-checked', on ? 'true' : 'false');
         b.classList.toggle('wy-on', on);
     }
-    sheet.querySelector('[data-wy-act="cmp-send"]').disabled = !c.v.trim() || !!soWyEnvFlight(phone);
+    // length limits: the over line right under the description box
+    const ta = sheet.querySelector('[data-wy-cmp]');
+    const over = soWyLenMark(phone, sheet, ta ? ta.nextElementSibling : null, THEATER_WEIYU_TYPED_MAX.text, c.v, 'msg');
+    sheet.querySelector('[data-wy-act="cmp-send"]').disabled = !c.v.trim() || !!soWyEnvFlight(phone) || over;
 }
 
 // An emoji tapped again = back to the default tile; a length is always one of the presets.
@@ -25660,6 +27496,7 @@ function soWyComposeSend(phone) {
     if (soWyIsObj(c) && c.t === 'card') return soWyCardSend(phone);   // more functions phase 1
     if (soWyIsObj(c) && c.t === 'pay') return soWyPaySend(phone);   // more functions phase 2
     if (!soWyIsObj(c) || !c.v.trim()) return;
+    if (soWyLen(c.v) > THEATER_WEIYU_TYPED_MAX.text) return;   // length limits: over → nothing (the sheet and its line stay)
     if (soWyEnvFlight(phone)) {
         phone.toast(THEATER_WEIYU_TEXT.writingElse, { so: true });
         return;
@@ -25882,7 +27719,10 @@ function soWyMenuAct(phone, k) {
             phone.toast(T.writingElse, { so: true });
             return;
         }
-        soWyDo(phone, 'regen', { cid: m.cid, mid: m.mid });
+        // the AI auto-reply switch: 重新回复 on any of his items in one unbroken run acts on the run's LAST item (else the model misses the
+        // later ones and the replies land between them); 重新生成 on a character's line is unchanged
+        const mid = k === 'rereply' && soWyArOn(phone) ? soWyArRunEnd(state, m.cid, m.mid) : m.mid;
+        soWyDo(phone, 'regen', { cid: m.cid, mid });
     }
 }
 
@@ -26002,10 +27842,32 @@ function soWyEditRow(phone, msg, base, ed) {
     const side = msg.u === THEATER_WEIYU_ME ? 'me' : msg.u ? 'them' : 'mid';
     return soWyEl(d, 'div', { class: ['wy-m', 'wy-editing'], data: Object.assign({ 'wy-side': side }, base) },
         soWyEl(d, 'div', { class: 'wy-edit' },
-            soWyEl(d, 'textarea', { class: 'wy-edit-in', rows: '3', maxlength: '300', data: { 'wy-edit': '' }, aria: { label: T.mEdit }, text: String(ed.v == null ? '' : ed.v) }),
+            soWyEl(d, 'textarea', { class: 'wy-edit-in', rows: '3', data: { 'wy-edit': '' }, aria: { label: T.mEdit }, text: String(ed.v == null ? '' : ed.v) }),
             soWyEl(d, 'div', { class: 'wy-edit-btns' },
                 soWyEl(d, 'button', { type: 'button', class: 'wy-edit-no', data: { 'wy-act': 'edit-cancel' }, text: T.cancel }),
                 soWyEl(d, 'button', { type: 'button', class: 'wy-edit-ok', data: { 'wy-act': 'edit-save' }, text: T.save }))));
+}
+
+// length limits: the edit is over when its text is over his ceiling AND longer than the line it replaces (model.js soWyEditMsg's rule — an AI
+// line can be longer than 4000, and he may still shorten it).
+function soWyEditOver(phone, ed) {
+    if (!soWyIsObj(ed)) return false;
+    const chat = soWyChat(soWyEnvState(phone), ed.cid);
+    const i = soWyMsgIndex(chat, ed.mid);
+    const n = soWyLen(ed.v);
+    return n > THEATER_WEIYU_TYPED_MAX.text && n > (i >= 0 ? soWyLen(chat.msgs[i].v) : 0);
+}
+
+// The edit box follows phone.editing: the over line above its buttons, 保存 grey while over. → true when over.
+function soWyEditSync(phone) {
+    const ed = phone.editing;
+    const box = soWyIsObj(ed) && phone.pageEl ? phone.pageEl.querySelector('.wy-edit') : null;
+    if (!box) return false;
+    const over = soWyEditOver(phone, ed);
+    soWyLenMark(phone, box, box.querySelector('.wy-edit-btns'), THEATER_WEIYU_TYPED_MAX.text, over ? ed.v : '', 'msg');
+    const ok = box.querySelector('[data-wy-act="edit-save"]');
+    if (ok) ok.disabled = over;
+    return over;
 }
 
 function soWyEditSave(phone) {
@@ -26021,6 +27883,7 @@ function soWyEditSave(phone) {
     }
     const v = String(ed.v == null ? '' : ed.v).trim();
     if (!v) return; // a blank line is never stored; the box stays open
+    if (soWyEditOver(phone, ed)) return;   // length limits: over → the box stays open with its line
     if (v !== chat.msgs[i].v) {
         const c = soWyClone(state);
         if (!soWyEditMsg(c, ed.cid, ed.mid, v)) return;
@@ -26182,6 +28045,10 @@ function soWyScreenProfile(phone, page) {
     const more = soWyMoreOn(phone);
     const contact = !me && !gone && !p.extra;   // remark / block: a contact (a background person is added first)
     const canCall = contact && p.blocked !== 1 && typeof soWyProfileCallOk === 'function' && soWyProfileCallOk(phone, state, p.id);   // A20
+    // adding contacts by hand (env.stages.add): a hand-added / list-added person (origin or about stored) — the 故事外的新人 tag and the
+    // 人物说明 card with 编辑 ›; a 开机 contact has neither key, so his profile is today's. Opening it clears the list's 「新」 (phone.acFresh).
+    const acp = contact && soWyAcOn(phone) && soWyAcHas(p);
+    if (contact && phone.acFresh && typeof phone.acFresh.delete === 'function') phone.acFresh.delete(p.id);
     return soWyEl(d, 'div', { class: ['wy-page', 'wy-profile'] },
         soWyTopBar(phone, { back: true }),
         soWyEl(d, 'div', { class: 'wy-scroll' },
@@ -26189,13 +28056,15 @@ function soWyScreenProfile(phone, page) {
                 soWyEl(d, 'div', { class: 'wy-grow' },
                     soWyEl(d, 'div', { class: 'wy-pname' }, soWyEl(d, 'span', { text: shownName }), me ? soWyEl(d, 'span', { class: 'wy-obs', text: T.isYou }) : null,
                         gone ? soWyEl(d, 'span', { class: 'wy-obs', text: T.goneTag }) : null,
-                        p.blocked === 1 && !gone ? soWyEl(d, 'span', { class: ['wy-obs', 'wy-blocktag'], text: T.blockedTag }) : null),
+                        p.blocked === 1 && !gone ? soWyEl(d, 'span', { class: ['wy-obs', 'wy-blocktag'], text: T.blockedTag }) : null,
+                        acp && p.origin === 'new' ? soWyEl(d, 'span', { class: ['wy-obs', 'wy-ac-newtag'], text: T.acTagNew }) : null),
                     remarked ? soWyEl(d, 'div', { class: 'wy-meta', text: T.realName + p.name }) : null,
                     p.idLine ? soWyEl(d, 'div', { class: 'wy-meta', text: T.idLine + p.idLine }) : null,
                     p.area ? soWyEl(d, 'div', { class: 'wy-meta', text: T.area + p.area }) : null)),
             more && contact ? soWyRemarkRow(phone, p) : null,
             soWyEl(d, 'div', { class: 'wy-gap' }),
             soWyEl(d, 'div', { class: ['wy-card', 'wy-sigcard'] }, soWyEl(d, 'div', { class: 'wy-k', text: T.sig }), soWyEl(d, 'div', { class: 'wy-sig', text: p.sig || T.unset })),
+            acp ? soWyAcDescCard(phone, p) : null,
             soWyEl(d, 'div', { class: 'wy-sechead', text: (me ? T.myGroups : T.sharedGroups) + '（' + groups.length + '）' }),
             soWyEl(d, 'div', { class: 'wy-card' }, groups.length ? groups.map((c) => soWyEl(d, 'div', {
                 class: ['wy-prow', c.dissolved ? 'wy-dis' : ''], role: 'button', tabindex: '0', data: { 'wy-act': 'open', 'wy-row': c.id },
@@ -26373,7 +28242,7 @@ function soWyScreenPick(phone, page) {
         soWyEl(d, 'div', { class: 'wy-pickstrip' }, sel.length ? sel.map((pid) => soWyAvatarEl(phone, pid, 32))
             : soWyEl(d, 'span', { class: 'wy-ph', text: mode === 'create' ? T.pickTwo : T.pickOne })),
         mode === 'create' ? soWyEl(d, 'label', { class: 'wy-gname' }, soWyEl(d, 'span', { text: T.gname }),
-            soWyEl(d, 'input', { type: 'text', maxlength: '20', placeholder: T.gnameHint, value: page.name || '', data: { 'wy-gname': '' } })) : null,
+            soWyEl(d, 'input', { type: 'text', placeholder: T.gnameHint, value: page.name || '', data: { 'wy-gname': '' } })) : null,
         soWyEl(d, 'div', { class: 'wy-scroll' }, people.map((p) => {
             const locked = lock.includes(p.id);
             const on = locked || sel.includes(p.id);
@@ -26410,10 +28279,24 @@ function soWyPickLeave(phone, page) {
     phone.go(page);
 }
 
+// length limits: the typed group name over its ceiling → the over line right under the 群名 row, 完成 grey (as it is with too few picked).
+// The line sits after the label (the label is one row: 群名 + the box). → true when over.
+function soWyPickSync(phone, page) {
+    const el = phone.pageEl;
+    const inp = el && soWyIsObj(page) && page.k === 'pick' ? el.querySelector('[data-wy-gname]') : null;
+    const lab = inp && typeof inp.closest === 'function' ? inp.closest('.wy-gname') : null;
+    if (!lab || !lab.parentNode) return false;
+    const over = soWyLenMark(phone, lab.parentNode, lab.nextElementSibling, THEATER_WEIYU_TYPED_MAX.group, inp.value, 'field');
+    const done = el.querySelector('[data-wy-act="pick-done"]');
+    if (done) done.disabled = over || (Array.isArray(page.sel) ? page.sel.length : 0) < soWyPickNeed(page.mode);
+    return over;
+}
+
 function soWyPickDone(phone, page) {
     const st = soWyEnvState(phone);
     const sel = Array.isArray(page.sel) ? page.sel.slice() : [];
     if (!st || sel.length < soWyPickNeed(page.mode)) return;
+    if (page.mode === 'create' && soWyLen(page.name) > THEATER_WEIYU_TYPED_MAX.group) return;   // length limits: over → stays
     const c = soWyClone(st);
     if (page.mode === 'dm') {
         const n = Object.keys(c.chats).length;
@@ -26457,8 +28340,72 @@ function soWyOptToggle(phone, key) {
     const cur = soWyIsObj(st.opts) ? st.opts[key] : undefined;
     const now = cur !== true; // every option defaults to off
     const c = soWyClone(st);
-    if (soWySetOpt(c, key, now)) phone.env.commit(c, 'opts');
+    if (soWySetOpt(c, key, now)) {
+        // 每几次回复更新一次: switching 跟着剧情更新 on starts the count afresh (env.stages.syncEvery only; off = today)
+        if (key === 'sync' && now && soWyEveryOn(phone) && soWyOwn(c, 'syncWait')) delete c.syncWait;
+        phone.env.commit(c, 'opts');
+    }
     phone.refresh();
+}
+
+// ---- 每几次回复更新一次 · sync every N story replies (owner #160, 2026-11-21; design docs/superpowers/specs/2026-11-21-weiyu-sync-every-design.md) ---
+// env.stages.syncEvery (the join's ENABLE_THR_WEIYU_SYNC_EVERY): absent / not true = no row, nothing read. A plain text box (no max, no
+// maxlength, nothing clamped): every input is read by soWySyncEveryParse — taken → stored at once (opts.syncEvery, 1 deletes the key);
+// refused → ONE plain line under the row (.wy-len, the length-limit line's look) saying why and what still holds; the typed text stays in the
+// box either way (phone.every = {v: the text, base: the value it belongs to} survives a re-render while that value is still the stored one).
+function soWyEveryOn(phone) {
+    return !!(phone && phone.env && soWyIsObj(phone.env.stages) && phone.env.stages.syncEvery === true);
+}
+
+// The refusal words for the typed text ('' = taken). n = the value still in effect.
+function soWyEveryWhy(text, n) {
+    const p = soWySyncEveryParse(text);
+    if (p.ok) return '';
+    return soWyFmt(p.why === 'big' ? THEATER_WEIYU_TEXT.everyBig : THEATER_WEIYU_TEXT.everyBad, { n });
+}
+
+// The row (+ its refusal line while the text in the box is refused) in one wrapper div.wy-every.
+function soWyEveryRow(phone, state) {
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    const cur = soWySyncEvery(state);
+    const dr = soWyIsObj(phone.every) && phone.every.base === cur ? phone.every : null;
+    const inp = soWyEl(d, 'input', { type: 'text', class: 'wy-every-in', inputmode: 'numeric', enterkeyhint: 'done', autocomplete: 'off', data: { 'wy-every': '' }, aria: { label: T.everyTitle } });
+    inp.value = dr ? String(dr.v) : String(cur);
+    const wrap = soWyEl(d, 'div', { class: 'wy-every' },
+        soWyEl(d, 'div', { class: ['wy-setrow', 'wy-everyrow'] },
+            // the label alone — no explanation line (the owner, 2026-11-22: "do 3")
+            soWyEl(d, 'div', { class: 'wy-setrow-t' }, soWyEl(d, 'span', { class: 'wy-setrow-n', text: T.everyTitle })),
+            inp));
+    const why = dr ? soWyEveryWhy(dr.v, cur) : '';
+    if (why) wrap.appendChild(soWyEl(d, 'div', { class: 'wy-len', role: 'status', text: why }));
+    return wrap;
+}
+
+// One input in the box: taken and different → stored (one commit, no re-render: the box keeps its focus and caret); the line follows in place.
+function soWyEveryInput(phone, inp) {
+    const st = soWyEnvState(phone);
+    if (!st || !soWyEveryOn(phone)) return;
+    const p = soWySyncEveryParse(inp.value);
+    let base = soWySyncEvery(st);
+    if (p.ok && p.n !== base) {
+        const c = soWyClone(st);
+        if (soWySetSyncEvery(c, p.n)) {
+            phone.env.commit(c, 'opts');
+            base = p.n;
+        }
+    }
+    phone.every = { v: inp.value, base };
+    const wrap = typeof inp.closest === 'function' ? inp.closest('.wy-every') : null;
+    if (!wrap) return;
+    let line = null;
+    for (const c of wrap.children) if (c.classList.contains('wy-len')) { line = c; break; }
+    const why = soWyEveryWhy(inp.value, base);
+    if (!why) {
+        if (line) line.remove();
+    } else if (!line) {
+        wrap.appendChild(soWyEl(wrap.ownerDocument, 'div', { class: 'wy-len', role: 'status', text: why }));
+    } else if (line.textContent !== why) line.textContent = why;
 }
 
 // 动画 (owner 2026-11-17): 跟随系统 / 开 / 关 → opts.motion (soWySetMotion); the re-render re-applies the root flag.
@@ -26562,7 +28509,10 @@ function soWyMeBody(phone, state) {
     // neither switch on this build the note stays the page's footer at the bottom, as before
     const story = !!(stages.sync || stages.tell);
     if (story) out.push(soWyEl(d, 'div', { class: 'wy-gap' }));
-    if (stages.sync) out.push(soWySwitchRow(phone, 'opt-sync', T.syncTitle, T.syncDesc, opts.sync === true));
+    // its description: with the sync-every stage the reworded one (syncDescEvery, #177); without it today's syncDesc, byte for byte
+    if (stages.sync) out.push(soWySwitchRow(phone, 'opt-sync', T.syncTitle, soWyEveryOn(phone) ? T.syncDescEvery : T.syncDesc, opts.sync === true));
+    // 每几次回复更新一次 (env.stages.syncEvery = the join's ENABLE_THR_WEIYU_SYNC_EVERY): right under its switch, only while that is on
+    if (stages.sync && soWyEveryOn(phone) && opts.sync === true) out.push(soWyEveryRow(phone, state));
     if (stages.tell) {
         out.push(soWySwitchRow(phone, 'opt-tell', T.tellTitle, T.tellDesc, opts.tell === true));
         if (opts.tell === true && typeof soWyRenderNote === 'function') {
@@ -26870,6 +28820,7 @@ function soWyMoreEvent(phone, type, ev, cur) {
     if (t.matches('[data-wy-remark]') && soWyIsObj(phone.remark)) {
         if (type === 'input') {
             phone.remark.v = t.value;
+            soWyRemarkSync(phone);   // length limits: the over line + 保存
             return true;
         }
         if (enter) {
@@ -27002,8 +28953,8 @@ function soWyCardCompose(phone, o) {
     soWyMenuDrop(phone);
     phone.compose = c;
     const title = { loc: T.attLoc, file: T.attFile, contact: T.attContact, link: T.attLink, music: T.attMusic }[k];
-    const field = (f, lab, ph, max) => {
-        const inp = soWyEl(d, 'input', { type: 'text', class: 'wy-cf-in', maxlength: String(max), placeholder: ph, enterkeyhint: 'send', data: { 'wy-cf': f }, aria: { label: lab } });
+    const field = (f, lab, ph) => {
+        const inp = soWyEl(d, 'input', { type: 'text', class: 'wy-cf-in', placeholder: ph, enterkeyhint: 'send', data: { 'wy-cf': f }, aria: { label: lab } });
         inp.value = f === 'sub' ? c.sub : c.title;
         return soWyEl(d, 'label', { class: 'wy-cf' }, soWyEl(d, 'span', { class: 'wy-cf-l', text: lab }), inp);
     };
@@ -27027,8 +28978,8 @@ function soWyCardCompose(phone, o) {
             soWyEl(d, 'button', { type: 'button', class: 'wy-cmp-go', data: { 'wy-act': 'cmp-send' }, disabled: true, text: T.send })),
         soWyEl(d, 'div', { class: 'wy-cmp-prev', aria: { hidden: 'true' } }),
         pick,
-        field('title', F.t, F.th, THEATER_WEIYU_CARD_MAX.title),
-        field('sub', F.s, F.sh, THEATER_WEIYU_CARD_MAX.sub));
+        field('title', F.t, F.th),
+        field('sub', F.s, F.sh));
     phone.layer.appendChild(soWyEl(d, 'div', { class: 'wy-pop-wrap' }, soWyEl(d, 'div', { class: ['wy-backdrop', 'wy-dim'], data: { 'wy-act': 'pop-close' } }), sheet));
     soWyCardSync(phone);
     if (k !== 'contact') {
@@ -27062,7 +29013,19 @@ function soWyCardSync(phone) {
     }
     const ti = sheet.querySelector('[data-wy-cf="title"]');
     if (ti && c.pid && ti.value) ti.value = '';
-    sheet.querySelector('[data-wy-act="cmp-send"]').disabled = !card || !!soWyEnvFlight(phone);
+    const over = soWyCardOver(phone, sheet, c);
+    sheet.querySelector('[data-wy-act="cmp-send"]').disabled = !card || !!soWyEnvFlight(phone) || over;
+}
+
+// length limits: each card field over his ceiling (one line, as soWySendKind counts it) → its over line at the end of its own label; → true
+// when either is over. sheet null = the check only (no line).
+function soWyCardOver(phone, sheet, c) {
+    let over = false;
+    for (const [f, max] of [['title', THEATER_WEIYU_TYPED_MAX.title], ['sub', THEATER_WEIYU_TYPED_MAX.sub]]) {
+        const inp = sheet ? sheet.querySelector('[data-wy-cf="' + f + '"]') : null;
+        if (soWyLenMark(phone, inp ? inp.parentNode : null, null, max, soWyLine1(c[f]), 'field')) over = true;
+    }
+    return over;
 }
 
 // 名片: a tap picks that person (a second tap lets go); a typed name clears the pick (soWyMoreEvent).
@@ -27080,6 +29043,7 @@ function soWyCardSend(phone) {
     if (!soWyIsObj(c) || c.t !== 'card') return;
     const card = soWyCardDraft(phone, c);
     if (!card) return;
+    if (soWyCardOver(phone, null, c)) return;   // length limits: over → the sheet and its line stay
     if (soWyEnvFlight(phone)) {
         phone.toast(THEATER_WEIYU_TEXT.writingElse, { so: true });
         return;
@@ -27355,7 +29319,7 @@ function soWyRemarkRow(phone, p) {
             soWyEl(d, 'span', { class: 'wy-nm', text: T.remarkSet }), p.remark ? soWyEl(d, 'span', { class: 'wy-sub2', text: p.remark }) : null,
             soWyEl(d, 'span', { class: 'wy-chev' }, soWyIcon(d, 'chevron-right')));
     }
-    const inp = soWyEl(d, 'input', { type: 'text', class: 'wy-remark-in', maxlength: String(THEATER_WEIYU_REMARK_MAX), placeholder: T.remarkHint, enterkeyhint: 'done', data: { 'wy-remark': '' }, aria: { label: T.remarkSet } });
+    const inp = soWyEl(d, 'input', { type: 'text', class: 'wy-remark-in', placeholder: soWyFmt(T.remarkHint, { n: THEATER_WEIYU_REMARK_MAX }), enterkeyhint: 'done', data: { 'wy-remark': '' }, aria: { label: T.remarkSet } });
     inp.value = String(ed.v == null ? '' : ed.v);
     return soWyEl(d, 'div', { class: 'wy-remarkedit' }, soWyEl(d, 'span', { class: 'wy-cf-l', text: T.remarkSet }), inp,
         soWyEl(d, 'div', { class: 'wy-edit-btns' },
@@ -27372,10 +29336,24 @@ function soWyRemarkOpen(phone, pid) {
     try { if (inp) inp.focus(); } catch (e) { /* a box that cannot take focus */ }
 }
 
-// 保存: one line, ≤ 24 (empty or the name itself clears it — soWySetRemark). Zero calls; never a delta (view state, like 免打扰).
+// length limits: the remark box follows phone.remark — the over line above its buttons, 保存 grey while over (one line, as soWySetRemark
+// counts it). → true when over.
+function soWyRemarkSync(phone) {
+    const ed = phone.remark;
+    const box = soWyIsObj(ed) && phone.pageEl ? phone.pageEl.querySelector('.wy-remarkedit') : null;
+    if (!box) return false;
+    const over = soWyLenMark(phone, box, box.querySelector('.wy-edit-btns'), THEATER_WEIYU_REMARK_MAX, soWyLine1(ed.v), 'field');
+    const ok = box.querySelector('[data-wy-act="remark-save"]');
+    if (ok) ok.disabled = over;
+    return over;
+}
+
+// 保存: one line, ≤ 60 (empty or the name itself clears it — soWySetRemark; over → the box stays open with its line). Zero calls; never a
+// delta (view state, like 免打扰).
 function soWyRemarkSave(phone) {
     const ed = phone.remark;
     if (!soWyIsObj(ed)) return;
+    if (soWyLen(soWyLine1(ed.v)) > THEATER_WEIYU_REMARK_MAX) return;
     const st = soWyEnvState(phone);
     const c = soWyClone(st);
     if (soWySetRemark(c, ed.pid, ed.v)) phone.env.commit(c, 'remark');
@@ -27771,7 +29749,7 @@ function soWyPayAns(phone, cid, mid, res) {
 }
 
 // The transfer composer (the card composer's pattern: pinned 取消 / title / 发送, scrolls on a small screen): to whom, a live preview of the
-// card, 金额 (free text ≤ 12 — any unit), 附言 (optional, ≤ 60), and one quiet line: the phone's money moves no card variable (study §4, the
+// card, 金额 (free text ≤ 40 — any unit), 附言 (optional, ≤ 200; length limits 2026-11-21), and one quiet line: the phone's money moves no card variable (study §4, the
 // MVU caution — the phone never writes `variables`). phone.compose = {cid, t: 'pay', amt, note}.
 function soWyPayCompose(phone, o) {
     const d = phone.host.ownerDocument;
@@ -27783,8 +29761,8 @@ function soWyPayCompose(phone, o) {
     const c = { cid: o.cid, t: 'pay', amt: String(o.amt == null ? '' : o.amt), note: String(o.note == null ? '' : o.note) };
     soWyMenuDrop(phone);
     phone.compose = c;
-    const field = (f, lab, ph, max) => {
-        const inp = soWyEl(d, 'input', { type: 'text', class: 'wy-cf-in', maxlength: String(max), placeholder: ph, enterkeyhint: 'send', data: { 'wy-pf': f }, aria: { label: lab } });
+    const field = (f, lab, ph) => {
+        const inp = soWyEl(d, 'input', { type: 'text', class: 'wy-cf-in', placeholder: ph, enterkeyhint: 'send', data: { 'wy-pf': f }, aria: { label: lab } });
         inp.value = c[f];
         return soWyEl(d, 'label', { class: 'wy-cf' }, soWyEl(d, 'span', { class: 'wy-cf-l', text: lab }), inp);
     };
@@ -27795,8 +29773,8 @@ function soWyPayCompose(phone, o) {
             soWyEl(d, 'button', { type: 'button', class: 'wy-cmp-go', data: { 'wy-act': 'cmp-send' }, disabled: true, text: T.send })),
         soWyEl(d, 'div', { class: 'wy-pay-to' }, soWyAvatarEl(phone, peer, 32), soWyEl(d, 'span', { class: 'wy-nm', text: soWyFmt(T.payTo, { name: soWyShownWord(st, peer) }) })),
         soWyEl(d, 'div', { class: 'wy-cmp-prev', aria: { hidden: 'true' } }),
-        field('amt', T.payAmt, T.payAmtHint, THEATER_WEIYU_EV_MAX.amt),
-        field('note', T.payNote, T.payNoteHint, THEATER_WEIYU_EV_MAX.note),
+        field('amt', T.payAmt, T.payAmtHint),
+        field('note', T.payNote, T.payNoteHint),
         soWyEl(d, 'div', { class: 'wy-paycaution', text: T.payCaution }));
     phone.layer.appendChild(soWyEl(d, 'div', { class: 'wy-pop-wrap' }, soWyEl(d, 'div', { class: ['wy-backdrop', 'wy-dim'], data: { 'wy-act': 'pop-close' } }), sheet));
     soWyPaySync(phone);
@@ -27808,26 +29786,39 @@ function soWyPaySync(phone) {
     const c = phone.compose;
     const sheet = phone.layer.querySelector('.wy-compose');
     if (!soWyIsObj(c) || c.t !== 'pay' || !sheet) return;
-    const amt = soWyClip(soWyLine1(c.amt), THEATER_WEIYU_EV_MAX.amt);
-    const note = soWyClip(soWyLine1(c.note), THEATER_WEIYU_EV_MAX.note);
+    const amt = soWyLine1(c.amt);
+    const note = soWyLine1(c.note);
     const card = soWyPayCard(phone, { amt: amt || THEATER_WEIYU_TEXT.payAmt, note, st: 'open', view: 'me' });
     card.removeAttribute('tabindex');
     if (!amt) card.classList.add('wy-card-ph');
     sheet.querySelector('.wy-cmp-prev').replaceChildren(card);
-    sheet.querySelector('[data-wy-act="cmp-send"]').disabled = !amt || !!soWyEnvFlight(phone);
+    const over = soWyPayOver(phone, sheet, c);
+    sheet.querySelector('[data-wy-act="cmp-send"]').disabled = !amt || !!soWyEnvFlight(phone) || over;
+}
+
+// length limits: 金额 / 附言 over his ceiling (one line, as soWySendKind counts it) → its over line at the end of its own label; → true when
+// either is over. sheet null = the check only (no line).
+function soWyPayOver(phone, sheet, c) {
+    let over = false;
+    for (const [f, max] of [['amt', THEATER_WEIYU_TYPED_MAX.amt], ['note', THEATER_WEIYU_TYPED_MAX.note]]) {
+        const inp = sheet ? sheet.querySelector('[data-wy-pf="' + f + '"]') : null;
+        if (soWyLenMark(phone, inp ? inp.parentNode : null, null, max, soWyLine1(c[f]), 'field')) over = true;
+    }
+    return over;
 }
 
 // 发送: the sheet closes → HIS SEND (one call: his 〔转账 …〕 line first); a wait / busy result opens the same composer again with what he wrote.
 function soWyPaySend(phone) {
     const c = phone.compose;
     if (!soWyIsObj(c) || c.t !== 'pay') return;
-    const amt = soWyClip(soWyLine1(c.amt), THEATER_WEIYU_EV_MAX.amt);
+    const amt = soWyLine1(c.amt);
     if (!amt) return;
+    if (soWyPayOver(phone, null, c)) return;   // length limits: over → the sheet and its line stay
     if (soWyEnvFlight(phone)) {
         phone.toast(THEATER_WEIYU_TEXT.writingElse, { so: true });
         return;
     }
-    const note = soWyClip(soWyLine1(c.note), THEATER_WEIYU_EV_MAX.note);
+    const note = soWyLine1(c.note);
     const msg = { t: 'pay', amt };
     if (note) msg.note = note;
     phone.compose = null;
@@ -28067,6 +30058,7 @@ function soWyCsSend(phone, byButton) {
     if (!w || w.phase !== 'live' || w.busy || !w.inp) return;
     const text = w.inp.value;
     if (!text.trim()) return;
+    if (soWyLen(soWyLine1(text)) > THEATER_WEIYU_TYPED_MAX.text) return;   // length limits: over → nothing (the over line is there)
     if (soWyEnvFlight(phone)) {
         phone.toast(THEATER_WEIYU_TEXT.writingElse, { so: true });
         return;
@@ -28166,7 +30158,10 @@ function soWyCsTick(phone, w) {
 function soWyCsSync(phone) {
     const w = phone.wyCall;
     const b = w && w.el ? w.el.querySelector('[data-wy-act="cs-send"]') : null;
-    if (b) b.disabled = !w.inp || !w.inp.value.trim() || w.busy || w.phase !== 'live';
+    // length limits: his line over his ceiling (one line, as flow.js counts it) → the over line above the field row while the call is live
+    const row = w && w.parts ? w.parts.row : null;
+    const over = !!row && !!w.inp && soWyLenMark(phone, row.parentNode, row, THEATER_WEIYU_TYPED_MAX.text, w.phase === 'live' ? soWyLine1(w.inp.value) : '', 'msg');
+    if (b) b.disabled = !w.inp || !w.inp.value.trim() || w.busy || w.phase !== 'live' || over;
 }
 
 // After every page render: the open panel follows the state (a commit from elsewhere, a refresh).
@@ -28283,7 +30278,7 @@ function soWyCsPaint(phone) {
     // the frame, built once per call: head · (video) camera · transcript · foot (field + 发送 · the red hang-up; ended: her hang-up line +
     // 关闭 — the quiet round button of the calling screen)
     if (!w.built) {
-        w.inp = soWyEl(d, 'input', { type: 'text', class: ['wy-input', 'wy-cs-in'], maxlength: String(THEATER_WEIYU_CALL_CAP.said), placeholder: T.csHint,
+        w.inp = soWyEl(d, 'input', { type: 'text', class: ['wy-input', 'wy-cs-in'], placeholder: T.csHint,
             enterkeyhint: 'send', autocomplete: 'off', data: { 'wy-csin': '' }, aria: { label: T.csHint } });
         const send = soWyEl(d, 'button', { type: 'button', class: 'wy-send', data: { 'wy-act': 'cs-send' }, disabled: true, text: T.send });
         send.addEventListener('pointerdown', (e) => { w.ptr = String(e.pointerType || ''); });   // finger or mouse (soWyCsSend's caret rule)
@@ -29103,6 +31098,438 @@ function soWyWordsAiUndo(phone) {
     phone.refresh();
     return true;
 }
+
+// ---- adding contacts by hand (2026-11-21; spec docs/superpowers/specs/2026-11-21-weiyu-add-contact-design.md; the approved mock add-contact/mock/) ---
+// Everything here exists only with env.stages.add === true (the join's ENABLE_THR_WEIYU_ADD); without it the 「+」 menu, the tabs, the contacts
+// and every profile are today's, byte for byte. The form is page {k: 'acform', mode: 'add' | 'edit', pid?, f: {name, origin, about, sig, area}}
+// (the draft lives on the page object); typing never re-renders (soWyAcFormSync updates the counters, the name line, the choice and 添加 / 保存
+// in place). Zero calls: 添加 = soWyAcAdd on a clone → commit 'addcontact' → the new person's profile; 保存 = soWyAcEdit → commit 'acedit' → back.
+// No field carries maxlength: over a ceiling = one line + the button grey, the text untouched (length limits); refusals are red lines.
+
+function soWyAcOn(phone) {
+    const s = phone && phone.env ? phone.env.stages : null;
+    return soWyIsObj(s) && s.add === true;
+}
+
+// A hand-added / list-added person: origin or 人物说明 stored (the profile card and 编辑资料 exist only for them; 开机 people have neither).
+function soWyAcHas(p) {
+    return soWyIsObj(p) && (p.origin === 'story' || p.origin === 'new' || (typeof p.about === 'string' && p.about.trim() !== ''));
+}
+
+const THEATER_WEIYU_AC_FIELDS = Object.freeze(['name', 'about', 'sig', 'area']);
+
+function soWyAcFormOpen(phone) {
+    if (!soWyAcOn(phone)) return;
+    phone.go({ k: 'acform', mode: 'add', f: { name: '', origin: 'story', about: '', sig: '', area: '' } });
+}
+
+// 编辑 › on the profile card: the same page in mode 'edit', filled from the person (the name is shown, not editable — logs and pictures
+// are keyed by it).
+function soWyAcEditOpen(phone, pid) {
+    const p = soWyPerson(soWyEnvState(phone), pid);
+    if (!soWyAcOn(phone) || !p || pid === THEATER_WEIYU_ME || p.gone === 1 || p.extra || !soWyAcHas(p)) return;
+    const s = (v) => (typeof v === 'string' ? v : '');
+    phone.go({ k: 'acform', mode: 'edit', pid, f: { name: p.name, origin: p.origin === 'new' ? 'new' : 'story', about: s(p.about), sig: s(p.sig), area: s(p.area) } });
+}
+
+// The edit page's fields for soWyAcEdit (every key present: an emptied box deletes its key).
+function soWyAcEditFields(f) {
+    const s = (v) => String(v == null ? '' : v);
+    return { origin: f.origin === 'new' ? 'new' : 'story', about: s(f.about), sig: s(f.sig), area: s(f.area) };
+}
+
+// Would 添加 / 保存 land now? (the button's state; the save re-checks on a clone either way)
+function soWyAcValid(state, page) {
+    if (!state || !soWyIsObj(page) || !soWyIsObj(page.f)) return false;
+    if (page.mode === 'edit') return soWyAcEdit(soWyClone(state), page.pid, soWyAcEditFields(page.f));
+    return soWyAcCheck(state, page.f).ok;
+}
+
+function soWyScreenAcForm(phone, page) {
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    const M = THEATER_WEIYU_AC_MAX;
+    const state = soWyMemo(phone).state;
+    if (!state || !state.booted || !soWyAcOn(phone)) return null;
+    const edit = page.mode === 'edit';
+    const p = edit ? soWyPerson(state, page.pid) : null;
+    if (edit && (!p || p.gone === 1 || p.extra || !soWyAcHas(p))) return null;
+    if (!soWyIsObj(page.f)) page.f = { name: edit ? p.name : '', origin: 'story', about: '', sig: '', area: '' };
+    const f = page.f;
+    const story = f.origin !== 'new';
+    const me = soWyPersonName(state, THEATER_WEIYU_ME);
+    const box = (key, label, mark, n, input, extra) => soWyEl(d, 'div', { class: 'wy-ac-f', data: { 'wy-acf': key } },
+        soWyEl(d, 'div', { class: 'wy-ac-lr' }, soWyEl(d, 'span', { class: 'wy-ac-l', text: label }),
+            mark ? soWyEl(d, 'span', { class: mark === 'req' ? 'wy-ac-req' : 'wy-ac-opt', text: mark === 'req' ? T.acReq : T.acOpt }) : null,
+            n ? soWyEl(d, 'span', { class: 'wy-ac-n', text: soWyFmt(T.acCount, { m: soWyLen(f[key]), n }) }) : null),
+        input, extra || null);
+    const field = (key, label, ph) => {
+        const el = soWyEl(d, 'input', { type: 'text', class: 'wy-ac-in', placeholder: ph, data: { 'wy-ac': key }, aria: { label } });
+        el.value = String(f[key] == null ? '' : f[key]);
+        return el;
+    };
+    const ta = soWyEl(d, 'textarea', { class: 'wy-ac-ta', rows: '3', placeholder: soWyFmt(story ? T.acAboutPhStory : T.acAboutPhNew, { me }), data: { 'wy-ac': 'about' }, aria: { label: T.acAbout } });
+    ta.value = String(f.about == null ? '' : f.about);
+    const seg = soWyEl(d, 'div', { class: ['wy-seg', 'wy-ac-seg'], role: 'radiogroup', aria: { label: T.acKind } }, ['story', 'new'].map((v) => {
+        const on = (v === 'new') === !story;
+        return soWyEl(d, 'button', { type: 'button', role: 'radio', class: ['wy-seg-i', on ? 'wy-on' : ''], data: { 'wy-act': 'ac-kind', 'wy-v': v },
+            aria: { checked: on ? 'true' : 'false' }, text: v === 'new' ? T.acNew : T.acStory });
+    }));
+    const done = soWyEl(d, 'button', { type: 'button', class: 'wy-done', data: { 'wy-act': 'ac-save' }, disabled: !soWyAcValid(state, page), text: edit ? T.save : T.acSave });
+    return soWyEl(d, 'div', { class: ['wy-page', 'wy-ac', edit ? 'wy-ac-edit' : ''] },
+        soWyTopBar(phone, { back: true, line: true, title: edit ? T.acEditTitle : T.acAdd, right: done }),
+        soWyEl(d, 'div', { class: 'wy-scroll' },
+            soWyEl(d, 'div', { class: 'wy-ac-sechead', text: T.acSecWho }),
+            soWyEl(d, 'div', { class: 'wy-ac-sec' },
+                edit ? box('name', T.acName, null, 0, soWyEl(d, 'div', { class: 'wy-ac-ro', text: f.name }))
+                    : box('name', T.acName, 'req', M.name, field('name', T.acName, T.acNamePh)),
+                box('kind', T.acKind, null, 0, seg, soWyEl(d, 'div', { class: 'wy-ac-hint', data: { 'wy-ac-hint': '' }, text: story ? T.acHintStory : T.acHintNew })),
+                box('about', T.acAbout, story ? 'opt' : 'req', M.about, ta, soWyEl(d, 'div', { class: ['wy-ac-hint', 'wy-ac-note'], text: T.acNote }))),
+            soWyEl(d, 'div', { class: 'wy-ac-sechead', text: T.acSecCard }),
+            soWyEl(d, 'div', { class: 'wy-ac-sec' },
+                box('sig', T.acSig, 'opt', M.sig, field('sig', T.acSig, T.acSigPh)),
+                box('area', T.acArea, 'opt', M.area, field('area', T.acArea, T.acAreaPh))),
+            edit ? null : soWyEl(d, 'div', { class: 'wy-ac-foot', text: T.acFoot })));
+}
+
+// The name's one line under its box: a refusal (red, the text stays as typed; an existing contact offers 查看资料 ›) or an info line (grey,
+// 添加 stays on). null = no line (empty, fine, or over the ceiling — that one is soWyLenMark's label line).
+function soWyAcNameLine(phone, state, f) {
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    const r = soWyAcName(state, f.name, THEATER_WEIYU_AC_MAX.name);
+    const typed = soWyNameKey(f.name);
+    const err = (text, link) => soWyEl(d, 'div', { class: ['wy-ac-err', 'wy-ac-msg'], role: 'alert' }, soWyEl(d, 'span', { text }), link || null);
+    const info = (text) => soWyEl(d, 'div', { class: ['wy-ac-hint', 'wy-ac-msg'], role: 'status', text });
+    switch (r.why) {
+        case 'me': return err(T.acRefSelf);
+        case 'lead': return err(T.acRefLead);
+        case 'chars': return err(T.acRefChars);
+        case 'group': return err(soWyFmt(T.acRefGroup, { name: r.g }));
+        case 'contact': {
+            const p = soWyPerson(state, r.pid);
+            return err(soWyFmt(T.acRefContact, { name: p ? p.name : typed }),
+                soWyEl(d, 'button', { type: 'button', class: 'wy-link', data: { 'wy-act': 'profile', 'wy-pid': r.pid }, text: T.acSeeProfile }));
+        }
+        default: break;
+    }
+    if (r.info === 'extra') {
+        const p = soWyPerson(state, r.pid);
+        return info(soWyFmt(T.acInfoExtra, { name: p ? p.name : typed }));
+    }
+    if (r.info === 'gone') return info(soWyFmt(T.acInfoGone, { name: typed }));
+    return null;
+}
+
+// Everything of the form that follows the draft, in place: the counters (red over the ceiling) and the label lines, the name's line and red
+// box, the choice, the 人物说明 tag / hint / placeholder, the button. → true when the draft would land.
+function soWyAcFormSync(phone) {
+    const page = phone.stack[phone.stack.length - 1];
+    const el = phone.pageEl;
+    if (!el || !soWyIsObj(page) || page.k !== 'acform' || !soWyIsObj(page.f)) return false;
+    const T = THEATER_WEIYU_TEXT;
+    const M = THEATER_WEIYU_AC_MAX;
+    const state = soWyEnvState(phone);
+    if (!state) return false;
+    const f = page.f;
+    const story = f.origin !== 'new';
+    const at = (k) => el.querySelector('[data-wy-acf="' + k + '"]');
+    for (const k of THEATER_WEIYU_AC_FIELDS) {
+        const b = at(k);
+        if (!b || (k === 'name' && page.mode === 'edit')) continue;
+        const m = soWyLen(f[k]);
+        const n = b.querySelector('.wy-ac-n');
+        if (n) {
+            const t = soWyFmt(T.acCount, { m, n: M[k] });
+            if (n.textContent !== t) n.textContent = t;
+            n.classList.toggle('wy-ac-n-over', m > M[k]);
+        }
+        soWyLenMark(phone, b, k === 'about' ? b.querySelector('.wy-ac-note') : null, M[k], f[k], 'field');
+    }
+    const nb = page.mode !== 'edit' ? at('name') : null;
+    if (nb) {
+        const old = nb.querySelector('.wy-ac-msg');
+        const line = soWyAcNameLine(phone, state, f);
+        if (!line) {
+            if (old) old.remove();
+        } else if (!old || old.className !== line.className || old.textContent !== line.textContent) {
+            if (old) old.replaceWith(line);
+            else nb.appendChild(line);
+        }
+        const inp = nb.querySelector('[data-wy-ac="name"]');
+        if (inp) inp.classList.toggle('wy-ac-bad', !!line && line.classList.contains('wy-ac-err'));
+    }
+    // the choice: the two buttons, the hint under them, the 人物说明 tag and placeholder
+    for (const b of el.querySelectorAll('[data-wy-act="ac-kind"]')) {
+        const on = (b.getAttribute('data-wy-v') === 'new') === !story;
+        b.classList.toggle('wy-on', on);
+        b.setAttribute('aria-checked', on ? 'true' : 'false');
+    }
+    const hint = el.querySelector('[data-wy-ac-hint]');
+    if (hint) hint.textContent = story ? T.acHintStory : T.acHintNew;
+    const ab = at('about');
+    const tag = ab ? ab.querySelector('.wy-ac-req, .wy-ac-opt') : null;
+    if (tag) {
+        tag.className = story ? 'wy-ac-opt' : 'wy-ac-req';
+        tag.textContent = story ? T.acOpt : T.acReq;
+    }
+    const ta = ab ? ab.querySelector('[data-wy-ac="about"]') : null;
+    if (ta) ta.setAttribute('placeholder', soWyFmt(story ? T.acAboutPhStory : T.acAboutPhNew, { me: soWyPersonName(state, THEATER_WEIYU_ME) }));
+    const ok = soWyAcValid(state, page);
+    const done = el.querySelector('[data-wy-act="ac-save"]');
+    if (done) done.disabled = !ok;
+    return ok;
+}
+
+// The form's fields (input events; never a re-render, so the caret and the IME stay where they are).
+function soWyAcEvent(phone, type, ev, cur) {
+    const t = ev.target;
+    if (type !== 'input' || !t || typeof t.matches !== 'function' || !t.matches('[data-wy-ac]') || !soWyIsObj(cur.f)) return false;
+    const k = t.getAttribute('data-wy-ac');
+    if (!THEATER_WEIYU_AC_FIELDS.includes(k) || (k === 'name' && cur.mode === 'edit')) return false;
+    cur.f[k] = t.value;
+    soWyAcFormSync(phone);
+    return true;
+}
+
+// 故事里的人 / 故事外的新人
+function soWyAcKind(phone, page, v) {
+    if (!soWyIsObj(page.f) || (v !== 'story' && v !== 'new')) return;
+    page.f.origin = v;
+    soWyAcFormSync(phone);
+}
+
+// 添加 / 保存 (zero calls). A refusal leaves the page and every typed character as they are (the lines say why).
+function soWyAcSave(phone, page) {
+    const st = soWyEnvState(phone);
+    if (!st || !soWyIsObj(page) || !soWyIsObj(page.f) || !soWyAcOn(phone)) return;
+    const c = soWyClone(st);
+    if (page.mode === 'edit') {
+        if (!soWyAcEdit(c, page.pid, soWyAcEditFields(page.f))) {
+            soWyAcFormSync(phone);
+            return;
+        }
+        phone.env.commit(c, 'acedit');
+        phone.back();
+        return;
+    }
+    const r = soWyAcAdd(c, page.f);
+    if (!r) {
+        soWyAcFormSync(phone);
+        return;
+    }
+    phone.env.commit(c, 'addcontact');
+    // the form gives way to the new person's profile (返回 from there = where the 「+」 was)
+    soWyMenuDrop(phone);
+    phone.stack.pop();
+    phone.go({ k: 'profile', pid: r.pid });
+}
+
+// The profile's 人物说明 card (the mock's D1): the text only the AI reads, marked so, with 编辑 › into 编辑资料.
+function soWyAcDescCard(phone, p) {
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    const v = typeof p.about === 'string' && p.about.trim() ? p.about : T.unset;
+    return soWyEl(d, 'div', { class: 'wy-ac-desc', role: 'button', tabindex: '0', data: { 'wy-act': 'ac-edit', 'wy-pid': p.id } },
+        soWyEl(d, 'div', { class: 'wy-ac-desc-b' }, soWyEl(d, 'div', { class: 'wy-k', text: T.acCardHead }), soWyEl(d, 'div', { class: 'wy-ac-desc-v', text: v })),
+        soWyEl(d, 'span', { class: 'wy-ac-chev' }, T.acEdit, soWyIcon(d, 'chevron-right')));
+}
+
+// ---- 从故事里找人: the one page (pass B, 2026-11-21; the approved mock's C1–C6b) ------------------------------------------------------------
+// Only with env.stages.find === true (the join's ENABLE_THR_WEIYU_FIND ∧ ADD). page = {k: 'acfind', st, res?, why?, added: [name]} — st is
+// 'start' (opening costs nothing) · 'run' (ONE request in the air; 停止 beside it) · 'list' · 'none' (a valid empty answer: a calm success) ·
+// 'fail' (the cause line) · 'stopped'; res = the call's DRAFT (soWyFindMatch: rows / have / drop), kept on the page object only. Nothing joins
+// the phone until 添加 on a row (soWyAcFindAdd: one commit, zero calls, NO chat); stop / failure / leaving the page store nothing (leaving while
+// running stops the request — soWyAfterRender → soWyAcFindLeft; a result for a page no longer on top is dropped). 完成 (or ‹ after an add) →
+// 通讯录, where the people just added wear 「新」 (phone.acFresh, memory only; opening a profile clears it).
+const THEATER_WEIYU_AC_FIND_ST = Object.freeze(['start', 'run', 'list', 'none', 'fail', 'stopped']);
+
+function soWyAcFindOn(phone) {
+    return soWyAcOn(phone) && phone.env.stages.find === true;
+}
+
+function soWyAcFindOpen(phone) {
+    if (soWyAcFindOn(phone)) phone.go({ k: 'acfind' });
+}
+
+// A letter tile for someone not on the phone yet (the 开机 recipe: soWyAvLabel + the stable hue the person will have).
+function soWyAcFindTile(phone, name, size) {
+    const d = phone.host.ownerDocument;
+    const ch = soWyAvLabel(name);
+    const hue = typeof soWyBootHue === 'function' ? soWyBootHue(name) : 0;
+    const av = soWyEl(d, 'span', { class: ['wy-av', 'wy-hue-' + hue, 'wy-av-t', Array.from(ch).length === 2 ? 'wy-av-two' : ''], text: ch });
+    av.style.setProperty('--wy-av-size', size + 'px');
+    return av;
+}
+
+// One row of the list: picture · name + tags · (a group clash's reason) · 来自 · “签名” · where the text mentions them (code-made) · 添加 / 已添加.
+function soWyAcFindRow(phone, state, page, r, i) {
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    const now = soWyAcName(state, r.name, THEATER_WEIYU_AC_MAX.name);
+    const done = r.add !== 'none' && (page.added.includes(r.name) || now.why === 'contact');
+    const known = soWyFindPerson(state, r.name);
+    const av = known && known !== THEATER_WEIYU_ME ? soWyAvatarEl(phone, known, 44) : soWyAcFindTile(phone, r.name, 44);
+    const tag = (t) => {
+        const warn = t.k === 'gone' || t.k === 'near';
+        const text = t.k === 'extra' ? T.acTagExtra : t.k === 'gone' ? T.acTagGone : soWyFmt(T.acTagNear, { name: t.w });
+        return soWyEl(d, 'span', { class: ['wy-obs', 'wy-ac-tag', warn ? 'wy-ac-tag-warn' : ''], text });
+    };
+    const ex = soWyIsObj(r.ex) ? r.ex : { floor: null, text: '' };
+    return soWyEl(d, 'div', { class: ['wy-ac-cand', done ? 'wy-ac-done' : '', r.add === 'none' ? 'wy-ac-cant' : ''] }, av,
+        soWyEl(d, 'div', { class: 'wy-ac-body' },
+            soWyEl(d, 'div', { class: 'wy-ac-nl' }, soWyEl(d, 'span', { class: 'wy-ac-nm', text: r.name }), (Array.isArray(r.tags) ? r.tags : []).map(tag)),
+            r.add === 'none' ? soWyEl(d, 'div', { class: 'wy-ac-why', text: soWyFmt(T.acFindGroup, { name: r.g || r.name }) }) : null,
+            r.area ? soWyEl(d, 'div', { class: 'wy-ac-from', text: soWyFmt(T.acFindFrom, { area: r.area }) }) : null,
+            r.sig ? soWyEl(d, 'div', { class: 'wy-ac-sig', text: soWyFmt(T.acFindSig, { sig: r.sig }) }) : null,
+            soWyEl(d, 'div', { class: 'wy-ac-ex' }, soWyEl(d, 'span', { class: 'wy-ac-ex-t' },
+                Number.isFinite(ex.floor) ? soWyEl(d, 'b', { text: soWyFmt(T.acFindFloor, { n: ex.floor }) }) : null,
+                (Number.isFinite(ex.floor) ? ' · ' : '') + String(ex.text || '')))),
+        r.add === 'none' ? null : done ? soWyEl(d, 'span', { class: 'wy-ac-added', text: T.acFindAdded })
+            : soWyEl(d, 'button', { type: 'button', class: 'wy-ac-add', data: { 'wy-act': 'ac-add', 'wy-i': i }, aria: { label: soWyFmt(T.acFindAddAria, { name: r.name }) }, text: T.acFindAdd }));
+}
+
+function soWyScreenAcFind(phone, page) {
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    const state = soWyMemo(phone).state;
+    if (!state || !state.booted || !soWyAcFindOn(phone)) return null;
+    if (!THEATER_WEIYU_AC_FIND_ST.includes(page.st)) page.st = 'start';
+    if (!Array.isArray(page.added)) page.added = [];
+    const res = soWyIsObj(page.res) && Array.isArray(page.res.rows) ? page.res : null;
+    const st = (page.st === 'list' || page.st === 'none') && !res ? 'start' : page.st;
+    const have = res && Array.isArray(res.have) ? res.have : [];
+    const intro = () => soWyEl(d, 'div', { class: 'wy-ac-intro' },
+        soWyEl(d, 'span', { class: 'wy-ac-badge' }, soWyIcon(d, 'person-find')),
+        soWyEl(d, 'div', null, soWyEl(d, 'div', { class: 'wy-ac-intro-t', text: T.acFindIntroT }), soWyEl(d, 'div', { class: 'wy-ac-intro-d', text: T.acFindIntroD })));
+    const go = (label) => soWyEl(d, 'div', { class: 'wy-ac-run' },
+        soWyEl(d, 'button', { type: 'button', class: 'wy-words-aibtn', data: { 'wy-act': 'ac-find' } }, soWyIcon(d, 'person-find'), soWyEl(d, 'span', { text: label })),
+        soWyEl(d, 'div', { class: 'wy-words-aicost', text: T.acFindCost }));
+    const result = (icon, t, text, bad, extra) => soWyEl(d, 'div', { class: 'wy-ac-res', role: 'status' },
+        soWyEl(d, 'span', { class: 'wy-ac-res-ic' }, soWyIcon(d, icon)),
+        soWyEl(d, 'div', { class: ['wy-ac-res-t', bad ? 'wy-ac-bad' : ''], text: t }),
+        soWyEl(d, 'div', { class: 'wy-ac-res-d', text }), extra || null);
+    let body;
+    if (st === 'run') {
+        body = [intro(),
+            soWyEl(d, 'div', { class: 'wy-ac-run' },
+                soWyEl(d, 'div', { class: 'wy-words-airow' },
+                    soWyEl(d, 'button', { type: 'button', class: 'wy-words-aibtn', disabled: true },
+                        soWyEl(d, 'span', { class: 'wy-ac-dots', aria: { hidden: 'true' } }, soWyEl(d, 'i'), soWyEl(d, 'i'), soWyEl(d, 'i')), soWyEl(d, 'span', { text: T.acFindRun })),
+                    typeof phone.env.stop === 'function' ? soWyEl(d, 'button', { type: 'button', class: 'wy-words-aistop', data: { 'wy-act': 'ac-stop' }, text: T.stop }) : null),
+                soWyEl(d, 'div', { class: 'wy-words-aicost', text: T.acFindRunNote })),
+            soWyEl(d, 'div', { class: 'wy-ac-listhead', text: T.acFindPh }),
+            [0, 1, 2].map(() => soWyEl(d, 'div', { class: 'wy-ac-skel', aria: { hidden: 'true' } },
+                soWyEl(d, 'span', { class: 'wy-ac-skel-av' }), soWyEl(d, 'span', { class: 'wy-ac-skel-l' }, soWyEl(d, 'i'), soWyEl(d, 'i'), soWyEl(d, 'i'))))];
+    } else if (st === 'list') {
+        body = [soWyEl(d, 'div', { class: 'wy-ac-listhead', text: soWyFmt(T.acFindList, { n: res.rows.length }) }),
+            res.rows.map((r, i) => soWyAcFindRow(phone, state, page, r, i)),
+            have.length ? soWyEl(d, 'div', { class: 'wy-ac-have', text: soWyFmt(T.acFindHave, { names: have.join('、') }) }) : null,
+            soWyEl(d, 'div', { class: 'wy-ac-more' },
+                soWyEl(d, 'button', { type: 'button', class: 'wy-link', data: { 'wy-act': 'ac-find' }, text: T.acFindMore }),
+                soWyEl(d, 'div', { class: 'wy-words-aicost', text: T.acFindMoreCost }))];
+    } else if (st === 'none') {
+        body = [intro(), result('contact', T.acNoneT, T.acNoneD, false, [
+            soWyEl(d, 'button', { type: 'button', class: 'wy-link', data: { 'wy-act': 'ac-self' }, text: T.acNoneSelf }),
+            have.length ? soWyEl(d, 'div', { class: 'wy-ac-res-have', text: soWyFmt(T.acNoneHave, { names: have.join('、') }) }) : null]), go(T.acNoneAgain)];
+    } else if (st === 'fail') {
+        // the cause line without the join's 「错误：」 lead (the red title already says it failed) and without its own full stop
+        const reason = String(page.why || '').trim().replace(/^错误[：:]\s*/, '').replace(/[。．.！!]+$/, '');
+        body = [intro(), result('warning', T.acFailT, reason ? soWyFmt(T.acFailD, { reason }) : T.acFailD.split('{reason}。').join(''), true), go(T.acRetry)];
+    } else if (st === 'stopped') {
+        body = [intro(), result('contact', T.acStopT, T.acStopD, false), go(T.acFindGo)];
+    } else {
+        body = [intro(), go(T.acFindGo)];
+    }
+    const right = page.added.length ? soWyEl(d, 'button', { type: 'button', class: 'wy-done', data: { 'wy-act': 'ac-done' }, text: T.done }) : null;
+    return soWyEl(d, 'div', { class: ['wy-page', 'wy-ac', 'wy-ac-find', 'wy-ac-find-' + st] },
+        soWyTopBar(phone, { back: true, line: true, title: T.acFind, right }),
+        soWyEl(d, 'div', { class: 'wy-scroll' }, body));
+}
+
+// 开始找人 / 再找一次 / 再试一次 = ONE request (soWyCall 'find' through env.call). Another request in the air → the phone's busy toast, nothing
+// sent. The answer lands only on this page while it is still on top.
+async function soWyAcFindRun(phone, page) {
+    if (phone.dead || !soWyAcFindOn(phone) || !soWyIsObj(page) || page.st === 'run') return;
+    const T = THEATER_WEIYU_TEXT;
+    if (soWyEnvFlight(phone)) {
+        phone.toast(T.writingElse, { so: true });
+        return;
+    }
+    const prev = page.st;
+    page.st = 'run';
+    page.why = '';
+    phone.acRun = page;
+    phone.refresh();
+    let r;
+    try {
+        r = await phone.env.call('find', {});
+    } catch (e) {
+        r = { error: soWyErrText(e) };
+    }
+    if (phone.acRun === page) phone.acRun = null;
+    if (phone.dead || phone.stack[phone.stack.length - 1] !== page) return;   // left / closed: a late result is dropped (nothing was stored)
+    const x = soWyIsObj(r) ? r : {};
+    if (x.ok && soWyIsObj(x.draft) && Array.isArray(x.draft.rows)) {
+        page.res = x.draft;
+        page.st = x.draft.rows.length ? 'list' : 'none';
+    } else if (x.busy) {
+        page.st = prev;
+        phone.toast(T.writingElse, { so: true });
+    } else if (typeof x.wait === 'string' && x.wait) {
+        page.st = prev;
+        phone.toast(T.wait + x.wait, { so: true });
+    } else if (x.aborted) {
+        page.st = 'stopped';
+    } else {
+        page.st = 'fail';
+        page.why = soWyCauseLine(x);
+    }
+    phone.refresh();
+}
+
+function soWyAcFindStop(phone) {
+    if (typeof phone.env.stop !== 'function') return;
+    try {
+        phone.env.stop();
+    } catch (e) { /* the frame's stop never breaks the phone */ }
+}
+
+// The page whose request is in the air went away (soWyAfterRender): stop it; its answer is dropped when it lands.
+function soWyAcFindLeft(phone) {
+    phone.acRun = null;
+    soWyAcFindStop(phone);
+}
+
+// 添加 on row i (zero calls): re-checked against the phone NOW (soWyAcAddFound on a clone); one commit; the row reads 已添加; a toast offers
+// 发消息 (the private chat is made only if he taps it); 完成 appears. Refused (a contact meanwhile, a group clash) → nothing changes.
+function soWyAcFindAdd(phone, page, i) {
+    const T = THEATER_WEIYU_TEXT;
+    const rows = soWyIsObj(page.res) && Array.isArray(page.res.rows) ? page.res.rows : [];
+    const r = Number.isInteger(i) && i >= 0 ? rows[i] : null;
+    if (!soWyIsObj(r) || r.add === 'none' || page.st !== 'list' || !soWyAcFindOn(phone)) return;
+    if (!Array.isArray(page.added)) page.added = [];
+    if (page.added.includes(r.name)) return;
+    const st = soWyEnvState(phone);
+    if (!st) return;
+    const c = soWyClone(st);
+    const pid = soWyAcAddFound(c, r);
+    if (!pid) {
+        phone.refresh();
+        return;
+    }
+    phone.env.commit(c, 'addcontact');
+    page.added.push(r.name);
+    if (!phone.acFresh || typeof phone.acFresh.add !== 'function') phone.acFresh = new Set();
+    phone.acFresh.add(pid);
+    phone.refresh();
+    phone.toast(soWyFmt(T.acFindToast, { name: r.name }), { ms: THEATER_WEIYU_TIMING.undoMs, action: { label: T.dm, fn: () => soWyProfileDm(phone, pid) } });
+}
+
+// 完成 (and ‹ after an add): the 通讯录 tab, where the people just added wear 「新」.
+function soWyAcFindDone(phone) {
+    phone.home('contacts');
+}
 /* <</WEIYU:ui-screens>> */
 /* <<WEIYU:ui-boot>> */
 // [WEIYU] ui-boot — spliced verbatim into index.js by the join plan; edit HERE, re-splice, never hand-edit the copy.
@@ -29622,6 +32049,7 @@ async function soThrWeiyuGenerate(req, ctl, o) {
     const opt = (o && typeof o === 'object') ? o : {};
     const clean = (t) => soWyPreClean(t, { reasoning: stripReasoningTags, tail: soThrScMoreClean });
     const live = soThrWeiyuLiveStart();   // 状态行一秒一跳 + 停止键（Task 4）
+    if (soThrWeiyuFindOn()) soThrWeiyuFindIsland(live, rq);   // 💬 从故事里找人（ENABLE_THR_WEIYU_FIND）：find 那一趟顶上写「正在从故事里找人…」。旗关 = 没有这一行。
     let relayCard = null;
     try {
         const ctx = getCtx();
@@ -29639,6 +32067,8 @@ async function soThrWeiyuGenerate(req, ctl, o) {
             opts.history = [];
             if (!opts.usePreset) opts.systemText = String(rq.system == null ? '' : rq.system);
         }
+        if (soThrWeiyuFindOn()) soThrWeiyuFindOpts(rq, opts);   // 💬 从故事里找人（ENABLE_THR_WEIYU_FIND）：find 那一趟只带故事正文（不拼角色卡、不带世界书）。旗关 = 没有这一行。
+        if (soThrWeiyuSyncEveryOn()) soThrWeiyuDivide(opts, ctx, s, rq);   // 💬 每几次回复更新一次：多楼同步的分隔线进这一趟的故事历史（只有块交来 req.divider 时）。旗关 = 没有这一行。
         const conc = opt.postReply !== true && soThrConcOn();
         if (opt.postReply === true) opts.fromPostReply = true;   // 旧路（回复后编排自己的一步）
         else if (conc) {
@@ -30217,6 +32647,10 @@ function soThrWeiyuEnv() {
         stages: { sync: soThrWeiyuSyncOn(), tell: soThrWeiyuTellOn(), more: soThrWeiyuMoreOn(), events: soThrWeiyuEventsOn(), callscene: soThrWeiyuCallsceneOn(), mem: soThrWeiyuMemoryOn() },
         onMotion: (v) => soThrWeiyuMotionMirror(v),   /* MOTION (lane M)：手机的动画旗 → 外框 */
     };
+    if (soThrWeiyuAddOn()) env.stages.add = true;   // 💬 手动添加联系人（ENABLE_THR_WEIYU_ADD）：「+」里的「添加朋友」、表单、资料卡的人物说明。旗关 = 没有这个键。
+    if (soThrWeiyuFindOn()) env.stages.find = true;   // 💬 从故事里找人（ENABLE_THR_WEIYU_FIND）：「+」里的「从故事里找人」那一页。旗关 = 没有这个键。
+    if (soThrWeiyuAutoReplyOn()) env.stages.autoReply = true;   // 💬 AI 自动回复开关（ENABLE_THR_WEIYU_AUTOREPLY）：输入框上方那一行 + 「AI 现在回复」。旗关 = 没有这个键。
+    if (soThrWeiyuSyncEveryOn()) env.stages.syncEvery = true;   // 💬 每几次回复更新一次（ENABLE_THR_WEIYU_SYNC_EVERY）：「跟着剧情更新」下面那一行数字框。旗关 = 没有这个键。
     // 💬 世界用语（ENABLE_THR_WEIYU_WORDS）：store = 存着的表的副本（原样，可能是更新版本的）· save(整张表) → 存没存 · ready = 就绪表。旗关 = 没有这个键。
     if (soThrWeiyuWordsOn()) env.words = { store: () => { const w = soThrWeiyuWordsStore(); return w == null ? null : soWyClone(w); }, save: (store) => soThrWeiyuWordsSave(store), ready: () => soThrWeiyuWordsReady() };
     // 💬 世界用语 起名（ENABLE_THR_WEIYU_WORDS_AI）：ai = 有那个按钮 · lore() = 这一次会发的设定（soThrWeiyuWordsLore，每次现读；只在玩家看 / 按时调）。旗关 = 没有这两个键。
@@ -30257,7 +32691,40 @@ function soThrWeiyuDeps(o) {
     // 💬 世界用语 第二步（ENABLE_THR_WEIYU_WORDS_PHONE）：这一趟的那一套（请求按它写、回复按它读）；没有 = 不给这个键（与第一步的 deps 一样）
     if (soThrWeiyuWordsPhoneOn()) { const w = soThrWeiyuWordsPhone(soThrWeiyuState()); if (w) d.words = w; }
     if (typeof opt.onProgress === 'function') d.onProgress = opt.onProgress;
+    if (soThrWeiyuAddOn()) d.ac = true;   // 💬 手动添加联系人（ENABLE_THR_WEIYU_ADD）：【人】行带人物说明 +「还没在故事里出现过」（只在存了这两样的人身上）。旗关 = 没有这个键。
+    if (soThrWeiyuFindOn()) d.findSource = () => soThrWeiyuFindSource();   // 💬 从故事里找人（ENABLE_THR_WEIYU_FIND）：块的 soWyFindCall 按一次读一次（这一趟发出去的故事楼层）。旗关 = 没有这个键。
+    if (soThrWeiyuAutoReplyOn()) d.autoReply = true;   // 💬 AI 自动回复开关（ENABLE_THR_WEIYU_AUTOREPLY）：零调用的 put（只存玩家发的，不发请求）。旗关 = 没有这个键。
     return d;
+}
+// 💬 从故事里找人（ENABLE_THR_WEIYU_FIND；spec 2026-11-21-weiyu-add-contact-design.md §6）：这一趟 find 请求实际带上的文字，块拿它核对名单里的
+// 每一个名字（不在里面 = 不列出）并截出处。floors = 主聊天里会发出去的楼（非系统楼、剥机制块；n = 楼号 = 聊天里的下标），与 soThrSceneHistory
+// 同一条规矩：「读最近几楼」为 0 → 一楼都不带；神谕自己的路 + 大于 0 → 只留最后那几楼；跟预设走 → 全部交出（预设自己裁）。
+// 只认故事楼层（Prince 2026-11-21「只发故事正文」）：角色卡、世界书里才有的人一律不列——手动添加照样能加他们。
+// 纯读，绝不抛（出错 = 空）。
+function soThrWeiyuFindSource() {
+    let ctx = null;
+    try { ctx = getCtx() || {}; } catch (e) { ctx = {}; }
+    const s = getSettings();
+    let floors = [];
+    if (!soThrDepthNone(s && s.contextDepth)) {
+        const chat = Array.isArray(ctx.chat) ? ctx.chat : [];
+        chat.forEach((m, i) => { if (m && !m.is_system && typeof m.mes === 'string') floors.push({ n: i, text: stripMechanismBlocks(m.mes) }); });
+        let usePreset = false;
+        try { usePreset = !!soThrUsePreset(s, ctx); } catch (e) { usePreset = false; }
+        const depth = Number(s && s.contextDepth);
+        if (!usePreset && Number.isFinite(depth) && depth > 0) floors = floors.slice(-depth);
+    }
+    return { floors };
+}
+// 💬 从故事里找人：find 这一趟（只它）只带 找人的请求 + 故事楼层 + 玩家那一格，不管小剧场的世界书设置是什么。
+// 神谕自己的路：系统 = 块的那一句（不拼 soThrSceneSoSystem 的角色卡、世界书两段；同 sum 那一趟的写法）。
+// 跟酒馆预设走：请求由 ST 照预设拼——ST 的世界书扫描换成一份空的神谕世界书（引擎选项 wi，与实时请求 L2 同形：引擎因此不跑 ST 的扫描、
+// 照旧挪开主线的世界书和作者注释）；角色卡是预设自己拼进去的（卡片字段、宏、人设），这条路去不掉——名单核对只认楼层，卡里才有的人照样不列。
+// 别的 kind 原样返回，一个键都不动。
+function soThrWeiyuFindOpts(rq, opts) {
+    if (!rq || rq.kind !== 'find' || !opts || typeof opts !== 'object') return;
+    if (!opts.usePreset) opts.systemText = String(rq.system == null ? '' : rq.system);
+    else opts.wi = () => ({ before: '', after: '' });
 }
 
 /* —— 💬 世界用语 · 起名（ENABLE_THR_WEIYU_WORDS_AI；spec 2026-11-18-world-wording-design.md §7.1 / §7.4；plan Task 13 + addendum S7-1 … S7-6）——
@@ -30319,6 +32786,67 @@ async function soThrWeiyuWordsOnce(opts) {
  * 同步的提示词和回复格式全在块里：这里只调 soWyCall('sync') 和增量表的函数，从不自己拼 / 解析同步文字。
  * floor = 那条回复在 ctx.chat 里的下标（ST 的楼号）；swipe = msg.swipe_id（缺 = 0）；key = 那个 swipe 正文的哈希（自动场景的快照记号剥掉）。 */
 function soThrWeiyuSyncOn() { return ENABLE_THR_WEIYU_SYNC && soThrWeiyuOn(); }
+// 每几次回复更新一次（ENABLE_THR_WEIYU_SYNC_EVERY）：数数 / 盖几楼 / 撤回后回到数里都在块里（delta.js soWySyncGate 一节）；这里只在下面几行带着旗调它。
+function soThrWeiyuSyncEveryOn() { return ENABLE_THR_WEIYU_SYNC_EVERY && soThrWeiyuSyncOn(); }
+/* 分隔线（owner #166 / #167，2026-11-21）：一趟盖住 n ≥ 2 楼的同步，在它带的故事历史里放【一条】分隔线（块的 THEATER_WEIYU_SYNC_DIVIDER，
+ * role system——神谕路发成一条 system 消息，预设路由 soThrShapeHistory 变成 ST 的旁白消息，同 IF 的分隔线），放在手机还没跟上的第一条故事
+ * 回复前面；它前面紧挨着的是玩家引出它的那一句 = 放在那一句前面。历史 = 小剧场今天发的那一份（soThrSceneHistory 的主线那一支：非系统楼、
+ * 剥机制块、神谕路按「读最近几楼」裁，预设路全给、由预设自己排）。裁剩的历史里分隔线前面一楼都没有（全是手机没跟上的）/ 根本不带历史 =
+ * 不放分隔线，块用「上文的剧情，手机都还没跟上」那一版开头。只在旗开、n ≥ 2 时有；别处一个字节都不动。 */
+// 小剧场此刻会发的主线历史（soThrSceneHistory 主线那一支的同一条规矩），每条带它在 ctx.chat 里的下标。→ { hist, idx }。
+function soThrWeiyuSyncWindow(ctx, s, usePreset) {
+    if (soThrDepthNone(s && s.contextDepth)) return { hist: [], idx: [] };
+    const chat = ctx && Array.isArray(ctx.chat) ? ctx.chat : [];
+    const hist = [];
+    const idx = [];
+    chat.forEach((m, i) => {
+        if (!m || m.is_system || typeof m.mes !== 'string') return;
+        hist.push({ role: m.is_user ? 'user' : 'assistant', name: typeof m.name === 'string' ? m.name : '', text: stripMechanismBlocks(m.mes) });
+        idx.push(i);
+    });
+    const depth = Number(s && s.contextDepth);
+    const trim = (!usePreset && Number.isFinite(depth) && depth > 0) ? depth : 0;
+    return trim ? { hist: hist.slice(-trim), idx: idx.slice(-trim) } : { hist, idx };
+}
+// 分隔线落在 ctx.chat 的哪个下标前面（floor = 这一趟锚定的那条回复，n = 它盖住几楼）；发出去的历史里它前面没有任何一条 = null（不放）。
+function soThrWeiyuSyncAt(ctx, s, floor, n) {
+    const chat = ctx && Array.isArray(ctx.chat) ? ctx.chat : [];
+    const f0 = Number(floor);
+    if (!Number.isSafeInteger(n) || n < 2 || !Number.isInteger(f0) || f0 < 0 || f0 >= chat.length) return null;
+    let first = -1;
+    let seen = 0;
+    for (let i = f0; i >= 0 && seen < n; i--) {
+        const m = chat[i];
+        if (m && !m.is_user && !m.is_system) { first = i; seen++; }
+    }
+    if (first < 0) return null;
+    const before = chat[first - 1];
+    const at = before && before.is_user && !before.is_system ? first - 1 : first;   // 玩家引出它的那一句一起算在线以下
+    let usePreset = false;
+    try { usePreset = !!soThrUsePreset(s, ctx); } catch (e) { usePreset = false; }
+    const w = soThrWeiyuSyncWindow(ctx, s, usePreset);
+    const p = w.idx.findIndex((i) => i >= at);
+    return p > 0 ? at : null;
+}
+// 剧情同步那一趟交给块的 args（今天的三个键 + 盖几楼 n + 分隔线的下标 at，只在会放分隔线时有）。
+function soThrWeiyuSyncArgs(ctx, s, floor, swipe, key, n) {
+    const a = { floor, swipe, key, n };
+    const at = soThrWeiyuSyncAt(ctx, s, floor, n);
+    if (at !== null) a.at = at;
+    return a;
+}
+// soThrWeiyuGenerate 里：块交来的 req.divider = {at, text} → 放进这一趟的历史（opts.history 正是 soThrWeiyuSyncWindow 那一份时才放；
+// 对不上 = 不动）。→ 放没放。
+function soThrWeiyuDivide(opts, ctx, s, rq) {
+    const dv = rq && rq.divider;
+    if (!dv || typeof dv.text !== 'string' || !dv.text || !Number.isSafeInteger(dv.at) || !opts || !Array.isArray(opts.history)) return false;
+    const w = soThrWeiyuSyncWindow(ctx, s, !!opts.usePreset);
+    if (JSON.stringify(w.hist) !== JSON.stringify(opts.history)) return false;
+    const p = w.idx.findIndex((i) => i >= dv.at);
+    if (!(p > 0)) return false;
+    opts.history = opts.history.slice(0, p).concat([{ role: 'system', name: '', text: dv.text }], opts.history.slice(p));
+    return true;
+}
 function soThrWeiyuSwipeOf(msg) { return msg && Number.isInteger(msg.swipe_id) ? msg.swipe_id : 0; }
 // 最后一条 AI 回复的下标（不是玩家、不是系统）；没有 = -1。
 function soThrWeiyuLastAiFloor(chat) {
@@ -30361,6 +32889,7 @@ function soThrWeiyuApplyOn(st, ev) {
     if (soThrWeiyuSame(st, e)) return { sync: null, same: true };
     // 同一楼上已经有一份没定稿的增量，又来一条「新回复」= 这一楼被重写了 → 按重新生成处理（一楼永远只有一份活的增量）
     if (e.type === 'reply' && soWyDeltaLive(st, floor)) e.type = 'regen';
+    const prev = soThrWeiyuSyncEveryOn() ? soWyDeltaLive(st, floor) : null;   // 💬 每几次回复更新一次：表跑之前这一楼活的增量（块的 soWySyncGate 读它）
     // 划回去的那个 swipe 的暂存是给另一段正文做的（正文改过了）→ 先丢掉，不还原
     if (e.type === 'swipe-back' && e.key != null && soWyIsObj(st.alts) && st.alts.floor === floor && soWyIsObj(st.alts.bySwipe)
         && soWyOwn(st.alts.bySwipe, String(e.swipe))) {
@@ -30374,6 +32903,7 @@ function soThrWeiyuApplyOn(st, ev) {
         }
     }
     const r = soWyDeltaRun(st, soWyDeltaPlan(st, e));
+    if (soThrWeiyuSyncEveryOn() && r) r.sync = soWySyncGate(st, e, r.sync || null, prev);   // 💬 每几次回复更新一次：数满 N 条才同步（带上盖几楼 n）；不够 = null
     const sync = r && r.sync ? r.sync : null;
     // 新的同步要落在这一楼，而这一楼还有一份活的增量（被碰过，表留下了它）→ 先把它定稿，再让新的一份落在上面
     if (sync && soWyDeltaLive(st, Number(sync.floor))) soWyDeltaFold(st, Number(sync.floor) + 1);
@@ -30446,6 +32976,7 @@ function soThrWeiyuReconcile(st, chat) {
         if (Number(d.floor) === altsFloor) altsTo = at;   // 同一楼的暂存属于同一条回复
         if (at < 0) {
             if (soWyDeltaRevert(st, d.id, false)) changed = true;   // 表的「删」：没碰过 = 撤回（不暂存）；碰过 = 留下
+            if (soThrWeiyuSyncEveryOn() && !(Array.isArray(st.deltas) && st.deltas.includes(d)) && soWySyncWaitBack(st, d)) changed = true;   // 💬 每几次回复更新一次：它盖住的别的楼回到数里
             continue;
         }
         taken.add(at);
@@ -30610,7 +33141,8 @@ async function soThrWeiyuSyncStep(ctx, s, idx, o) {
             const deps = soThrWeiyuDeps(soThrParallelOn() ? { postReply: true, report, onRun: (run) => { syncRun = run; } } : { postReply: true, report });
             // 块自己的过期判断也认这几条：回复被划走 / 被取代 / 换了聊天 → 结果作废，什么都不落
             deps.chatKey = () => (still() ? chatKey : chatKey + '::moved');
-            res = await soWyCall('sync', { floor: idx, swipe, key }, deps);
+            if (soThrWeiyuSyncEveryOn() && Number.isSafeInteger(r.sync.n)) res = await soWyCall('sync', soThrWeiyuSyncArgs(ctx, s || getSettings(), idx, swipe, key, r.sync.n), deps);   // 💬 每几次回复更新一次：这一趟盖几楼 + 分隔线在哪
+            else res = await soWyCall('sync', { floor: idx, swipe, key }, deps);
         } finally {
             try { if (ctl.signal) ctl.signal.removeEventListener('abort', onAbort); } catch (e) { /* ignore */ }
             ctl.end();
@@ -30795,6 +33327,22 @@ function soThrWeiyuEventsOn() { return ENABLE_THR_WEIYU_EVENTS && soThrWeiyuOn()
 function soThrWeiyuCallsceneOn() { return ENABLE_THR_WEIYU_CALLSCENE && soThrWeiyuEventsOn(); }
 // 记忆（ENABLE_THR_WEIYU_MEMORY）：交给块的每一趟 deps.mem（请求读 …Mem 那几样）；手机的 env.stages.mem（大小计数器 / 100 句设置）由界面那一片加。
 function soThrWeiyuMemoryOn() { return ENABLE_THR_WEIYU_MEMORY && soThrWeiyuOn(); }
+// AI 自动回复开关（ENABLE_THR_WEIYU_AUTOREPLY）：交给手机的 env.stages.autoReply（那一行开关 + 「AI 现在回复」）和每一趟 deps.autoReply（零调用的 put）。
+function soThrWeiyuAutoReplyOn() { return ENABLE_THR_WEIYU_AUTOREPLY && soThrWeiyuOn(); }
+// 手动添加联系人（ENABLE_THR_WEIYU_ADD）：交给手机的 env.stages.add（「添加朋友」、表单、资料卡上的人物说明）和每一趟 deps.ac（【人】行带人物说明 + 标记）。
+function soThrWeiyuAddOn() { return ENABLE_THR_WEIYU_ADD && soThrWeiyuOn(); }
+// 从故事里找人（ENABLE_THR_WEIYU_FIND）：建在手动添加之上，所以也要 ENABLE_THR_WEIYU_ADD 开着。交给手机的 env.stages.find。
+function soThrWeiyuFindOn() { return ENABLE_THR_WEIYU_FIND && soThrWeiyuAddOn(); }
+// 从故事里找人那一趟请求在跑时，手机顶上那一行（★ mock）。只经 soThrWeiyuFindIsland 用（soThrWeiyuGenerate 里那一行有旗守着）。
+const THEATER_WEIYU_FIND_ISLAND = '正在从故事里找人…';
+// 这一趟是 find → 顶上那一行换成 THEATER_WEIYU_FIND_ISLAND（不跳秒数；排队行收起后也回到它）；别的种类一个字节都不动（今天的「正在写…」）。
+function soThrWeiyuFindIsland(live, rq) {
+    if (!live || !rq || rq.kind !== 'find') return;
+    if (live.ticker) { clearInterval(live.ticker); live.ticker = null; }
+    const paint = () => { if (soThrWeiyuLive === live && !live.row) soThrWeiyuStatus(THEATER_WEIYU_FIND_ISLAND); };
+    live.paint = paint;
+    paint();
+}
 // 此刻有没有一趟 quiet 生成还在拼提示词（有 = 这一格必须是空的）。纯读，不改记账。
 function soThrWeiyuQuietOpen() {
     return soThrWeiyuBuilds.includes('q') && Date.now() - soThrWeiyuQuietAt < THEATER_WEIYU_QUIET_STALE_MS;
@@ -30933,6 +33481,7 @@ function soSetV2WySet(on) {
     const st = soThrWeiyuState();
     if (!st) return;
     const c = soWyClone(st);
+    if (soThrWeiyuSyncEveryOn() && on && !(soWyIsObj(c.opts) && c.opts.sync === true) && soWyOwn(c, 'syncWait')) delete c.syncWait;   // 💬 每几次回复更新一次：勾上 = 从头数（同手机里那颗开关）
     if (soWySetOpt(c, 'sync', !!on)) soThrWeiyuCommit(c, 'opts');
     if (soThrWeiyuPhone) soThrWeiyuPhone.refresh();
 }
@@ -30967,6 +33516,6523 @@ function soSetV2PaintWyEntry() {
     if (why.textContent !== t) why.textContent = t;
     why.hidden = !t;
 }
+
+/* —— 🗂 论坛板 · living board —— */
+// 块原样拼入；改块文件、再跑 tests/unit/_board/_splice.mjs，绝不手改这里的拷贝
+/* <<BOARD:model>> */
+// [BOARD] model — spliced verbatim into index.js; edit HERE, re-splice, never hand-edit the copy.
+// 🗂 论坛板的数据形状：默认值、整理（soBdNorm：补默认、修形状、保留不认识的键、绝不复制 __proto__ 之类）、编号、选项、名字键、帖子顺序、
+// 体积、把一份存过的论坛升级成板（soBdFromForum）。纯函数，不读旗、不读 SO_VERSION / 外部时钟以外的任何东西。
+const THEATER_BOARD_SCHEMA = 1;
+const THEATER_BOARD_UNSAFE_IDS = ['__proto__', 'constructor', 'prototype'];
+const THEATER_BOARD_SIZE = Object.freeze({ warn: 800000, full: 1600000 });
+const THEATER_BOARD_BATCH_KEEP = 20;
+const THEATER_BOARD_NOTICE_KEEP = 5;
+const THEATER_BOARD_ALTS_KEEP = 5;
+
+function soBdIsObj(x) { return !!x && typeof x === 'object' && !Array.isArray(x); }
+function soBdOwn(o, k) { return !!o && Object.prototype.hasOwnProperty.call(o, k); }
+function soBdClone(s) { return s === undefined ? undefined : JSON.parse(JSON.stringify(s)); }
+
+// Deep copy of plain data that never copies an unsafe key (at any depth); functions / undefined are left out, as JSON would.
+function soBdSafeCopy(x) {
+    if (Array.isArray(x)) return x.map((v) => { const c = soBdSafeCopy(v); return c === undefined ? null : c; });
+    if (x && typeof x === 'object') {
+        const out = {};
+        for (const k of Object.keys(x)) {
+            if (THEATER_BOARD_UNSAFE_IDS.includes(k)) continue;
+            const c = soBdSafeCopy(x[k]);
+            if (c !== undefined) out[k] = c;
+        }
+        return out;
+    }
+    if (typeof x === 'number') return Number.isFinite(x) ? x : null;
+    if (typeof x === 'string' || typeof x === 'boolean' || x === null) return x;
+    return undefined;
+}
+
+// Integer ≥ min, else the default.
+function soBdInt(x, min, dflt) {
+    const n = Number(x);
+    if (!Number.isFinite(n)) return dflt;
+    const i = Math.floor(n);
+    return i < min ? (dflt < min ? min : dflt) : i;
+}
+function soBdStr(x) { return typeof x === 'string' ? x : (x == null ? '' : String(x)); }
+
+// A thread title as a MODEL reads it (the ｜-separated request head, the summary head, the main-story note, the 版务 rows — never a screen):
+// ｜ / | → '/', each run of line breaks (CR / LF / U+2028 / U+2029, the last two built from code points) with the spaces around it → one
+// space. The stored and shown title stays exactly as typed; a title without those characters (every AI title — the reader splits AI heads
+// on them — and every title a player typed before 2026-11-21 without them) comes back unchanged, byte for byte.
+const THEATER_BOARD_TITLE_BRK = new RegExp('\\s*[\\r\\n' + String.fromCharCode(0x2028, 0x2029) + ']+\\s*', 'g');
+function soBdTitleLine(s) {
+    return soBdStr(s).replace(/[｜|]/g, '/').replace(THEATER_BOARD_TITLE_BRK, ' ');
+}
+
+function soBdDefaultOpts() { return { follow: false, sumAt: 30, sumKeep: 10, keep: 100 }; }
+
+// Number options have NO ranges (owner 2026-11-20: "don't set a limit on the range, as that is a hidden effect player do not know
+// about"). One stored / typed number: a number or numeric text ≥ 1 → rounded to a whole number; anything else (empty, not a number,
+// < 1, booleans, null, arrays …) → null.
+function soBdOptNum(v) {
+    if (typeof v !== 'number' && typeof v !== 'string') return null;
+    if (typeof v === 'string' && v.trim() === '') return null;
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 1) return null;
+    return Math.round(n);
+}
+// The four options as READ (never throws, never writes): follow = stored true only; keep = the stored whole number, else the default;
+// sumAt / sumKeep = each stored whole number (unreadable → its default), and when the pair then breaks the one visible rule
+// (sumKeep < sumAt) both read as the defaults.
+function soBdOpts(state) {
+    const o = soBdIsObj(state) && soBdIsObj(state.opts) ? state.opts : {};
+    const d = soBdDefaultOpts();
+    const num = (k) => { const n = soBdOwn(o, k) ? soBdOptNum(o[k]) : null; return n === null ? d[k] : n; };
+    const at = num('sumAt');
+    const kp = num('sumKeep');
+    const pair = kp < at;
+    return { follow: o.follow === true, sumAt: pair ? at : d.sumAt, sumKeep: pair ? kp : d.sumKeep, keep: num('keep') };
+}
+function soBdOpt(state, k) {
+    if (!soBdOwn(soBdDefaultOpts(), k)) return undefined;
+    return soBdOpts(state)[k];
+}
+// May option k take v? → {ok: true, v: the value to store} | {ok: false, why: 'key' (not an option) | 'bad' (follow not a boolean; a
+// number that is empty / not a number / < 1) | 'cross' (sumKeep would not stay below sumAt — checked against the values as READ)}.
+function soBdOptCheck(state, k, v) {
+    if (!soBdOwn(soBdDefaultOpts(), k)) return { ok: false, why: 'key' };
+    if (k === 'follow') return typeof v === 'boolean' ? { ok: true, v } : { ok: false, why: 'bad' };
+    const n = soBdOptNum(v);
+    if (n === null) return { ok: false, why: 'bad' };
+    if (k === 'sumAt' || k === 'sumKeep') {
+        const cur = soBdOpts(state);
+        if ((k === 'sumKeep' ? n : cur.sumKeep) >= (k === 'sumAt' ? n : cur.sumAt)) return { ok: false, why: 'cross' };
+    }
+    return { ok: true, v: n };
+}
+// Store one option (soBdOptCheck decides; refused → false, nothing stored). A sumAt / sumKeep change stores the pair as the player saw
+// it (the other value as READ), so an unreadable or broken stored pair becomes what the card showed.
+function soBdSetOpt(state, k, v) {
+    if (!soBdIsObj(state)) return false;
+    const c = soBdOptCheck(state, k, v);
+    if (!c.ok) return false;
+    const cur = soBdOpts(state);
+    if (!soBdIsObj(state.opts)) state.opts = soBdDefaultOpts();
+    state.opts[k] = c.v;
+    if (k === 'sumAt') state.opts.sumKeep = cur.sumKeep;
+    if (k === 'sumKeep') state.opts.sumAt = cur.sumAt;
+    return true;
+}
+
+function soBdNameKey(name) {
+    return String(name ?? '').normalize('NFKC').replace(/[\s　]+/g, '').replace(/[@＠「」『』【】*]/g, '').toLowerCase();
+}
+
+function soBdNewId(state, prefix) {
+    state.seq = soBdInt(state.seq, 0, 0) + 1;
+    return prefix + state.seq;
+}
+
+function soBdThreadOrder(state) {
+    const th = soBdIsObj(state) && soBdIsObj(state.threads) ? state.threads : {};
+    return Object.keys(th).sort((a, b) => ((Number(th[b].act) || 0) - (Number(th[a].act) || 0)) || ((Number(th[b].no) || 0) - (Number(th[a].no) || 0)));
+}
+
+function soBdSize(state) {
+    const s = JSON.stringify(state);
+    if (typeof TextEncoder === 'function') return new TextEncoder().encode(s).length;
+    let n = 0;
+    for (let i = 0; i < s.length; i++) {
+        const c = s.charCodeAt(i);
+        if (c < 0x80) n += 1;
+        else if (c < 0x800) n += 2;
+        else if (c >= 0xD800 && c <= 0xDBFF && i + 1 < s.length) { n += 4; i++; }
+        else n += 3;
+    }
+    return n;
+}
+function soBdSizeLevel(state) {
+    const n = soBdSize(state);
+    return n >= THEATER_BOARD_SIZE.full ? 'full' : n >= THEATER_BOARD_SIZE.warn ? 'warn' : 'fine';
+}
+
+// look = {lex, skin, extras, from:{sceneId, so}} (+ any reserved keys, e.g. looks / lookOn for relook later). In place on a copy.
+function soBdLookNorm(look) {
+    const L = soBdIsObj(look) ? look : {};
+    if (!soBdIsObj(L.lex)) L.lex = {};
+    L.skin = soBdStr(L.skin);
+    if (!soBdIsObj(L.extras)) L.extras = {};
+    if (!soBdIsObj(L.from)) L.from = { sceneId: '', so: '' };
+    else { L.from.sceneId = soBdStr(L.from.sceneId); L.from.so = soBdStr(L.from.so); }
+    return L;
+}
+function soBdBaseNorm(base) {
+    const b = soBdIsObj(base) ? base : {};
+    b.floor = soBdInt(b.floor, -1, -1);
+    b.swipe = soBdInt(b.swipe, 0, 0);
+    b.key = soBdStr(b.key);
+    return b;
+}
+
+function soBdNew(look, board, base, o) {
+    o = o || {};
+    return {
+        v: THEATER_BOARD_SCHEMA, so: soBdStr(o.so), created: o.now || Date.now(),
+        seq: 0, tno: 0, rev: 0, act: 0, catches: 0,
+        look: soBdLookNorm(soBdSafeCopy(look)),
+        board: { name: soBdStr(board && board.name), intro: soBdStr(board && board.intro) },
+        threads: {}, roster: {}, player: { aliases: [], last: '' }, batches: [], alts: null,
+        base: soBdBaseNorm(soBdSafeCopy(base)), dead: { t: [], p: [] }, notices: [], opts: soBdDefaultOpts(),
+    };
+}
+
+// Has the main story moved past the board's base? cx = soThrBoardChatCx() (the phone's pure chat helpers); chat is read only.
+// floor / swipe / key = the last AI reply now. moved = it is a later floor, or the base floor rewritten (another key). replies = AI floors
+// in (base.floor, floor], at least 1 when moved, 0 when not. → {moved, replies, floor, swipe, key}.
+function soBdMoved(state, chat, cx) {
+    const c = Array.isArray(chat) ? chat : [];
+    const floor = soBdIsObj(cx) && typeof cx.lastAiFloor === 'function' ? cx.lastAiFloor(c) : -1;
+    if (!(Number.isInteger(floor) && floor >= 0)) return { moved: false, replies: 0, floor: -1, swipe: 0, key: '' };
+    const swipe = cx.swipeOf(c[floor]);
+    const key = soBdStr(cx.keyAt(c[floor], swipe) || '');
+    const b = soBdIsObj(state) && soBdIsObj(state.base) ? state.base : {};
+    const bf = soBdInt(b.floor, -1, -1);
+    const moved = floor > bf || (floor === bf && key !== soBdStr(b.key));
+    let replies = 0;
+    if (moved) {
+        for (let i = Math.max(bf + 1, 0); i <= floor; i++) { const m = c[i]; if (soBdIsObj(m) && !m.is_user && !m.is_system) replies++; }
+        replies = Math.max(1, replies);
+    }
+    return { moved, replies, floor, swipe, key };
+}
+
+function soBdIsForeign(raw) { return soBdIsObj(raw) && Number(raw.v) > THEATER_BOARD_SCHEMA; }
+
+// The id number of 'T12' / 'P13' / 'R14' / 'B15' / 'E16' (a board event, stage 3) (else 0).
+function soBdIdNum(id) { const m = /^[TPRBE](\d+)$/.exec(String(id)); return m ? +m[1] : 0; }
+
+// Largest id number and largest thread number found anywhere in the (copied) board: ids under id / opId / tid / pid / rid / by / upTo /
+// after, tombstones; thread numbers under `no`. So seq / tno never fall below anything stored (batches, stash and dropped posts included).
+function soBdScanMax(x, acc, key) {
+    if (Array.isArray(x)) { for (const v of x) soBdScanMax(v, acc, key === 't' || key === 'p' ? 'id' : ''); return acc; }
+    if (x && typeof x === 'object') { for (const k of Object.keys(x)) soBdScanMax(x[k], acc, k); return acc; }
+    if (typeof x === 'string' && ['id', 'opId', 'tid', 'pid', 'rid', 'by', 'upTo', 'after'].includes(key)) acc.seq = Math.max(acc.seq, soBdIdNum(x));
+    if (key === 'no' && Number.isInteger(x) && x > 0) acc.tno = Math.max(acc.tno, x);
+    return acc;
+}
+
+function soBdNorm(raw) {
+    try {
+        if (!soBdIsObj(raw) || Number(raw.v) !== THEATER_BOARD_SCHEMA) return null;
+        const s = soBdSafeCopy(raw);
+        s.v = THEATER_BOARD_SCHEMA;
+        s.so = soBdStr(s.so);
+        s.created = Number.isFinite(Number(s.created)) && s.created !== null && s.created !== '' ? Number(s.created) : 0;
+        for (const k of ['seq', 'tno', 'rev', 'act', 'catches']) s[k] = soBdInt(s[k], 0, 0);
+        const max = soBdScanMax(s, { seq: 0, tno: 0 }, '');
+        // dead first (scanned above as ids)
+        const dead = soBdIsObj(s.dead) ? s.dead : {};
+        dead.t = Array.isArray(dead.t) ? dead.t.filter((x) => typeof x === 'string') : [];
+        dead.p = Array.isArray(dead.p) ? dead.p.filter((x) => typeof x === 'string') : [];
+        for (const id of dead.t.concat(dead.p)) max.seq = Math.max(max.seq, soBdIdNum(id));
+        s.dead = dead;
+        s.seq = Math.max(s.seq, max.seq);
+        s.tno = Math.max(s.tno, max.tno);
+        s.look = soBdLookNorm(s.look);
+        const bd = soBdIsObj(s.board) ? s.board : {};
+        bd.name = soBdStr(bd.name);
+        bd.intro = soBdStr(bd.intro);
+        s.board = bd;
+        // threads
+        const th = soBdIsObj(s.threads) ? s.threads : {};
+        const threads = {};
+        const renumber = [];
+        for (const k of Object.keys(th)) {
+            const t = th[k];
+            if (!soBdIsObj(t)) continue;
+            t.id = k;
+            t.title = soBdStr(t.title);
+            t.by = soBdStr(t.by);
+            t.tags = Array.isArray(t.tags) ? t.tags.filter((x) => typeof x === 'string') : [];
+            t.heat = typeof t.heat === 'number' && Number.isFinite(t.heat) ? t.heat : null;
+            t.time = soBdStr(t.time);
+            t.posts = (Array.isArray(t.posts) ? t.posts : []).filter((p) => soBdIsObj(p) && typeof p.id === 'string' && p.id && Number.isInteger(p.n) && p.n >= 1);
+            for (const p of t.posts) {
+                p.by = soBdStr(p.by);
+                p.t = soBdStr(p.t);
+                p.b = soBdStr(p.b);
+                if (soBdOwn(p, 'to')) { p.to = soBdStr(p.to); if (!p.to) delete p.to; }
+            }
+            const lastN = t.posts.reduce((m, p) => Math.max(m, p.n), 0);
+            t.nextN = Math.max(soBdInt(t.nextN, 1, 1), lastN + 1);
+            t.act = soBdInt(t.act, 0, 0);
+            t.lastCatch = soBdInt(t.lastCatch, 0, 0);
+            if (soBdOwn(t, 'mineCatch')) t.mineCatch = soBdInt(t.mineCatch, 0, 0);
+            t.rev = soBdInt(t.rev, 0, 0);
+            if (soBdOwn(t, 'sumFail')) t.sumFail = soBdInt(t.sumFail, 0, 0);
+            if (soBdOwn(t, 'sumFailN')) t.sumFailN = soBdInt(t.sumFailN, 0, 0);
+            if (soBdOwn(t, 'folded')) t.folded = soBdInt(t.folded, 0, 0);
+            if (soBdOwn(t, 'sum') && !soBdIsObj(t.sum)) delete t.sum;
+            if (!(Number.isInteger(t.no) && t.no >= 1)) renumber.push(t);
+            threads[k] = t;
+        }
+        for (const t of renumber) t.no = ++s.tno;
+        s.threads = threads;
+        // roster
+        const ro = soBdIsObj(s.roster) ? s.roster : {};
+        const roster = {};
+        for (const k of Object.keys(ro)) {
+            const p = ro[k];
+            if (!soBdIsObj(p) || typeof p.name !== 'string' || !p.name.trim()) continue;
+            p.id = k;
+            if (typeof p.key !== 'string' || !p.key) p.key = soBdNameKey(p.name);
+            p.glyph = soBdStr(p.glyph);
+            p.title = soBdStr(p.title);
+            p.bio = soBdStr(p.bio);
+            p.first = soBdStr(p.first);
+            p.act = soBdInt(p.act, 0, 0);
+            roster[k] = p;
+        }
+        s.roster = roster;
+        for (const k of Object.keys(threads).concat(Object.keys(roster))) s.seq = Math.max(s.seq, soBdIdNum(k));
+        // player
+        const pl = soBdIsObj(s.player) ? s.player : {};
+        pl.aliases = (Array.isArray(pl.aliases) ? pl.aliases : []).filter((a) => soBdIsObj(a) && typeof a.name === 'string' && a.name.trim());
+        for (const a of pl.aliases) {
+            if (typeof a.key !== 'string' || !a.key) a.key = soBdNameKey(a.name);
+            a.at = Number.isFinite(Number(a.at)) && a.at !== null ? Number(a.at) : 0;
+        }
+        pl.last = soBdStr(pl.last);
+        s.player = pl;
+        // batches (oldest first, newest THEATER_BOARD_BATCH_KEEP kept)
+        s.batches = (Array.isArray(s.batches) ? s.batches : []).filter(soBdIsObj).slice(-THEATER_BOARD_BATCH_KEEP);
+        // stash
+        s.alts = soBdAltsNorm(s.alts);
+        s.base = soBdBaseNorm(s.base);
+        s.notices = (Array.isArray(s.notices) ? s.notices : []).filter(soBdIsObj).slice(-THEATER_BOARD_NOTICE_KEEP);
+        // opts: missing known keys get their defaults; every stored value (unknown keys too) is kept as stored — soBdOpt reads them
+        // (an unreadable value / a pair that breaks sumKeep < sumAt reads as the defaults without rewriting the store)
+        const op = soBdIsObj(s.opts) ? s.opts : {};
+        const d = soBdDefaultOpts();
+        for (const k of Object.keys(d)) if (!soBdOwn(op, k)) op[k] = d[k];
+        s.opts = op;
+        return s;
+    } catch (e) {
+        return null;
+    }
+}
+
+// alts = null | {floor, bySwipe:{[swipe]: {recs, key}}}; at most THEATER_BOARD_ALTS_KEEP swipes (the lowest indexes go first).
+function soBdAltsNorm(a) {
+    if (!soBdIsObj(a) || !Number.isInteger(a.floor) || a.floor < 0 || !soBdIsObj(a.bySwipe)) return null;
+    const by = {};
+    for (const k of Object.keys(a.bySwipe)) {
+        const e = a.bySwipe[k];
+        if (!/^\d+$/.test(k) || !soBdIsObj(e) || !Array.isArray(e.recs)) continue;
+        e.key = soBdStr(e.key);
+        by[k] = e;
+    }
+    const keys = Object.keys(by).map(Number).sort((x, y) => x - y);
+    while (keys.length > THEATER_BOARD_ALTS_KEEP) delete by[String(keys.shift())];
+    if (!Object.keys(by).length) return null;
+    a.bySwipe = by;
+    return a;
+}
+
+// A saved one-off forum (soThrSceneMerge(item).content) → a board, or null when it has no visible thread.
+// o = {so, now, protect: string[]} — a person whose key equals a protected name's key becomes a player alias (O3).
+function soBdFromForum(content, look, base, o) {
+    o = o || {};
+    if (!soBdIsObj(content)) return null;
+    const vis = (Array.isArray(content.threads) ? content.threads : []).filter((t) => soBdIsObj(t) && (soBdStr(t.op) || (Array.isArray(t.floors) && t.floors.length)));
+    if (!vis.length) return null;
+    const s = soBdNew(look, { name: content.board, intro: content.intro }, base, o);
+    const byKey = new Map();
+    const add = (name, glyph, title, bio, bare) => {
+        const p = { id: soBdNewId(s, 'R'), name, key: soBdNameKey(name), glyph: soBdStr(glyph), title: soBdStr(title), bio: soBdStr(bio), first: 'promote', act: 0 };
+        if (bare) p.bare = 1;
+        s.roster[p.id] = p;
+        byKey.set(p.key, p);
+        return p;
+    };
+    const find = (name) => {
+        const k = soBdNameKey(name);
+        if (!k) return null;
+        if (byKey.has(k)) return byKey.get(k);
+        const c = [...byKey.values()].filter((p) => p.key.includes(k) || k.includes(p.key));
+        return c.length === 1 ? c[0] : null;
+    };
+    const get = (name) => {
+        const nm = soBdStr(name).trim() || '匿名';
+        return find(nm) || add(nm, '', '', '', true);
+    };
+    for (const row of Array.isArray(content.people) ? content.people : []) {
+        if (!soBdIsObj(row)) continue;
+        const nm = soBdStr(row.name).trim();
+        const k = soBdNameKey(nm);
+        if (!k) continue;
+        const ex = byKey.get(k);
+        if (ex) {
+            for (const f of ['glyph', 'title', 'bio']) if (!ex[f] && soBdStr(row[f])) ex[f] = soBdStr(row[f]);
+            continue;
+        }
+        add(nm, row.glyph, row.title, row.bio, false);
+    }
+    const count = vis.length;
+    vis.forEach((c, k) => {
+        const act = count - k;
+        const tid = soBdNewId(s, 'T');
+        const author = get(c.authorName);
+        const t = {
+            id: tid, no: ++s.tno, title: soBdStr(c.title), by: author.id,
+            tags: (Array.isArray(c.tags) ? c.tags : []).filter((x) => typeof x === 'string'),
+            heat: typeof c.heat === 'number' && Number.isFinite(c.heat) ? c.heat : null, time: soBdStr(c.time),
+            posts: [], nextN: 1, act, lastCatch: 0, rev: 1,
+        };
+        const post = (who, text, to) => {
+            const p = { id: soBdNewId(s, 'P'), n: t.nextN++, by: who.id, t: soBdStr(text), b: 'promote' };
+            if (to) p.to = to;
+            t.posts.push(p);
+            who.act = Math.max(who.act, act);
+        };
+        post(author, c.op, '');
+        for (const f of Array.isArray(c.floors) ? c.floors : []) {
+            if (!soBdIsObj(f)) continue;
+            post(get(f.name), f.text, soBdStr(f.replyTo).trim());
+        }
+        s.threads[tid] = t;
+    });
+    s.act = count;
+    const prot = new Set((Array.isArray(o.protect) ? o.protect : []).map(soBdNameKey).filter(Boolean));
+    for (const p of Object.values(s.roster)) {
+        if (!prot.has(p.key)) continue;
+        p.me = 1;
+        s.player.aliases.push({ name: p.name, key: p.key, at: o.now || Date.now() });
+        s.player.last = p.name;
+    }
+    return s;
+}
+/* <</BOARD:model>> */
+/* <<BOARD:reduce>> */
+// [BOARD] reduce — spliced verbatim into index.js; edit HERE, re-splice, never hand-edit the copy.
+// 🗂 论坛板的唯一 reducer：模型的一批记录（补帖 / 回帖）、玩家操作、撤销（精确还原）、swipe 暂存与重放（墓碑）、折叠、整理、摘要。
+// 每条记录按回复里的顺序、对照【那一刻】的板子检查；不合格的带着原因丢掉，从不连累后面的记录（只有跟在被丢新帖后面的楼层一起走）。
+
+// O3 / O10: the player's own names. Keys = every alias ever used + the protected names (the player character's). True when the name's key
+// is one of them, or exactly one of them contains / is contained in it and the shorter of the two has at least 2 code points.
+function soBdIsPlayerName(state, name, protect) {
+    const k = soBdNameKey(name);
+    if (!k) return false;
+    const keys = new Set();
+    const al = soBdIsObj(state) && soBdIsObj(state.player) && Array.isArray(state.player.aliases) ? state.player.aliases : [];
+    for (const a of al) { const ak = soBdIsObj(a) ? (a.key || soBdNameKey(a.name)) : ''; if (ak) keys.add(ak); }
+    for (const p of Array.isArray(protect) ? protect : []) { const pk = soBdNameKey(p); if (pk) keys.add(pk); }
+    if (keys.has(k)) return true;
+    const hit = [...keys].filter((a) => (a.includes(k) || k.includes(a)) && Math.min([...a].length, [...k].length) >= 2);
+    return hit.length === 1;
+}
+
+function soBdBatch(state, bid) {
+    const bs = soBdIsObj(state) && Array.isArray(state.batches) ? state.batches : [];
+    return bs.find((b) => b && b.id === bid) || null;
+}
+
+// The ONE reducer for model records. recs = reader records (index §2.4), or stored records (src.reuse: replay with the recorded ids).
+// src = {kind: 'catchup'|'post', base?, prevBase?, target?: tid, after?: pid, reuse?, size?: [lo, hi], tnos?: number[]|Set, protect?: string[], now?}
+// → {batch: Batch|null, counts: {posts, threads, people}, drop: {[reason]: n}}. Zero accepted records → no batch, state untouched.
+// Over the cap (hi × 2 posts, opening posts included) each thread of the reply keeps its share (soBdCutPlan); replay keeps the first-come cap.
+// plan = internal, soBdCutPlan's dry run only: {seen: []} → seen[record index] = the tid an accepted thread / post record landed in.
+function soBdApply(state, recs, src, plan) {
+    src = src || {};
+    const kind = src.kind === 'post' ? 'post' : 'catchup';
+    const reuse = src.reuse === true;
+    const protect = Array.isArray(src.protect) ? src.protect : [];
+    const counts = { posts: 0, threads: 0, people: 0 };
+    if (src.mods === true) counts.mods = 0;   // stage 3 (版务): only when the caller switched the moderators on
+    const drop = {};
+    const no = (why) => { drop[why] = (drop[why] || 0) + 1; };
+    const list = Array.isArray(recs) ? recs : [];
+    const tnos = src.tnos == null ? null : (typeof src.tnos.has === 'function' ? src.tnos : new Set(src.tnos));
+    const cap = Array.isArray(src.size) && Number.isFinite(Number(src.size[1])) ? Number(src.size[1]) * 2 : Infinity;
+    const seen = soBdIsObj(plan) && Array.isArray(plan.seen) ? plan.seen : null;
+    const cut = plan || reuse ? null : soBdCutPlan(state, list, src, cap);   // record indexes the fair cut drops as `over` (null: no cut)
+    const catchAfter = soBdInt(state.catches, 0, 0) + (kind === 'catchup' ? 1 : 0);
+    const dead = soBdIsObj(state.dead) ? state.dead : { t: [], p: [] };
+    const deadT = new Set(Array.isArray(dead.t) ? dead.t : []);
+    const deadP = new Set(Array.isArray(dead.p) ? dead.p : []);
+    const byKey = new Map();
+    for (const rid of Object.keys(state.roster)) { const p = state.roster[rid]; if (p && p.key && !byKey.has(p.key)) byKey.set(p.key, rid); }
+    const byNo = new Map();
+    for (const tid of Object.keys(state.threads)) byNo.set(state.threads[tid].no, tid);
+    const changes = [];
+    const stored = [];
+    let bid = '';
+    let accepted = 0;     // posts accepted in this batch, opening posts included (the `over` cap)
+    let bact = false;
+    const actDone = new Set();
+    const pactDone = new Set();
+    const nts = [];        // thread records of this reply, in order: tid | null (dropped)
+    const batchId = () => { if (!bid) bid = soBdNewId(state, 'B'); return bid; };
+    const bump = () => {
+        if (!bact) { changes.push({ c: 'bact', prev: state.act }); bact = true; }
+        state.act = soBdInt(state.act, 0, 0) + 1;
+        return state.act;
+    };
+    const touch = (tid) => {
+        const t = state.threads[tid];
+        if (actDone.has(tid)) return t;
+        actDone.add(tid);
+        changes.push({ c: 'act', tid, prev: { act: t.act, lastCatch: t.lastCatch, nextN: t.nextN, rev: t.rev } });
+        t.rev = soBdInt(t.rev, 0, 0) + 1;
+        return t;
+    };
+    // a new person (model-made): stored rec + change; auto persons are bare
+    const addPerson = (id, name, glyph, title, bio, bare) => {
+        const p = { id, name, key: soBdNameKey(name), glyph: soBdStr(glyph), title: soBdStr(title), bio: soBdStr(bio), first: batchId(), act: 0 };
+        if (bare) p.bare = 1;
+        state.roster[id] = p;
+        byKey.set(p.key, id);
+        pactDone.add(id);   // made in this batch: its removal is the undo, no act record
+        changes.push({ c: 'person', rid: id });
+        const rec = { r: 'person', id, name, glyph: p.glyph, title: p.title, bio: p.bio };
+        if (bare) rec.bare = 1;
+        stored.push(rec);
+        counts.people++;
+        return p;
+    };
+    // replay: a stored bare (auto-made) person waits here until a later accepted record needs it (key → {id, name})
+    const bareWait = new Map();
+    // the poster of an accepted post / thread: exact key, else a new bare person (replay: the waiting one, with its recorded id)
+    const poster = (name) => {
+        const k = soBdNameKey(name);
+        const rid = byKey.get(k);
+        if (rid && state.roster[rid]) return state.roster[rid];
+        batchId();
+        const w = bareWait.get(k);
+        if (w && !state.roster[w.id]) { bareWait.delete(k); return addPerson(w.id, w.name, '', '', '', true); }
+        return addPerson(soBdNewId(state, 'R'), name, '', '', '', true);
+    };
+    // a person's activity; the first change per batch to a person who existed before it is recorded (exact undo)
+    const actOf = (p, act) => {
+        if (!pactDone.has(p.id)) { pactDone.add(p.id); changes.push({ c: 'pact', rid: p.id, prev: p.act }); }
+        p.act = act;
+    };
+    // stage 3 (src.mods === true only): the context the 版务 rows (mods.js soBdModApplyRec) read and write through — this call's closures
+    const mx = src.mods === true ? { kind, reuse, tnos, byNo, nts, target: src.target, deadT, deadP, protect, catchAfter, now: src.now || Date.now(), batchId, poster, changes, stored, counts, list, ri: -1, acc: new Map(), per: { n: 0, keys: new Set() } } : null;
+    let ri = -1;
+    for (const r0 of list) {
+        ri++;
+        if (!soBdIsObj(r0)) continue;
+        const r = r0;
+        if (r.r === 'mod') { if (!mx) continue; mx.ri = ri; const why = soBdModApplyRec(state, r, mx); if (why) no(why); continue; }   // stage 3: without src.mods skipped silently (today)
+        if (r.r === 'person') {
+            const name = soBdStr(r.name).trim();
+            const k = soBdNameKey(name);
+            if (!k) { no('malformed'); continue; }
+            if (soBdIsPlayerName(state, name, protect)) { no('player'); continue; }
+            const owner = byKey.get(k);
+            if (reuse && owner && r.id && owner !== r.id) { no('exists'); continue; }
+            if (reuse && !owner && r.id && state.roster[r.id]) { no('exists'); continue; }
+            if (owner && state.roster[owner]) {
+                const p = state.roster[owner];
+                const prev = {};
+                for (const f of ['glyph', 'title', 'bio']) if (!p[f] && soBdStr(r[f]).trim()) prev[f] = p[f];
+                if (!Object.keys(prev).length) { no('exists'); continue; }
+                batchId();
+                if (p.bare) prev.bare = p.bare;
+                for (const f of Object.keys(prev)) if (f !== 'bare') p[f] = soBdStr(r[f]).trim();
+                if (p.bare) delete p.bare;
+                changes.push({ c: 'fill', rid: owner, prev });
+                stored.push({ r: 'person', id: owner, name: p.name, glyph: soBdStr(r.glyph).trim(), title: soBdStr(r.title).trim(), bio: soBdStr(r.bio).trim() });
+                counts.people++;
+                continue;
+            }
+            if (reuse && r.id && r.bare === 1) { if (!bareWait.has(k)) bareWait.set(k, { id: r.id, name }); continue; }
+            batchId();
+            addPerson(reuse && r.id ? r.id : soBdNewId(state, 'R'), name, soBdStr(r.glyph).trim(), soBdStr(r.title).trim(), soBdStr(r.bio).trim(), reuse && r.bare === 1);
+            continue;
+        }
+        if (r.r === 'thread') {
+            const i = nts.length;
+            nts.push(null);
+            if (cut && cut.has(ri)) { no('over'); continue; }
+            const title = soBdStr(r.title).trim();
+            const op = soBdStr(r.op).trim();
+            const by = soBdStr(r.by).trim();
+            if (kind === 'post') { no('elsewhere'); continue; }
+            if (reuse && (deadT.has(r.id) || deadP.has(r.opId))) { no('dead'); continue; }
+            if (reuse && (state.threads[r.id] || !r.id || !r.opId)) { no('exists'); continue; }
+            if (!title || !op || !by) { no('malformed'); continue; }
+            if (soBdIsPlayerName(state, by, protect)) { no('player'); continue; }
+            if (mx) { const g = soBdGag(state, soBdPersonByName(state, by)); if (g) { no(g); continue; } }   // stage 3: muted / banned / left
+            if (accepted >= cap) { no('over'); continue; }
+            batchId();
+            const author = poster(by);
+            const tid = reuse ? r.id : soBdNewId(state, 'T');
+            const tno = reuse && Number.isInteger(r.no) && r.no >= 1 ? r.no : soBdInt(state.tno, 0, 0) + 1;
+            state.tno = Math.max(soBdInt(state.tno, 0, 0), tno);
+            const opId = reuse ? r.opId : soBdNewId(state, 'P');
+            const act = bump();
+            const t = {
+                id: tid, no: tno, title, by: author.id,
+                tags: (Array.isArray(r.tags) ? r.tags : []).filter((x) => typeof x === 'string'),
+                heat: typeof r.heat === 'number' && Number.isFinite(r.heat) ? r.heat : null, time: soBdStr(r.time),
+                posts: [{ id: opId, n: 1, by: author.id, t: op, b: bid }], nextN: 2, act, lastCatch: catchAfter, rev: 1,
+            };
+            changes.push({ c: 'thread', tid });
+            state.threads[tid] = t;
+            actDone.add(tid);   // made in this batch: rev 1, no act record (its removal is the undo)
+            byNo.set(tno, tid);
+            actOf(author, act);
+            nts[i] = tid;
+            if (mx) mx.acc.set(r, { tid, pid: opId });   // stage 3: a fold later in this reply finds it
+            if (seen) seen[ri] = tid;
+            accepted++;
+            counts.threads++;
+            stored.push({ r: 'thread', id: tid, no: tno, title, by, tags: t.tags.slice(), heat: t.heat, time: t.time, op, opId });
+            continue;
+        }
+        if (r.r === 'post') {
+            if (cut && cut.has(ri)) { no('over'); continue; }
+            let tid = null;
+            if (reuse) {
+                if (deadP.has(r.id)) { no('dead'); continue; }
+                if (!r.id) { no('malformed'); continue; }
+                if (!r.tid || deadT.has(r.tid) || !state.threads[r.tid]) { no('target'); continue; }
+                if (state.threads[r.tid].posts.some((p) => p.id === r.id)) { no('exists'); continue; }
+                tid = r.tid;
+            } else {
+                const g = soBdIsObj(r.tgt) ? r.tgt : null;
+                if (g && soBdOwn(g, 'nt')) {
+                    if (!Number.isInteger(g.nt) || g.nt < 0 || g.nt >= nts.length) { no('target'); continue; }
+                    if (nts[g.nt] === null) { no('orphan'); continue; }
+                    tid = nts[g.nt];
+                } else if (g && soBdOwn(g, 'tno')) {
+                    tid = byNo.get(Number(g.tno)) || null;
+                    if (!tid || !state.threads[tid] || (tnos && !tnos.has(Number(g.tno)))) { no('target'); continue; }
+                    if (kind === 'post' && tid !== src.target) { no('elsewhere'); continue; }
+                } else if (kind === 'post') {
+                    tid = src.target && state.threads[src.target] ? src.target : null;
+                    if (!tid) { no('target'); continue; }
+                } else { no('no-target'); continue; }
+            }
+            const name = soBdStr(r.name).trim();
+            const text = soBdStr(r.text).trim();
+            const to = soBdStr(r.to).trim();
+            if (!name || !text) { no('malformed'); continue; }
+            if (soBdIsPlayerName(state, name, protect)) { no('player'); continue; }
+            if (mx) { if (soBdIsObj(state.threads[tid].lock)) { no('locked'); continue; } const g = soBdGag(state, soBdPersonByName(state, name)); if (g) { no(g); continue; } }   // stage 3
+            if (accepted >= cap) { no('over'); continue; }
+            batchId();
+            const act = bump();
+            const t = touch(tid);
+            const who = poster(name);
+            const pid = reuse ? r.id : soBdNewId(state, 'P');
+            const p = { id: pid, n: t.nextN, by: who.id, t: text, b: bid };
+            if (to) p.to = to;
+            t.nextN = soBdInt(t.nextN, 1, 1) + 1;
+            t.posts.push(p);
+            t.act = act;
+            t.lastCatch = catchAfter;
+            actOf(who, act);
+            changes.push({ c: 'post', tid, pid });
+            if (mx) mx.acc.set(r, { tid, pid });   // stage 3: a fold later in this reply finds it
+            if (seen) seen[ri] = tid;
+            accepted++;
+            counts.posts++;
+            stored.push({ r: 'post', id: pid, tid, name, to, text });
+            continue;
+        }
+    }
+    if (!bid) return { batch: null, counts, drop };
+    const base = soBdIsObj(src.base) ? soBdBaseNorm(soBdSafeCopy(src.base)) : null;
+    if (kind === 'catchup') {
+        changes.push({ c: 'catch', prev: state.catches });
+        state.catches = catchAfter;
+        if (base) {
+            changes.push({ c: 'base', prev: soBdSafeCopy(state.base) });
+            state.base = soBdSafeCopy(base);
+        }
+    }
+    for (const b of state.batches) if (b) b.touched = 1;
+    const batch = { id: bid, kind, at: state.rev, when: src.now || Date.now() };
+    if (base) batch.base = base;
+    if (soBdIsObj(src.prevBase)) batch.prevBase = soBdBaseNorm(soBdSafeCopy(src.prevBase));
+    batch.swipes = base ? [base.swipe] : [];
+    if (src.after) batch.after = src.after;
+    batch.catch = state.catches;
+    if (kind === 'catchup') batch.recs = stored;
+    batch.changes = changes;
+    batch.counts = counts;
+    batch.drop = drop;
+    batch.touched = 0;
+    batch.final = 0;
+    state.batches.push(batch);
+    return { batch, counts, drop };
+}
+
+// The fair cut of a reply over the cap. A dry run on a copy (no cap) finds the thread / post records that pass every other check and the
+// thread each lands in. A group = one thread's records in reply order (a new thread's own record first; two runs for one thread = one
+// group); groups are ordered by first appearance. Each group keeps its share of the cap (soBdCutShares: proportional to how many records
+// the model wrote in it) as a PREFIX — its earliest records, so a kept post never answers a cut one and a new thread that keeps anything
+// keeps its opening. → Set of the record indexes to drop as `over`, or null (no cap, or the acceptable records fit).
+function soBdCutPlan(state, list, src, cap) {
+    if (!(cap < Infinity)) return null;
+    let n = 0;
+    for (const r of list) if (soBdIsObj(r) && (r.r === 'thread' || r.r === 'post')) n++;
+    if (n <= cap) return null;
+    const seen = [];
+    soBdApply(soBdClone(state), list, Object.assign({}, src, { size: null }), { seen });
+    const groups = new Map();
+    seen.forEach((tid, i) => { if (!groups.has(tid)) groups.set(tid, []); groups.get(tid).push(i); });
+    const all = [...groups.values()];
+    if (all.reduce((a, g) => a + g.length, 0) <= cap) return null;
+    const share = soBdCutShares(all.map((g) => g.length), cap);
+    const keep = new Set();
+    all.forEach((g, i) => { for (const ri of g.slice(0, share[i])) keep.add(ri); });
+    const cut = new Set();
+    seen.forEach((tid, i) => { if (!keep.has(i)) cut.add(i); });
+    return cut;
+}
+
+// Each group's share of `cap` (sizes = records per group, in order of first appearance; sum(sizes) > cap). → integer array summing to
+// cap. More groups than the cap: the earliest `cap` groups keep 1 each. Otherwise every group keeps at least 1: a group whose
+// proportional quota (cap × size / total) is below 1 is fixed at 1 and the rest share what is left, again proportionally (repeat until no
+// quota is below 1); the shares are the quotas rounded down, and what is left over goes 1 each by the largest remainder, ties to the
+// earlier group. Whole numbers only (no float rounding). A share never exceeds its group (its quota is below its size).
+function soBdCutShares(sizes, cap) {
+    const sz = (Array.isArray(sizes) ? sizes : []).map((v) => Math.max(0, Math.floor(Number(v) || 0)));
+    const c = Math.max(0, Math.floor(Number(cap) || 0));
+    const out = sz.map(() => 0);
+    const live = [];
+    sz.forEach((v, i) => { if (v > 0) live.push(i); });
+    if (!c || !live.length) return out;
+    if (live.length >= c) { for (const i of live.slice(0, c)) out[i] = 1; return out; }
+    const fixed = new Set();
+    for (;;) {
+        const rest = live.filter((i) => !fixed.has(i));
+        const budget = c - fixed.size;
+        const total = rest.reduce((a, i) => a + sz[i], 0);
+        const small = rest.filter((i) => budget * sz[i] < total);
+        if (small.length && rest.length > small.length) { for (const i of small) fixed.add(i); continue; }
+        for (const i of fixed) out[i] = 1;
+        if (total <= budget) { for (const i of rest) out[i] = sz[i]; return out; }
+        let left = budget;
+        const rem = [];
+        for (const i of rest) { out[i] = Math.floor(budget * sz[i] / total); left -= out[i]; rem.push([budget * sz[i] % total, i]); }
+        rem.sort((a, b) => b[0] - a[0] || a[1] - b[1]);
+        for (let k = 0; k < left && k < rem.length; k++) out[rem[k][1]]++;
+        return out;
+    }
+}
+
+// Exact undo of an untouched batch with changes. o = {stash, keepBase}. → boolean.
+function soBdRevert(state, bid, o) {
+    o = o || {};
+    const batch = soBdBatch(state, bid);
+    if (!batch || batch.touched || !Array.isArray(batch.changes) || !batch.changes.length) return false;
+    const deadP = new Set(soBdIsObj(state.dead) && Array.isArray(state.dead.p) ? state.dead.p : []);
+    const used = (rid) => Object.values(state.threads).some((t) => t.by === rid || t.posts.some((p) => p.by === rid));
+    for (let i = batch.changes.length - 1; i >= 0; i--) {
+        const c = batch.changes[i];
+        if (!c) continue;
+        if (c.c === 'post') {
+            const t = state.threads[c.tid];
+            if (!t || deadP.has(c.pid)) continue;
+            const at = t.posts.findIndex((p) => p.id === c.pid);
+            if (at >= 0) t.posts.splice(at, 1);
+        } else if (c.c === 'thread') {
+            delete state.threads[c.tid];
+        } else if (c.c === 'person') {
+            const p = state.roster[c.rid];
+            if (p && !p.me && !used(c.rid)) delete state.roster[c.rid];
+        } else if (c.c === 'fill') {
+            const p = state.roster[c.rid];
+            if (!p) continue;
+            for (const f of Object.keys(c.prev || {})) p[f] = c.prev[f];
+        } else if (c.c === 'pact') {
+            const p = state.roster[c.rid];
+            if (p) p.act = c.prev;
+        } else if (c.c === 'act') {
+            const t = state.threads[c.tid];
+            if (t) { t.act = c.prev.act; t.lastCatch = c.prev.lastCatch; t.nextN = c.prev.nextN; t.rev = c.prev.rev; }
+        } else if (c.c === 'bact') {
+            state.act = c.prev;
+        } else if (c.c === 'catch') {
+            state.catches = c.prev;
+        } else if (c.c === 'base') {
+            if (!o.keepBase) state.base = soBdSafeCopy(c.prev);
+        } else if (typeof soBdModRevertChange === 'function' && soBdModRevertChange(state, c)) { /* stage 3 (版务, mods.js): data-driven, flag-free */ }
+    }
+    state.batches = state.batches.filter((b) => b !== batch);
+    if (o.stash && Array.isArray(batch.recs) && batch.base) {
+        const floor = batch.base.floor;
+        if (!soBdIsObj(state.alts) || state.alts.floor !== floor || !soBdIsObj(state.alts.bySwipe)) state.alts = { floor, bySwipe: {} };
+        const mine = new Set((batch.swipes || []).map(String));
+        for (const sw of mine) state.alts.bySwipe[sw] = { recs: soBdSafeCopy(batch.recs), key: batch.base.key };
+        const others = Object.keys(state.alts.bySwipe).filter((k) => !mine.has(k)).map(Number).sort((a, b) => a - b);
+        while (Object.keys(state.alts.bySwipe).length > THEATER_BOARD_ALTS_KEEP && others.length) delete state.alts.bySwipe[String(others.shift())];
+    }
+    return true;
+}
+
+// The batch a manual undo / regenerate is offered for: the LAST batch, untouched, with changes (a final batch still qualifies — H5).
+function soBdCanUndo(state) {
+    const bs = soBdIsObj(state) && Array.isArray(state.batches) ? state.batches : [];
+    const b = bs[bs.length - 1];
+    if (!b || b.touched || !Array.isArray(b.changes) || !b.changes.length) return null;
+    return { bid: b.id, kind: b.kind };
+}
+
+/* —— player operations (never a batch; every successful one except checkName marks ALL batches touched) —— */
+const THEATER_BOARD_NAME_MAX = 24;   // 2026-11-21 (length limits): was 12; = the reader's tolerant 【名字】{1,24}
+const THEATER_BOARD_COMPOSE_MAX = Object.freeze({ title: 200, text: 8000 });   // 发帖框的长度上限（码点）：超了拒收、不截
+const THEATER_BOARD_NAME_BAD_RE = /[【】｜|\r\n]/;
+
+// '' when the name is usable by the player, else the reason: empty / long / chars / taken (a roster person who is not one of the player's).
+function soBdNameWhy(state, name) {
+    const nm = soBdStr(name).trim();
+    if (!nm) return 'empty';
+    if ([...nm].length > THEATER_BOARD_NAME_MAX) return 'long';
+    if (THEATER_BOARD_NAME_BAD_RE.test(nm)) return 'chars';
+    const k = soBdNameKey(nm);
+    if (!k) return 'empty';
+    if (Object.values(state.roster).some((p) => p && p.key === k && !p.me)) return 'taken';
+    return '';
+}
+
+// Deletes a thread's summary (rev + 1). → boolean.
+function soBdSumDiscard(state, tid) {
+    const t = soBdIsObj(state) && soBdIsObj(state.threads) ? state.threads[tid] : null;
+    if (!t || !soBdOwn(t, 'sum')) return false;
+    delete t.sum;
+    t.rev = soBdInt(t.rev, 0, 0) + 1;
+    return true;
+}
+
+// act = {op:'checkName', name} · {op:'post', tid, name, text, to?, now?} · {op:'thread', name, title, text, now?} · {op:'delPost', tid, pid} ·
+// {op:'delThread', tid}  →  {ok: true, id?, tid?} | {ok: false, why} | {ok: false, why: 'titleLong' | 'textLong', m: that field's code points}
+// (over THEATER_BOARD_COMPOSE_MAX after the empty checks, the title first: refused, never cut; the state untouched).
+function soBdPlayer(state, act) {
+    const op = soBdIsObj(act) ? act.op : '';
+    const fail = (why) => ({ ok: false, why });
+    const over = (s, k) => { const m = [...s].length; return m > THEATER_BOARD_COMPOSE_MAX[k] ? { ok: false, why: k + 'Long', m } : null; };
+    const touchAll = () => { for (const b of state.batches) if (b) b.touched = 1; };
+    const dead = (list, id) => { if (!state.dead[list].includes(id)) state.dead[list].push(id); };
+    // the player's alias (added on first use) → the roster person who carries it
+    const me = (name, now) => {
+        const k = soBdNameKey(name);
+        if (!state.player.aliases.some((a) => a && a.key === k)) state.player.aliases.push({ name, key: k, at: now || Date.now() });
+        let p = Object.values(state.roster).find((x) => x && x.key === k && x.me);
+        if (!p) {
+            const id = soBdNewId(state, 'R');
+            p = { id, name, key: k, glyph: '', title: '', bio: '', me: 1, first: 'me', act: 0 };
+            state.roster[id] = p;
+        }
+        state.player.last = name;
+        return p;
+    };
+    if (op === 'checkName') {
+        const why = soBdNameWhy(state, act.name);
+        if (!why && act.mods === true) { const g = soBdModGate(state, { op: 'name', name: act.name }); if (g) return fail(g); }   // stage 3: a gagged alias
+        return why ? fail(why) : { ok: true };
+    }
+    if (op === 'post' || op === 'thread') {
+        const why = soBdNameWhy(state, act.name);
+        if (why) return fail(why);
+        if (act.mods === true) { const g = soBdModGate(state, act); if (g) return fail(g); }   // stage 3: a locked thread / a gagged alias, before anything is stored
+        const name = soBdStr(act.name).trim();
+        const text = soBdStr(act.text).trim();
+        if (op === 'post') {
+            const t = state.threads[act.tid];
+            if (!t) return fail('gone');
+            if (!text) return fail('text');
+            const long = over(text, 'text');
+            if (long) return long;
+            const p = me(name, act.now);
+            const a = soBdInt(state.act, 0, 0) + 1;
+            state.act = a;
+            const post = { id: soBdNewId(state, 'P'), n: soBdInt(t.nextN, 1, 1), by: p.id, t: text, b: 'me', me: 1 };
+            const to = soBdStr(act.to).trim();
+            if (to) post.to = to;
+            t.nextN = post.n + 1;
+            t.posts.push(post);
+            t.act = a;
+            p.act = a;
+            t.lastCatch = soBdInt(state.catches, 0, 0);
+            t.mineCatch = t.lastCatch;
+            t.rev = soBdInt(t.rev, 0, 0) + 1;
+            touchAll();
+            return { ok: true, id: post.id, tid: t.id };
+        }
+        const title = soBdStr(act.title).trim();
+        if (!title) return fail('title');
+        if (!text) return fail('text');
+        const long = over(title, 'title') || over(text, 'text');
+        if (long) return long;
+        const p = me(name, act.now);
+        const a = soBdInt(state.act, 0, 0) + 1;
+        state.act = a;
+        const tid = soBdNewId(state, 'T');
+        state.tno = soBdInt(state.tno, 0, 0) + 1;
+        const c = soBdInt(state.catches, 0, 0);
+        const opening = { id: soBdNewId(state, 'P'), n: 1, by: p.id, t: text, b: 'me', me: 1 };
+        state.threads[tid] = { id: tid, no: state.tno, title, by: p.id, tags: [], heat: null, time: '', posts: [opening], nextN: 2, act: a, lastCatch: c, mineCatch: c, rev: 1 };
+        p.act = a;
+        touchAll();
+        return { ok: true, id: opening.id, tid };
+    }
+    if (op === 'delPost') {
+        const t = state.threads[act.tid];
+        const at = t ? t.posts.findIndex((p) => p.id === act.pid) : -1;
+        if (at < 0 || t.posts[at].del) return fail('gone');
+        const post = t.posts[at];
+        dead('p', post.id);
+        if (at < t.posts.length - 1) {
+            post.del = 1;
+            post.t = '';
+        } else {
+            t.posts.splice(at, 1);
+            while (t.posts.length > 1 && t.posts[t.posts.length - 1].del) t.posts.pop();
+        }
+        if (!t.posts.length || (t.posts.length === 1 && t.posts[0].del)) {
+            for (const p of t.posts) dead('p', p.id);
+            delete state.threads[t.id];
+            dead('t', t.id);
+        } else {
+            t.rev = soBdInt(t.rev, 0, 0) + 1;
+            if (soBdIsObj(t.sum) && post.n <= soBdInt(t.sum.upToN, 0, 0)) soBdSumDiscard(state, t.id);
+        }
+        touchAll();
+        return { ok: true, tid: t.id, id: post.id };
+    }
+    if (op === 'delThread') {
+        const t = state.threads[act.tid];
+        if (!t) return fail('gone');
+        for (const p of t.posts) dead('p', p.id);
+        delete state.threads[t.id];
+        dead('t', t.id);
+        touchAll();
+        return { ok: true, tid: t.id };
+    }
+    return fail('op');
+}
+
+/* —— summaries (the window side — what is due, what a request reads, the fingerprint — lives in window.js) —— */
+
+// A thread's summary counts only with non-empty text.
+function soBdSumValid(t) { return soBdIsObj(t) && soBdIsObj(t.sum) && soBdStr(t.sum.text).trim() !== ''; }
+
+// Stores a finished summary. sum = {text, upTo: pid, upToN}, check = {rev, fp, now?} from the soBdSumWin the request was built on.
+// Only while the thread is live, its rev is still check.rev (O2: per thread) and the stored posts it read — after the previous summary,
+// up to upToN, deleted ones left out, the last one being upTo — still give check.fp. Then: thread.sum = {text, upTo, upToN, fp, rev, at},
+// failures cleared, rev + 1, and every batch that owns a post with n ≤ upToN in this thread is touched (no undo past a summary). → boolean.
+function soBdSumCommit(state, tid, sum, check) {
+    const t = soBdIsObj(state) && soBdIsObj(state.threads) && soBdOwn(state.threads, tid) ? state.threads[tid] : null;
+    if (!soBdIsObj(t) || !soBdIsObj(sum) || !soBdIsObj(check) || !Array.isArray(t.posts)) return false;
+    const text = soBdStr(sum.text).trim();
+    if (!text || !Number.isInteger(sum.upToN) || soBdInt(t.rev, 0, 0) !== check.rev) return false;
+    const from = Math.max(1, soBdSumValid(t) ? soBdInt(t.sum.upToN, 0, 0) : 0);
+    const read = t.posts.filter((p) => soBdIsObj(p) && !p.del && p.n > from && p.n <= sum.upToN);
+    if (!read.length || read[read.length - 1].id !== sum.upTo || soBdFingerprint(read) !== check.fp) return false;
+    t.sum = { text, upTo: sum.upTo, upToN: sum.upToN, fp: check.fp, rev: check.rev, at: check.now || Date.now() };
+    delete t.sumFail;
+    delete t.sumFailN;
+    t.rev = soBdInt(t.rev, 0, 0) + 1;
+    const bids = new Set(t.posts.filter((p) => soBdIsObj(p) && p.n <= sum.upToN).map((p) => p.b));
+    for (const b of Array.isArray(state.batches) ? state.batches : []) if (b && bids.has(b.id)) b.touched = 1;
+    return true;
+}
+
+// A summary attempt failed: sumFail + 1, sumFailN = the uncovered size now (soBdSumDue backs off until it grows). rev unchanged. → boolean.
+function soBdSumFailed(state, tid) {
+    const t = soBdIsObj(state) && soBdIsObj(state.threads) && soBdOwn(state.threads, tid) ? state.threads[tid] : null;
+    if (!soBdIsObj(t)) return false;
+    t.sumFail = soBdInt(t.sumFail, 0, 0) + 1;
+    t.sumFailN = soBdUncovered(state, tid);
+    return true;
+}
+
+/* —— swipes, stash replay, fold, housekeeping, reconcile (the phone's Lane B delta table, index §2.7; zero calls) —— */
+const THEATER_BOARD_FOLD_SUNK = 20;
+
+// The live catch-up batch of a main floor: the newest non-final catch-up batch whose base is that floor (else null).
+function soBdLive(state, floor) {
+    const f = Number(floor);
+    const bs = soBdIsObj(state) && Array.isArray(state.batches) ? state.batches : [];
+    for (let i = bs.length - 1; i >= 0; i--) {
+        const b = bs[i];
+        if (soBdIsObj(b) && b.kind === 'catchup' && !b.final && soBdIsObj(b.base) && b.base.floor === f) return b;
+    }
+    return null;
+}
+
+// The same reply announced again (another MESSAGE_RECEIVED, the post-reply step run twice): a live batch of ev.floor already owns
+// ev.swipe and its key is ev.key (a fixer swipe never compares keys). Only for 'reply' / 'swipe-new'.
+function soBdSame(state, ev) {
+    if (!soBdIsObj(ev) || (ev.type !== 'reply' && ev.type !== 'swipe-new')) return false;
+    const b = soBdLive(state, Number(ev.floor));
+    return !!b && Array.isArray(b.swipes) && b.swipes.includes(ev.swipe) && (b.base.key === ev.key || ev.fix === true);
+}
+
+// Replays the stash of (floor, swipe) through the reducer WITH the recorded ids: tombstoned ids, aliases taken since and names taken
+// since drop (dead / player / exists), a deleted thread's posts drop as target. The used entry goes (an empty stash = null).
+// o = {now?, protect?: string[]}. → boolean (false: no stash for that floor / swipe).
+function soBdRestore(state, floor, swipe, o) {
+    o = o || {};
+    const a = soBdIsObj(state) ? state.alts : null;
+    const k = String(swipe);
+    if (!soBdIsObj(a) || a.floor !== floor || !soBdIsObj(a.bySwipe) || !soBdOwn(a.bySwipe, k)) return false;
+    const e = a.bySwipe[k];
+    delete a.bySwipe[k];
+    if (!Object.keys(a.bySwipe).length) state.alts = null;
+    if (!soBdIsObj(e) || !Array.isArray(e.recs)) return false;
+    const src = { kind: 'catchup', base: { floor, swipe: Number(swipe), key: soBdStr(e.key) }, prevBase: state.base, reuse: true };
+    if (o.now) src.now = o.now;
+    if (Array.isArray(o.protect)) src.protect = o.protect;
+    if (o.mods === true) src.mods = true;   // stage 3: the stashed 版务 records replay (re-checked at this moment); without it they are skipped
+    soBdApply(state, soBdSafeCopy(e.recs), src);
+    return true;
+}
+
+// A new main reply landed on `before`: every older catch-up batch becomes final (its recs go; changes stay until housekeeping), and a
+// stash for an older floor is cleared. → how many batches were folded.
+function soBdFold(state, before) {
+    if (!soBdIsObj(state)) return 0;
+    let n = 0;
+    for (const b of Array.isArray(state.batches) ? state.batches : []) {
+        if (!soBdIsObj(b) || b.kind !== 'catchup' || b.final || !soBdIsObj(b.base) || !(b.base.floor < before)) continue;
+        b.final = 1;
+        delete b.recs;
+        n++;
+    }
+    if (!soBdIsObj(state.alts) || !(Number(state.alts.floor) >= before)) state.alts = null;
+    return n;
+}
+
+// The board's actions for one main-chat event. ev = {type: 'reply'|'swipe-new'|'swipe-back'|'regen'|'delete'|'fixer', floor, swipe,
+// key, fix?, lastFloor}. → [{a:'fold', before} | {a:'revert', id, stash} | {a:'restore', floor, swipe} | {a:'carry', id, swipe} |
+// {a:'drop', floor, swipe} | {a:'catchup', floor, swipe}]. The phone's soWyDeltaPlan + its join rules (soThrWeiyuApplyOn): a re-announced
+// reply is a no-op; a 'reply' on a floor with a live batch is a regenerate; a swipe-back whose stash key no longer matches drops that stash
+// (and stashes a live untouched batch that does not own the swipe). opts.follow → a catch-up after reply / swipe-new / regen.
+function soBdBatchPlan(state, ev) {
+    try {
+        if (!soBdIsObj(state) || !soBdIsObj(ev)) return [];
+        const floor = Number(ev.floor);
+        const swipe = Number(ev.swipe);
+        if (!Number.isInteger(floor) || floor < Number(ev.lastFloor)) return [];
+        if (soBdSame(state, ev)) return [];
+        const live = soBdLive(state, floor);
+        const type = ev.type === 'reply' && live ? 'regen' : ev.type;
+        const fresh = !!live && !live.touched;
+        const follow = soBdOpt(state, 'follow') === true ? [{ a: 'catchup', floor, swipe }] : [];
+        const alts = soBdIsObj(state.alts) && state.alts.floor === floor && soBdIsObj(state.alts.bySwipe) ? state.alts.bySwipe : null;
+        switch (type) {
+            case 'reply': return [{ a: 'fold', before: floor }].concat(follow);
+            case 'swipe-new': return (fresh ? [{ a: 'revert', id: live.id, stash: true }] : []).concat(follow);
+            case 'swipe-back': {
+                if (live && Array.isArray(live.swipes) && live.swipes.includes(swipe)) return [];
+                if (!alts || !soBdOwn(alts, String(swipe))) return [];
+                const st = alts[String(swipe)];
+                if (ev.key != null && (!soBdIsObj(st) || st.key !== ev.key)) {
+                    return [{ a: 'drop', floor, swipe }].concat(fresh ? [{ a: 'revert', id: live.id, stash: true }] : []);
+                }
+                if (live && live.touched) return [];
+                return (live ? [{ a: 'revert', id: live.id, stash: true }] : []).concat([{ a: 'restore', floor, swipe }]);
+            }
+            case 'regen': return (fresh ? [{ a: 'revert', id: live.id, stash: false }] : []).concat(follow);
+            case 'delete': return fresh ? [{ a: 'revert', id: live.id, stash: false }] : [];
+            case 'fixer': return live ? [{ a: 'carry', id: live.id, swipe }] : [];
+            default: return [];
+        }
+    } catch (e) {
+        return [];
+    }
+}
+
+// Runs a plan in order; one broken action never stops the rest. o = {now?, protect?} (for restore). → {catchup: null | {floor, swipe}}.
+function soBdBatchRun(state, actions, o) {
+    const out = { catchup: null };
+    for (const act of Array.isArray(actions) ? actions : []) {
+        if (!soBdIsObj(act)) continue;
+        try {
+            if (act.a === 'fold') soBdFold(state, act.before);
+            else if (act.a === 'revert') soBdRevert(state, act.id, { stash: !!act.stash });
+            else if (act.a === 'restore') soBdRestore(state, act.floor, act.swipe, o);
+            else if (act.a === 'carry') {
+                const b = soBdBatch(state, act.id);
+                if (b && !b.final && Number.isInteger(act.swipe)) {
+                    if (!Array.isArray(b.swipes)) b.swipes = [];
+                    if (!b.swipes.includes(act.swipe)) b.swipes.push(act.swipe);
+                }
+            } else if (act.a === 'drop') {
+                const a = state.alts;
+                if (soBdIsObj(a) && a.floor === act.floor && soBdIsObj(a.bySwipe)) {
+                    delete a.bySwipe[String(act.swipe)];
+                    if (!Object.keys(a.bySwipe).length) state.alts = null;
+                }
+            } else if (act.a === 'catchup') out.catchup = { floor: act.floor, swipe: act.swipe };
+        } catch (e) { /* one broken action never stops the rest */ }
+    }
+    return out;
+}
+
+// ST removed swipe `removed` of main floor `floor`; later indexes move down by one: the live batch's swipes (and its base swipe), the
+// board's base swipe on that floor, and the stash of that floor (the removed swipe's entry goes). Final batches never change.
+// → 'none' | 'shifted' | 'emptied' (the live batch owns no swipe any more).
+function soBdSwipeShift(state, floor, removed) {
+    if (!soBdIsObj(state)) return 'none';
+    const f = Number(floor);
+    const rm = Number(removed);
+    if (!Number.isInteger(rm) || rm < 0) return 'none';
+    let changed = false;
+    let emptied = false;
+    const down = (base) => { if (soBdIsObj(base) && base.floor === f && Number.isInteger(base.swipe) && base.swipe > rm) { base.swipe--; changed = true; } };
+    const b = soBdLive(state, f);
+    if (b && Array.isArray(b.swipes)) {
+        const next = b.swipes.filter((x) => x !== rm).map((x) => (Number.isFinite(x) && x > rm ? x - 1 : x));
+        if (JSON.stringify(next) !== JSON.stringify(b.swipes)) {
+            b.swipes = next;
+            changed = true;
+            emptied = next.length === 0;
+        }
+        down(b.base);
+    }
+    down(state.base);
+    const a = state.alts;
+    if (soBdIsObj(a) && Number(a.floor) === f && soBdIsObj(a.bySwipe)) {
+        const by = {};
+        for (const k of Object.keys(a.bySwipe)) {
+            const i = Number(k);
+            if (i === rm) { changed = true; continue; }
+            if (Number.isInteger(i) && i > rm) { by[i - 1] = a.bySwipe[k]; changed = true; } else by[k] = a.bySwipe[k];
+        }
+        a.bySwipe = by;
+    }
+    return emptied ? 'emptied' : (changed ? 'shifted' : 'none');
+}
+
+// After every commit. o = {fold, now, warn = THEATER_BOARD_SIZE.warn}. Keeps the newest THEATER_BOARD_BATCH_KEEP batch heads; `changes`
+// stay only on the last batch while it is untouched (the manual undo); notices ≤ THEATER_BOARD_NOTICE_KEEP; stash ≤ THEATER_BOARD_ALTS_KEEP
+// swipes. Fold-away (only with o.fold, at / above warn): a thread nobody posted in for THEATER_BOARD_FOLD_SUNK catch-ups, where the player
+// did not post during them either, and that has a valid summary loses its posts 2 … sum.upToN (opening, summary and later posts stay;
+// folded posts are not tombstones); thread.folded += k; one notice {k:'fold', n: posts, m: threads, at}. → {batches: dropped, folded: posts}.
+function soBdHousekeep(state, o) {
+    o = o || {};
+    if (!soBdIsObj(state)) return { batches: 0, folded: 0 };
+    const bs = Array.isArray(state.batches) ? state.batches : [];
+    const dropped = Math.max(0, bs.length - THEATER_BOARD_BATCH_KEEP);
+    state.batches = bs.slice(dropped);
+    state.batches.forEach((b, i) => {
+        if (!soBdIsObj(b)) return;
+        if (i < state.batches.length - 1 || b.touched) delete b.changes;
+    });
+    state.alts = soBdAltsNorm(state.alts);
+    let n = 0;
+    let m = 0;
+    const warn = Number.isFinite(Number(o.warn)) && o.warn !== null && o.warn !== '' ? Number(o.warn) : THEATER_BOARD_SIZE.warn;
+    if (o.fold === true && soBdSize(state) >= warn) {
+        const c = soBdInt(state.catches, 0, 0);
+        for (const tid of Object.keys(state.threads)) {
+            const t = state.threads[tid];
+            if (!soBdIsObj(t) || !Array.isArray(t.posts) || !soBdSumValid(t)) continue;
+            if (c - soBdInt(t.lastCatch, 0, 0) < THEATER_BOARD_FOLD_SUNK) continue;
+            if (soBdOwn(t, 'mineCatch') && c - soBdInt(t.mineCatch, 0, 0) < THEATER_BOARD_FOLD_SUNK) continue;
+            const up = soBdInt(t.sum.upToN, 0, 0);
+            const keep = t.posts.filter((p, i) => i === 0 || !soBdIsObj(p) || !(p.n >= 2 && p.n <= up));
+            const k = t.posts.length - keep.length;
+            if (!k) continue;
+            t.posts = keep;
+            t.folded = soBdInt(t.folded, 0, 0) + k;
+            t.rev = soBdInt(t.rev, 0, 0) + 1;
+            n += k;
+            m++;
+        }
+        if (n) {
+            if (!Array.isArray(state.notices)) state.notices = [];
+            state.notices.push({ k: 'fold', n, m, at: o.now || Date.now() });
+        }
+    }
+    if (Array.isArray(state.notices)) state.notices = state.notices.slice(-THEATER_BOARD_NOTICE_KEEP);
+    return { batches: dropped, folded: n };
+}
+
+// How far (in floors) a reply is looked for by its text key when messages shift under a previous base (P3, item a).
+const THEATER_BOARD_FOLLOW_SPAN = 64;
+
+// The floor of base's reply in chat, by its text key: candidates i with 0 ≤ i < below and |i − base.floor| ≤ THEATER_BOARD_FOLLOW_SPAN
+// whose message is not the player's (a hidden is_system reply counts, like locate) and whose key at base.swipe is base.key (non-empty).
+// Searched outward from base.floor (distance 0, 1, 2 …); at equal distance the later floor wins. Bad input → -1. Chat is read only.
+function soBdFindReply(chat, base, cx, below) {
+    if (!Array.isArray(chat) || !soBdIsObj(base) || !soBdIsObj(cx) || typeof cx.keyAt !== 'function') return -1;
+    const f = base.floor;
+    const key = soBdStr(base.key);
+    if (!Number.isInteger(f) || f < 0 || key === '') return -1;
+    const sw = soBdInt(base.swipe, 0, 0);
+    const lim = Math.min(Number.isFinite(Number(below)) ? Number(below) : chat.length, chat.length);
+    const hit = (i) => i >= 0 && i < lim && soBdIsObj(chat[i]) && !chat[i].is_user && cx.keyAt(chat[i], sw) === key;
+    for (let d = 0; d <= THEATER_BOARD_FOLLOW_SPAN; d++) {
+        if (hit(f + d)) return f + d;
+        if (d > 0 && hit(f - d)) return f - d;
+    }
+    return -1;
+}
+
+// A live catch-up batch's previous bases (batch.prevBase and the `prev` of every {c:'base'} change — what a revert puts back) follow
+// their reply by key, looked for below the batch's own floor. Not found and no longer before the batch → the last AI floor before the
+// batch ({floor: -1, swipe: 0, key: ''} when none); not found but still before it → unchanged (edited without an event: stays). Targets
+// with no integer floor ≥ 0 are left alone. In place. → changed or not.
+function soBdFollowPrev(batch, chat, cx) {
+    if (!soBdIsObj(batch) || !soBdIsObj(batch.base) || !Array.isArray(chat) || !soBdIsObj(cx)) return false;
+    const own = Number(batch.base.floor);
+    if (!Number.isInteger(own)) return false;
+    const targets = [];
+    if (soBdIsObj(batch.prevBase)) targets.push(batch.prevBase);
+    for (const c of Array.isArray(batch.changes) ? batch.changes : []) if (soBdIsObj(c) && c.c === 'base' && soBdIsObj(c.prev)) targets.push(c.prev);
+    let changed = false;
+    for (const t of targets) {
+        if (!Number.isInteger(t.floor) || t.floor < 0) continue;
+        const i = soBdFindReply(chat, t, cx, own);
+        if (i >= 0) {
+            if (i !== t.floor) { t.floor = i; changed = true; }
+        } else if (t.floor >= own && typeof cx.lastAiFloor === 'function') {
+            const lf = cx.lastAiFloor(chat.slice(0, Math.max(own, 0)));
+            const swipe = lf >= 0 ? cx.swipeOf(chat[lf]) : 0;
+            const to = { floor: lf >= 0 ? lf : -1, swipe, key: lf >= 0 ? soBdStr(cx.keyAt(chat[lf], swipe) || '') : '' };
+            if (t.floor !== to.floor || t.swipe !== to.swipe || t.key !== to.key) changed = true;
+            t.floor = to.floor;
+            t.swipe = to.swipe;
+            t.key = to.key;
+        }
+    }
+    return changed;
+}
+
+// Follows every live catch-up batch, the stash and the board's base to their main replies (the phone's soThrWeiyuReconcile; chat is
+// read only). cx = soThrBoardChatCx() = {lastAiFloor, swipeOf, keyAt, locate}. A live batch is found by the keys of its swipes: moved →
+// its base floor (and a stash of the same floor) moves with it; gone → reverted without stash when untouched (a touched one stays); a
+// stash without a live batch is found by its own keys (gone → null). Every live batch still there then has its previous bases followed
+// by key (soBdFollowPrev — so a later revert restores the moved previous reply). Then the base: found → its floor follows; locate's answer
+// missing or not holding its key → a nearest-key search (soBdFindReply) gets a second chance; still not found and the last AI floor is
+// before it → the base becomes that floor {floor, swipe, key} (none = {-1, 0, ''}); otherwise it stays. → changed or not.
+function soBdReconcile(state, chat, cx) {
+    if (!soBdIsObj(state) || !Array.isArray(chat) || !soBdIsObj(cx) || typeof cx.locate !== 'function') return false;
+    let changed = false;
+    const taken = new Set();
+    const moves = [];
+    const altsFloor = soBdIsObj(state.alts) ? Number(state.alts.floor) : null;
+    let altsTo;
+    const live = (Array.isArray(state.batches) ? state.batches : []).filter((b) => soBdIsObj(b) && b.kind === 'catchup' && !b.final && soBdIsObj(b.base));
+    for (const b of live) {
+        const sws = (Array.isArray(b.swipes) ? b.swipes : []).filter((x) => Number.isInteger(x));
+        const to = cx.locate(chat, b.base.floor, (m) => sws.some((sw) => cx.keyAt(m, sw) === b.base.key), (m) => sws.includes(cx.swipeOf(m)), taken);
+        if (Number(b.base.floor) === altsFloor) altsTo = to;
+        if (to < 0) {
+            if (soBdRevert(state, b.id, {})) changed = true;
+            continue;
+        }
+        taken.add(to);
+        if (to !== Number(b.base.floor)) moves.push([b, to]);
+    }
+    for (const [b, to] of moves) { b.base.floor = to; changed = true; }
+    for (const b of live) if (state.batches.includes(b) && soBdFollowPrev(b, chat, cx)) changed = true;
+    if (soBdIsObj(state.alts)) {
+        let to = altsTo;
+        if (to === undefined) {
+            const by = soBdIsObj(state.alts.bySwipe) ? state.alts.bySwipe : {};
+            const ks = Object.keys(by).map(Number).filter((x) => Number.isInteger(x));
+            to = cx.locate(chat, altsFloor, (m) => ks.some((k) => soBdIsObj(by[k]) && cx.keyAt(m, k) === by[k].key), (m) => soBdOwn(by, String(cx.swipeOf(m))), null);
+        }
+        if (to < 0) { state.alts = null; changed = true; } else if (to !== altsFloor) { state.alts.floor = to; changed = true; }
+    }
+    const base = state.base;
+    if (soBdIsObj(base) && Number.isInteger(base.floor) && base.floor >= 0) {
+        const sw = soBdInt(base.swipe, 0, 0);
+        const to = cx.locate(chat, base.floor, (m) => cx.keyAt(m, sw) === base.key, (m) => cx.swipeOf(m) === sw, null);
+        const near = to < 0 || cx.keyAt(chat[to], sw) !== base.key ? soBdFindReply(chat, base, cx, chat.length) : -1;
+        if (near >= 0) {
+            if (near !== base.floor) { base.floor = near; changed = true; }
+        } else if (to >= 0) {
+            if (to !== base.floor) { base.floor = to; changed = true; }
+        } else {
+            const last = cx.lastAiFloor(chat);
+            if (last < base.floor) {
+                const lsw = last >= 0 ? cx.swipeOf(chat[last]) : 0;
+                state.base = last >= 0 ? { floor: last, swipe: lsw, key: soBdStr(cx.keyAt(chat[last], lsw) || '') } : { floor: -1, swipe: 0, key: '' };
+                changed = true;
+            }
+        }
+    }
+    return changed;
+}
+/* <</BOARD:reduce>> */
+/* <<BOARD:read>> */
+// [BOARD] read — spliced verbatim into index.js; edit HERE, re-splice, never hand-edit the copy.
+// 🗂 论坛板的读法：一份模型回复 → 板的记录（人物 / 新帖 / 楼）；一份摘要回复 → 摘要正文。只读不写：这里没有一个给模型看的字。
+// 场景读法的帮手（rd = soThrBoardReaderDeps()）由调用方传进来，读法走的是今天「更多」那条路（剥思维链 → 「更多」清洗 → 分段 → 预设包裹
+// 的尾巴 → 内容行），所以一份 post 回复读出来的楼和今天论坛的「更多」一字不差。不读旗、不读时钟、绝不抛。
+
+// PROVISIONAL — round R0 picks the word; the reader also takes o.replyKind
+const THEATER_BOARD_REPLY_KIND = '回帖';
+// 摘要正文的上限（码点数，index §2.4）。owner 2026-11-21：1200 → 2400（真模型探针：42 楼的帖子，六份摘要里三份到了 82–88 %，
+// 截掉的是记录的结尾——争到了哪一步）。超过的仍照旧截到上限再存（不拒收）；请求里从不说这个数（THEATER_BOARD_P_SUM 只写「几百字」）。
+const THEATER_BOARD_SUM_MAX = 2400;
+// 补帖请求（措辞 4 / c4）让模型在段头下面先写一行「【本批】共 N 楼」自报这一批的楼数。读法把这一行整行丢掉：不是楼、不粘进上一楼、
+// 不进 unrec、不计 lines（有它的回复读出来 = 把它删掉之后的回复）；只在结果里多一格 ledger = {n: 第一行报的数 | null, count: 丢了几行}。
+// 代码从不按这个数办事（分量的硬规矩是 soBdApply 的上限）。
+const THEATER_BOARD_LEDGER_KIND = '本批';
+
+// 回帖记录行：【K】/ [K]，可带「：」，可带 # / ＃，帖子号（半角或全角数字），后面要么是「｜标题」（不认），要么是同一行的其余部分。
+// → RegExp；m[1] = 帖子号原样（可能是全角），m[2] = 号后面的其余部分（已去掉前导空白）。
+function soBdReplyRe(kind) {
+    const k = String(kind == null || kind === '' ? THEATER_BOARD_REPLY_KIND : kind).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp('^\\s*[【\\[]\\s*' + k + '\\s*[】\\]]\\s*[:：]?\\s*[#＃]?\\s*([0-9０-９]+)\\s*(.*)$');
+}
+// 一行是不是【本批】自报行（行首【本批】/ [本批]，先经 soBdReadPre 去掉 ** 和行首 # / >）：是 → 记进 res.ledger 并返回 true。
+// 报的数 = 括号后面（可带「：」和「共 / 合计 / 一共 / 总共」）紧接着的第一个数（半角或全角）；没有数 = null。只有第一行的数算。
+function soBdReadLedger(l0, res) {
+    const k = THEATER_BOARD_LEDGER_KIND.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const m = soBdReadPre(l0).match(new RegExp('^\\s*[【\\[]\\s*' + k + '\\s*[】\\]]\\s*[:：]?\\s*(?:共|合计|一共|总共)?\\s*([0-9０-９]+)?'));
+    if (!m) return false;
+    if (!res.ledger) res.ledger = { n: m[1] ? soBdReadNo(m[1]) : null, count: 0 };
+    res.ledger.count++;
+    return true;
+}
+// 全角数字 → 数。
+function soBdReadNo(s) {
+    return Number(String(s).replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)));
+}
+// 一行在认回帖头之前的轻清洗（同 soThrScClean 的前半：\r、**、行首的 # / > 标记）。rd.clean 会把「【回帖】2｜标题」改成观众行，所以头要先认。
+function soBdReadPre(l) {
+    return String(l).replace(/\r/g, '').replace(/\*\*/g, '').replace(/^\s*(?:#{1,6}\s+|>\s+)/, '').trimEnd();
+}
+// 回复正文 → 内容行（今天「更多」的路：rd.reasoning → rd.moreClean → rd.split → rd.tailCut → 「=== 内容 ===」段的行，
+// 有段没有内容段 → 段头之前的行，一个段都没有 → 每一行）。
+function soBdReadLines(text, rd) {
+    const s = rd.moreClean(rd.reasoning(String(text == null ? '' : text)));
+    const sp = rd.split(s);
+    rd.tailCut(sp.secs, sp.pre);
+    const secs = Array.from(sp.secs || []);
+    const cs = secs.filter((x) => x && x.kind === '内容');
+    if (cs.length) return cs.flatMap((x) => Array.from(x.lines || []));
+    return secs.length ? Array.from(sp.pre || []) : s.split(/\r?\n|[\u2028\u2029]/);
+}
+// 最后一条记录是空的 → 多半被截断了。
+function soBdReadCut(recs, finish) {
+    if (finish === 'length') return true;
+    const last = recs[recs.length - 1];
+    if (!last) return false;
+    if (last.r === 'post') return !String(last.text || '').trim();
+    if (last.r === 'thread') return !String(last.op || '').trim();
+    return false;
+}
+
+// 一份板请求的回复 → { recs, unrec, lines, cut }。kind = 'catchup' | 'post'；o = { replyKind, tnos, known, finish }。
+//   recs：{r:'person', name, glyph, title, bio} · {r:'thread', title, by, tags, heat, time, op} · {r:'post', name, to, text, tgt}，按回复里的顺序；
+//   tgt = {tno}（回帖头点名的帖子号）| {nt: i}（这份回复里第 i 个新帖，从 0 数）| {here: true}（post 回复里第一个头之前的楼）| null（补帖里头之前的楼）。
+//   帖子号对不对、有没有给模型看过、名字是不是玩家的——都不在这里判，交给 soBdApply（src.tnos / protect）。o.tnos 收下但不用。
+//   【帖子】永远是一个新帖（O11），从不按标题去找旧帖。
+//   unrec = 认不出的行（清洗后的样子）；lines = 数过的非空行；cut = finish 是 'length'，或最后一条记录是空的楼 / 没有楼主正文的新帖。
+//   回复里有【本批】自报行时（两种 kind 都一样丢）才多一格 ledger = {n, count}（THEATER_BOARD_LEDGER_KIND）；没有这一行 = 结果和以前逐字段相同。
+function soBdRead(text, kind, rd, o) {
+    o = o || {};
+    const res = { recs: [], unrec: [], lines: 0, cut: false };
+    try {
+        const hre = soBdReplyRe(o.replyKind);
+        const known = new Set();
+        const k0 = o.known;
+        if (k0 && typeof k0 !== 'string' && typeof k0[Symbol.iterator] === 'function') for (const n of k0) known.add(String(n));
+        let tgt = kind === 'post' ? { here: true } : null;
+        let nt = -1;
+        let cur = null;          // 当前的新帖记录（目标是 {nt} 时）；回帖头之后为 null
+        let last = null;         // 续行粘到哪：{ o, k }
+        let people = false;      // 上一条是空的【人物】：紧跟着的人物样子的行照人物收（rd.peopleRow，forum-handles）
+        const tg = () => (tgt ? Object.assign({}, tgt) : null);
+        const addPerson = (rest) => {
+            const p = rd.person(rest);
+            if (!p.name) return;
+            res.recs.push({ r: 'person', name: p.name, glyph: p.glyph, title: p.title, bio: p.bio });
+            known.add(p.name);
+        };
+        const line = (l0, count) => {
+            if (soBdReadLedger(l0, res)) return;
+            const h = soBdReadPre(l0).match(hre);
+            if (h) {
+                if (count) res.lines++;
+                tgt = { tno: soBdReadNo(h[1]) };
+                cur = null; last = null; people = false;
+                const rest = h[2].trim();
+                if (rest && !/^[｜|]/.test(rest)) line(rest, false);
+                return;
+            }
+            // stage 3（版务行，调用方给了 o.modLine 才认）：一行版务 = 一条自己的记录，带着它所在的帖子（tgt），不粘进上一楼、不进 unrec
+            if (typeof o.modLine === 'function') {
+                const mr = o.modLine(soBdReadPre(l0), rd);
+                if (mr) { if (count) res.lines++; mr.tgt = tg(); res.recs.push(mr); last = null; people = false; return; }
+            }
+            let l = rd.clean(l0);
+            if (!l.trim() || rd.fenceRe.test(l)) return;
+            if (count) res.lines++;
+            if (people) {
+                const row = rd.peopleRow ? rd.peopleRow(l) : '';
+                if (row) { addPerson(row); last = null; return; }
+                people = false;
+            }
+            // 宽容（同今天的论坛读法）：照抄上下文里的「#N 名字：」或写成「【名字】#N …」——都是一层楼
+            let dm = l.match(/^\s*【([^】]{1,24})】\s*#\d+\s*(.*)$/);
+            if (dm && !rd.recRe.test(l)) l = '- ' + dm[1] + (/^回复/.test(dm[2]) ? ' ' : '：') + dm[2];
+            else if ((dm = l.match(/^\s*#\d+\s+(\S.*)$/))) l = '- ' + dm[1];
+            const r = l.match(rd.recRe);
+            if (r) {
+                const k = r[1];
+                const rest = r[2];
+                if (k === '人物') { addPerson(rest); last = null; people = !!rd.peopleRow && !rest.trim(); }
+                else if (k === '帖子') {
+                    const p = rest.split(rd.sep).map((s) => s.trim());
+                    // 模型照抄补帖请求里「【回帖】#3｜标题｜…」的样子给新帖自己编了号：第一格只是一个号（可带 # / ＃）且后面还有格 → 丢掉这一格，
+                    // 其余照旧读（号本身不要：新帖永远由代码给下一个号，O11）。只有号这一格 / 号后面还有别的字 → 照旧当标题。
+                    if (p.length > 1 && /^[#＃]?\s*[0-9０-９]+$/.test(p[0])) p.shift();
+                    cur = { r: 'thread', title: p[0] || '', by: rd.name(p[1]), tags: (p[2] || '').split(rd.listSep).filter(Boolean), heat: rd.heat(p[3]), time: p[4] || '', op: '' };
+                    res.recs.push(cur);
+                    nt++;
+                    tgt = { nt };
+                    last = null;
+                } else {
+                    res.unrec.push(l);
+                    if (k === '版面') last = null;
+                }
+                return;
+            }
+            let m = l.match(/^\s*楼主\s*(?:[（(]([^）)]*)[）)])?\s*[:：]\s*(.*)$/);
+            if (m) {
+                if (cur) { cur.op = m[2]; if (!cur.by && m[1]) cur.by = rd.name(m[1]); last = { o: cur, k: 'op' }; }
+                else { res.unrec.push(l); last = null; }
+                return;
+            }
+            m = l.match(rd.floorRe);
+            if (!m) { const m2 = l.match(rd.nameColonRe); if (m2 && known.has(rd.name(m2[1]))) m = m2; }
+            if (m) {
+                const p = { r: 'post', name: rd.name(m[1]), to: m[2] ? rd.name(m[2]) : '', text: m[3] || '', tgt: tg() };
+                res.recs.push(p);
+                last = { o: p, k: 'text' };
+                return;
+            }
+            if (last) { last.o[last.k] = (last.o[last.k] ? last.o[last.k] + '\n' : '') + l.trim(); return; }
+            res.unrec.push(l);
+        };
+        for (const l0 of soBdReadLines(text, rd)) line(l0, true);
+    } catch (e) {
+        console.warn('[Story Oracle] 论坛板：回复读不懂（按空的算）', e);
+        res.recs = []; res.unrec = []; res.lines = 0;
+        delete res.ledger;
+    }
+    res.cut = soBdReadCut(res.recs, o.finish);
+    return res;
+}
+
+// 一份摘要回复 → { text, ok, cut }：剥思维链和机制块；有「=== 内容 ===」段就只要段里的行，否则整份；去首尾空白；最多 THEATER_BOARD_SUM_MAX 个码点。
+// cut = finish 是 'length'（只说模型自己被截断；超过上限被这里截掉的不算 cut，照样 ok）；ok = 有字且没被截断。
+function soBdReadSum(text, rd, finish) {
+    let body = '';
+    try {
+        const s = rd.mech(rd.reasoning(String(text == null ? '' : text)));
+        const cs = Array.from(rd.split(s).secs || []).filter((x) => x && x.kind === '内容');
+        body = (cs.length ? cs.flatMap((x) => Array.from(x.lines || [])).join('\n') : s).trim();
+        const cp = [...body];
+        if (cp.length > THEATER_BOARD_SUM_MAX) body = cp.slice(0, THEATER_BOARD_SUM_MAX).join('').trimEnd();
+    } catch (e) {
+        console.warn('[Story Oracle] 论坛板：摘要读不懂', e);
+        body = '';
+    }
+    const cut = finish === 'length';
+    return { text: body, ok: !!body && !cut, cut };
+}
+/* <</BOARD:read>> */
+/* <<BOARD:window>> */
+// [BOARD] window — spliced verbatim into index.js; edit HERE, re-splice, never hand-edit the copy.
+// 🗂 论坛板的请求窗口：一次请求能带什么——帖子（活跃 / 沉底 / 只留标题 / 全帖）、人物表、剧情范围、条数行、token 上限下一步一步地收缩、
+// 摘要的排期和它读哪些楼、指纹。纯函数；token 估算由调用方传进来（o.estimate），不读旗、不读时钟。
+// 窗口里只有名字和正文：id、me、del、b 从不离开这个块（玩家的马甲在窗口里就是一个普通名字，人物表里也从不给它一行）。
+
+// 补帖的条数行：上次补到现在隔了几条 AI 回复 → 这次写多少楼 / 开几个新帖 / 是不是只写值得一提的（index §2.3 / §5）。
+// owner 2026-11-20: the first two rows raised (were 3–6 and 6–12); the cut-off stays double the asked maximum (reduce.js) → 20 / 32 / 50.
+const THEATER_BOARD_CATCHUP_SIZE = Object.freeze([
+    Object.freeze({ max: 1, posts: Object.freeze([5, 10]), threads: Object.freeze([0, 1]), notable: true }),
+    Object.freeze({ max: 5, posts: Object.freeze([8, 16]), threads: Object.freeze([0, 2]), notable: false }),
+    Object.freeze({ max: null, posts: Object.freeze([12, 25]), threads: Object.freeze([1, 3]), notable: false }),
+]);
+const THEATER_BOARD_POST_REPLIES = Object.freeze([3, 8]);
+const THEATER_BOARD_POST_STORY = 0;   // a post request carries NO story floors (owner 2026-11-20, PREREG-R2f; was 6): an empty range, never null
+const THEATER_BOARD_STORY_OVERLAP = 2;
+const THEATER_BOARD_TOK = Object.freeze({ catchup: 12000, post: 10000, sum: 6000 });
+const THEATER_BOARD_ROSTER_EXTRA = 20;
+const THEATER_BOARD_ACTIVE_N = 6;
+const THEATER_BOARD_SUNK_N = 15;
+const THEATER_BOARD_SUNK_TAIL = 3;
+const THEATER_BOARD_SUM_PER_OCCASION = 2;
+const THEATER_BOARD_SUM_RETRY = Object.freeze({ max: 3, grow: 10 });
+
+// The screen name of a roster id ('' when the person is missing).
+function soBdWho(state, rid) {
+    const p = soBdIsObj(state) && soBdIsObj(state.roster) && soBdOwn(state.roster, rid) ? state.roster[rid] : null;
+    return soBdIsObj(p) ? soBdStr(p.name) : '';
+}
+// A stored post as a window shows it: {name, to, text} — nothing else leaves the block.
+function soBdPostView(state, p) { return { name: soBdWho(state, p.by), to: soBdStr(p.to), text: soBdStr(p.t) }; }
+
+function soBdActiveIds(state, n) {
+    const k = Number.isInteger(n) && n >= 0 ? n : THEATER_BOARD_ACTIVE_N;
+    return soBdThreadOrder(state).slice(0, k);
+}
+
+// One thread as a request carries it. mode 'active' | 'sunk' | 'title' | 'full'; o = {cap?}. → TWin | null (no such thread / mode).
+// omitted = the non-deleted posts after the opening that are neither shown nor covered by the shown summary.
+function soBdThreadWin(state, tid, mode, o) {
+    o = o || {};
+    const t = soBdIsObj(state) && soBdIsObj(state.threads) && soBdOwn(state.threads, tid) ? state.threads[tid] : null;
+    if (!soBdIsObj(t) || !['active', 'sunk', 'title', 'full'].includes(mode)) return null;
+    const posts = Array.isArray(t.posts) ? t.posts : [];
+    const op = posts[0];
+    const after = posts.slice(1).filter((p) => soBdIsObj(p) && !p.del);
+    const valid = soBdSumValid(t);
+    const upToN = valid ? soBdInt(t.sum.upToN, 0, 0) : 0;
+    const text = valid ? soBdStr(t.sum.text) : null;
+    const capOf = (dflt) => (Number.isInteger(o.cap) && o.cap >= 0 ? o.cap : dflt);
+    let shown = [];
+    let summary = null;
+    let omitted = 0;
+    if (mode === 'active') {
+        const cand = after.filter((p) => p.n > upToN);
+        const cap = capOf(soBdOpt(state, 'sumAt'));
+        shown = cap > 0 ? cand.slice(-cap) : [];
+        summary = text;
+        omitted = cand.length - shown.length;
+    } else if (mode === 'sunk') {
+        if (valid) {
+            summary = text;
+            omitted = after.filter((p) => p.n > upToN).length;
+        } else {
+            shown = after.slice(-THEATER_BOARD_SUNK_TAIL);
+            omitted = after.length - shown.length;
+        }
+    } else if (mode === 'title') {
+        omitted = after.length;
+    } else {
+        const cap = capOf(soBdOpt(state, 'keep'));
+        if (after.length <= cap) shown = after;
+        else {
+            shown = cap > 0 ? after.slice(-cap) : [];
+            summary = text;
+            omitted = after.slice(0, after.length - shown.length).filter((p) => !valid || p.n > upToN).length;
+        }
+    }
+    return {
+        tid: t.id || tid, no: t.no, title: soBdTitleLine(t.title), by: soBdWho(state, t.by),   // model-only: ｜ / line breaks harmless
+        tags: (Array.isArray(t.tags) ? t.tags : []).filter((x) => typeof x === 'string'),
+        opening: mode !== 'title' && soBdIsObj(op) && !op.del ? { name: soBdWho(state, op.by), text: soBdStr(op.t) } : null,
+        summary, posts: shown.map((p) => soBdPostView(state, p)), omitted, mode,
+    };
+}
+
+// The people rows a request carries: every non-player person named in `names` (in that order, bare ones too), then up to
+// THEATER_BOARD_ROSTER_EXTRA other profiled (non-bare) people, most active first. Player aliases never get a row.
+// o = {protect?: true} → also `protect` = every alias name, in order (probe arm).
+// o.mods === true (stage 3, mods.js): the 站长 then the 版主 (soBdRoleHolders) lead the rows wherever they posted — a moderator's profile
+// rides on every request — and left / banned people are no "other" row (a named one keeps his row: his posts are shown).
+function soBdRosterWin(state, names, o) {
+    o = o || {};
+    const ro = soBdIsObj(state) && soBdIsObj(state.roster) ? state.roster : {};
+    const people = Object.keys(ro).map((k) => ro[k]).filter((p) => soBdIsObj(p) && !p.me && typeof p.name === 'string');
+    const byKey = new Map();
+    for (const p of people) { const k = p.key || soBdNameKey(p.name); if (k && !byKey.has(k)) byKey.set(k, p); }
+    const list = names == null ? [] : (typeof names === 'string' ? [names] : (typeof names[Symbol.iterator] === 'function' ? [...names] : []));
+    const row = (p) => ({ name: soBdStr(p.name), glyph: soBdStr(p.glyph), title: soBdStr(p.title), bio: soBdStr(p.bio) });
+    const seen = new Set();
+    const rows = [];
+    if (o.mods === true) {
+        const h = soBdRoleHolders(state);
+        for (const rid of [h.owner].concat(h.mods)) { const p = rid ? ro[rid] : null; if (people.includes(p) && !seen.has(p)) { seen.add(p); rows.push(row(p)); } }
+    }
+    const asked = new Set();   // a name already looked up adds nothing (same name → same key → same person): skip it (long windows)
+    for (const nm of list) {
+        if (asked.has(nm)) continue;
+        asked.add(nm);
+        const p = byKey.get(soBdNameKey(nm));
+        if (!p || seen.has(p)) continue;
+        seen.add(p);
+        rows.push(row(p));
+    }
+    const extra = people.filter((p) => !seen.has(p) && !p.bare && (o.mods !== true || !(soBdIsObj(p.left) || soBdIsObj(p.ban))))
+        .sort((a, b) => ((Number(b.act) || 0) - (Number(a.act) || 0)) || (soBdIdNum(b.id) - soBdIdNum(a.id)))
+        .slice(0, THEATER_BOARD_ROSTER_EXTRA);
+    for (const p of extra) rows.push(row(p));
+    const out = { rows };
+    if (o.protect === true) {
+        const al = soBdIsObj(state) && soBdIsObj(state.player) && Array.isArray(state.player.aliases) ? state.player.aliases : [];
+        out.protect = al.filter((a) => soBdIsObj(a) && typeof a.name === 'string').map((a) => a.name);
+    }
+    return out;
+}
+
+// The main-story floors a request carries: [from, to), to = chat.length. catchup = from the base reply (THEATER_BOARD_STORY_OVERLAP
+// floors of overlap), bounded by depth (a long gap = the latest stretch only); replies = AI floors after the base (the base floor itself
+// rewritten = 1). post = the last THEATER_BOARD_POST_STORY floors (bounded by depth), replies 0 — with the constant at 0 an EMPTY range
+// {from: to, to}: the request keeps its system text (request + card + world book) and only the story history is empty. Not null (null =
+// the summary's path, which drops the card and the world book on the SO route). "Again" and regenerating a post batch take this branch too.
+function soBdStoryWin(chat, baseFloor, depth, kind) {
+    const c = Array.isArray(chat) ? chat : [];
+    const to = c.length;
+    const d = depth !== null && depth !== '' && Number.isFinite(Number(depth)) ? Math.max(0, Math.floor(Number(depth))) : to;
+    if (kind === 'post') return { from: Math.max(to - Math.min(THEATER_BOARD_POST_STORY, d), 0), to, replies: 0 };
+    const b = Number.isInteger(Number(baseFloor)) ? Number(baseFloor) : -1;
+    const from = Math.min(to, Math.max(b + 1 - THEATER_BOARD_STORY_OVERLAP, to - d, 0));
+    const ai = (m) => soBdIsObj(m) && !m.is_user && !m.is_system;
+    let replies = 0;
+    for (let i = Math.max(b + 1, 0); i < to; i++) if (ai(c[i])) replies++;
+    if (!replies && b >= 0 && b < to && ai(c[b])) replies = 1;
+    return { from, to, replies };
+}
+
+// The catch-up size line for `replies` AI replies since the base (< 1 counts as 1). → {posts: [lo, hi], threads: [lo, hi], notable} (fresh arrays).
+function soBdSizeBucket(replies) {
+    const r = Number(replies) >= 1 ? Number(replies) : 1;
+    const row = THEATER_BOARD_CATCHUP_SIZE.find((x) => x.max === null || r <= x.max);
+    return { posts: row.posts.slice(), threads: row.threads.slice(), notable: row.notable };
+}
+
+// The caller's token estimate as a safe number function (absent → code points).
+function soBdEst(estimate) {
+    if (typeof estimate !== 'function') return (x) => [...String(x ?? '')].length;
+    return (x) => { const n = Number(estimate(String(x ?? ''))); return Number.isFinite(n) ? n : 0; };
+}
+// memo (optional WeakMap: post object → its estimate) = each post line is estimated once per fit; same terms, same order, same sum.
+function soBdThreadTok(tw, e, memo) {
+    let n = e(tw.title);
+    if (tw.opening) n += e(tw.opening.name + '：' + tw.opening.text);
+    if (tw.summary != null) n += e(tw.summary);
+    for (const p of Array.isArray(tw.posts) ? tw.posts : []) {
+        let c = memo ? memo.get(p) : undefined;
+        if (c === undefined) { c = e(p.name + '：' + p.text); if (memo && p && typeof p === 'object') memo.set(p, c); }
+        n += c;
+    }
+    return n;
+}
+function soBdRosterTok(roster, e) {
+    let n = 0;
+    for (const r of soBdIsObj(roster) && Array.isArray(roster.rows) ? roster.rows : []) n += e(r.name + r.glyph + r.title + r.bio);
+    return n;
+}
+// The token size of a window: Σ threads (title, opening line, summary, post lines) + Σ roster rows.
+function soBdWinTok(win, estimate) {
+    const e = soBdEst(estimate);
+    let n = 0;
+    for (const tw of soBdIsObj(win) && Array.isArray(win.threads) ? win.threads : []) n += soBdThreadTok(tw, e);
+    return n + soBdRosterTok(soBdIsObj(win) ? win.roster : null, e);
+}
+
+// The posters a window shows (thread authors, opening posters, post posters), in window order.
+function soBdWinNames(threads) {
+    const out = [];
+    for (const tw of threads) {
+        out.push(tw.by);
+        if (tw.opening) out.push(tw.opening.name);
+        for (const p of tw.posts) out.push(p.name);
+    }
+    return out;
+}
+// Shrinks `threads` one step at a time (step(threads) → {drop: i} | {touch: i} | null) until the window fits `tok`; the roster is rebuilt
+// from the names in the window after every step. Nothing left to take → over. → {threads, roster, over}.
+// Each post line is estimated once (memo) — since 2026-11-20 the post caps (opts.sumAt / opts.keep) have no upper range, so a window may
+// start with thousands of posts; the result is exactly the step-by-step one (board-window "fit: long threads" pins it against the plain loop).
+// mods === true (stage 3): the roster is built with o.mods (forced moderator rows) — the fit counts them like any row.
+function soBdWinFit(state, threads, e, tok, protect, step, mods) {
+    const memo = new WeakMap();
+    const cache = threads.map((tw) => soBdThreadTok(tw, e, memo));
+    const rosterOf = () => soBdRosterWin(state, soBdWinNames(threads), mods === true ? { protect, mods: true } : { protect });
+    let roster = rosterOf();
+    let rt = soBdRosterTok(roster, e);
+    const total = () => { let n = 0; for (const c of cache) n += c; return n + rt; };
+    let over = false;
+    while (total() > tok) {
+        const s = step(threads);
+        if (!s) { over = true; break; }
+        if (Number.isInteger(s.drop)) { threads.splice(s.drop, 1); cache.splice(s.drop, 1); } else cache[s.touch] = soBdThreadTok(threads[s.touch], e, memo);
+        roster = rosterOf();
+        rt = soBdRosterTok(roster, e);
+    }
+    return { threads, roster, over };
+}
+function soBdWinTokArg(tok, dflt) { return tok !== null && tok !== '' && Number.isFinite(Number(tok)) ? Number(tok) : dflt; }
+function soBdBoardHead(state) {
+    const b = soBdIsObj(state) && soBdIsObj(state.board) ? state.board : {};
+    return { name: soBdStr(b.name), intro: soBdStr(b.intro) };
+}
+
+// A catch-up request's board. o = {estimate, replies, tok = THEATER_BOARD_TOK.catchup, protect, mods?}. Threads in activity order: the first
+// THEATER_BOARD_ACTIVE_N 'active', the next THEATER_BOARD_SUNK_N 'sunk', the rest 'title'. Shrink order: the least active title thread
+// goes → the least active sunk thread with posts loses them → the oldest post of the active thread with the most posts (tie → least
+// active). The cap never yields: nothing left to take → over: true.
+// → BoardWin {board, threads: TWin[], roster, size, tnos: Set of the numbers shown, over}.
+function soBdCatchupWin(state, o) {
+    o = o || {};
+    const e = soBdEst(o.estimate);
+    const tok = soBdWinTokArg(o.tok, THEATER_BOARD_TOK.catchup);
+    const threads = soBdThreadOrder(state).map((tid, i) => soBdThreadWin(state, tid,
+        i < THEATER_BOARD_ACTIVE_N ? 'active' : (i < THEATER_BOARD_ACTIVE_N + THEATER_BOARD_SUNK_N ? 'sunk' : 'title'))).filter(Boolean);
+    const step = (ths) => {
+        for (let i = ths.length - 1; i >= 0; i--) if (ths[i].mode === 'title') return { drop: i };
+        for (let i = ths.length - 1; i >= 0; i--) {
+            const tw = ths[i];
+            if (tw.mode === 'sunk' && tw.posts.length) { tw.omitted += tw.posts.length; tw.posts = []; return { touch: i }; }
+        }
+        let best = -1;
+        for (let i = 0; i < ths.length; i++) {
+            if (ths[i].mode === 'active' && ths[i].posts.length && (best < 0 || ths[i].posts.length >= ths[best].posts.length)) best = i;
+        }
+        if (best < 0) return null;
+        ths[best].posts.shift();
+        ths[best].omitted++;
+        return { touch: best };
+    };
+    const fit = soBdWinFit(state, threads, e, tok, o.protect === true, step, o.mods === true);
+    return { board: soBdBoardHead(state), threads: fit.threads, roster: fit.roster, size: soBdSizeBucket(o.replies), tnos: new Set(fit.threads.map((x) => x.no)), over: fit.over };
+}
+
+// A reply / new-thread request's board: the target thread 'full' (the player's post is simply its last post), then up to
+// THEATER_BOARD_ACTIVE_N other active threads 'title'. o = {estimate, tok = THEATER_BOARD_TOK.post, protect, mods?}. Shrink: the least active
+// title thread goes, then the target's oldest post. → BoardWin | null (no such thread).
+function soBdPostWin(state, tid, o) {
+    o = o || {};
+    const target = soBdThreadWin(state, tid, 'full');
+    if (!target) return null;
+    const e = soBdEst(o.estimate);
+    const tok = soBdWinTokArg(o.tok, THEATER_BOARD_TOK.post);
+    const others = soBdActiveIds(state, THEATER_BOARD_ACTIVE_N + 1).filter((x) => x !== tid).slice(0, THEATER_BOARD_ACTIVE_N)
+        .map((x) => soBdThreadWin(state, x, 'title')).filter(Boolean);
+    const step = (ths) => {
+        if (ths.length > 1) return { drop: ths.length - 1 };
+        if (!ths[0].posts.length) return null;
+        ths[0].posts.shift();
+        ths[0].omitted++;
+        return { touch: 0 };
+    };
+    const fit = soBdWinFit(state, [target].concat(others), e, tok, o.protect === true, step, o.mods === true);
+    const size = { posts: THEATER_BOARD_POST_REPLIES.slice(), threads: [0, 0], notable: false };
+    return { board: soBdBoardHead(state), threads: fit.threads, roster: fit.roster, size, tnos: new Set(fit.threads.map((x) => x.no)), over: fit.over };
+}
+
+/* —— summaries: which threads are due, what a summary request reads —— */
+
+// Non-deleted posts after the opening that no valid summary covers (n > max(1, sum.upToN)).
+function soBdUncovered(state, tid) {
+    const t = soBdIsObj(state) && soBdIsObj(state.threads) && soBdOwn(state.threads, tid) ? state.threads[tid] : null;
+    if (!soBdIsObj(t)) return 0;
+    const up = Math.max(1, soBdSumValid(t) ? soBdInt(t.sum.upToN, 0, 0) : 0);
+    return (Array.isArray(t.posts) ? t.posts : []).filter((p) => soBdIsObj(p) && !p.del && p.n > up).length;
+}
+
+// The threads a summary occasion takes: uncovered ≥ opts.sumAt, not in flight, and fewer than THEATER_BOARD_SUM_RETRY.max failures — or
+// grown by THEATER_BOARD_SUM_RETRY.grow posts since the last failure. Activity order, at most THEATER_BOARD_SUM_PER_OCCASION.
+// o = {flying?: tid[] | Set}. → tid[].
+function soBdSumDue(state, o) {
+    o = o || {};
+    const fly = new Set(o.flying && typeof o.flying[Symbol.iterator] === 'function' && typeof o.flying !== 'string' ? o.flying : []);
+    const at = soBdOpt(state, 'sumAt');
+    const out = [];
+    for (const tid of soBdThreadOrder(state)) {
+        if (out.length >= THEATER_BOARD_SUM_PER_OCCASION) break;
+        if (fly.has(tid)) continue;
+        const u = soBdUncovered(state, tid);
+        if (u < at) continue;
+        const t = state.threads[tid];
+        if (soBdInt(t.sumFail, 0, 0) >= THEATER_BOARD_SUM_RETRY.max && u < soBdInt(t.sumFailN, 0, 0) + THEATER_BOARD_SUM_RETRY.grow) continue;
+        out.push(tid);
+    }
+    return out;
+}
+
+// What one summary request reads: the uncovered posts except the newest opts.sumKeep, oldest first, rolling on the previous summary.
+// o = {estimate?} → stops before THEATER_BOARD_TOK.sum (title + opening + previous summary + posts; always at least one post).
+// → {tid, rev, fp, prev, title, opening, posts: [{name, to, text}], upTo: pid, upToN} | null (nothing to read / no such thread).
+function soBdSumWin(state, tid, o) {
+    o = o || {};
+    const t = soBdIsObj(state) && soBdIsObj(state.threads) && soBdOwn(state.threads, tid) ? state.threads[tid] : null;
+    if (!soBdIsObj(t)) return null;
+    const posts = Array.isArray(t.posts) ? t.posts : [];
+    const valid = soBdSumValid(t);
+    const from = Math.max(1, valid ? soBdInt(t.sum.upToN, 0, 0) : 0);
+    const unc = posts.filter((p) => soBdIsObj(p) && !p.del && p.n > from);
+    let read = unc.slice(0, Math.max(0, unc.length - soBdOpt(state, 'sumKeep')));
+    const op = posts[0];
+    const opening = soBdIsObj(op) && !op.del ? { name: soBdWho(state, op.by), text: soBdStr(op.t) } : null;
+    const prev = valid ? soBdStr(t.sum.text) : null;
+    if (typeof o.estimate === 'function' && read.length) {
+        const e = soBdEst(o.estimate);
+        let n = e(t.title) + (opening ? e(opening.name + '：' + opening.text) : 0) + (prev != null ? e(prev) : 0);
+        let k = 0;
+        for (const p of read) {
+            const v = soBdPostView(state, p);
+            const c = e(v.name + '：' + v.text);
+            if (k > 0 && n + c > THEATER_BOARD_TOK.sum) break;
+            n += c;
+            k++;
+        }
+        read = read.slice(0, k);
+    }
+    if (!read.length) return null;
+    const last = read[read.length - 1];
+    return {
+        tid: t.id || tid, rev: soBdInt(t.rev, 0, 0), fp: soBdFingerprint(read), prev, title: soBdTitleLine(t.title), opening,
+        posts: read.map((p) => soBdPostView(state, p)), upTo: last.id, upToN: last.n,
+    };
+}
+
+// FNV-1a 32 (the soThrSceneAoHash loop, UTF-16 code units) over the STORED posts read: id + '\n' + text, joined by '\n' → 8 hex.
+function soBdFingerprint(posts) {
+    const s = (Array.isArray(posts) ? posts : []).map((p) => soBdStr(p && p.id) + '\n' + soBdStr(p && p.t)).join('\n');
+    let h = 0x811c9dc5;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+    return h.toString(16).padStart(8, '0');
+}
+/* <</BOARD:window>> */
+/* <<BOARD:prompts>> */
+// [BOARD] prompts — spliced verbatim into index.js; edit HERE, re-splice, never hand-edit the copy.
+// 🗂 论坛板的请求文字：补帖（catchup）/ 玩家回帖或开新帖之后（post）/ 安静的摘要（sum）三种请求的 system 与 user，从 P1 的窗口（BoardWin /
+// 摘要窗口）渲染。给模型看的每一个字都在这一块的 THEATER_BOARD_P_* 里（原文 = tests/unit/_theater-tuning/board/arms.mjs 的「①」，逐字节抄来）；
+// 格式行（fmt）由调用方从冻结的 THEATER_SCENE_SPECS.forum.format 切下来交进来，这里一个字都不重打。请求从不说哪个网名是玩家的。
+// 纯函数：不读旗、不读时钟、不碰 DOM。
+
+// DRAFT：措辞未过真模型轮次（R0–R4，plan 2026-11-19-living-forum-p2-calls Task 17 才改 true 并钉 sha256）
+const THEATER_BOARD_PROMPTS_FROZEN = false;
+
+// ① 补帖和发帖共用的那一段（arms.mjs CATCHUP.common；第二段「谁知道什么」= 真模型轮次 R1y 量过的那一段，逐字节抄来；段末最后一句 = 轮次 R1d 量过的那一句，同样逐字节抄来）。
+const THEATER_BOARD_P_COMMON = `这是挂在一段进行中的故事旁边的论坛，属于故事里的这个世界，跟着故事一直开着。世界里的人在这里议论已经传开的事：争论、玩梗、扒细节；旧帖子里的事重新有了关系，就会有人把它顶起来接着说。
+
+发帖的人知道的，是这个世界里的人能知道的：当众发生、已经传开的事，故事里有人告诉过他们的事，传言（可能是假的），还有各自的猜测和怀疑。没有人是全知的：发帖的人听不到别人私下的谈话，不知道别人没说出口的想法，也不知道自己不在场时发生的事。发帖的人要提到的每一件具体的事，他是从哪儿知道的？“请求里的故事写过”不算来源。算数的来源是：事情发生时他在场；故事里写着有人告诉了他；或者有说得通的场外渠道（消息、闲话、共同的圈子），而且这件事本身不是私密的。发帖的人已知的信息，仅限于他获取此信息的言行在故事里已有描述的。没有来源的，他只会问、猜、看错，或者一无所知；猜错的和过时的消息都成立，在有新的来源之前一直不被纠正。故事写着没有旁人在场的场面，就是没有旁人在场：没有发帖的人路过、偷听或被告知过，那里说过的话也不是论坛上的老人早就知道的事。
+
+发帖、回帖的人都用网名，不用真名——网名照这个世界和这个载体的习惯来起，字眼也是这个世界里的人会用的（化名、名号、匿名代号都算）。发帖的人里至少一半是和故事里的人物素不相识的寻常人；故事里的人物也可以用网名混在其中。一个网名背后是谁，旁人并不知道，除非故事里发生的事或帖子本身把它露了出来。
+
+交回一段，段头单独一行，段头之外不写解释：
+=== 内容 ===`;
+
+// 措辞 4（rig 的 c4 臂，六轮真模型留下来的那一版；arms.mjs SHAPE_PARTS 逐字节抄来，wd-tools/c4-equal.mjs 核过）：补帖那一段的第一段 =
+// SHAPE_MERGED + SHAPE_POINTER_TAIL（分量照请求最后一行写的）；格式表里【人物】那一行前面多一行 THEATER_BOARD_P_LEDGER（= SHAPE_LEDGER_FMT）；
+// 分量行（LABELS.size）挪到请求的最后一行。【本批】那一行的读法见 read.js THEATER_BOARD_LEDGER_KIND（整行丢掉，代码从不按它办事）。
+const THEATER_BOARD_P_LEDGER = '【本批】共几楼（一个数）　（紧接在段头下面，全批只写这一次；数的是整批所有的新楼）';
+
+// ① 补帖那一段（arms.mjs CATCHUP.catchup，第一段与格式行按措辞 4 改）。K = 回帖头的词；fmt = {person, thread, op, floor, reply}。分量那一行由程序写在请求最后。
+const THEATER_BOARD_P_CATCHUP = (K, fmt) => `这一次交回的，是故事最近这一段里整个论坛上新冒出来的楼。请求里的帖子是论坛一批批攒到现在的样子，这一批是盖在上面的薄薄一层；帖子到这一层都还没说完，之后还会有人接着说。这一段里传开的事，各自落在论坛上本来就在说它的帖子里——说那件事、那个人、那样东西的帖子；论坛上还没有地方说的事，才有人为它开新帖子，一个新帖子说一件事。当众发生、人人看见的事，好几处都有人提起；小事、只有少数人知道的事，只在说它的帖子里有一点动静。分量照请求最后一行写的。
+
+内容格式（一条记录以行首的【…】或记号开头，没有记号的行接在上一条后面）：
+${THEATER_BOARD_P_LEDGER}
+${fmt.person}　（请求里还没列出的新发帖人才写）
+【${K}】#帖子号
+${fmt.thread}
+${fmt.op}
+${fmt.floor}
+${fmt.reply}
+
+「【${K}】#帖子号」这一行表示：接下来的楼回在这个号的已有帖子里，帖子号就是请求里每个帖子第一行 # 后面的那个数；它后面的每一楼都属于这个帖子，直到下一条【…】记录行。【帖子】行开一个新帖子，它后面的楼属于这个新帖子。`;
+
+// ① 发帖请求那一段（arms.mjs POST.post；第一段 = rig 的 p1 臂 POST2_ARMS.p1.lead，逐字节抄来——R2b / R2e / R2f 真模型轮次留下的，owner 2026-11-20 定）。
+// 回一个帖和开一个新帖用同一段（新帖 = 目标帖只有楼主那一楼）。分量那一行由程序写在请求最后（LABELS.postSize）。
+const THEATER_BOARD_P_POST = (fmt) => `这一次只续写【这次续写的帖子】：交回的，是这个帖子最后那一楼发出来之后，紧跟着在它下面冒出来的回复——回帖的几个人冲着这一楼提起的事说，也互相接话。故事最近的事，回帖的人知道的那部分，是他们心里有数的背景。分量照请求最后一行写的。
+
+内容格式（一条记录以行首的【…】或记号开头，没有记号的行接在上一条后面）：
+${fmt.person}　（请求里还没列出的新发帖人才写）
+${fmt.floor}
+${fmt.reply}
+
+写出来的每一楼都属于这个帖子，楼前不用写帖子号或【帖子】行。别的帖子里不添新楼，也不开新帖子。`;
+
+// ① 摘要（arms.mjs SUM.roster）。SUM.recap 是 R3 的基线，只在它赢了时才出厂（不在这里）。
+// 第二段末尾「帖子里的争论可以维持…记成说了要做。」= 候选 S1（measured in rounds R3c / R3 (S1)），逐字节抄来，插在「…并写明是谁传的。」之后。
+const THEATER_BOARD_P_SUM = `这是论坛上一个帖子的存档记录：帖子里较早的楼会收起来，以后接着写这个帖子时，由这份记录代替它们。
+
+记录按人来写：每个网名站在哪一边、说过哪些主张，谁和谁在争、争的是什么，帖子现在争到了哪一步、还有什么悬着。帖子里的猜测，在记录里仍是猜测；传言仍是传言，并写明是谁传的。帖子里的争论可以维持、退避或悬而未决，记录不把它默认写成定论，也不替帖子判谁赢了；没有收回的话，仍是说话那个人的主张。不得把尚未发生的结果写成既定事实：说了要做的事，记成说了要做。
+
+请求里有【上一份记录】时，新记录把它和【要记下来的楼】合成一份，一起代替。
+
+交回一段，段头单独一行，段头之外不写解释：
+=== 内容 ===
+段头下面就是这份记录，几百字。`;
+
+// R2 的臂（arms.mjs PROTECT；出厂默认不加）：放在人物表下面，程序在后面接「：」+ 名字（用「、」连）。
+const THEATER_BOARD_P_PROTECT = '这一批里不写这些网名发的楼';
+
+// 摘要请求开头那一行帖子名（arms.mjs ALT.sumHead；root 裁定 11：摘要的 user 以它开头，空一行再接上一份记录 / 要记下来的楼）。
+const THEATER_BOARD_P_SUMHEAD = (title, by) => '帖子「' + String(title == null ? '' : title) + '」' + (by ? '（楼主 ' + by + '）' : '');
+
+// arms.mjs LABELS 的两个本地小工具（块里的名字全局唯一：重名地雷）。
+function soBdPTag(tags) { return Array.isArray(tags) ? tags.map((x) => String(x == null ? '' : x).trim()).filter(Boolean).join('、') : String(tags == null ? '' : tags).trim(); }
+function soBdPRange(a) { return a[0] === a[1] ? String(a[0]) : a[0] + '–' + a[1]; }
+
+// ① 请求正文（user）里程序用的每一个标签 / 模板（arms.mjs LABELS）。楼本身照旧词汇写（「- 网名：…」「- 网名 回复@某人：…」「楼主：…」），不是标签。
+const THEATER_BOARD_P_LABELS = Object.freeze({
+    board: (name, intro) => '【论坛】' + String(name == null ? '' : name) + (intro ? '｜' + intro : ''),
+    roster: '【论坛里已有的人】',
+    active: '【最近有人发言的帖子】',
+    sunk: '【有一阵没人发言的帖子】',
+    titles: '【更早的帖子（只列标题）】',
+    head: (no, title, by, tags, K) => ['【' + K + '】#' + no, String(title == null ? '' : title), String(by == null ? '' : by), soBdPTag(tags)].filter((x) => x !== '').join('｜'),
+    summary: '较早的楼的摘要：',
+    omitted: (k) => '（另有 ' + k + ' 楼没有放在这里）',
+    // 补帖的分量行（措辞 4：请求的最后一行；= arms.mjs shapeSizeOf('c4', x)）：所有帖子加在一起的楼数 +【本批】那半句；新帖子只说上限
+    // （什么时候开，第一段里说了；notable 不再改这一行）。
+    size: ({ posts, threads }) => '分量：这次交回的一段里，所有帖子的新楼加在一起 ' + soBdPRange(posts) + ' 楼（新帖子下面的也算在内）' + '，【本批】行上的数在这个范围里'
+        + (threads[1] > 0 ? '；新帖子最多 ' + threads[1] + ' 个。' : '；不开新帖子。'),
+    // 发帖请求的分量行（p1：请求的最后一行；= arms.mjs POST2_ARMS.p1.tail(x)）：总数 + 两行楼的格式（fmt.floor / fmt.reply，冻结的那两行，原样带进来）。
+    postSize: (posts, fmt) => {
+        const f = fmt && typeof fmt === 'object' ? fmt : {};
+        return '分量：这一楼下面顺着它的话头回 ' + soBdPRange(posts) + ' 楼，每楼一行，写成「' + String(f.floor == null ? '' : f.floor) + '」或「'
+            + String(f.reply == null ? '' : f.reply) + '」。';
+    },
+    target: '【这次续写的帖子】',
+    prev: '【上一份记录】',
+    posts: '【要记下来的楼】',
+});
+
+// One floor line: `- name：text`, or `- name 回复@to：text` when it answers someone (the forum format's own words).
+function soBdPromptFloor(p) {
+    const x = p && typeof p === 'object' ? p : {};
+    const nm = String(x.name == null ? '' : x.name);
+    const to = String(x.to == null ? '' : x.to);
+    return '- ' + nm + (to ? ' 回复@' + to : '') + '：' + String(x.text == null ? '' : x.text);
+}
+
+// One thread of a window (TWin) as the request carries it: the head line (= the reply line the model writes, then ｜title｜author｜tags),
+// 楼主：opening (not in title mode / when the opening is gone), the stored summary, the omitted line (k > 0), one line per post.
+// No post id, no player mark, no floor number. The author = t.by (as built; t.opening is null in title mode).
+function soBdPromptThread(t, K) {
+    const L = THEATER_BOARD_P_LABELS;
+    const w = t && typeof t === 'object' ? t : {};
+    const op = w.opening && typeof w.opening === 'object' ? w.opening : null;
+    const by = w.by ? w.by : (op ? op.name : '');
+    const out = [L.head(w.no, w.title, by, w.tags, K)];
+    if (op && w.mode !== 'title') out.push('楼主：' + String(op.text == null ? '' : op.text));
+    if (typeof w.summary === 'string' && w.summary) out.push(L.summary + '\n' + w.summary);
+    if (Number(w.omitted) > 0) out.push(L.omitted(Number(w.omitted)));
+    for (const p of Array.isArray(w.posts) ? w.posts : []) out.push(soBdPromptFloor(p));
+    return out.join('\n');
+}
+
+// The people block: the heading + one 【人物】name｜glyph｜title｜bio row per row (empty trailing fields left out). protect === true and
+// roster.protect non-empty → a blank line, then THEATER_BOARD_P_PROTECT + '：' + names joined by '、'; otherwise not one byte of it.
+// → string ('' when there is nothing to show).
+function soBdPromptRoster(roster, protect) {
+    const r = roster && typeof roster === 'object' ? roster : {};
+    const rows = Array.isArray(r.rows) ? r.rows : [];
+    const parts = [];
+    if (rows.length) {
+        const lines = [THEATER_BOARD_P_LABELS.roster];
+        for (const x of rows) {
+            const f = [x && x.name, x && x.glyph, x && x.title, x && x.bio].map((v) => String(v == null ? '' : v));
+            while (f.length > 1 && f[f.length - 1] === '') f.pop();
+            lines.push('【人物】' + f.join('｜'));
+        }
+        parts.push(lines.join('\n'));
+    }
+    const names = protect === true && Array.isArray(r.protect) ? r.protect.filter((n) => typeof n === 'string' && n) : [];
+    if (names.length) parts.push(THEATER_BOARD_P_PROTECT + '：' + names.join('、'));
+    return parts.join('\n\n');
+}
+
+// A section: its heading, then the thread blocks separated by blank lines; '' when there are no threads.
+function soBdPromptSection(head, threads, K) {
+    if (!threads.length) return '';
+    return head + '\n' + threads.map((t) => soBdPromptThread(t, K)).join('\n\n');
+}
+
+// One request. kind 'catchup' | 'post' | 'sum'; win = the BoardWin (catchup / post) or the summary window (sum);
+// args = {replyKind, fmt: {person, thread, op, floor, reply}, protect?, mode?: 'reply' | 'thread', mods?: MW}. → {system, user, draft}.
+// args.mods (stage 3, an object = mods.js soBdModWin's data): the catch-up / post system gets THEATER_BOARD_P_MODS after its own paragraph,
+// and the user text gets the section 【论坛的管理】 right after the people block (before every thread and the size line); absent → today's bytes.
+// The material the model acts on goes last (catch-up: the threads; post: the target thread) — the soThrSceneMoreContext rule; both then
+// close with their size line (catch-up: wording 4; post: p1 — the request's last line, one blank line after the threads / the target).
+function soBdPrompt(kind, win, args) {
+    const a = args && typeof args === 'object' ? args : {};
+    const mw = a.mods && typeof a.mods === 'object' && !Array.isArray(a.mods) && kind !== 'sum' ? a.mods : null;   // stage 3 (mods-words.js)
+    const draft = !THEATER_BOARD_PROMPTS_FROZEN || (!!mw && !THEATER_BOARD_MOD_WORDS_FROZEN);
+    const L = THEATER_BOARD_P_LABELS;
+    const w = win && typeof win === 'object' ? win : {};
+    const rk = typeof a.replyKind === 'string' ? a.replyKind.trim() : '';
+    const K = rk && !/[【】｜\s]/.test(rk) ? rk : THEATER_BOARD_REPLY_KIND;
+    const f = a.fmt && typeof a.fmt === 'object' ? a.fmt : {};
+    const fmt = {};
+    for (const k of ['person', 'thread', 'op', 'floor', 'reply']) fmt[k] = String(f[k] == null ? '' : f[k]);
+    const threads = Array.isArray(w.threads) ? w.threads.filter((t) => t && typeof t === 'object') : [];
+    const head = () => { const b = w.board && typeof w.board === 'object' ? w.board : {}; return L.board(b.name, b.intro); };
+    const join = (parts) => parts.filter((x) => typeof x === 'string' && x !== '').join('\n\n');
+    if (kind === 'catchup') {
+        const size = w.size && typeof w.size === 'object' ? w.size : { posts: [0, 0], threads: [0, 0], notable: false };
+        return {
+            system: THEATER_BOARD_P_COMMON + '\n\n' + THEATER_BOARD_P_CATCHUP(K, fmt) + (mw ? '\n\n' + THEATER_BOARD_P_MODS(THEATER_BOARD_MOD_KIND) : ''),
+            user: join([
+                head(), soBdPromptRoster(w.roster, a.protect === true), mw ? soBdModPromptSection(mw) : '',
+                soBdPromptSection(L.active, threads.filter((t) => t.mode === 'active'), K),
+                soBdPromptSection(L.sunk, threads.filter((t) => t.mode === 'sunk'), K),
+                soBdPromptSection(L.titles, threads.filter((t) => t.mode === 'title'), K),
+                L.size(size),
+            ]),
+            draft,
+        };
+    }
+    if (kind === 'post') {
+        const target = threads.find((t) => t.mode === 'full') || null;
+        const posts = w.size && Array.isArray(w.size.posts) ? w.size.posts : [0, 0];
+        return {
+            system: THEATER_BOARD_P_COMMON + '\n\n' + THEATER_BOARD_P_POST(fmt) + (mw ? '\n\n' + THEATER_BOARD_P_MODS(THEATER_BOARD_MOD_KIND) : ''),
+            user: join([
+                head(), soBdPromptRoster(w.roster, a.protect === true), mw ? soBdModPromptSection(mw) : '',
+                soBdPromptSection(L.active, threads.filter((t) => t !== target), K),
+                target ? L.target + '\n' + soBdPromptThread(target, K) : '',
+                L.postSize(posts, fmt),
+            ]),
+            draft,
+        };
+    }
+    if (kind === 'sum') {
+        const op = w.opening && typeof w.opening === 'object' ? w.opening : null;
+        const prev = typeof w.prev === 'string' ? w.prev : '';
+        const posts = Array.isArray(w.posts) ? w.posts : [];
+        return {
+            system: THEATER_BOARD_P_SUM,
+            user: join([
+                THEATER_BOARD_P_SUMHEAD(w.title, op ? op.name : ''),
+                prev ? L.prev + '\n' + prev : '',
+                L.posts + (posts.length ? '\n' + posts.map(soBdPromptFloor).join('\n') : ''),
+            ]),
+            draft,
+        };
+    }
+    return { system: '', user: '', draft };
+}
+/* <</BOARD:prompts>> */
+/* <<BOARD:flow>> */
+// [BOARD] flow — spliced verbatim into index.js; edit HERE, re-splice, never hand-edit the copy.
+// 🗂 论坛板的调用流程：补帖 / 玩家回帖 / 玩家开新帖 / 重新生成——整块板同一时间只飞一个请求（单飞）；玩家自己的帖子先存下、之后永远留着；
+// 回复先读，再对照【落地那一刻】的板子逐条过 reducer，一次写入——要么整批落下，要么什么都不写（从不落半批）。
+// 外面的一切（读 / 存板子、发请求、拼提示词、聊天楼层、token 估算、时钟）都从 deps 进来；这里不读旗、不读 SO_VERSION、不碰 DOM。
+
+// 每种请求的回复上限（index §2.3）。重新生成用它那一批的种类。摘要原是 4096（= 手机的值，index §8：思考模型在预设路上会先烧掉一截）；
+// 2026-11-21 摘要上限 THEATER_BOARD_SUM_MAX 1200 → 2400 码点时随之 → 8192：2400 个汉字最多约 3600 tokens，4096 只剩几百给思考 / 前言，
+// 而回复撞到上限（finish 'length'）= 这份摘要作废（soBdReadSum ok false → soBdSumFailed），不是截短了存。
+const THEATER_BOARD_MAXTOK = Object.freeze({ catchup: 8192, post: 4096, sum: 8192 });
+// 单飞的槽：cur = {token, kind, at, t0}（同手机的 wy_flightBox）。
+const bd_flightBox = { cur: null, seq: 0 };
+
+// What is in the air now: {kind, at} | null.
+function soBdFlight() {
+    const f = bd_flightBox.cur;
+    return f ? { kind: f.kind, at: f.at } : null;
+}
+
+// A JSON deep copy; null / undefined → null.
+function soBdFlowClone(x) { return x == null ? null : soBdClone(x); }
+
+// The clock through deps (deps.now(): ms); absent / not a number → Date.now() (the P1 blocks' `o.now || Date.now()` rule).
+function soBdFlowNow(deps) {
+    if (soBdIsObj(deps) && typeof deps.now === 'function') {
+        const n = Number(deps.now());
+        if (Number.isFinite(n)) return n;
+    }
+    return Date.now();
+}
+
+// The thread whose posts hold `pid`, else ''.
+function soBdTidOf(state, pid) {
+    if (!soBdIsObj(state) || !soBdIsObj(state.threads) || !pid) return '';
+    for (const tid of Object.keys(state.threads)) {
+        const t = state.threads[tid];
+        if (soBdIsObj(t) && Array.isArray(t.posts) && t.posts.some((p) => soBdIsObj(p) && p.id === pid)) return tid;
+    }
+    return '';
+}
+
+// The reply-record word of one call (D1: read ONCE — the prompt and the reader use the same word): a non-empty string without 【】｜,
+// else THEATER_BOARD_REPLY_KIND.
+function soBdFlowWord(w) {
+    const s = typeof w === 'string' ? w.trim() : '';
+    return s && !/[【】｜]/.test(s) ? s : THEATER_BOARD_REPLY_KIND;
+}
+
+// Every screen name on the board (the reader's "known" names for bare 「名字：」 lines).
+function soBdFlowKnown(state) {
+    const ro = soBdIsObj(state) && soBdIsObj(state.roster) ? state.roster : {};
+    return Object.keys(ro).map((k) => ro[k]).filter((p) => soBdIsObj(p) && typeof p.name === 'string' && p.name).map((p) => p.name);
+}
+
+// The board's base reply, compared field by field.
+function soBdFlowSameBase(a, b) {
+    const x = soBdIsObj(a) ? a : {};
+    const y = soBdIsObj(b) ? b : {};
+    return soBdInt(x.floor, -1, -1) === soBdInt(y.floor, -1, -1) && soBdInt(x.swipe, 0, 0) === soBdInt(y.swipe, 0, 0) && soBdStr(x.key) === soBdStr(y.key);
+}
+
+// The cause of a reply that came back but could not be used: {chars, finish, detail?, drop?} (the phone's soWyReplyCause + the drop counts).
+function soBdFlowCause(text, finish, r, drop) {
+    const t = typeof text === 'string' ? text.trim() : '';
+    const c = { chars: [...t].length, finish: String(finish == null ? '' : finish) };
+    const dt = soBdIsObj(r) && typeof r.detail === 'string' ? r.detail.trim() : '';
+    if (dt) c.detail = dt;
+    if (soBdIsObj(drop) && Object.keys(drop).length) c.drop = Object.assign({}, drop);
+    return c;
+}
+
+function soBdFlowErr(e) {
+    if (e && typeof e.message === 'string' && e.message) return e.message;
+    const s = String(e == null ? '' : e);
+    return s || 'error';
+}
+
+// One reply judged against a board snapshot (never mutated: the reducer runs on a clone). kind = the reader kind 'catchup' | 'post';
+// src = the soBdApply source the landing will use; o = {rd, replyKind, tnos, modLine?}. → {ok, why, recs, counts, drop}; why (first failing):
+// 'cut' (finish 'length' or the reader's cut — a cut reply never lands partly) · 'empty' · 'unparsed' (zero records) · 'none' (the reducer
+// accepted nothing; a post: no post in the target — unless a 版务 action landed (stage 3: a moderator locking the thread instead of
+// anyone answering is an answer); counts.mods exists only with src.mods).
+function soBdJudge(kind, text, finish, base, src, o) {
+    o = o || {};
+    const s = soBdIsObj(src) ? src : {};
+    const zero = () => ({ posts: 0, threads: 0, people: 0 });
+    const fail = (why, recs, counts, drop) => ({ ok: false, why, recs: recs || [], counts: counts || zero(), drop: drop || {} });
+    const t = typeof text === 'string' ? text : '';
+    const f = String(finish == null ? '' : finish);
+    if (f === 'length') return fail('cut');
+    if (!t.trim()) return fail('empty');
+    const rk = kind === 'post' ? 'post' : 'catchup';
+    const rd = soBdRead(t, rk, o.rd, { replyKind: o.replyKind, tnos: o.tnos, known: soBdFlowKnown(base), finish: f, modLine: o.modLine });
+    if (rd.cut) return fail('cut', rd.recs);
+    if (!rd.recs.length) return fail('unparsed');
+    if (!soBdIsObj(base)) return fail('none', rd.recs);
+    const res = soBdApply(soBdFlowClone(base), rd.recs, s);
+    if (!res.batch || (s.kind === 'post' && res.counts.posts < 1 && !(res.counts.mods > 0))) return fail('none', rd.recs, res.counts, res.drop);
+    return { ok: true, why: '', recs: rd.recs, counts: res.counts, drop: res.drop };
+}
+
+// The board call. kind:
+//   'catchup' {floor, swipe, key, replies} · 'post' {tid, name, text, to?} | {tid, again: true} · 'thread' {name, title, text} · 'regen' {bid}.
+// → {ok, kind, at, batch, counts, drop, posted?} · {busy, kind, at} · {wait} · {refused, text, posted?} · {failed, why, cause?, posted?} ·
+//   {error, posted?} · {aborted, posted?} · {stale, posted?}. Never throws. at: catch-up '*catchup', post tid, thread '*thread', regen bid.
+// After an ok result (the slot already free) with deps.sumOn === true the summary scheduler gets one kick (fire-and-forget).
+async function soBdCall(kind, args, deps) {
+    const fl = { mine: null, posted: null };
+    let res;
+    try {
+        res = await soBdCallRun(kind, args, deps, fl);
+    } catch (e) {
+        res = { error: soBdFlowErr(e) };
+        if (fl.posted) res.posted = fl.posted;
+    } finally {
+        if (fl.mine && bd_flightBox.cur === fl.mine) bd_flightBox.cur = null;
+    }
+    if (res && res.ok === true && soBdIsObj(deps) && deps.sumOn === true) {
+        try { soBdSumRun(deps).catch(() => 0); } catch (e) { /* a summary never breaks the call that kicked it */ }
+    }
+    return res;
+}
+
+// soBdCall's body; fl = {mine, posted} is filled as it goes (the slot to free, the player's stored post).
+async function soBdCallRun(kind, args, deps, fl) {
+    if (!soBdIsObj(deps)) return { error: 'deps' };
+    if (!['catchup', 'post', 'thread', 'regen'].includes(kind)) return { error: 'kind' };
+    const d = deps;
+    const a = soBdIsObj(args) ? args : {};
+    const gone = () => ({ failed: true, why: 'gone' });
+    const out = (r) => (fl.posted ? Object.assign(r, { posted: fl.posted }) : r);
+    // (1) synchronous checks — nothing stored, no slot
+    if (bd_flightBox.cur) return { busy: true, kind: bd_flightBox.cur.kind, at: bd_flightBox.cur.at };
+    const wait = typeof d.canStart === 'function' ? String(d.canStart() || '') : '';
+    if (wait) return { wait };
+    const refuse = typeof d.refused === 'function' ? String(d.refused() || '') : '';
+    if (refuse) return { refused: true, text: refuse };
+    const state = soBdFlowClone(d.getState());
+    if (!soBdIsObj(state) || !soBdIsObj(state.threads)) return gone();
+    const now = soBdFlowNow(d);
+    const me = typeof d.meName === 'function' ? String(d.meName() ?? '').trim() : '';
+    const protectNames = me ? [me] : [];
+    const mods = d.mods === true;   // stage 3 (版务): windows, request section, reader piece, reducer rows, the player's gate
+    const again = kind === 'post' && a.again === true;
+    let at = '';
+    let tid = '';
+    let pid = '';
+    let mode = 'reply';
+    let batch = null;
+    let op = null;
+    if (kind === 'catchup') {
+        if (!Number.isInteger(a.floor) || a.floor < 0) return gone();
+        at = '*catchup';
+    } else if (again) {
+        tid = String(a.tid == null ? '' : a.tid);
+        const t = soBdOwn(state.threads, tid) ? state.threads[tid] : null;
+        const ps = soBdIsObj(t) && Array.isArray(t.posts) ? t.posts : [];
+        const last = ps[ps.length - 1];
+        const bs = Array.isArray(state.batches) ? state.batches : [];
+        if (!soBdIsObj(last) || last.me !== 1 || last.del || bs.some((b) => b && b.after === last.id)) return gone();
+        if (mods && soBdIsObj(t.lock)) return { failed: true, why: 'locked' };   // a locked thread takes no reply: no request
+        pid = last.id;
+        mode = ps[0] === last ? 'thread' : 'reply';
+        at = tid;
+    } else if (kind === 'post' || kind === 'thread') {
+        op = kind === 'post'
+            ? { op: 'post', tid: a.tid, name: a.name, text: a.text, to: a.to, now }
+            : { op: 'thread', name: a.name, title: a.title, text: a.text, now };
+        if (mods) op.mods = true;   // the gate: a locked thread / a muted or banned alias → refused before anything is stored
+        const v = soBdPlayer(soBdFlowClone(state), op);
+        if (!v.ok) return Object.assign({ failed: true, why: v.why }, Number.isFinite(v.m) ? { m: v.m } : {});   // m: titleLong / textLong
+        at = kind === 'post' ? String(a.tid) : '*thread';
+        mode = kind === 'thread' ? 'thread' : 'reply';
+    } else {
+        const u = soBdCanUndo(state);
+        if (!u || u.bid !== a.bid) return gone();
+        batch = soBdBatch(state, u.bid);
+        if (!batch) return gone();
+        at = u.bid;
+        if (batch.kind === 'post') {
+            pid = soBdStr(batch.after);
+            tid = soBdTidOf(state, pid);
+            if (!tid) return gone();
+            const ps = state.threads[tid].posts;
+            mode = ps[0] && ps[0].id === pid ? 'thread' : 'reply';
+        }
+    }
+    // (2) take the slot; a summary still queued / assembling steps aside (index §2.8)
+    fl.mine = { token: ++bd_flightBox.seq, kind, at, t0: now };
+    bd_flightBox.cur = fl.mine;
+    soBdSumYield();
+    // (3) the player's own post / thread: stored FIRST, stays whatever happens next
+    let held = state;
+    if (op) {
+        const c = soBdFlowClone(state);
+        const v = soBdPlayer(c, op);
+        if (!v.ok) return Object.assign({ failed: true, why: v.why }, Number.isFinite(v.m) ? { m: v.m } : {});
+        if (d.commit(c, kind) === false) return gone();
+        fl.posted = { tid: v.tid, pid: v.id };
+        tid = v.tid;
+        pid = v.id;
+        held = soBdFlowClone(d.getState()) || c;
+    } else if (again) {
+        fl.posted = { tid, pid };
+    }
+    // (4) the request
+    const key = String(d.chatKey());
+    const K = soBdFlowWord(d.replyKind);
+    const protect = d.protect === true;
+    const estimate = typeof d.estimate === 'function' ? d.estimate : undefined;
+    const chat = () => { const c = typeof d.chat === 'function' ? d.chat() : null; return Array.isArray(c) ? c : []; };
+    const depth = typeof d.depth === 'function' ? d.depth() : undefined;
+    const rk = kind === 'catchup' || (kind === 'regen' && batch.kind !== 'post') ? 'catchup' : 'post';
+    // the board the request is built on: the held board, or (regen) the held board with that batch reverted
+    let from = held;
+    if (kind === 'regen') {
+        from = soBdFlowClone(held);
+        if (!soBdIsObj(from) || !soBdRevert(from, batch.id, { stash: false })) return out(gone());
+    }
+    const fromFloor = soBdIsObj(from.base) ? from.base.floor : -1;
+    let win = null;
+    let story = null;
+    let src = null;
+    let check = null;   // the base reply that must still show: {floor, swipe, key} | null
+    if (rk === 'catchup') {
+        const sw = soBdStoryWin(chat(), fromFloor, depth, 'catchup');
+        const replies = kind === 'catchup' && Number(a.replies) >= 1 ? Number(a.replies) : sw.replies;
+        win = soBdCatchupWin(from, { estimate, replies, protect, mods });
+        story = { from: sw.from, to: sw.to };
+        const nb = kind === 'catchup' ? { floor: a.floor, swipe: soBdInt(a.swipe, 0, 0), key: soBdStr(a.key) }
+            : (soBdIsObj(batch.base) ? soBdClone(batch.base) : null);
+        const pb = kind === 'catchup' ? held.base : batch.prevBase;
+        src = { kind: 'catchup', protect: protectNames, tnos: win.tnos, size: win.size.posts, now };
+        if (nb) src.base = nb;
+        if (soBdIsObj(pb)) src.prevBase = soBdClone(pb);
+        check = nb && Number.isInteger(nb.floor) && nb.floor >= 0 ? nb : null;
+    } else {
+        win = soBdPostWin(from, tid, { estimate, protect, mods });
+        if (!win) return out(gone());
+        const sw = soBdStoryWin(chat(), fromFloor, depth, 'post');
+        story = { from: sw.from, to: sw.to };
+        src = { kind: 'post', target: tid, after: pid, protect: protectNames, tnos: win.tnos, size: win.size.posts, now };
+    }
+    if (mods) src.mods = true;
+    const pargs = { replyKind: K, protect };
+    if (rk === 'post') pargs.mode = mode;
+    if (mods) pargs.mods = soBdModWin(from, win);
+    const pr = d.prompt(rk, win, pargs);
+    const req = {
+        kind: rk,
+        system: String(soBdIsObj(pr) && pr.system != null ? pr.system : ''),
+        user: String(soBdIsObj(pr) && pr.user != null ? pr.user : ''),
+        maxTokens: THEATER_BOARD_MAXTOK[rk], story, silent: false,
+    };
+    // (5) control: the engine's retry test is the judge itself; stale = another chat, or the base reply no longer shows
+    const snap = soBdFlowClone(from);
+    const jo = { rd: d.rd, replyKind: K, tnos: win.tnos };
+    if (mods) jo.modLine = (l, rd) => soBdModLine(l, rd);
+    const judge = (t, f) => soBdJudge(rk, t, f, snap, src, jo);
+    const isStale = () => {
+        if (String(d.chatKey()) !== key) return true;
+        if (!check) return false;
+        const cx = d.cx;
+        const m = chat()[check.floor];
+        if (!soBdIsObj(m) || !soBdIsObj(cx) || typeof cx.swipeOf !== 'function' || typeof cx.keyAt !== 'function') return true;
+        const sw = cx.swipeOf(m);
+        return sw !== check.swipe || String(cx.keyAt(m, sw) ?? '') !== check.key;
+    };
+    const ctl = {
+        cutOff: (t, f) => { try { return !judge(t, f).ok; } catch (e) { return true; } },
+        isStale,
+    };
+    // (6) generate and map
+    const r0 = await d.generate(req, ctl);
+    const r = soBdIsObj(r0) ? r0 : {};
+    if (isStale()) return out({ stale: true });
+    if (r.aborted) return out({ aborted: true });
+    if (r.refused) return out({ refused: true, text: typeof r.detail === 'string' ? r.detail : '' });
+    if (r.error) return out({ error: String(r.error) });
+    const text = typeof r.text === 'string' ? r.text : '';
+    const finish = String(r.finish == null ? '' : r.finish);
+    const v = judge(text, finish);
+    if (!v.ok) return out({ failed: true, why: v.why, cause: soBdFlowCause(text, finish, r, v.drop) });
+    // (7) land on the board as it is NOW, in one commit
+    const c = soBdFlowClone(d.getState());
+    if (!soBdIsObj(c) || !soBdIsObj(c.threads)) return out(gone());
+    if (kind === 'regen') {
+        const u = soBdCanUndo(c);
+        if (!u || u.bid !== batch.id || !soBdRevert(c, batch.id, { stash: false })) return out(gone());
+    }
+    if (rk === 'catchup') {
+        if (!soBdFlowSameBase(c.base, snap.base)) return out({ stale: true });
+    } else {
+        const t = soBdOwn(c.threads, tid) ? c.threads[tid] : null;
+        const deadT = soBdIsObj(c.dead) && Array.isArray(c.dead.t) ? c.dead.t : [];
+        if (!soBdIsObj(t) || deadT.includes(tid) || !Array.isArray(t.posts) || !t.posts.some((p) => soBdIsObj(p) && p.id === pid && !p.del)) return out(gone());
+    }
+    const res = soBdApply(c, v.recs, src);
+    if (!res.batch || (rk === 'post' && res.counts.posts < 1 && !(res.counts.mods > 0))) return out({ failed: true, why: 'none', cause: soBdFlowCause(text, finish, r, res.drop) });
+    if (d.commit(c, kind) === false) return out(gone());
+    return out({ ok: true, kind, at, batch: res.batch.id, counts: res.counts, drop: res.drop });
+}
+
+/* —— 安静的摘要排期（ENABLE_THR_BOARD_SUM，index §2.8）：一次「时机」= 一批补帖 / 回帖刚落下；最多两个帖子，一个接一个，各是一次 silent 请求。
+ *    没有状态行、没有提示、没有报错。按下的请求从不等摘要：还在排队 / 组装的摘要让路（下次再来，不算失败），已经在流式写的写完。 —— */
+
+// The summary in the air: cur = {tid, at, phase, stop, yielded}; series = a run of up to two is going.
+const bd_sumBox = { cur: null, series: false };
+
+// → {tid, at, phase} | null.
+function soBdSumFlight() {
+    const c = bd_sumBox.cur;
+    return c ? { tid: c.tid, at: c.at, phase: c.phase } : null;
+}
+
+// A pressed call starts: a summary that is not yet streaming steps aside (yielded; its run stopped now or the moment it registers).
+// → true when it did; false when none is in the air or it is streaming (it finishes — a few hundred tokens).
+function soBdSumYield() {
+    const c = bd_sumBox.cur;
+    if (!c || c.phase === 'stream') return false;
+    c.yielded = true;
+    if (typeof c.stop === 'function') {
+        try { c.stop(); } catch (e) { /* the stop never breaks the pressed call */ }
+    }
+    return true;
+}
+
+// One summary occasion. → Promise<number> (summaries committed); never throws, never surfaces anything. Not run (0) when deps.sumOn is not
+// true, a series is already going, or a pressed call flies. Up to THEATER_BOARD_SUM_PER_OCCASION due threads (soBdSumDue), one after the
+// other. Per thread: stale (another chat) · aborted (yielded, dropped while queued, stopped) · refused → the series ends, no failure mark;
+// an error or an unusable reply (cut / empty) → soBdSumFailed + commit 'sum-fail', next thread; a reply whose thread changed while it flew
+// (rev / fingerprint) → thrown away silently; else soBdSumCommit + commit 'sum'.
+// o (optional, stage 2's "summarise long threads now" press): o.pick (array) replaces the due list — string tids of live threads only, each
+// once, at most THEATER_BOARD_SUM_PER_OCCASION; o.report(tid, out) after each thread tried, out = 'ok' (committed) · 'fail' (error / unusable
+// → soBdSumFailed) · 'changed' (rev / fingerprint moved, or the store refused the commit: thrown away) · 'queued' (dropped while queued) ·
+// 'stopped' (yielded, stale, aborted, refused, the board gone); a throwing report is ignored. Without o: exactly the stage-1 run.
+async function soBdSumRun(deps, o) {
+    if (!soBdIsObj(deps) || deps.sumOn !== true || bd_sumBox.series || bd_flightBox.cur) return 0;
+    bd_sumBox.series = true;
+    let n = 0;
+    const opt = soBdIsObj(o) ? o : {};
+    const report = (tid, out) => {
+        if (typeof opt.report !== 'function') return;
+        try { opt.report(tid, out); } catch (e) { /* the caller's line never breaks the run */ }
+    };
+    let open = '';   // the tid being tried and not yet reported
+    try {
+        const d = deps;
+        const st0 = soBdFlowClone(d.getState());
+        if (!soBdIsObj(st0) || !soBdIsObj(st0.threads)) return 0;
+        const due = Array.isArray(opt.pick)
+            ? opt.pick.filter((x, i, a) => typeof x === 'string' && soBdOwn(st0.threads, x) && a.indexOf(x) === i).slice(0, THEATER_BOARD_SUM_PER_OCCASION)
+            : soBdSumDue(st0, {});
+        const key = String(d.chatKey());
+        const isStale = () => String(d.chatKey()) !== key;
+        const estimate = typeof d.estimate === 'function' ? d.estimate : undefined;
+        for (const tid of due) {
+            if (bd_flightBox.cur || isStale()) { report(tid, 'stopped'); break; }
+            const st = soBdFlowClone(d.getState());
+            if (!soBdIsObj(st) || !soBdIsObj(st.threads)) { report(tid, 'stopped'); break; }
+            const w = soBdSumWin(st, tid, { estimate });
+            if (!w) continue;
+            const cur = { tid, at: soBdFlowNow(d), phase: 'start', stop: null, yielded: false };
+            bd_sumBox.cur = cur;
+            open = tid;
+            try {
+                const pr = d.prompt('sum', w, {});
+                const req = {
+                    kind: 'sum',
+                    system: String(soBdIsObj(pr) && pr.system != null ? pr.system : ''),
+                    user: String(soBdIsObj(pr) && pr.user != null ? pr.user : ''),
+                    maxTokens: THEATER_BOARD_MAXTOK.sum, story: null, silent: true,
+                };
+                const ctl = {
+                    cutOff: (t, f) => { try { return f === 'length' || !soBdReadSum(t, d.rd, f).ok; } catch (e) { return true; } },
+                    isStale,
+                    onPhase: (p) => { cur.phase = String(p == null ? '' : p); },
+                    onRun: (fn) => {
+                        cur.stop = typeof fn === 'function' ? fn : null;
+                        if (cur.yielded && cur.stop) { try { cur.stop(); } catch (e) { /* stopping is best effort */ } }
+                    },
+                };
+                const r0 = await d.generate(req, ctl);
+                const r = soBdIsObj(r0) ? r0 : {};
+                if (cur.yielded || isStale() || r.aborted || r.refused) { open = ''; report(tid, r.skipped === 'queued' ? 'queued' : 'stopped'); break; }
+                const rs = r.error ? null : soBdReadSum(typeof r.text === 'string' ? r.text : '', d.rd, String(r.finish == null ? '' : r.finish));
+                const c = soBdFlowClone(d.getState());
+                if (!soBdIsObj(c) || !soBdIsObj(c.threads)) { open = ''; report(tid, 'stopped'); break; }
+                if (!rs || !rs.ok) {
+                    if (soBdSumFailed(c, tid)) d.commit(c, 'sum-fail');
+                    open = '';
+                    report(tid, 'fail');
+                    continue;
+                }
+                let landed = false;
+                if (soBdSumCommit(c, tid, { text: rs.text, upTo: w.upTo, upToN: w.upToN }, { rev: w.rev, fp: w.fp, now: soBdFlowNow(d) })) {
+                    if (d.commit(c, 'sum') !== false) { n++; landed = true; }
+                }
+                open = '';
+                report(tid, landed ? 'ok' : 'changed');
+            } finally {
+                if (bd_sumBox.cur === cur) bd_sumBox.cur = null;
+            }
+        }
+    } catch (e) {
+        /* silent by design: a summary never surfaces an error */
+        if (open) report(open, 'stopped');
+    } finally {
+        bd_sumBox.series = false;
+    }
+    return n;
+}
+/* <</BOARD:flow>> */
+/* <<BOARD:view>> */
+// [BOARD] view — spliced verbatim into index.js; edit HERE, re-splice, never hand-edit the copy. ALL strings DRAFT (owner picks).
+// 🗂 论坛板的查看层（P5）：玩家看得见的每一句话（THEATER_BOARD_TEXT，① 先上，等 Prince 挑）、存档 → 页面数据（soBdAssemble）、纯文字版、
+// 热帖条、结果 → 一句话（唯一一处对照）、查看层那一行的模型、主机参数清洗、运行时挂点（只用在论坛板页面的那一份派生副本上）、文档数据。
+// 纯函数：不读旗、不读 SO_VERSION、不读时钟、不碰 DOM。
+
+/* —— 文案表（ALL DRAFT；函数键按位置收参数：stats(t, p) · catching(n, s) · replying(n, s) · sizeLine(kb) · sizeWarn(kb) · sizeFull(kb) ·
+ * sizeWarnNoFold(kb) · followFailed(why) · stage 2 的十三个（参数名见 THEATER_BOARD_TEXT_ARGS）；其余是带 {占位} 的字符串，由 soBdFill 填）—— */
+const THEATER_BOARD_TEXT = Object.freeze({
+    // 面板卡（P4）
+    cardTitle: '本聊天的论坛',
+    cardEmpty: '还没有常驻论坛：新写一个，或把下面存着的论坛设为常驻。',
+    newBtn: '写一个新论坛并设为常驻',
+    promoteAct: '设为常驻',
+    promoteDone: '已设为这个聊天的常驻论坛',
+    promoteExists: '这个聊天已经有常驻论坛了，先移除它再换。',
+    promoteBad: '这个论坛的内容没能读出来，不能设为常驻。',
+    openBtn: '打开论坛',
+    stats: (t, p) => soBdFill('{t} 个帖子 · {p} 楼', { t, p }),
+    removeBtn: '移除常驻论坛',
+    removeConfirm: '移除后帖子、发言和设置都会删掉，不能恢复（存着的那份论坛还在）。确定吗？',
+    ifNote: '常驻论坛只跟着主线走，平行线里没有。',
+    setTitle: '论坛设置',
+    foreignNote: '这个聊天的论坛是更新版本的故事神谕存的，这一版打不开它，也不会改动它。更新故事神谕后就能接着用。',
+    brokenNote: '这个聊天存着的论坛读不出来了（存档可能坏了）。可以移除它，再重新设一个。',
+    brokenConfirm: '移除这份读不出来的论坛？移除后不能恢复（存着的论坛场景还在）。',
+    // 状态（面板卡 + 查看层那一行）
+    catching: (n, s) => soBdFill('论坛正在跟上剧情…（{n} 字 · {s} 秒）', { n, s }),
+    replying: (n, s) => soBdFill('正在等人回帖…（{n} 字 · {s} 秒）', { n, s }),
+    // 查看层那一行（P5）
+    batchLine: '新增 {p} 楼，{t} 个新帖',
+    dropped: '（另有 {d} 行写得不对，没收）',
+    failed: '这次没写成：{why}',
+    postNoReplies: '你的帖子已经发出，但这次没人回：{why}',
+    retry: '再试一次',
+    undoBtn: '撤回这一批',
+    regenBtn: '重写这一批',
+    undoGone: '之后已经有新内容，整批撤回不了了——可以单独删帖。',
+    undoConfirm: '撤回这一批？撤回后找不回来。',
+    stopBtn: '停止',
+    stale: '剧情变了，这一批没有写进去',
+    foldNotice: '为了控制大小，{k} 个沉底很久的帖子里较早的 {n} 楼已收起（摘要还在）。',
+    runtimeMissing: '论坛页面这次打不开，先显示文字版。',
+    viewTitle: '🗂 {board}',
+    // 删帖
+    delPost: '删除这一楼',
+    delPostConfirm: '删掉这一楼？删了找不回来。',
+    delThread: '删除整个帖子',
+    delThreadConfirm: '连同所有回帖一起删掉？删了找不回来。',
+    // 页面里（P5，经 B.text 带进页面）
+    deletedMark: '（这一楼已删除）',
+    foldedNote: '较早的 {n} 楼已收起，只留下摘要和最近的回帖。',
+    sumNote: '1–{n} 楼已为 AI 做过摘要（原帖都还在），点开看摘要',
+    namePh: '你的网名',
+    nameTaken: '这个网名论坛里已经有人在用了，换一个吧。',
+    nameEmpty: '先写一个网名。',
+    nameLong: '网名最多 {n} 个字。',
+    nameChars: '网名里不能有【】｜这类符号。',
+    postPh: '回个帖…',
+    sendBtn: '发出',
+    newThreadBtn: '发新帖',
+    titlePh: '标题',
+    bodyPh: '正文',
+    busyHere: '论坛正在写，等这一批落地再发',
+    mineMark: '我',
+    hotTitle: '热帖',
+    menuBtn: '更多操作',
+    replyTo: '回复这一楼',
+    replyingTo: '回复 @{name}',
+    cancelTo: '不回复这一楼了',
+    emptyBoard: '还没有帖子——发一个吧。',
+    notSent: '没发出去：{why}',
+    textEmpty: '先写点内容。',
+    titleEmpty: '先写个标题。',
+    // 超长（2026-11-21，DRAFT ①：② 正文超出了 {k} 个字，删短一点再发 · ③ 太长了，发不出去（{m}/{n}）；标题 ② 标题太长了：最多 {n} 个字（现在 {m} 个）
+    // · ③ 标题写短一点（最多 {n} 个字））：发帖框那一行，页面边打字边显示（{n} = 上限，{m} = 现在的码点数），主机拒收时也用它
+    textLong: '帖子太长了：最多 {n} 个字（现在 {m} 个）',
+    titleLong: '标题最多 {n} 个字。',
+    threadGone: '这个帖子已经不在了。',
+    plainOp: '楼主',
+    // 设置（P4）
+    followLabel: '每条新回复后自动跟上剧情',
+    followCost: '勾上后，每条主线回复都多一次调用',
+    openNote: '不勾也没关系：打开论坛时，如果剧情往前走了，会更新一次。',
+    sumStatement: '帖子很长时会悄悄做一次摘要（每次最多两个帖子、各一次小调用），新回帖就不会忘了谁说过什么。',
+    sumAtLabel: '攒到多少楼没摘要时做一次',
+    sumKeepLabel: '摘要时保留最近几楼原文',
+    keepLabel: '你发帖的那个帖子最多带多少楼原文',
+    sizeLine: (kb) => soBdFill('论坛占用 {kb} KB', { kb }),
+    sizeWarn: (kb) => soBdFill('论坛有点大了（{kb} KB），以后会自动收起沉底很久的旧帖原文。', { kb }),
+    sizeWarnNoFold: (kb) => soBdFill('论坛有点大了（{kb} KB），每次存档会慢一点。', { kb }),
+    sizeFull: (kb) => soBdFill('论坛很大了（{kb} KB），每次存档都会变慢。', { kb }),
+    // 跟剧情（P3 的两句；P3 自己 typeof 读、① 兜底）
+    followFailed: (why) => soBdFill('论坛没跟上这条回复：{why}', { why }),
+    followConnStopped: '小剧场选的连接这一轮没跑成',
+    // 设置里唯一一条数字规则（Prince 2026-11-20：数字不设范围；「保留最新几楼」< 「满多少楼做摘要」违反 = 不改并说一句）
+    optRefused: '「保留最新几楼」要比「满多少楼做摘要」小，这次没有改',
+    // 主线知情（stage 2，① 全部先上，Prince 2026-11-20 暂定）：设置里的开关 / 上限 / 尺寸行 / 预览，卡面上的「省掉了什么」
+    tellLabel: '让主线知道论坛上发生了什么',
+    tellCost: '不花调用；勾上后主线每次回复都会多读一段论坛摘录。',
+    noteSize: (n, cap) => soBdFill('主线每次多读约 {n} tokens 的论坛（上限 {cap}）', { n, cap }),
+    noteEmpty: '论坛上还没有能告诉主线的帖子。',
+    noteCapLabel: '主线最多读多少 tokens 的论坛',
+    noteCut: (list, full, cap) => soBdFill('论坛太长，主线这次没读到：{list}（全部约 {full} tokens，上限 {cap}）。', { list, full, cap }),
+    cutTitles: (k) => soBdFill('{k} 个冷帖的标题', { k }),
+    cutSums: (k) => soBdFill('{k} 段前情摘要', { k }),
+    cutPosts: (k) => soBdFill('热帖里 {k} 楼回帖', { k }),
+    cutThreads: (k) => soBdFill('{k} 个热帖', { k }),
+    cutMinePosts: (k) => soBdFill('你发过帖的帖子里 {k} 楼', { k }),
+    cutMineThreads: (k) => soBdFill('{k} 个你发过帖的帖子', { k }),
+    cutHint: '想让主线读全：在论坛设置里调高上限、给长帖做摘要，或删掉沉底很久的帖子。',
+    noteViewBtn: '看看主线读到什么 ›',
+    noteViewTitle: '主线读到的论坛',
+    noteViewClose: '关闭',
+    // 整理论坛（stage 2）
+    cleanTitle: '整理论坛',
+    sumNowBtn: '现在给长帖做摘要',
+    sumNowCost: '每个帖子一次小调用，一次最多两个帖子。',
+    sumNowNone: '没有需要摘要的长帖',
+    sumNowBusy: '正在做摘要…',
+    sumNowDone: (n) => soBdFill('做好了 {n} 段摘要', { n }),
+    sumNowFail: '这次没做成，过一会儿再试',
+    sumNowLater: '主线或小剧场正在忙，等它们写完再按',
+    sweepLabel: '删掉多久没人回的帖子',
+    sweepAge: (n) => soBdFill('{n} 次更新没人回', { n }),
+    sweepBtn: (n) => soBdFill('删除 {n} 个沉底的帖子', { n }),
+    sweepNone: '没有沉底这么久的帖子',
+    sweepConfirm: (n, titles) => soBdFill('删掉这 {n} 个帖子和它们的所有回帖？{titles}　删了找不回来（你发过帖的帖子不会删）。', { n, titles }),
+    sweepDone: (n) => soBdFill('删掉了 {n} 个帖子', { n }),
+    cleanOneHint: '单个帖子可以进论坛，从帖子的菜单里删除。',
+    // 版主与人员流动（stage 3，① 全部先上，主人 2026-11-20 暂定）：名字旁的身份、帖子上的标记、公告条、通知行、锁帖 / 折叠、玩家被管时的那一句。
+    // {why} 一律是调用方填好的 whyTail（没有缘由 = 空）；{t} = thisThread 或 threadRef。
+    roleMod: '版主',
+    roleOwner: '站长',
+    pinMark: '置顶',
+    lockMark: '已锁',
+    annTitle: '置顶',
+    annLine: (owner, mods) => soBdFill('站长 {owner} · 版主 {mods}', { owner, mods }),
+    annNoOwner: (mods) => soBdFill('版主 {mods}', { mods }),
+    annOwnerOnly: (owner) => soBdFill('站长 {owner}', { owner }),
+    lockedNote: (by, why) => soBdFill('这个帖子被 {by} 锁住了，不能再回复{why}。', { by, why }),
+    hidSum: (by, why) => soBdFill('这一楼被 {by} 折叠了{why}，点开查看', { by, why }),
+    banHid: (name) => soBdFill('{name} 已被封号，这一楼已收起，点开查看', { name }),
+    hidPlain: (by, why) => soBdFill('〔{by} 折叠了这一楼{why}〕', { by, why }),
+    banPlain: (name) => soBdFill('〔{name} 已被封号〕', { name }),
+    whyTail: (why) => soBdFill('（{why}）', { why }),
+    evPin: (by, t) => soBdFill('{by} 置顶了{t}', { by, t }),
+    evUnpin: (by, t) => soBdFill('{by} 取消了{t}的置顶', { by, t }),
+    evLock: (by, t) => soBdFill('{by} 锁住了{t}', { by, t }),
+    evUnlock: (by, t) => soBdFill('{by} 解锁了{t}', { by, t }),
+    evFold: (by, who) => soBdFill('{by} 折叠了 {who} 的一楼', { by, who }),
+    evMute: (by, who) => soBdFill('{by} 禁言了 {who}', { by, who }),
+    evUnmute: (by, who) => soBdFill('{by} 解除了 {who} 的禁言', { by, who }),
+    evBan: (by, who) => soBdFill('{by} 封禁了 {who}', { by, who }),
+    evUnban: (by, who) => soBdFill('{by} 解封了 {who}', { by, who }),
+    evAppoint: (by, who) => soBdFill('{by} 任命 {who} 为版主', { by, who }),
+    evAppoint0: (who) => soBdFill('{who} 成为版主', { who }),
+    evOwn: (who) => soBdFill('{who} 是这个论坛的站长', { who }),
+    evRemove: (by, who) => soBdFill('{by} 撤销了 {who} 的版主', { by, who }),
+    evStepdown: (by, role) => soBdFill('{by} 卸任了{role}', { by, role }),
+    evLeave: (by) => soBdFill('{by} 退出了论坛', { by }),
+    thisThread: '本帖',
+    threadRef: (title) => soBdFill('《{title}》', { title }),
+    modBatch: (m) => soBdFill(' · 版务 {m} 条', { m }),
+    modOnly: (m) => soBdFill('这一批只有 {m} 条版务，没有新楼', { m }),
+    meMuted: (name, by, why) => soBdFill('你的网名「{name}」被 {by} 禁言了{why}——换个网名还能发帖。', { name, by, why }),
+    meBanned: (name, by, why) => soBdFill('你的网名「{name}」被 {by} 封号了{why}——换个网名还能发帖。', { name, by, why }),
+    meFolded: (by, t, why) => soBdFill('你在{t}的一楼被 {by} 折叠了{why}。', { by, t, why }),
+    meLocked: (by, t, why) => soBdFill('你的帖子{t}被 {by} 锁住了{why}。', { by, t, why }),
+    nameMuted: (n) => soBdFill('这个网名正被禁言（还要过 {n} 次论坛更新）——换个网名就能发。', { n }),
+    nameBanned: '这个网名被封号了——换个网名就能发。',
+    sentGagged: (why) => soBdFill('没发出去：{why}——换个网名就能发。', { why }),
+    // {why} 里填的原因
+    why: Object.freeze({
+        cut: '回复被截断了',
+        empty: '模型没有写东西',
+        unparsed: '读不出帖子的格式',
+        none: '没有能用的新楼',
+        gone: '论坛或这个帖子已经不在了',
+        stopped: '已停止',
+        other: '出了点问题（{code}）',
+        // stage 3：玩家发帖前被那道门拦下（soBdModGate）
+        locked: '这个帖子已经锁住了',
+        muted: '这个网名正被禁言',
+        banned: '这个网名被封号了',
+    }),
+});
+
+// 函数键的参数名（soBdTxt 用对象传参时按这个顺序排成位置参数）。
+const THEATER_BOARD_TEXT_ARGS = Object.freeze({
+    stats: Object.freeze(['t', 'p']), catching: Object.freeze(['n', 's']), replying: Object.freeze(['n', 's']), sizeLine: Object.freeze(['kb']),
+    sizeWarn: Object.freeze(['kb']), sizeFull: Object.freeze(['kb']), sizeWarnNoFold: Object.freeze(['kb']), followFailed: Object.freeze(['why']),
+    // stage 2
+    noteSize: Object.freeze(['n', 'cap']), noteCut: Object.freeze(['list', 'full', 'cap']), cutTitles: Object.freeze(['k']), cutSums: Object.freeze(['k']),
+    cutPosts: Object.freeze(['k']), cutThreads: Object.freeze(['k']), cutMinePosts: Object.freeze(['k']), cutMineThreads: Object.freeze(['k']),
+    sumNowDone: Object.freeze(['n']), sweepAge: Object.freeze(['n']), sweepBtn: Object.freeze(['n']), sweepConfirm: Object.freeze(['n', 'titles']),
+    sweepDone: Object.freeze(['n']),
+    // stage 3
+    annLine: Object.freeze(['owner', 'mods']), annNoOwner: Object.freeze(['mods']), annOwnerOnly: Object.freeze(['owner']),
+    lockedNote: Object.freeze(['by', 'why']), hidSum: Object.freeze(['by', 'why']), banHid: Object.freeze(['name']), hidPlain: Object.freeze(['by', 'why']),
+    banPlain: Object.freeze(['name']), whyTail: Object.freeze(['why']), evPin: Object.freeze(['by', 't']), evUnpin: Object.freeze(['by', 't']),
+    evLock: Object.freeze(['by', 't']), evUnlock: Object.freeze(['by', 't']), evFold: Object.freeze(['by', 'who']), evMute: Object.freeze(['by', 'who']),
+    evUnmute: Object.freeze(['by', 'who']), evBan: Object.freeze(['by', 'who']), evUnban: Object.freeze(['by', 'who']), evAppoint: Object.freeze(['by', 'who']),
+    evAppoint0: Object.freeze(['who']), evOwn: Object.freeze(['who']), evRemove: Object.freeze(['by', 'who']), evStepdown: Object.freeze(['by', 'role']),
+    evLeave: Object.freeze(['by']), threadRef: Object.freeze(['title']), modBatch: Object.freeze(['m']), modOnly: Object.freeze(['m']),
+    meMuted: Object.freeze(['name', 'by', 'why']), meBanned: Object.freeze(['name', 'by', 'why']), meFolded: Object.freeze(['by', 't', 'why']),
+    meLocked: Object.freeze(['by', 't', 'why']), nameMuted: Object.freeze(['n']), sentGagged: Object.freeze(['why']),
+});
+
+// 页面要的那几句（作为 B.text 带进页面；全是字符串，页面自己填 {n} / {name}）。
+const THEATER_BOARD_FRAME_KEYS = Object.freeze([
+    'namePh', 'nameTaken', 'nameEmpty', 'nameLong', 'nameChars',
+    'postPh', 'sendBtn', 'newThreadBtn', 'titlePh', 'bodyPh', 'busyHere',
+    'mineMark', 'hotTitle', 'deletedMark', 'foldedNote', 'sumNote',
+    'delPost', 'delThread', 'menuBtn', 'replyTo', 'replyingTo', 'cancelTo', 'emptyBoard',
+    'textLong', 'titleLong',
+]);
+
+// {名字} → vars[名字]；没给的 → ''。只扫一遍（填进去的值不再被当成占位）。
+function soBdFill(s, vars) {
+    const v = vars && typeof vars === 'object' ? vars : {};
+    return String(s ?? '').replace(/\{(\w+)\}/g, (m, k) => (Object.prototype.hasOwnProperty.call(v, k) && v[k] != null ? String(v[k]) : ''));
+}
+
+// 'key' 或 'why.cut' → 填好的那一句；不认识的键 → ''。函数键：vars 是数组 → 按位置；是对象 → 按 THEATER_BOARD_TEXT_ARGS 的顺序取。
+function soBdTxt(key, vars) {
+    let v = THEATER_BOARD_TEXT;
+    for (const part of String(key ?? '').split('.')) {
+        if (!v || typeof v !== 'object' || !Object.prototype.hasOwnProperty.call(v, part)) return '';
+        v = v[part];
+    }
+    if (typeof v === 'string') return soBdFill(v, vars);
+    if (typeof v === 'function') {
+        const names = Object.prototype.hasOwnProperty.call(THEATER_BOARD_TEXT_ARGS, key) ? THEATER_BOARD_TEXT_ARGS[key] : [];
+        const args = Array.isArray(vars) ? vars : names.map((n) => (vars && typeof vars === 'object' ? vars[n] : undefined));
+        return String(v(...args) ?? '');
+    }
+    return '';
+}
+
+// 页面要的那几句：一个新的普通对象（只有 THEATER_BOARD_FRAME_KEYS）。
+function soBdFrameText() {
+    const out = {};
+    for (const k of THEATER_BOARD_FRAME_KEYS) out[k] = String(THEATER_BOARD_TEXT[k] ?? '');
+    return out;
+}
+
+/* —— 存档 → 页面数据（Task 2）—— */
+const THEATER_BOARD_HOT_N = 3;   // 热帖条最多几个帖子
+const THEATER_BOARD_HOT_RECENT = 5;   // 「最近」= 最后这么多批
+// 发帖框的长度上限 THEATER_BOARD_COMPOSE_MAX 在 reduce.js（2026-11-21 搬过去：发帖本身要拒收超长的），页面经 B.max 照旧拿到
+
+const soBdViewPosts = (t) => (soBdIsObj(t) && Array.isArray(t.posts) ? t.posts.filter(soBdIsObj) : []);
+const soBdViewLive = (t) => soBdViewPosts(t).filter((p) => !p.del).length;
+// 还画得出来的帖子：存档里在、不在 dead.t 里、是个对象。
+function soBdViewThreads(state) {
+    if (!soBdIsObj(state) || !soBdIsObj(state.threads)) return [];
+    const dead = soBdIsObj(state.dead) && Array.isArray(state.dead.t) ? state.dead.t : [];
+    return soBdThreadOrder(state).filter((tid) => soBdIsObj(state.threads[tid]) && !dead.includes(tid));
+}
+
+// 热度：存着的有限数字，否则 37 × 还在的楼数（开帖算一楼）。
+function soBdHeat(t) {
+    const h = soBdIsObj(t) ? t.heat : null;
+    return typeof h === 'number' && Number.isFinite(h) ? h : 37 * soBdViewLive(t);
+}
+
+// 帖子顶上的那一句：{sumN: 摘要盖到第几楼（无效的摘要 = 0）, sumText, folded: 收起了几楼}。
+function soBdThreadNote(state, t) {
+    const ok = soBdSumValid(t);
+    const up = ok ? Number(t.sum.upToN) : 0;
+    const folded = soBdIsObj(t) && Number.isInteger(t.folded) && t.folded > 0 ? t.folded : 0;
+    return { sumN: Number.isInteger(up) && up > 0 ? up : 0, sumText: ok ? soBdStr(t.sum.text) : '', folded };
+}
+
+// 热帖条（代码按真实数据填）：最近 THEATER_BOARD_HOT_RECENT 批里还在的楼（开帖也算；玩家在最老那一批之后发的楼也算）按帖子数，
+// 0 分出局，同分按活跃度；一批都没有 → 按热度，再按还在的楼数。→ tid[]（最多 n 个）。
+function soBdHot(state, n = THEATER_BOARD_HOT_N) {
+    const tids = soBdViewThreads(state);
+    const cap = Math.max(0, Math.floor(Number(n) || 0));
+    if (!tids.length || !cap) return [];
+    const th = state.threads;
+    const bs = Array.isArray(state.batches) ? state.batches.filter(soBdIsObj) : [];
+    if (!bs.length) {
+        return tids.slice().sort((a, b) => (soBdHeat(th[b]) - soBdHeat(th[a])) || (soBdViewLive(th[b]) - soBdViewLive(th[a]))).slice(0, cap);
+    }
+    const recent = bs.slice(-THEATER_BOARD_HOT_RECENT);
+    const bids = new Set(recent.map((b) => b.id));
+    const oldest = soBdIdNum(recent[0].id);
+    const score = {};
+    for (const tid of tids) {
+        score[tid] = soBdViewPosts(th[tid]).filter((p) => !p.del && (bids.has(p.b) || (p.b === 'me' && soBdIdNum(p.id) >= oldest))).length;
+    }
+    return tids.filter((tid) => score[tid] > 0)
+        .sort((a, b) => (score[b] - score[a]) || ((Number(th[b].act) || 0) - (Number(th[a].act) || 0)))
+        .slice(0, cap);
+}
+
+function soBdViewEmpty(o) {
+    return {
+        W: { me: { name: '你', glyph: '你' }, people: {}, friends: {}, forum: { board: '', intro: '', threads: [] }, hot: '' },
+        B: { v: 1, tno: {}, notes: {}, hot: [], lastName: '', busy: !!o.busy, nameMax: THEATER_BOARD_NAME_MAX,
+            max: { title: THEATER_BOARD_COMPOSE_MAX.title, text: THEATER_BOARD_COMPOSE_MAX.text }, text: o.text || soBdFrameText() },
+    };
+}
+
+// 存档 → 页面要的 {W, B}（纯函数；不改存档；结果里没有一个对象指回存档；坏存档 → 空的一份，绝不抛）。
+// W = 运行时的论坛数据（帖子按活跃度排；floors 带存着的楼号 n、pid、me / del；开帖的那几样在帖子上：opId / opDel / opMe）；
+// B = 论坛板自己的：{v, tno, notes, hot, lastName, busy, nameMax, max, text}。o = {busy, text}。
+function soBdAssemble(state, o) {
+    const opt = soBdIsObj(o) ? o : {};
+    try {
+        if (!soBdIsObj(state)) return soBdViewEmpty(opt);
+        const out = soBdViewEmpty(opt);
+        const roster = soBdIsObj(state.roster) ? state.roster : {};
+        for (const rid of Object.keys(roster)) {
+            const p = roster[rid];
+            if (!soBdIsObj(p)) continue;
+            const name = soBdStr(p.name);
+            out.W.people[rid] = { id: rid, name, glyph: soBdStr(p.glyph) || [...name][0] || '？', title: soBdStr(p.title), bio: soBdStr(p.bio) };
+        }
+        const nameOf = (rid) => (soBdIsObj(roster[rid]) ? soBdStr(roster[rid].name) : '');
+        const board = soBdIsObj(state.board) ? state.board : {};
+        out.W.forum.board = soBdStr(board.name);
+        out.W.forum.intro = soBdStr(board.intro);
+        for (const tid of soBdViewThreads(state)) {
+            const t = state.threads[tid];
+            const ps = soBdViewPosts(t);
+            const op = ps[0] || null;
+            const heat = soBdHeat(t);
+            const row = {
+                id: tid, no: Number(t.no) || 0, title: soBdStr(t.title), author: soBdStr(t.by),
+                tags: Array.isArray(t.tags) ? t.tags.map(soBdStr) : [], heat, time: soBdStr(t.time), up: Math.max(3, Math.round(heat / 37)),
+                op: op && !op.del ? soBdStr(op.t) : '', opId: op ? soBdStr(op.id) : '',
+            };
+            if (op && op.del) row.opDel = 1;
+            if (op && op.me) row.opMe = 1;
+            row.floors = ps.slice(1).map((p, i) => {
+                if (p.del) return { pid: soBdStr(p.id), n: Number(p.n) || 0, u: '', text: '', del: 1 };
+                const f = { pid: soBdStr(p.id), n: Number(p.n) || 0, u: soBdStr(p.by), text: soBdStr(p.t) };
+                const k = soBdNameKey(p.to);
+                if (k) {
+                    for (let j = i; j >= 0; j--) {   // ps[j] = the posts before this one (ps[i + 1]), opening included
+                        const e = ps[j];
+                        if (!e.del && soBdNameKey(nameOf(e.by)) === k) { f.q = Number(e.n) || 0; break; }
+                    }
+                }
+                if (p.me) f.me = 1;
+                return f;
+            });
+            out.W.forum.threads.push(row);
+            out.B.tno[tid] = row.no;
+            const note = soBdThreadNote(state, t);
+            if (note.sumN > 0 || note.folded > 0) out.B.notes[tid] = note;
+        }
+        out.B.hot = soBdHot(state);
+        out.W.hot = soBdHot(state, 1)[0] || '';
+        const pl = soBdIsObj(state.player) ? state.player : {};
+        out.B.lastName = soBdStr(pl.last);
+        return out;
+    } catch (e) {
+        return soBdViewEmpty(opt);
+    }
+}
+
+// 纯文字版（贴图检查没过 / 玩家点了文字版 / 页面打不开）：存着什么就是什么（摘要是给 AI 看的，不印）。帖子按活跃度排，块之间空一行。
+// mx（stage 3，soBdModView 的结果；不给 = 今天的字节）：名字后带（站长 / 版主）、置顶的帖子排前面、帖子头带 [置顶] / [已锁] 和锁帖那一句、
+// 折叠 / 封号的人的楼前加一句、帖子里的通知跟在它后面那一楼之后、版面上的通知跟在论坛名后面。
+function soBdPlainText(state, mx) {
+    try {
+        if (!soBdIsObj(state) || !soBdIsObj(state.threads)) return '';
+        const M = soBdIsObj(mx) ? mx : null;
+        const mo = (k) => (M && soBdIsObj(M[k]) ? M[k] : {});
+        const roster = soBdIsObj(state.roster) ? state.roster : {};
+        const nameOf = (rid) => (soBdIsObj(roster[rid]) ? soBdStr(roster[rid].name) : '') + (M && soBdOwn(mo('roleWord'), rid) ? '（' + soBdStr(mo('roleWord')[rid]) + '）' : '');
+        const T = THEATER_BOARD_TEXT;
+        const board = soBdIsObj(state.board) ? state.board : {};
+        const blocks = [[soBdStr(board.name), soBdStr(board.intro)].concat(M ? [soBdStr(M.ann)].concat(Array.isArray(M.board) ? M.board.map(soBdStr) : []) : []).filter((x) => x !== '').join('\n')];
+        const pins = M && Array.isArray(M.pins) ? M.pins : [];
+        const tids = soBdViewThreads(state);
+        for (const tid of (pins.length ? pins.filter((x) => tids.includes(x)).concat(tids.filter((x) => !pins.includes(x))) : tids)) {
+            const t = state.threads[tid];
+            const ps = soBdViewPosts(t);
+            const tags = Array.isArray(t.tags) ? t.tags.map(soBdStr).filter(Boolean) : [];
+            const marks = M ? (pins.includes(tid) ? '[' + soBdStr(T.pinMark) + '] ' : '') + (soBdOwn(mo('locks'), tid) ? '[' + soBdStr(T.lockMark) + '] ' : '') : '';
+            const lines = ['#' + (Number(t.no) || 0) + ' ' + marks + soBdStr(t.title) + '（' + T.plainOp + ' ' + nameOf(t.by) + '）' + (tags.length ? '  [' + tags.join('、') + ']' : '')];
+            if (M && soBdOwn(mo('locks'), tid)) lines.push(soBdStr(mo('locks')[tid]));
+            const note = soBdThreadNote(state, t);
+            if (note.folded > 0) lines.push(soBdFill(T.foldedNote, { n: note.folded }));
+            const notes = M && Array.isArray(mo('notes')[tid]) ? mo('notes')[tid].filter(soBdIsObj) : [];
+            const used = new Set();
+            for (const p of ps) {
+                const head = '#' + (Number(p.n) || 0) + ' ';
+                const after = () => notes.forEach((x, i) => { if (!used.has(i) && Number(x.n) === Number(p.n)) { used.add(i); lines.push(soBdStr(x.line)); } });
+                if (p.del) { lines.push(head + T.deletedMark); after(); continue; }
+                const to = soBdStr(p.to).trim();
+                const hid = M && soBdOwn(mo('hidPlain'), p.id) ? soBdStr(mo('hidPlain')[p.id]) : '';
+                lines.push(head + nameOf(p.by) + (p.me ? '（' + T.mineMark + '）' : '') + (to ? ' 回复@' + to : '') + '：' + hid + soBdStr(p.t));
+                after();
+            }
+            notes.forEach((x, i) => { if (!used.has(i)) lines.push(soBdStr(x.line)); });   // a notice whose floor is gone: after the last floor
+            blocks.push(lines.join('\n'));
+        }
+        return blocks.filter((b) => b !== '').join('\n\n');
+    } catch (e) {
+        return '';
+    }
+}
+
+/* —— 结果 → 一句话、批次那一行、查看层那一行的模型、主机参数清洗（Task 3）—— */
+
+// 网名被拒的原因 → 那一句（empty / long / chars / taken；别的 → ''）。
+function soBdNameLine(why) {
+    if (why === 'empty') return soBdTxt('nameEmpty');
+    if (why === 'long') return soBdTxt('nameLong', { n: THEATER_BOARD_NAME_MAX });
+    if (why === 'chars') return soBdTxt('nameChars');
+    if (why === 'taken') return soBdTxt('nameTaken');
+    return '';
+}
+
+// 「写得不对、没收」的行数：drop 里除 exists 以外的有限计数之和（只补资料的人物行不算错）。stage 3 的 noop（本来就是那样）和 repeat（同一批里
+// 来回翻）也不算：那是版主的事，不是写错（这两个原因只在版主开着时出现）。
+function soBdDropShown(drop) {
+    if (!soBdIsObj(drop)) return 0;
+    let n = 0;
+    for (const k of Object.keys(drop)) {
+        const v = drop[k];
+        if (k !== 'exists' && k !== 'noop' && k !== 'repeat' && typeof v === 'number' && Number.isFinite(v) && v > 0) n += Math.floor(v);
+    }
+    return n;
+}
+
+// 一批的那一行：「新增 p 楼，t 个新帖」+（有没收的行时）「（另有 d 行写得不对，没收）」。stage 3（counts.mods 只在版主开着时有）：
+// 落了版务 → 后面加「 · 版务 m 条」；一楼一帖都没有、只有版务 → 「这一批只有 m 条版务，没有新楼」。
+function soBdBatchLine(batch) {
+    const c = soBdIsObj(batch) && soBdIsObj(batch.counts) ? batch.counts : {};
+    const d = soBdDropShown(soBdIsObj(batch) ? batch.drop : null);
+    const m = Number.isInteger(c.mods) && c.mods > 0 ? c.mods : 0;
+    const head = m > 0 && !(Number(c.posts) || 0) && !(Number(c.threads) || 0) ? soBdTxt('modOnly', [m])
+        : soBdTxt('batchLine', { p: Number(c.posts) || 0, t: Number(c.threads) || 0 }) + (m > 0 ? soBdTxt('modBatch', [m]) : '');
+    return head + (d > 0 ? soBdTxt('dropped', { d }) : '');
+}
+
+// 原因代码 → {why} 里的那半句（不认识的 → why.other {code}）。
+function soBdWhyText(code) {
+    const c = soBdStr(code);
+    return (c && soBdTxt('why.' + c)) || soBdTxt('why.other', { code: c });
+}
+
+// 一次结果 → {line, where: '' | 'compose' | 'row', retry: '' | 'catchup' | 'again' | 'regen', stored}（唯一一处对照；页面里一行都不判）。
+// kind = catchup | post | thread | again | regen | undo | del。pre = 发帖 / 开帖、玩家那一楼没存下（发帖框里的字留着）。
+// stored = 玩家那一楼已经存下（发帖框可以清空）。表见 plan 2026-11-19-living-forum-p5-viewer「Result → line」。
+function soBdResultLine(r, kind) {
+    const out = (line, where, retry, stored) => ({ line: line || '', where: line ? where : '', retry: line ? (retry || '') : '', stored: !!stored });
+    if (!soBdIsObj(r)) return out('', '', '', false);
+    const k = soBdStr(kind);
+    const posted = soBdIsObj(r.posted);
+    const pre = (k === 'post' || k === 'thread') && !posted && r.ok !== true;
+    const re = k === 'catchup' ? 'catchup' : (k === 'regen' ? 'regen' : '');
+    // after the request: a stored post of the player's → 「发出了，但这次没人回」+ retry again; else the row's 「这次没写成」
+    const after = (why, retry) => (posted ? out(soBdTxt('postNoReplies', { why }), 'row', 'again', true)
+        : (pre ? out(soBdTxt('notSent', { why }), 'compose', '', false) : out(soBdTxt('failed', { why }), 'row', retry, false)));
+    if (k === 'undo' || k === 'del') {
+        if (r.ok === true) return out('', '', '', false);
+        if (soBdOwn(r, 'ok') && r.ok === false) {
+            const w = soBdStr(r.why);
+            if (w === 'off' || w === 'cancel') return out('', '', '', false);
+            if (k === 'undo' && w === 'busy') return out(soBdTxt('busyHere'), 'row', '', false);
+            if (k === 'undo' && w === 'none') return out(soBdTxt('undoGone'), 'row', '', false);
+            if (k === 'del' && w === 'gone') return out(soBdTxt('threadGone'), 'row', '', false);
+            return out(soBdTxt('failed', { why: soBdWhyText('gone') }), 'row', '', false);
+        }
+    }
+    if (r.ok === true) return out('', '', '', k === 'post' || k === 'thread');
+    if (r.busy) return out(soBdTxt('busyHere'), pre ? 'compose' : 'row', '', false);
+    if (soBdOwn(r, 'wait') && r.wait) {
+        const why = soBdStr(r.wait);
+        return pre ? out(soBdTxt('notSent', { why }), 'compose', '', false) : out(soBdTxt('failed', { why }), 'row', re, false);
+    }
+    if (r.refused) {
+        const why = soBdStr(r.text);
+        return posted ? out(soBdTxt('postNoReplies', { why }), 'row', 'again', true) : after(why, '');
+    }
+    if (r.failed) {
+        const w = soBdStr(r.why);
+        if (pre) {
+            const nl = soBdNameLine(w);
+            if (nl) return out(nl, 'compose', '', false);
+            if (w === 'text') return out(soBdTxt('textEmpty'), 'compose', '', false);
+            if (w === 'title') return out(soBdTxt('titleEmpty'), 'compose', '', false);
+            if (w === 'textLong') return out(soBdTxt('textLong', { n: THEATER_BOARD_COMPOSE_MAX.text, m: r.m }), 'compose', '', false);
+            if (w === 'titleLong') return out(soBdTxt('titleLong', { n: THEATER_BOARD_COMPOSE_MAX.title, m: r.m }), 'compose', '', false);
+            if (w === 'gone') return out(soBdTxt('threadGone'), 'compose', '', false);
+            // stage 3：这个网名被禁言 / 封号（版主开着才会有）——说清楚，并告诉他换个网名就能发（locked 走下面的「没发出去：这个帖子已经锁住了」）
+            if (w === 'muted' || w === 'banned') return out(soBdTxt('sentGagged', [soBdWhyText(w)]), 'compose', '', false);
+        }
+        // regen with nothing to redo (P2 answers before any request: no cause) ≠ a model reply with nothing usable (carries a cause)
+        if (k === 'regen' && w === 'none' && !posted && !soBdIsObj(r.cause)) return out(soBdTxt('undoGone'), 'row', '', false);
+        return after(soBdWhyText(w), w === 'gone' ? '' : re);
+    }
+    if (soBdOwn(r, 'error')) {
+        const e = soBdStr(r.error);
+        if (e === 'off' || e === 'deps' || e === 'kind' || !e) {
+            if (e !== 'off' && typeof console !== 'undefined') console.warn('[Story Oracle] 论坛板：', e || 'error');
+            return out('', '', '', false);
+        }
+        return after(soBdWhyText(e), re);
+    }
+    if (r.aborted) return after(soBdWhyText('stopped'), re);
+    if (r.stale) return posted ? out(soBdTxt('postNoReplies', { why: soBdTxt('stale') }), 'row', 'again', true) : out(soBdTxt('stale'), 'row', '', false);
+    return out('', '', '', false);
+}
+
+// 查看层那一行此刻该是什么样（纯函数；SO 那边的 soThrBoardRowPaint 只把它照搬进 DOM）。
+// o = {state, live: soThrBoardLive(), flying: !!soBdFlight(), last: {line, retry} | null, undoSeen: bid, noticeSeen: ms, modNotice?: {line, at}}
+// → {hidden, status, wait, stop, batch, undo, regen, retry, notice, noticeAt, undoBid}。
+function soBdRowModel(o) {
+    const x = soBdIsObj(o) ? o : {};
+    const m = { hidden: true, status: '', wait: null, stop: false, batch: '', undo: false, regen: false, retry: '', notice: '', noticeAt: 0, undoBid: '' };
+    const st = soBdIsObj(x.state) ? x.state : null;
+    const live = soBdIsObj(x.live) ? x.live : null;
+    if (live) {
+        if (soBdIsObj(live.wait)) m.wait = live.wait;
+        else {
+            m.status = soBdTxt(live.kind === 'catchup' ? 'catching' : 'replying', [Number(live.chars) || 0, Number(live.secs) || 0]);
+            m.stop = true;
+        }
+    } else {
+        const last = soBdIsObj(x.last) ? x.last : null;
+        if (last && soBdStr(last.line)) {
+            m.status = soBdStr(last.line);
+            m.retry = soBdStr(last.retry);
+        }
+        const bs = st && Array.isArray(st.batches) ? st.batches : [];
+        const top = bs[bs.length - 1];
+        const u = st ? soBdCanUndo(st) : null;
+        if (!x.flying && u) {
+            m.batch = soBdBatchLine(soBdBatch(st, u.bid));
+            m.undo = true;
+            m.regen = true;
+            m.undoBid = soBdStr(u.bid);
+        } else if (!u && x.undoSeen && soBdIsObj(top) && top.id === x.undoSeen) {
+            m.batch = soBdTxt('undoGone');
+        }
+    }
+    const ns = st && Array.isArray(st.notices) ? st.notices : [];
+    const seen = Number(x.noticeSeen) || 0;
+    for (let i = ns.length - 1; i >= 0; i--) {
+        const n = ns[i];
+        if (soBdIsObj(n) && n.k === 'fold') {
+            if (Number(n.at) > seen) {
+                m.notice = soBdTxt('foldNotice', { k: Number(n.m) || 0, n: Number(n.n) || 0 });
+                m.noticeAt = Number(n.at);
+            }
+            break;
+        }
+    }
+    // stage 3：x.modNotice = {line, at}（soBdModRowNotice：版主刚管到玩家的那一件）——比上面那条收起通知新、又没看过 → 换成它（没给 = 今天）
+    const mn = soBdIsObj(x.modNotice) ? x.modNotice : null;
+    if (mn && soBdStr(mn.line) && Number(mn.at) > seen && Number(mn.at) > m.noticeAt) {
+        m.notice = soBdStr(mn.line);
+        m.noticeAt = Number(mn.at);
+    }
+    m.hidden = !(m.status || m.wait || m.stop || m.batch || m.undo || m.regen || m.retry || m.notice);
+    return m;
+}
+
+// 页面交来的发帖参数（当它不可信）：只收字符串、按码点截断；tid 只认 T + 数字；again 只认 true。→ {tid?, name, text, title?, to?, again?}
+// 正文 / 标题（2026-11-21）：上限 + 1 个码点以内原样不动；更长的 → 去掉首尾空白后还超上限的，留它的前「上限」个码点 + 最后一个码点（首尾都
+// 不是空白，正好上限 + 1：截完还是超长，由 soBdPlayer 拒收并说一句，绝不截成一条能过的）；去掉首尾空白就不超的，交去掉空白的那份
+// （soBdPlayer 本来也只存它）。
+function soBdPostArgs(a) {
+    const x = soBdIsObj(a) ? a : {};
+    const s = (v) => (typeof v === 'string' ? v : '');
+    const cut = (v, n) => [...s(v)].slice(0, n).join('');
+    const keep = (v, max) => {
+        if ([...s(v)].length <= max + 1) return s(v);
+        const tr = [...s(v).trim()];
+        return tr.length > max ? tr.slice(0, max).concat(tr[tr.length - 1]).join('') : tr.join('');
+    };
+    const out = {};
+    if (typeof x.tid === 'string' && /^T\d+$/.test(x.tid)) out.tid = x.tid;
+    out.name = cut(s(x.name).trim(), THEATER_BOARD_NAME_MAX + 4);
+    out.text = keep(x.text, THEATER_BOARD_COMPOSE_MAX.text);
+    if (soBdOwn(x, 'title')) out.title = keep(x.title, THEATER_BOARD_COMPOSE_MAX.title);
+    const to = cut(x.to, 24);
+    if (to) out.to = to;
+    if (x.again === true) out.again = true;
+    return out;
+}
+
+/* —— 运行时挂点、契约补充、文档数据（Task 4）——
+ * O1（root 裁）：THEATER_APP_JS 一个字节不改。论坛板页面跑的是它的一份【派生副本】：soBdHookRuntime 在下面八个锚点旁边插短短一句。
+ * 每个锚点在原文里必须正好出现一次；对不上（有人改了运行时）→ 整份不要（js ''，调用方改画纯文字版 + 一句说明），钉子测试当场变红。
+ * 只有论坛板页面带 D.board → BX 只在那里不是 null；一次性场景永远用 THEATER_APP_JS 原文。 */
+const THEATER_BOARD_VIEW_ID = '__board';   // 论坛板在共用查看器里的 id（soThrSceneView.id / sceneId / soThrStillThere 的键）
+const THEATER_BOARD_CONTRACT_CLASSES = Object.freeze(['thx-hot', 'thx-hot-item', 'thx-del', 'thx-mine', 'thx-sum-note', 'thx-compose']);
+const THEATER_BOARD_RT_HOOKS = Object.freeze([
+    Object.freeze({ k: 'can', at: 'const CAN_MORE = ', pos: 'after', add: '!D.board && ' }),
+    Object.freeze({ k: 'floors', at: 'function floors(t) { ', pos: 'after', add: 'if (BX) return BX.floors(t); ' }),
+    Object.freeze({ k: 'bhead', at: "el.append(extraSlot('board', 'thx-x-in'));", pos: 'after', add: ' if (BX) BX.boardHead(el);' }),
+    Object.freeze({ k: 'bfoot', at: "el.append(moreSpot(el, { into: list, kind: 'board'", pos: 'before', add: 'if (BX) BX.boardFoot(el, list); else ' }),
+    Object.freeze({ k: 'thead', at: "lx('heat'), ' ' + fmtN(t.heat) + ' · ', ai(t.time))));", pos: 'after', add: ' if (BX) BX.threadHead(el, t);' }),
+    Object.freeze({ k: 'tfoot', at: "el.append(list, moreSpot(el, { into: list, skel: 3, kind: 'thread'", pos: 'before', add: 'if (BX) BX.threadFoot(el, t, list); else ' }),
+    Object.freeze({ k: 'floor', at: "lx(liked ? 'liked' : 'like'), ' ' + up)));", pos: 'after', add: ' if (BX) BX.floor(card, t, f);' }),
+    // BX 在第一次画屏（resetTo）之前建好：每个挂点只在画屏时读 BX（floors 第一次被叫就在 resetTo 里）
+    Object.freeze({ k: 'bx', at: 'resetTo([D.contentOk && ROOT[D.scene]', pos: 'before',
+        add: "const BX = (D.board && typeof window.__thxBoardExt === 'function') ? (() => { try { return window.__thxBoardExt({ D, T, h, lex, lexF, lx, ai, P, tagsEl, avatar, nameEl, sheet, closeSheets, push, back, rerender, reset: resetTo, notify, threads, threadById, stack: () => STACK, data: () => W, setData: (w) => { W = w; } }) || null; } catch (e) { return null; } })() : null;" + '\n    ' }),
+]);
+
+// 运行时原文 → 挂好的副本。→ {js, missing: 对不上的挂点 k[]}；有一个对不上 → js ''。
+function soBdHookRuntime(js, hooks) {
+    const src = typeof js === 'string' ? js : '';
+    const list = Array.isArray(hooks) ? hooks : THEATER_BOARD_RT_HOOKS;
+    const missing = [];
+    const at = [];
+    for (const h of list) {
+        const i = src.indexOf(h.at);
+        if (!h.at || i < 0 || src.indexOf(h.at, i + 1) >= 0) { missing.push(h.k); continue; }
+        at.push({ i: h.pos === 'before' ? i : i + h.at.length, add: h.add });
+    }
+    if (missing.length) return { js: '', missing };
+    let out = src;
+    for (const x of at.slice().sort((a, b) => b.i - a.i)) out = out.slice(0, x.i) + x.add + out.slice(x.i);   // from the back: offsets stay put
+    return { js: out, missing };
+}
+
+// 论坛板页面用到的类加进契约的类表（就地；已有的不重复）。→ 加了几个。
+function soBdContractAdd(classes) {
+    if (!Array.isArray(classes)) return 0;
+    let n = 0;
+    for (const c of THEATER_BOARD_CONTRACT_CLASSES) if (!classes.includes(c)) { classes.push(c); n++; }
+    return n;
+}
+
+// 页面的 window.__SO_THR__：一次性场景那份的键序，最后加 board。o = {lex, lexDefault, extras, text}。
+function soBdDocData(W, B, o) {
+    const x = soBdIsObj(o) ? o : {};
+    return {
+        scene: 'forum', sceneId: THEATER_BOARD_VIEW_ID, snapshot: false, contentOk: true, raw: '',
+        lex: x.lex || {}, lexDefault: x.lexDefault || {}, extras: x.extras || {}, content: W, text: x.text || {}, board: B,
+    };
+}
+/* <</BOARD:view>> */
+/* <<BOARD:app-ext>> */
+// [BOARD] app-ext — spliced verbatim into index.js; edit HERE, re-splice, never hand-edit the copy.
+// 🗂 论坛板页面里的扩展（P5）：soBdAppExt 整个函数经 .toString() 放进论坛板页面（<script data-so-board>，在运行时之前），装成
+// window.__thxBoardExt；运行时的派生副本（view.js THEATER_BOARD_RT_HOOKS）在画屏时叫它的六个挂点。它只读 api、window、document 和
+// 自己的局部变量（页面里没有 SO 的任何名字）；函数正文里不许有反引号、关闭标签的开头、HTML 注释的开头（元测试查）。模型 / 玩家的字只经 api.h 变成文字节点；
+// 每个控件都带 data-so-ctl 与 data-so-board（贴图检查认它们）。发帖 / 删帖 / 查网名经 window.parent.__soThrBoardHost 交给 SO（SO 那边把
+// 参数当不可信的处理、删之前先在 SO 页面里问一句）；结果的那一句由 SO 算好（ui），页面只负责把它放进发帖框那一行。
+
+// 页面样式（在底色皮之后、AI 皮肤之前；颜色只用 --thx-* 变量；输入框 16px 防 iOS 放大；控件点按高度 ≥ 32px）。
+const THEATER_BOARD_APP_CSS = '.thx-hot{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 12px}'
+    + '.thx-hot .thx-meta{flex:0 0 auto}'
+    + '.thx-hot-item{border:1px solid var(--thx-line);background:var(--thx-card);color:var(--thx-ink);border-radius:999px;padding:4px 12px;font:inherit;font-size:13px;cursor:pointer;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+    + '.thx-compose input,.thx-compose textarea{flex:1 1 8em;min-width:0;max-width:100%;background:var(--thx-card);border:1px solid var(--thx-line);color:var(--thx-ink);border-radius:12px;padding:7px 12px;font:inherit;font-size:16px;line-height:1.4}'
+    + '.thx-compose textarea{resize:vertical;max-height:16em}'
+    + '.thx-input.thx-compose{flex-wrap:wrap;align-items:flex-end}'
+    + '.thx-input.thx-compose textarea{flex:1 1 100%}'
+    + '.thx-card.thx-compose{display:flex;flex-direction:column;gap:8px}'
+    + '.thx-card.thx-compose textarea{min-height:6em}'
+    // 新帖框是竖排的（column flex）：上面那条 flex:1 1 8em 的 8em 在这里成了高度 → 标题 / 网名框各 ≈128px 高。竖排里的单行框按自身高度（2026-11-21）
+    + '.thx-card.thx-compose input{flex:0 0 auto}'
+    + '.thx-compose [data-so-board="send"]{flex:0 0 auto}'
+    + '.thx-compose .thx-tag{align-self:center}'
+    + '.thx-compose [data-so-line]{flex:1 1 100%;color:var(--thx-sub);font-size:12.5px}'
+    + '[data-so-line]:empty{display:none}'
+    + '.thx-del{opacity:.7}'
+    + '.thx-del .thx-text{color:var(--thx-sub);font-style:italic}'
+    + '.thx-mine{display:inline-block;margin:0 6px;padding:0 6px;border-radius:999px;background:var(--thx-accent);color:var(--thx-accent-ink);font-size:11px;line-height:18px}'
+    + '.thx-sum-note{margin:8px 12px;padding:6px 12px;border:1px dashed var(--thx-line);border-radius:var(--thx-radius,12px);color:var(--thx-sub);font-size:13px}'
+    + '.thx-sum-note summary{cursor:pointer;padding:6px 0}'
+    + '.thx-sum-note .thx-text{margin-top:6px;white-space:pre-wrap;color:var(--thx-ink)}'
+    + '.thx-sheet [data-so-board]{display:flex;width:100%;justify-content:center;margin:6px 0}'
+    + '.thx [data-so-board]{min-height:32px!important}';
+
+function soBdAppExt(api) {
+    'use strict';
+    const h = api.h;
+    const D = api.D || {};
+    // 页面数据里没带上限时的退路（与 SO 那边的一致；2026-11-21 起 200 / 8000）。网名的上限页面不用：没有 maxlength，超长由 SO 那边说。
+    const TITLE_MAX = 200;
+    const TEXT_MAX = 8000;
+    // 页面里的记忆：B = 论坛板的数据；seen = 已经画过的楼（新来的才闪一下）；draft = 没发出去的字（按帖子；new = 新帖框）；
+    // name = 网名框；to = 回复哪一位（按帖子）；pending = 一次发帖在路上；openNew = 新帖框开着；lines = 各发帖框那一行字；
+    // over = 各发帖框此刻超长的那一句（边打字边算；有它 = 发出变灰）。
+    const X = { B: (D.board && typeof D.board === 'object') ? D.board : {}, seen: null, draft: { new: { title: '', text: '' } }, name: '', to: {}, pending: false, openNew: false, lines: {}, over: {} };
+    X.name = typeof X.B.lastName === 'string' ? X.B.lastName : '';
+    const host = () => { try { const p = window.parent; return p && p !== window ? p.__soThrBoardHost || null : null; } catch (e) { return null; } };
+    const own = (o, k) => !!o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, k);
+    const tx = (k) => { const t = X.B.text; return own(t, k) && typeof t[k] === 'string' ? t[k] : ''; };
+    const fill = (s, vars) => String(s == null ? '' : s).replace(/\{(\w+)\}/g, (m, k) => (own(vars, k) && vars[k] != null ? String(vars[k]) : ''));
+    const lim = (k, d) => { const m = X.B.max; const v = own(m, k) ? Number(m[k]) : NaN; return Number.isFinite(v) && v > 0 ? Math.floor(v) : d; };
+    const ctl = (role, a) => Object.assign({ who: 'so', 'data-so-ctl': true, 'data-so-board': role }, a || {});
+    const busy = () => X.pending || !!X.B.busy;
+    const top = () => { const s = api.stack(); return s.length ? s[s.length - 1] : null; };
+    function pidsOf(W) {
+        const out = [];
+        const ts = W && W.forum && Array.isArray(W.forum.threads) ? W.forum.threads : [];
+        ts.forEach((t) => {
+            if (!t) return;
+            if (t.opId) out.push(t.opId);
+            (Array.isArray(t.floors) ? t.floors : []).forEach((f) => { if (f && f.pid) out.push(f.pid); });
+        });
+        return out;
+    }
+    X.seen = new Set(pidsOf(api.data()));
+    let fresh = 0;   // 这一遍画出来的新楼（错开闪的时间）
+    function hostDo(op, args) {
+        const hs = host();
+        if (!hs || typeof hs[op] !== 'function') return null;
+        try { return Promise.resolve(hs[op].apply(hs, args)); } catch (e) { return Promise.reject(e); }
+    }
+    /* —— 重画（数据更新 / 一次发帖的结局）：每一屏都重画，发帖框里的字靠 X.draft 留着，光标放回原处 —— */
+    function focusInfo() {
+        const ae = document.activeElement;
+        if (!ae || typeof ae.closest !== 'function' || !ae.getAttribute('data-so-board')) return null;
+        const c = ae.closest('[data-so-compose]');
+        if (!c) return null;
+        const info = { c: c.getAttribute('data-so-compose'), tid: c.getAttribute('data-tid') || '', r: ae.getAttribute('data-so-board'), s: null, e: null };
+        try { if (typeof ae.selectionStart === 'number') { info.s = ae.selectionStart; info.e = ae.selectionEnd; } } catch (e) { /* ignore */ }
+        return info;
+    }
+    function refocus(info) {
+        if (!info) return;
+        const cs = Array.prototype.filter.call(document.querySelectorAll('[data-so-compose]'), (c) => c.getAttribute('data-so-compose') === info.c && (c.getAttribute('data-tid') || '') === info.tid);
+        const c = cs[cs.length - 1];
+        const f = c ? Array.prototype.find.call(c.querySelectorAll('[data-so-board]'), (x) => x.getAttribute('data-so-board') === info.r) : null;
+        if (!f) return;
+        try { f.focus(); if (info.s != null && typeof f.setSelectionRange === 'function') f.setSelectionRange(info.s, info.e); } catch (e) { /* ignore */ }
+    }
+    function redraw() {
+        const info = focusInfo();
+        fresh = 0;
+        api.stack().forEach((s) => { try { api.rerender(s.el); } catch (e) { /* 一屏坏了只坏它自己 */ } });
+        refocus(info);
+        api.notify();
+    }
+    /* —— 发帖框 —— */
+    function lineText(key) { return X.B.busy ? tx('busyHere') : (X.over[key] || X.lines[key] || ''); }
+    function setLine(comp, key, s) {
+        X.lines[key] = s || '';
+        const el = comp ? comp.querySelector('[data-so-line]') : null;
+        if (el) el.textContent = lineText(key);
+    }
+    const field = (comp, role) => (comp ? Array.prototype.find.call(comp.querySelectorAll('[data-so-board]'), (x) => x.getAttribute('data-so-board') === role) || null : null);
+    // 超长：新帖的标题和正文按去掉首尾空白后的码点数（与 SO 那边拒收的算法一样）；超了 → 那一行说上限和现在的字数（标题先），发出变灰；
+    // 字一个不动、不重画。每次输入、每次画发帖框、每次按发出都算一遍。
+    function overSync(comp, key) {
+        if (!comp) return;
+        const len = (e) => Array.from(String(e.value == null ? '' : e.value).trim()).length;
+        const ti = key === 'new' ? field(comp, 'title') : null;
+        const te = field(comp, 'text');
+        const tn = lim('title', TITLE_MAX);
+        const xn = lim('text', TEXT_MAX);
+        let s = '';
+        if (ti && len(ti) > tn) s = fill(tx('titleLong'), { n: tn, m: len(ti) });
+        else if (te && len(te) > xn) s = fill(tx('textLong'), { n: xn, m: len(te) });
+        if (s) X.over[key] = s; else delete X.over[key];
+        const el = comp.querySelector('[data-so-line]');
+        if (el) el.textContent = lineText(key);
+        const sb = field(comp, 'send');
+        if (sb) sb.disabled = busy() || !!X.over[key];
+    }
+    function checkName(comp, key, value) {
+        const v = String(value == null ? '' : value);
+        if (!v.trim()) { setLine(comp, key, ''); return; }
+        const p = hostDo('checkName', [v]);
+        if (p) p.then((r) => setLine(comp, key, r && typeof r === 'object' && typeof r.line === 'string' ? r.line : ''), () => {});
+    }
+    function send(comp, key) {
+        if (busy()) return;
+        overSync(comp, key);
+        if (X.over[key]) return;   // 超长：那一行已经说了，什么都不发
+        const hs = host();
+        if (!hs || typeof hs.post !== 'function' || !comp) return;
+        const val = (role) => { const e = Array.prototype.find.call(comp.querySelectorAll('[data-so-board]'), (x) => x.getAttribute('data-so-board') === role); return e ? String(e.value == null ? '' : e.value) : ''; };
+        X.name = val('name');
+        let args;
+        if (key === 'new') {
+            X.draft.new = { title: val('title'), text: val('text') };
+            args = { name: X.name, title: X.draft.new.title, text: X.draft.new.text };
+        } else {
+            X.draft[key] = val('text');
+            args = { tid: key, name: X.name, text: X.draft[key] };
+            if (X.to[key]) args.to = X.to[key];
+        }
+        X.pending = true;
+        document.querySelectorAll('[data-so-board="send"]').forEach((b) => { b.disabled = true; });
+        let p;
+        try { p = Promise.resolve(hs.post(args)); } catch (e) { p = Promise.reject(e); }
+        p.then((r) => {
+            X.pending = false;
+            const ui = r && typeof r === 'object' && r.ui && typeof r.ui === 'object' ? r.ui : {};
+            if (ui.stored === true) {
+                if (key === 'new') { X.draft.new = { title: '', text: '' }; X.openNew = false; } else { delete X.draft[key]; delete X.to[key]; }
+            }
+            X.lines[key] = ui.where === 'compose' && typeof ui.line === 'string' ? ui.line : '';
+            const tid = ui.stored === true && key === 'new' && r.posted && typeof r.posted.tid === 'string' ? r.posted.tid : '';
+            if (tid && api.threadById(tid)) api.push({ v: 'thread', id: tid });
+            redraw();
+        }, () => { X.pending = false; redraw(); });
+    }
+    function composer(key) {
+        const isNew = key === 'new';
+        let comp = null;
+        const kids = [];
+        if (!isNew && X.to[key]) {
+            kids.push(h('span', { class: 'thx-tag', who: 'so' }, fill(tx('replyingTo'), { name: X.to[key] })),
+                h('button', ctl('to-x', { class: 'thx-btn', type: 'button', 'aria-label': tx('cancelTo'), title: tx('cancelTo'), onclick: () => { delete X.to[key]; redraw(); } }), '✕'));
+        }
+        let title = null;
+        if (isNew) {
+            title = h('input', ctl('title', { type: 'text', placeholder: tx('titlePh') }));
+            title.value = X.draft.new.title || '';
+            title.addEventListener('input', () => { X.draft.new.title = title.value; overSync(comp, key); });
+            kids.push(title);
+        }
+        // 没有 maxlength（2026-11-21）：键盘不被吞、粘贴不被截；超长由 overSync 在那一行说出来、发出变灰
+        const text = h('textarea', ctl('text', { rows: isNew ? 3 : 1, placeholder: tx(isNew ? 'bodyPh' : 'postPh') }));
+        text.value = isNew ? (X.draft.new.text || '') : (X.draft[key] || '');
+        text.addEventListener('input', () => { if (isNew) X.draft.new.text = text.value; else X.draft[key] = text.value; overSync(comp, key); });
+        // 网名：超长由 SO 那边说（失焦 / 发出时的「网名最多 {n} 个字。」），页面不截
+        const name = h('input', ctl('name', { type: 'text', placeholder: tx('namePh'), autocomplete: 'off' }));
+        name.value = X.name;
+        name.addEventListener('input', () => { X.name = name.value; });
+        const sendB = h('button', ctl('send', { class: 'thx-btn on', type: 'button', disabled: busy() }), tx('sendBtn'));
+        sendB.addEventListener('click', () => send(comp, key));
+        kids.push(text, name, sendB, h('div', { class: 'thx-meta', who: 'so', 'data-so-line': true, 'aria-live': 'polite' }, lineText(key)));
+        comp = isNew
+            ? h('div', { class: 'thx-card thx-compose', who: 'so', 'data-so-compose': 'new' }, kids)
+            : h('div', { class: 'thx-input thx-compose', who: 'so', 'data-so-compose': 'reply', 'data-tid': key }, kids);
+        // Ctrl / Cmd + Enter 在正文里发出；标题 / 网名里的 Enter 跳到下一格
+        if (title) title.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); text.focus(); } });
+        text.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(comp, key); } });
+        name.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); sendB.focus(); } });
+        name.addEventListener('blur', () => checkName(comp, key, name.value));
+        overSync(comp, key);
+        return comp;
+    }
+    /* —— 「回复这一楼」：记下名字、重画这一屏、光标进正文 —— */
+    function replyTo(t, f) {
+        X.to[t.id] = String(api.P(f.u).name || '');
+        const s = top();
+        if (s) api.rerender(s.el);
+        const c = s ? Array.prototype.find.call(s.el.querySelectorAll('[data-so-compose]'), (x) => x.getAttribute('data-tid') === t.id) : null;
+        const ta = c ? Array.prototype.find.call(c.querySelectorAll('[data-so-board]'), (x) => x.getAttribute('data-so-board') === 'text') : null;
+        if (ta) { try { ta.focus(); } catch (e) { /* ignore */ } }
+        api.notify();
+    }
+    function menuBtn(kind, a, items) {
+        const b = h('button', ctl('menu', Object.assign({ class: 'thx-btn', type: 'button', 'data-so-menu': kind, 'aria-label': tx('menuBtn'), title: tx('menuBtn') }, a)), '⋯');
+        b.addEventListener('click', (e) => {
+            e.stopPropagation();
+            let close = () => {};
+            const box = h('div', { who: 'so' }, items.map(([role, label, fn]) => h('button', ctl(role, { class: 'thx-btn', type: 'button', onclick: () => { close(); fn(); } }), label)));
+            close = api.sheet(box);
+        });
+        return b;
+    }
+    /* —— 六个挂点 —— */
+    function floors(t) {
+        const out = [{ n: 1, u: t.author, text: t.op, pid: t.opId, del: t.opDel, me: t.opMe }];
+        (Array.isArray(t.floors) ? t.floors : []).forEach((f) => out.push({ n: f.n, u: f.u, text: f.text, q: f.q, pid: f.pid, del: f.del, me: f.me }));
+        return out;
+    }
+    function boardHead(el) {
+        const B = X.B;
+        const items = [];
+        (Array.isArray(B.hot) ? B.hot : []).forEach((tid) => {
+            const t = api.threadById(tid);
+            if (!t) return;
+            const no = own(B.tno, tid) ? B.tno[tid] : t.no;
+            const cs = Array.from(String(t.title == null ? '' : t.title));
+            const ttl = cs.length > 18 ? cs.slice(0, 18).join('') + '…' : cs.join('');
+            items.push(h('button', ctl('hot', { class: 'thx-hot-item', type: 'button', 'data-tid': tid, onclick: () => api.push({ v: 'thread', id: tid }) }), '#' + no + ' ' + ttl));
+        });
+        if (items.length) el.append(h('div', { class: 'thx-hot', who: 'so' }, h('span', { class: 'thx-meta' }, tx('hotTitle')), items));
+        el.append(h('div', { class: 'thx-row', who: 'so' }, h('button', ctl('new', { class: 'thx-btn', type: 'button', 'aria-expanded': X.openNew ? 'true' : 'false',
+            onclick: () => { X.openNew = !X.openNew; api.rerender(el); api.notify(); } }), tx('newThreadBtn'))));
+        if (X.openNew) el.append(composer('new'));
+    }
+    function boardFoot(el) {
+        const any = api.threads().length > 0;
+        el.append(h('div', { class: 'thx-end', who: any ? 'lex' : 'so' }, any ? api.lex('end') : tx('emptyBoard')));
+    }
+    function threadHead(el, t) {
+        const n = own(X.B.notes, t.id) ? X.B.notes[t.id] : null;
+        const sumN = n ? Number(n.sumN) || 0 : 0;
+        const folded = n ? Number(n.folded) || 0 : 0;
+        if (sumN > 0) {
+            el.append(h('details', { class: 'thx-sum-note', who: 'so' },
+                h('summary', ctl('sum'), fill(tx('sumNote'), { n: sumN }) + (folded > 0 ? ' ' + fill(tx('foldedNote'), { n: folded }) : '')),
+                h('div', { class: 'thx-text', who: 'ai' }, String(n.sumText == null ? '' : n.sumText))));
+        } else if (folded > 0) {
+            el.append(h('div', { class: 'thx-sum-note', who: 'so' }, fill(tx('foldedNote'), { n: folded })));
+        }
+        el.append(h('div', { class: 'thx-row', who: 'so' }, h('span', { class: 'sp' }),
+            menuBtn('thread', {}, [['del-thread', tx('delThread'), () => { const p = hostDo('delThread', [t.id]); if (p) p.catch(() => {}); }]])));
+    }
+    function threadFoot(el, t, list) {
+        el.append(list, composer(t.id));
+    }
+    function floor(card, t, f) {
+        if (f.del) {
+            card.classList.add('thx-del');
+            while (card.firstChild) card.removeChild(card.firstChild);
+            card.append(h('div', { class: 'thx-row' }, h('span', { class: 'thx-floor-no', who: 'lex' }, api.lexF('floor', f.n)), h('div', { class: 'thx-text', who: 'so' }, tx('deletedMark'))));
+        } else {
+            const row = card.querySelector('.thx-row');
+            if (f.me && row) {
+                const mk = h('span', { class: 'thx-mine', who: 'so' }, tx('mineMark'));
+                const no = row.querySelector('.thx-floor-no');
+                if (no) row.insertBefore(mk, no); else row.append(mk);
+            }
+            const acts = card.querySelector('.thx-acts');
+            if (acts) {
+                acts.append(menuBtn('floor', { 'data-pid': f.pid || '' }, [
+                    ['reply-to', tx('replyTo'), () => replyTo(t, f)],
+                    ['del-post', tx('delPost'), () => { const p = hostDo('del', [t.id, f.pid]); if (p) p.catch(() => {}); }],
+                ]));
+            }
+        }
+        if (f.pid && X.seen && !X.seen.has(f.pid)) {
+            X.seen.add(f.pid);
+            card.classList.add('thx-new');
+            card.style.setProperty('--d', (fresh++ * 0.14) + 's');
+        }
+    }
+    /* —— SO 推来新数据：就地重画；屏上的帖子没了 → 回到版面 —— */
+    window.__thxBoardUpdate = (W, B) => {
+        try {
+            if (W && typeof W === 'object') api.setData(W);
+            if (B && typeof B === 'object') X.B = B;
+            if (api.stack().some((s) => s && s.route && s.route.v === 'thread' && !api.threadById(s.route.id))) {
+                api.reset([{ v: 'board' }]);
+                api.notify();
+                return true;
+            }
+            redraw();
+            return true;
+        } catch (e) {
+            return false;
+        }
+    };
+    return { floors, boardHead, boardFoot, threadHead, threadFoot, floor };
+}
+
+// 放进页面的两段：样式 + 装扩展的那一行脚本。
+function soBdExtParts() {
+    return { css: THEATER_BOARD_APP_CSS, js: 'window.__thxBoardExt=' + soBdAppExt.toString() + ';' };
+}
+/* <</BOARD:app-ext>> */
+/* <<BOARD:tell>> */
+// [BOARD] tell — spliced verbatim into index.js; edit HERE, re-splice, never hand-edit the copy. Model-visible labels are DRAFT (probe decides).
+// 🗂 论坛板 · 主线知情（stage 2，spec §8）：给主线 AI 的那一格「论坛摘录」——由代码从板的存档拼出来，不发任何请求。
+// 六部分：一行说明这是哪个论坛 · 最近最热闹的 5 个帖子（标题、楼主、摘要、最新 5 楼）· 玩家发过帖的每个帖子（从他第一次发帖起）· 其余帖子只列标题 ·
+// （stage 3 的版务，留口子 o.extra）· 玩家的网名背后是谁（论坛上的人不知道）。有上限：超了按固定顺序一格一格地收（冷帖标题 → 热帖的摘要 → 热帖的楼 →
+// 玩家帖里别人的楼 → 玩家帖的摘要 → 热帖的头一行 → 玩家较早的楼 → 整个玩家帖；root 2026-11-20 定），头一行、版务、网名那句永远不收；收了什么全数记在 cut 里，
+// 从不悄悄地丢。
+// 还有两个每聊天的选项（opts.tell / opts.noteCap）和整理论坛的两个挑选器（现在给长帖做摘要 / 删掉沉底很久的帖子）。
+// 纯函数：不读旗、不读 SO_VERSION、不读时钟、不碰 DOM；token 估算由调用方传进来（o.estimate）。
+
+/* —— 给模型看的字（DRAFT：只经真模型探针改；改一个字节 = 重跑探针，冻结后由 board-tell-pin 钉 sha）—— */
+const THEATER_BOARD_NOTE_FROZEN = false;
+// 标签组 n3（tests/unit/_theater-tuning/board/tell/arms-note.mjs NOTE_ARMS.n3 的四处替换，逐字节；PREREG-T1c，owner 2026-11-20 经 root #137 采用）。
+// headCut / activeCut / mineCut = 同一行去掉「收缩删了楼就可能不真」的那句话（PREREG-T1c §3）：删了楼 → 不再说「每帖末条最新」「（开帖与最新几条）」；
+// 只删字，不加任何新的话。
+const THEATER_BOARD_NOTE_LABELS = Object.freeze({
+    head: '【这个世界的公开论坛「{board}」· 最近的帖子（大家用网名发帖，以下按原样摘录，每帖末条最新，各帖内容以此为准）】',
+    headCut: '【这个世界的公开论坛「{board}」· 最近的帖子（大家用网名发帖，以下按原样摘录，各帖内容以此为准）】',
+    active: '▍最近热闹的帖子（开帖与最新几条）', mine: '▍{me}的网名发过言的帖子（开帖与最新几条）', titles: '▍其他帖子', aliases: '▍{me}的网名',
+    activeCut: '▍最近热闹的帖子', mineCut: '▍{me}的网名发过言的帖子',
+    thread: '《{title}》楼主 {name}：{text}', threadBare: '《{title}》', sum: '（之前的讨论：{text}）',
+    post: '- {name}：{text}', reply: '- {name} 回复@{to}：{text}', titleItem: '《{title}》', sep: '、',
+    alias: '{me}在这个论坛上用这些网名发过言：{names}。论坛上的人并不知道这些网名背后是{me}，除非他们有办法知道（比如在故事里听{me}说过，或者帖子内容露了底）。',
+    noBoard: '论坛', noMe: '主角',
+});
+const THEATER_BOARD_NOTE_ACTIVE = 5;   // 「最近热闹」的帖子几个（不算玩家发过帖的）
+const THEATER_BOARD_NOTE_POSTS = 5;   // 热帖带最新几楼
+const THEATER_BOARD_NOTE_CAP = Object.freeze({ dflt: 6000 });   // 这一格的 token 上限默认值（Prince 2026-11-20：默认 6000、不设范围——玩家填多少就是多少）
+
+/* —— 文字：宏跑不起来、一条一行 —— */
+
+// 玩家 / 模型写的字不能在主线里当宏跑：{{ }} 换成全角，<user> 这一类换成全角尖括号（微谕 soWyNeutral 的同一条规则）。
+function soBdNoteNeutral(s) {
+    return String(s == null ? '' : s)
+        .replace(/\{\{/g, '｛｛').replace(/\}\}/g, '｝｝')
+        .replace(/<(user|bot|char|group|charifnotgroup)>/gi, '＜$1＞');
+}
+// 一条一行：每个换行（连同它两边的空白）变成一个空格，首尾去空白；再中和宏。换行 = CR / LF / U+2028 / U+2029（后两个由码点拼出，文件里不放原字符）。
+const THEATER_BOARD_NOTE_BRK = new RegExp('\\s*[\\r\\n' + String.fromCharCode(0x2028, 0x2029) + ']\\s*', 'g');
+function soBdNoteLine(s) {
+    return soBdNoteNeutral(String(s == null ? '' : s).replace(THEATER_BOARD_NOTE_BRK, ' ').trim());
+}
+// 模板里的 {x} → soBdNoteLine(vars.x)（没给的 → ''）；只扫一遍，填进去的字不再当占位。
+function soBdNoteFill(tpl, vars) {
+    const v = soBdIsObj(vars) ? vars : {};
+    return String(tpl ?? '').replace(/\{(\w+)\}/g, (m, k) => (soBdOwn(v, k) ? soBdNoteLine(v[k]) : ''));
+}
+
+/* —— 玩家的帖子与两个选项 —— */
+
+// 一楼是不是玩家发的：没删、作者是名册里 me === 1 的人（玩家的网名）。
+function soBdIsMine(state, post) {
+    if (!soBdIsObj(post) || post.del) return false;
+    const ro = soBdIsObj(state) && soBdIsObj(state.roster) ? state.roster : {};
+    const p = soBdOwn(ro, post.by) ? ro[post.by] : null;
+    return soBdIsObj(p) && p.me === 1;
+}
+function soBdNoteLive(t) { return (soBdIsObj(t) && Array.isArray(t.posts) ? t.posts : []).filter((p) => soBdIsObj(p) && !p.del); }
+// The roster ids of the player's aliases (persons with me === 1) — soBdIsMine's test, once per board.
+function soBdNoteMeIds(state) {
+    const ro = soBdIsObj(state) && soBdIsObj(state.roster) ? state.roster : {};
+    return new Set(Object.keys(ro).filter((k) => soBdIsObj(ro[k]) && ro[k].me === 1));
+}
+// 玩家发过帖的帖子（按活跃顺序）。
+function soBdNoteMine(state) {
+    const th = soBdIsObj(state) && soBdIsObj(state.threads) ? state.threads : {};
+    const me = soBdNoteMeIds(state);
+    if (!me.size) return [];
+    return soBdThreadOrder(state).filter((tid) => soBdIsObj(th[tid]) && Array.isArray(th[tid].posts)
+        && th[tid].posts.some((p) => soBdIsObj(p) && !p.del && me.has(p.by)));
+}
+
+// 'tell' → opts.tell === true；'noteCap' → 存着的 ≥ 1 的数（四舍五入成整数，不设上下限）；没有 / 读不懂 → THEATER_BOARD_NOTE_CAP.dflt；别的键 → undefined。
+function soBdTellOpt(state, k) {
+    const o = soBdIsObj(state) && soBdIsObj(state.opts) ? state.opts : {};
+    if (k === 'tell') return o.tell === true;
+    if (k !== 'noteCap') return undefined;
+    const n = soBdOwn(o, 'noteCap') ? soBdOptNum(o.noteCap) : null;
+    return n === null ? THEATER_BOARD_NOTE_CAP.dflt : n;
+}
+// 改一个选项 → boolean。tell 只收布尔；noteCap 收 ≥ 1 的数（数字字串也算），存四舍五入后的整数——不夹范围；空 / 不是数 / < 1 / 布尔 / null
+// → 不收（什么都不存，框里重新显示存着的值）。opts 没有才建（一个空对象），stage-1 的键一个不碰。
+function soBdTellSetOpt(state, k, v) {
+    if (!soBdIsObj(state)) return false;
+    let val;
+    if (k === 'tell') {
+        if (typeof v !== 'boolean') return false;
+        val = v;
+    } else if (k === 'noteCap') {
+        val = soBdOptNum(v);
+        if (val === null) return false;
+    } else return false;
+    if (!soBdIsObj(state.opts)) state.opts = {};
+    state.opts[k] = val;
+    return true;
+}
+
+/* —— 这一格的各部分（还没收缩）—— */
+
+// 一楼 → 一行（回复别人用 reply 模板）。
+function soBdNotePostLine(state, p) {
+    const v = soBdPostView(state, p);
+    const L = THEATER_BOARD_NOTE_LABELS;
+    return v.to ? soBdNoteFill(L.reply, { name: v.name, to: v.to, text: v.text }) : soBdNoteFill(L.post, { name: v.name, text: v.text });
+}
+// 一个帖子的头一行：标题 + 楼主那一楼（楼主那一楼删了 → 只有标题）。
+function soBdNoteHead(state, t) {
+    const L = THEATER_BOARD_NOTE_LABELS;
+    const op = Array.isArray(t.posts) ? t.posts[0] : null;
+    if (soBdIsObj(op) && !op.del) return soBdNoteFill(L.thread, { title: soBdTitleLine(t.title), name: soBdWho(state, op.by), text: op.t });
+    return soBdNoteFill(L.threadBare, { title: soBdTitleLine(t.title) });
+}
+function soBdNoteUnit(state, t, posts, sum, me) {
+    return {
+        tid: t.id, head: soBdNoteHead(state, t), sum: sum == null ? null : soBdNoteFill(THEATER_BOARD_NOTE_LABELS.sum, { text: sum }),
+        posts: posts.map((p) => ({ pid: p.id, n: p.n, mine: me.has(p.by), text: soBdNotePostLine(state, p) })),
+    };
+}
+
+// → Parts {head, headCut, active: [TU], mine: [TU], titles: [{tid, text}], extra: string[], aliases: string | '', aliasNames: string[], me: string}
+// (headCut = the head line without 「每帖末条最新」, used once a shrink step cut posts).
+// TU = {tid, head, sum: string | null, posts: [{pid, n, mine, text}]}（每个 text 都是写好的一行）。o = {me, extra?}。
+// active = 活跃顺序里前 THEATER_BOARD_NOTE_ACTIVE 个不是玩家的帖子：摘要（有效才有）+ 摘要之后最新 THEATER_BOARD_NOTE_POSTS 楼；mine = 玩家发过帖的
+// 每个帖子：从他第一次发帖那一楼起到最后（他自己开的帖 = 楼主之后的全部），有效摘要盖到他第一次发帖那一楼才用摘要代替它盖住的楼；titles = 其余的。
+// 一楼都没有（全删了）的帖子不出现。aliases = 有活楼的玩家网名（和主角本名同名键的那个不算——用本名发帖不是秘密）。
+function soBdNoteParts(state, o) {
+    o = o || {};
+    const L = THEATER_BOARD_NOTE_LABELS;
+    const meRaw = soBdStr(o.me).trim();
+    const me = meRaw || L.noMe;
+    const st = soBdIsObj(state) ? state : {};
+    const board = soBdIsObj(st.board) ? soBdStr(st.board.name) : '';
+    const bn = { board: board.trim() ? board : L.noBoard };
+    const out = {
+        head: soBdNoteFill(L.head, bn), headCut: soBdNoteFill(L.headCut, bn), active: [], mine: [], titles: [],
+        extra: (Array.isArray(o.extra) ? o.extra : []).filter((x) => typeof x === 'string' && x.trim()).map(soBdNoteNeutral),
+        aliases: '', aliasNames: [], me: soBdNoteLine(me),
+    };
+    const th = soBdIsObj(st.threads) ? st.threads : {};
+    const meIds = soBdNoteMeIds(st);
+    const used = new Set();   // the aliases with a live post
+    for (const tid of soBdThreadOrder(st)) {
+        const t = th[tid];
+        if (!soBdIsObj(t) || !Array.isArray(t.posts)) continue;
+        // one pass over the posts: the live ones after the opening, the player's first live post
+        const op = t.posts[0];
+        const live = [];
+        let first = null;
+        let any = false;
+        for (const p of t.posts) {
+            if (!soBdIsObj(p) || p.del) continue;
+            any = true;
+            if (meIds.has(p.by)) { used.add(p.by); if (!first) first = p; }
+            if (p !== op) live.push(p);
+        }
+        if (!any) continue;
+        const valid = soBdSumValid(t);
+        const upToN = valid ? soBdInt(t.sum.upToN, 0, 0) : 0;
+        if (first) {
+            const from = first === op ? 1 : first.n;
+            let posts = live.filter((p) => p.n >= from);
+            let sum = null;
+            if (valid && upToN >= from) { sum = t.sum.text; posts = posts.filter((p) => p.n > upToN); }
+            out.mine.push(soBdNoteUnit(st, t, posts, sum, meIds));
+        } else if (out.active.length < THEATER_BOARD_NOTE_ACTIVE) {
+            out.active.push(soBdNoteUnit(st, t, live.filter((p) => p.n > upToN).slice(-THEATER_BOARD_NOTE_POSTS), valid ? t.sum.text : null, meIds));
+        } else {
+            out.titles.push({ tid, text: soBdNoteFill(L.titleItem, { title: soBdTitleLine(t.title) }) });
+        }
+    }
+    // the player's aliases with a live post, in the order they were first used (roster id order)
+    const meKey = meRaw ? soBdNameKey(meRaw) : '';
+    const ro = soBdIsObj(st.roster) ? st.roster : {};
+    const names = [...used].sort((a, b) => soBdIdNum(a) - soBdIdNum(b))
+        .map((rid) => ro[rid]).filter((p) => soBdIsObj(p) && !(meKey && (p.key || soBdNameKey(p.name)) === meKey)).map((p) => soBdStr(p.name));
+    out.aliasNames = names;
+    if (names.length) out.aliases = soBdNoteFill(L.alias, { me, names: names.join(L.sep) });
+    return out;
+}
+
+// Parts → 文字：头一行，然后每个非空的部分：小标题 + 各行（帖子：头一行、摘要、楼按从旧到新；其余帖子：一行，用 、 连起来；版务行原样；网名：小标题 +
+// 那一句），用 '\n' 连。active / mine / titles 全空 → ''（没有可告诉主线的）。
+function soBdNoteRender(parts) {
+    if (!soBdIsObj(parts)) return '';
+    const n = (a) => (Array.isArray(a) ? a.length : 0);
+    if (!n(parts.active) && !n(parts.mine) && !n(parts.titles)) return '';
+    return soBdNoteJoin(parts, null);
+}
+// The text of `parts` with what `off` says is cut left out: off(tu) = the whole thread, off(tu, 'sum') = its summary, off(post), off(titleItem)
+// (off null → nothing cut). The heading of an emptied part goes too; the head line, extra and aliases always stay.
+// trim = {posts, minePosts} (absent → neither): a shrink step of that kind was applied, so the claims it can make false are left out —
+// posts or minePosts → the head without 「每帖末条最新」 (headCut); posts → the hot part's heading without 「（开帖与最新几条）」; minePosts → the
+// player part's heading without it (PREREG-T1c §3, root #137).
+function soBdNoteJoin(parts, off, trim) {
+    const L = THEATER_BOARD_NOTE_LABELS;
+    const me = soBdStr(parts.me);
+    const cut = (x, what) => typeof off === 'function' && off(x, what) === true;
+    const tp = soBdIsObj(trim) && trim.posts === true;
+    const tm = soBdIsObj(trim) && trim.minePosts === true;
+    const out = [soBdStr((tp || tm) && parts.headCut ? parts.headCut : parts.head)];
+    const units = (list, heading) => {
+        const lines = [];
+        for (const u of Array.isArray(list) ? list : []) {
+            if (cut(u)) continue;
+            lines.push(u.head);
+            if (u.sum != null && !cut(u, 'sum')) lines.push(u.sum);
+            for (const p of u.posts) if (!cut(p)) lines.push(p.text);
+        }
+        if (lines.length) out.push(heading, ...lines);
+    };
+    units(parts.active, tp ? L.activeCut : L.active);
+    units(parts.mine, soBdNoteFill(tm ? L.mineCut : L.mine, { me }));
+    const titles = (Array.isArray(parts.titles) ? parts.titles : []).filter((x) => !cut(x)).map((x) => x.text);
+    if (titles.length) out.push(L.titles, titles.join(L.sep));
+    for (const x of Array.isArray(parts.extra) ? parts.extra : []) out.push(x);
+    if (parts.aliases) out.push(soBdNoteFill(L.aliases, { me }), parts.aliases);
+    return out.join('\n');
+}
+
+/* —— 上限与收缩（D11，root 2026-11-20 改过顺序：热帖的头一行留到玩家帖里只剩他自己的楼之后）：一格一格地收，收了什么全数记下 —— */
+
+// The fixed removal order over `parts` → [{k, x, sum?}] (k = the cut kind, x = a title item / TU / post, sum = the TU's summary):
+// A other titles (least active first) → B1 active summaries (least active first) → B2 active posts, round-robin (the thread with the most
+// shown posts, tie → the least active; its oldest post) down to none — each hot thread's head (title + opening) stays → C1 others' posts in
+// player threads (round-robin as B2) → C3 player-thread summaries → B3 whole active threads, i.e. their heads (least active first) → C2 the
+// player's posts except the newest per thread (oldest first) → C4 whole player threads (least active first, the newest mine post with them).
+// The head line, extra and aliases are not in it. (Before 2026-11-20: A B1 B2 B3 C1 C2 C3 C4.)
+function soBdNoteOrder(parts) {
+    const seq = [];
+    const rev = (a) => a.slice().reverse();
+    const robin = (units, k, pick) => {
+        const left = units.map((u) => u.posts.filter(pick));
+        for (;;) {
+            let best = -1;
+            for (let i = 0; i < left.length; i++) if (left[i].length && (best < 0 || left[i].length >= left[best].length)) best = i;
+            if (best < 0) break;
+            seq.push({ k, x: left[best].shift() });
+        }
+    };
+    for (const x of rev(parts.titles)) seq.push({ k: 'titles', x });
+    for (const u of rev(parts.active)) if (u.sum != null) seq.push({ k: 'sums', x: u, sum: true });
+    robin(parts.active, 'posts', () => true);
+    robin(parts.mine, 'minePosts', (p) => !p.mine);
+    for (const u of rev(parts.mine)) if (u.sum != null) seq.push({ k: 'sums', x: u, sum: true });
+    for (const u of rev(parts.active)) seq.push({ k: 'threads', x: u });
+    const newest = new Set(parts.mine.map((u) => u.posts.filter((p) => p.mine).pop()).filter(Boolean));
+    const older = [];
+    for (const u of parts.mine) for (const p of u.posts) if (p.mine && !newest.has(p)) older.push(p);
+    older.sort((a, b) => (soBdIdNum(a.pid) - soBdIdNum(b.pid)) || (a.n - b.n));
+    for (const x of older) seq.push({ k: 'minePosts', x });
+    for (const u of rev(parts.mine)) seq.push({ k: 'mineThreads', x: u });
+    return seq;
+}
+// The text one removal unit takes away (for the first guess only).
+function soBdNoteUnitText(u) {
+    if (u.sum) return u.x.sum;
+    if (u.k === 'threads' || u.k === 'mineThreads') return u.x.head;
+    return u.x.text;
+}
+// The smallest k in [1, n] with ok(k), given !ok(0) and a first guess g (gallop from the guess, then halve). None → n.
+function soBdNoteSearch(ok, g, n) {
+    let lo;
+    let hi;
+    const k = Math.min(Math.max(g, 1), n);
+    if (ok(k)) {
+        hi = k;
+        let step = 1;
+        lo = hi - step;
+        while (lo > 0 && ok(lo)) { hi = lo; step *= 2; lo = hi - step; }
+        if (lo < 0) lo = 0;
+    } else {
+        lo = k;
+        let step = 1;
+        hi = lo + step;
+        while (hi < n && !ok(hi)) { lo = hi; step *= 2; hi = lo + step; }
+        if (hi >= n) { hi = n; if (!ok(n)) return n; }
+    }
+    while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1;
+        if (ok(mid)) hi = mid; else lo = mid;
+    }
+    return hi;
+}
+
+// The note → NoteResult {text, tokens, full, cap, over, cut: {titles, sums, posts, threads, minePosts, mineThreads}, shown: {active, mine, titles}
+// (tids still shown), aliases: string[], draft}. Never throws. o = {me, estimate, cap?, extra?}: cap absent / unreadable → the stored noteCap;
+// estimate absent → code points (soBdEst). full = the estimate of the uncut note. Over the cap: the SMALLEST prefix of soBdNoteOrder whose
+// text fits is cut (the cut follows the fixed order exactly; a larger cap never cuts more); every cut unit is counted in `cut` (B1 + C3 in
+// sums, C1 + C2 in minePosts). over = still over with every unit cut (head, extra and aliases stay). tokens = estimate(text) — the same number
+// the shrink decided on. An empty note → text '' and tokens 0. Once the cut holds posts (cut.posts / cut.minePosts > 0) the head and that
+// part's heading drop the claims the cut can make false (soBdNoteJoin's trim); the shrink measures the text with exactly those lines.
+function soBdNote(state, o) {
+    o = o || {};
+    const raw = o.cap;
+    const cap = raw !== undefined && raw !== null && raw !== '' && typeof raw !== 'boolean' && Number.isFinite(Number(raw)) ? Number(raw) : soBdTellOpt(state, 'noteCap');
+    const zero = () => ({ titles: 0, sums: 0, posts: 0, threads: 0, minePosts: 0, mineThreads: 0 });
+    const draft = !THEATER_BOARD_NOTE_FROZEN;
+    const empty = () => ({ text: '', tokens: 0, full: 0, cap, over: false, cut: zero(), shown: { active: [], mine: [], titles: [] }, aliases: [], draft });
+    try {
+        const e = soBdEst(o.estimate);
+        const parts = soBdNoteParts(state, o);
+        const whole = soBdNoteRender(parts);
+        if (!whole) return empty();
+        const full = e(whole);
+        const seq = soBdNoteOrder(parts);
+        const at = new Map();
+        const atSum = new Map();
+        seq.forEach((u, i) => (u.sum ? atSum : at).set(u.x, i));
+        const goneAt = (k) => (x, what) => {
+            const m = what === 'sum' ? atSum : at;
+            return m.has(x) && m.get(x) < k;
+        };
+        // the first position of each post-cutting kind in the order: a prefix of length k cut posts of that kind iff it reaches past it
+        const firstOf = (kind) => { const i = seq.findIndex((u) => u.k === kind); return i < 0 ? Infinity : i; };
+        const fPosts = firstOf('posts');
+        const fMine = firstOf('minePosts');
+        const trimAt = (k) => ({ posts: fPosts < k, minePosts: fMine < k });
+        const textAt = (k) => soBdNoteJoin(parts, goneAt(k), trimAt(k));
+        let k = 0;
+        if (full > cap && seq.length) {
+            const memo = new Map([[0, false]]);
+            const ok = (j) => {
+                if (!memo.has(j)) memo.set(j, e(textAt(j)) <= cap);
+                return memo.get(j);
+            };
+            // the first guess: each unit's share of `full` by its length (no estimate call); then the exact search around it
+            const per = full / Math.max(1, whole.length);
+            let total = full;
+            let g = 0;
+            while (total > cap && g < seq.length) total -= (soBdNoteUnitText(seq[g++]).length + 1) * per;
+            k = soBdNoteSearch(ok, g, seq.length);
+        }
+        const text = k ? textAt(k) : whole;
+        const tokens = e(text);
+        const cut = zero();
+        for (let i = 0; i < k; i++) cut[seq[i].k]++;
+        const gone = goneAt(k);
+        return {
+            text, tokens, full, cap, over: tokens > cap, cut,
+            shown: {
+                active: parts.active.filter((u) => !gone(u)).map((u) => u.tid), mine: parts.mine.filter((u) => !gone(u)).map((u) => u.tid),
+                titles: parts.titles.filter((x) => !gone(x)).map((x) => x.tid),
+            },
+            aliases: parts.aliasNames.slice(), draft,
+        };
+    } catch (err) {
+        return empty();
+    }
+}
+
+// cut → [{k, n}] in the fixed order titles · sums · posts · threads · minePosts · mineThreads, n > 0 only (whole numbers).
+function soBdNoteCutParts(cut) {
+    const c = soBdIsObj(cut) ? cut : {};
+    return ['titles', 'sums', 'posts', 'threads', 'minePosts', 'mineThreads'].map((k) => ({ k, n: soBdInt(c[k], 0, 0) })).filter((x) => x.n > 0);
+}
+// The player's notice (THEATER_BOARD_TEXT noteCut(list, full, cap); each part cutTitles(n) … cutMineThreads(n), joined by 、). '' when nothing
+// was cut, or while a wording key is missing.
+function soBdNoteCutText(r) {
+    const parts = soBdNoteCutParts(soBdIsObj(r) ? r.cut : null);
+    if (!parts.length) return '';
+    const list = parts.map((x) => soBdTxt('cut' + x.k.charAt(0).toUpperCase() + x.k.slice(1), [x.n]));
+    if (list.some((s) => !s)) return '';
+    return soBdTxt('noteCut', [list.join('、'), r.full, r.cap]);
+}
+
+/* —— 整理论坛：现在给长帖做摘要（挑哪些帖子）· 删掉沉底很久的帖子 —— */
+const THEATER_BOARD_NOTE_SUM_MIN = 10;   // 玩家的帖子：摘要至少能从他第一次发帖起替掉这么多楼才值得按
+const THEATER_BOARD_SWEEP_AGES = Object.freeze([10, 20, 40]);   // 「多久没人回」的选项（几次补帖）
+const THEATER_BOARD_SWEEP_DEFAULT = 20;   // = THEATER_BOARD_FOLD_SUNK
+
+// What one press of "summarise long threads now" takes → tid[] (≤ THEATER_BOARD_SUM_PER_OCCASION): first the player's threads where a summary
+// would replace at least THEATER_BOARD_NOTE_SUM_MIN posts of what the note shows (uncovered live posts from his first post on ≥ sumKeep +
+// THEATER_BOARD_NOTE_SUM_MIN — a summary covers all but the newest sumKeep), then the threads the silent scheduler would take with past
+// failures forgotten (soBdSumDue on a clone without sumFail / sumFailN); deduped, activity order inside each group. The state is not changed.
+function soBdNoteSumPick(state) {
+    if (!soBdIsObj(state) || !soBdIsObj(state.threads)) return [];
+    const out = [];
+    const need = soBdOpt(state, 'sumKeep') + THEATER_BOARD_NOTE_SUM_MIN;
+    for (const tid of soBdNoteMine(state)) {
+        const t = state.threads[tid];
+        const first = t.posts.find((p) => soBdIsMine(state, p));
+        const up = Math.max(1, soBdSumValid(t) ? soBdInt(t.sum.upToN, 0, 0) : 0);
+        const from = first === t.posts[0] ? 1 : first.n;
+        if (soBdNoteLive(t).filter((p) => p.n > up && p.n >= from).length >= need) out.push(tid);
+    }
+    const c = soBdClone(state);
+    for (const tid of Object.keys(c.threads)) if (soBdIsObj(c.threads[tid])) { delete c.threads[tid].sumFail; delete c.threads[tid].sumFailN; }
+    for (const tid of soBdSumDue(c, {})) if (!out.includes(tid)) out.push(tid);
+    return out.slice(0, THEATER_BOARD_SUM_PER_OCCASION);
+}
+
+// The threads "delete threads nobody replied to for `age` board updates" takes → tid[], the longest-sunk first (equal → the less active
+// first). age not one of THEATER_BOARD_SWEEP_AGES → THEATER_BOARD_SWEEP_DEFAULT. A thread qualifies when catches − lastCatch ≥ age and it is
+// none of: the first THEATER_BOARD_NOTE_ACTIVE threads of soBdThreadOrder, the note's hot threads (the first THEATER_BOARD_NOTE_ACTIVE that are
+// not the player's), a thread holding a live post of the player's, a pinned thread (stage 3's `pin`).
+function soBdSweepPick(state, age) {
+    if (!soBdIsObj(state) || !soBdIsObj(state.threads)) return [];
+    const a = THEATER_BOARD_SWEEP_AGES.includes(age) ? age : THEATER_BOARD_SWEEP_DEFAULT;
+    const order = soBdThreadOrder(state);
+    const mine = new Set(soBdNoteMine(state));
+    const keep = new Set(order.slice(0, THEATER_BOARD_NOTE_ACTIVE).concat(order.filter((tid) => !mine.has(tid)).slice(0, THEATER_BOARD_NOTE_ACTIVE)));
+    const now = soBdInt(state.catches, 0, 0);
+    const sunk = (tid) => now - soBdInt(state.threads[tid].lastCatch, 0, 0);
+    const rank = new Map(order.map((tid, i) => [tid, i]));
+    return order.filter((tid) => soBdIsObj(state.threads[tid]) && !keep.has(tid) && !mine.has(tid) && !state.threads[tid].pin && sunk(tid) >= a)
+        .sort((x, y) => (sunk(y) - sunk(x)) || (rank.get(y) - rank.get(x)));
+}
+
+// Deletes the threads `tids` (each through soBdPlayer delThread: tombstones in dead.t / dead.p, every batch touched — exactly the viewer's single
+// delete). A tid that is gone, not a string or not an own thread key is skipped. → the number deleted. The caller commits once.
+function soBdSweep(state, tids) {
+    if (!soBdIsObj(state) || !soBdIsObj(state.threads) || !Array.isArray(tids)) return 0;
+    let n = 0;
+    for (const tid of tids) {
+        if (typeof tid !== 'string' || !soBdOwn(state.threads, tid)) continue;
+        const r = soBdPlayer(state, { op: 'delThread', tid });
+        if (r && r.ok) n++;
+    }
+    return n;
+}
+/* <</BOARD:tell>> */
+/* <<BOARD:mods>> */
+// [BOARD] mods — spliced verbatim into index.js; edit HERE, re-splice, never hand-edit the copy. No model-visible byte here.
+// 🗂 论坛板 · 版主与人员流动（stage 3，spec §9 / §15c，plan docs/superpowers/plans/2026-11-20-living-forum-stage3-mods.md）：
+// 站长 / 版主是存在人物上的 role；禁言 / 封号 / 退出是人物上的 mute / ban / left；置顶 / 锁帖是帖子上的 pin / lock；折叠是楼上的 hid；
+// 发生过的事是 state.events。模型写「版务」行，这里把一行读成记录（soBdModLine），reducer 逐条按【那一刻】的板子查权限再落下
+//（soBdModApplyRec），每一处改动都进那一批的 changes，撤销精确还原（soBdModRevertChange，不看旗）。玩家发帖前问 soBdModGate。
+// 什么时候管、多久管一次，全交给模型（主人 2026-11-20：不告诉 AI 版主必须做什么、多久做一次）；代码只守三条：只有现任版主的动作算数、
+// 同一批里同一个对象的同一类动作只动一次（repeat，防来回翻；置顶 + 锁帖同一帖照样都落）、一份回复最多落 THEATER_BOARD_MOD_CEIL 条（防失控的回复，over）。纯函数，不读旗、不读时钟。
+
+// PROVISIONAL (like 回帖): the record word; the prompt and the reader read this one constant
+const THEATER_BOARD_MOD_KIND = '版务';
+const THEATER_BOARD_MOD_KINDS = Object.freeze(['pin', 'unpin', 'lock', 'unlock', 'fold', 'mute', 'unmute', 'ban', 'unban', 'appoint', 'remove', 'stepdown', 'leave']);
+// verbs whose target is a thread (fold: a post in a thread)
+const THEATER_BOARD_MOD_THREAD_KINDS = Object.freeze(['pin', 'unpin', 'lock', 'unlock', 'fold']);
+// roster changes (never in a post reply)
+const THEATER_BOARD_MOD_ROSTER_KINDS = Object.freeze(['appoint', 'remove', 'stepdown', 'leave']);
+const THEATER_BOARD_MOD_RANK = Object.freeze({ owner: 2, mod: 1 });
+// "one action per target per batch" is per target AND this family (root 2026-11-20): a second line of the same family on the same target is a
+// flip-flop (`repeat`); two different families on one target (pin + lock, mute + ban) both land.
+const THEATER_BOARD_MOD_FAMILY = Object.freeze({
+    pin: 'pin', unpin: 'pin', lock: 'lock', unlock: 'lock', fold: 'fold', mute: 'mute', unmute: 'mute', ban: 'ban', unban: 'ban',
+    appoint: 'role', remove: 'role', stepdown: 'role', leave: 'leave',
+});
+// a mute holds for this many catch-ups (or until an un-mute line); a ban holds until lifted (spec §9)
+const THEATER_BOARD_MUTE_CATCHES = 3;
+// the most 版务 lines one reply may land, of any kind (a runaway-reply ceiling, not a rhythm: the 13th and later drop as `over`)
+const THEATER_BOARD_MOD_CEIL = 12;
+// events older than this many catch-ups are trimmed when a new one is pushed (the trim is recorded: undo stays exact)
+const THEATER_BOARD_EVENT_AGE = 30;
+// a 缘由 is clipped to this many code points
+const THEATER_BOARD_MOD_WHY_MAX = 30;
+// the request section 【论坛的管理】 (piece B, Task 6): each name list shows at most this many (the rest counted) · a leaver is listed for this
+// many catch-ups · the newest this-many 版务 events of the last 3 catch-ups
+const THEATER_BOARD_MOD_LIST_MAX = 12;
+const THEATER_BOARD_MOD_LEFT_SHOWN = 10;
+const THEATER_BOARD_MOD_RECENT = 5;
+
+/* —— 人物的身份与处分（读的时候判；存的值形状不对 = 当没有）—— */
+
+// The first person holding a stored 'owner' role, in roster order (a hand-edited board with two: the others read as mods).
+function soBdModFirstOwner(state) {
+    const ro = soBdIsObj(state) && soBdIsObj(state.roster) ? state.roster : {};
+    for (const rid of Object.keys(ro)) {
+        const p = ro[rid];
+        if (soBdIsObj(p) && p.role === 'owner' && !p.me && !soBdIsObj(p.left) && !soBdIsObj(p.ban)) return rid;
+    }
+    return '';
+}
+// → 'owner' | 'mod' | ''. A left or banned person, a player alias (player-as-moderator is left out, spec §2) and any stored value other
+// than 'owner' / 'mod' read ''. Only the first owner in roster order is the owner; another stored 'owner' reads 'mod'.
+function soBdRole(state, rid) {
+    const ro = soBdIsObj(state) && soBdIsObj(state.roster) ? state.roster : null;
+    const p = ro && soBdOwn(ro, rid) ? ro[rid] : null;
+    if (!soBdIsObj(p) || p.me || soBdIsObj(p.left) || soBdIsObj(p.ban)) return '';
+    if (p.role === 'owner') return soBdModFirstOwner(state) === rid ? 'owner' : 'mod';
+    return p.role === 'mod' ? 'mod' : '';
+}
+// → 2 (owner) / 1 (mod) / 0.
+function soBdRank(state, rid) { return THEATER_BOARD_MOD_RANK[soBdRole(state, rid)] || 0; }
+// → {owner: rid | '', mods: rid[]} — mods by act desc (ties: roster order).
+function soBdRoleHolders(state) {
+    const ro = soBdIsObj(state) && soBdIsObj(state.roster) ? state.roster : {};
+    const owner = soBdModFirstOwner(state);
+    const mods = Object.keys(ro).filter((rid) => soBdRole(state, rid) === 'mod');
+    const at = new Map(mods.map((rid, i) => [rid, i]));
+    mods.sort((a, b) => (soBdInt(ro[b].act, 0, 0) - soBdInt(ro[a].act, 0, 0)) || (at.get(a) - at.get(b)));
+    return { owner, mods };
+}
+// Catch-ups a mute still holds for: until − catches while mute.until (a whole number) is above state.catches, else 0.
+function soBdMuteLeft(state, rid) {
+    const ro = soBdIsObj(state) && soBdIsObj(state.roster) ? state.roster : null;
+    const p = ro && soBdOwn(ro, rid) ? ro[rid] : null;
+    const m = soBdIsObj(p) ? p.mute : null;
+    if (!soBdIsObj(m) || !Number.isInteger(m.until)) return 0;
+    const c = soBdInt(state.catches, 0, 0);
+    return m.until > c ? m.until - c : 0;
+}
+// → '' | 'left' | 'banned' | 'muted' (first match in that order).
+function soBdGag(state, rid) {
+    const ro = soBdIsObj(state) && soBdIsObj(state.roster) ? state.roster : null;
+    const p = ro && soBdOwn(ro, rid) ? ro[rid] : null;
+    if (!soBdIsObj(p)) return '';
+    if (soBdIsObj(p.left)) return 'left';
+    if (soBdIsObj(p.ban)) return 'banned';
+    return soBdMuteLeft(state, rid) > 0 ? 'muted' : '';
+}
+// The roster person whose name key IS this name's key (player alias persons included) → rid | ''. No containment: a sanction names its
+// target exactly.
+function soBdPersonByName(state, name) {
+    const k = soBdNameKey(name);
+    const ro = soBdIsObj(state) && soBdIsObj(state.roster) ? state.roster : null;
+    if (!k || !ro) return '';
+    for (const rid of Object.keys(ro)) {
+        const p = ro[rid];
+        if (soBdIsObj(p) && (typeof p.key === 'string' && p.key ? p.key : soBdNameKey(p.name)) === k) return rid;
+    }
+    return '';
+}
+// Does x touch the player? x = {rid} (a player alias person) · {tid, pid} (a player post) · {tid} (a thread opened by an alias).
+function soBdModIsMe(state, x) {
+    if (!soBdIsObj(state) || !soBdIsObj(x)) return false;
+    const ro = soBdIsObj(state.roster) ? state.roster : {};
+    const th = soBdIsObj(state.threads) ? state.threads : {};
+    const isMeRid = (rid) => soBdOwn(ro, rid) && soBdIsObj(ro[rid]) && !!ro[rid].me;
+    if (x.pid) {
+        const t = soBdOwn(th, x.tid) ? th[x.tid] : null;
+        const p = soBdIsObj(t) && Array.isArray(t.posts) ? t.posts.find((q) => soBdIsObj(q) && q.id === x.pid) : null;
+        return !!p && (p.me === 1 || isMeRid(p.by));
+    }
+    if (x.rid) return isMeRid(x.rid);
+    if (x.tid) { const t = soBdOwn(th, x.tid) ? th[x.tid] : null; return soBdIsObj(t) && isMeRid(t.by); }
+    return false;
+}
+
+/* —— 一行版务 → 一条记录（读法；判对错交给 reducer）—— */
+
+// [word, kind]. The first word of each kind is the canonical one (the format names it, Task 7); the others are accepted shapes that cost no
+// prompt byte. 解禁 = 'unmute*': the reducer reads it as unmute when the person is muted, else unban when banned, else noop.
+const THEATER_BOARD_MOD_VERBS = Object.freeze([
+    ['置顶', 'pin'], ['取消置顶', 'unpin'], ['锁帖', 'lock'], ['解锁', 'unlock'], ['折叠', 'fold'], ['禁言', 'mute'], ['解除禁言', 'unmute'],
+    ['封号', 'ban'], ['解封', 'unban'], ['任命版主', 'appoint'], ['撤销版主', 'remove'], ['卸任', 'stepdown'], ['退出', 'leave'],
+    ['公告', 'pin'], ['设为公告', 'pin'], ['取消公告', 'unpin'], ['撤下置顶', 'unpin'], ['锁定', 'lock'], ['锁住', 'lock'], ['解除锁定', 'unlock'],
+    ['隐藏', 'fold'], ['收起', 'fold'], ['解除封号', 'unban'], ['解除封禁', 'unban'], ['封禁', 'ban'], ['任命', 'appoint'], ['升为版主', 'appoint'],
+    ['提拔', 'appoint'], ['撤下版主', 'remove'], ['罢免', 'remove'], ['辞去版主', 'stepdown'], ['退坛', 'leave'], ['离开', 'leave'], ['销号', 'leave'],
+    ['解禁', 'unmute*'],
+].map((e) => Object.freeze(e)));
+
+// 版务记录行：【W】/ [W]，可带「：」，其余部分 = m[1]。W 转义；空 = THEATER_BOARD_MOD_KIND。
+function soBdModRe(word) {
+    const w = String(word == null || word === '' ? THEATER_BOARD_MOD_KIND : word).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp('^\\s*[【\\[]\\s*' + w + '\\s*[】\\]]\\s*[:：]?\\s*(.*)$');
+}
+// The field is a verb word (longest first), or a verb word followed by the target (「锁帖#5」「禁言@白鹭」). → {k, rest} | null.
+function soBdModVerb(s) {
+    const f = soBdStr(s).trim();
+    if (!f) return null;
+    const words = THEATER_BOARD_MOD_VERBS.slice().sort((a, b) => b[0].length - a[0].length);
+    for (const [w, k] of words) if (f.startsWith(w)) return { k, rest: f.slice(w.length).trim() };
+    return null;
+}
+// One pre-cleaned line (soBdReadPre form) → null (not a 版务 line) | {r: 'mod', k, by, who, tno, why, raw}. Shape
+// 【W】做这件事的网名｜动作｜对象｜缘由: fields split on rd.sep; one field holding spaces is split on whitespace when its second token is a verb;
+// a first field that is exactly a verb word followed by a field that is not = no actor. by / who through rd.name; the target field:
+// #n / ＃ｎ → tno, a name → who, 「#n 名字」 → both; the verb field may carry the target itself (then the fields after it are the reason).
+// why ≤ THEATER_BOARD_MOD_WHY_MAX code points. An unknown verb → k '' (the reducer drops it as malformed): a 版务 line is never glued / unrec.
+function soBdModLine(line, rd, word) {
+    const m = soBdStr(line).match(soBdModRe(word));
+    if (!m) return null;
+    const sep = rd && rd.sep ? rd.sep : /\s*[｜|]\s*/;
+    const name = rd && typeof rd.name === 'function' ? rd.name : (x) => soBdStr(x).trim();
+    let f = m[1].split(sep).map((x) => x.trim());
+    if (f.length === 1 && /\s/.test(f[0])) {
+        const tok = f[0].split(/\s+/);
+        if (tok.length >= 2 && soBdModVerb(tok[1])) f = [tok[0], tok[1], tok[2] || ''].concat(tok.length > 3 ? [tok.slice(3).join(' ')] : []);
+    }
+    if (f.length >= 2 && soBdModVerb(f[0]) && soBdModVerb(f[0]).rest === '' && !soBdModVerb(f[1])) f.unshift('');
+    const v = f.length >= 2 ? soBdModVerb(f[1]) : null;
+    const fused = !!v && v.rest !== '';
+    const target = fused ? v.rest : (f[2] || '');
+    const whyParts = fused ? f.slice(2).filter((x) => x !== '') : f.slice(3).filter((x) => x !== '');
+    let who = '';
+    let tno = null;
+    const tm = target.match(/^[#＃]\s*([0-9０-９]+)\s*(.*)$/);
+    if (tm) { tno = soBdReadNo(tm[1]); who = tm[2] ? name(tm[2]) : ''; } else if (target) who = name(target);
+    const why = [...whyParts.join('｜').trim()].slice(0, THEATER_BOARD_MOD_WHY_MAX).join('').trim();
+    return { r: 'mod', k: v ? v.k : '', by: name(f[0] || ''), who: soBdStr(who), tno, why, raw: soBdStr(line).trim() };
+}
+
+/* —— reducer 的版务行：soBdApply 在 src.mods === true 时对每条 {r: 'mod'} 记录调 soBdModApplyRec(state, r, x)。
+ * x = soBdApply 那一趟的上下文（同一批的闭包）：{kind, reuse, tnos, byNo, nts, target, deadT, deadP, protect, catchAfter, now, batchId(),
+ * poster(name), changes, stored, counts, list, ri, acc: Map(记录 → {tid, pid}，这份回复里已落下的帖 / 楼), per: {n, keys}}。
+ * 查的顺序（第一处不合格 = 丢掉的原因）：动作认不出 malformed · 回帖请求里的任免 / 卸任 / 退出 elsewhere · 已落满 THEATER_BOARD_MOD_CEIL 条 over ·
+ * 重放时事件号已在 exists · 做事的人（空 / 不认识 → actor，玩家的网名 → player，被封号 / 已退出 → actor，被禁言 → actor 但卸任 / 退出照样算；板上还没有任何站长版主时第一条
+ * 任命不要求做事的人）· 对象（帖子号没给模型看过 / 没有 / 删了 → target，回帖请求里别的帖子 → elsewhere，新帖被丢了 → orphan；任命玩家的网名 → player）·
+ * 权限（只有现任版主能管帖、管人只能管比自己低的、站长在时只有站长能任免、没有站长时版主能任免、站长不能被撤、卸任 / 退出只能本人）authority ·
+ * 同一批里这个对象的这一类动作已经动过 repeat（THEATER_BOARD_MOD_FAMILY）· 本来就是那个样子 noop · 落下。 —— */
+
+// The thread a record of this reply landed in (accepted: recorded) or would have (a dropped post: by its tgt); else null.
+function soBdModWhere(x, q) {
+    const a = x.acc.get(q);
+    if (a) return a.tid;
+    if (!soBdIsObj(q) || q.r !== 'post') return null;
+    const g = soBdIsObj(q.tgt) ? q.tgt : null;
+    if (g && soBdOwn(g, 'nt')) return Number.isInteger(g.nt) && g.nt >= 0 && g.nt < x.nts.length ? x.nts[g.nt] : null;
+    if (g && soBdOwn(g, 'tno')) return x.byNo.get(Number(g.tno)) || null;
+    return x.kind === 'post' ? (x.target || null) : null;
+}
+// The thread a thread verb acts on → {tid} | {why}: #n (a number shown in the request, live) or, without one, the thread the line sits in
+// ({tno} / {nt} / {here}; a catch-up line before any header has none). Replay: the recorded tid, still live. A post reply: only its target.
+function soBdModThread(state, r, x) {
+    const live = (tid) => !!tid && soBdOwn(state.threads, tid) && soBdIsObj(state.threads[tid]) && !x.deadT.has(tid);
+    if (x.reuse) return live(r.tid) ? { tid: r.tid } : { why: 'target' };
+    const byNo = (no) => { const tid = x.byNo.get(no); return Number.isInteger(no) && live(tid) && (!x.tnos || x.tnos.has(no)) ? tid : ''; };
+    const g = soBdIsObj(r.tgt) ? r.tgt : null;
+    let tid = '';
+    if (r.tno != null) tid = byNo(Number(r.tno));
+    else if (g && soBdOwn(g, 'nt')) {
+        if (!Number.isInteger(g.nt) || g.nt < 0 || g.nt >= x.nts.length) return { why: 'target' };
+        if (x.nts[g.nt] === null) return { why: 'orphan' };
+        tid = x.nts[g.nt];
+    } else if (g && soBdOwn(g, 'tno')) tid = byNo(Number(g.tno));
+    else if (x.kind === 'post' && (!g || g.here === true)) tid = live(x.target) ? x.target : '';
+    if (!tid) return { why: 'target' };
+    if (x.kind === 'post' && tid !== x.target) return { why: 'elsewhere' };
+    return { tid };
+}
+// Fold names a person: his record in THIS reply wins (the latest one landing in that thread — dropped or cut → '', never an older post);
+// none in the reply → his latest stored, live, unfolded post in that thread. → pid | ''.
+function soBdModFoldPost(state, r, x, tid) {
+    const key = soBdNameKey(r.who);
+    if (!key) return '';
+    for (let i = x.ri - 1; i >= 0; i--) {
+        const q = x.list[i];
+        if (!soBdIsObj(q) || (q.r !== 'post' && q.r !== 'thread')) continue;
+        if (soBdNameKey(q.r === 'post' ? q.name : q.by) !== key || soBdModWhere(x, q) !== tid) continue;
+        const a = x.acc.get(q);
+        return a ? a.pid : '';
+    }
+    const rid = soBdPersonByName(state, r.who);
+    const t = state.threads[tid];
+    if (!rid || !soBdIsObj(t) || !Array.isArray(t.posts)) return '';
+    for (let i = t.posts.length - 1; i >= 0; i--) {
+        const p = t.posts[i];
+        if (soBdIsObj(p) && p.by === rid && !p.del && !soBdIsObj(p.hid)) return p.id;
+    }
+    return '';
+}
+
+// One 版务 record → '' (landed) | the drop reason. See the comment above for the order of the checks.
+function soBdModApplyRec(state, r, x) {
+    let k = soBdStr(r.k);
+    if (!THEATER_BOARD_MOD_KINDS.includes(k) && k !== 'unmute*') return 'malformed';
+    if (x.reuse && !(typeof r.id === 'string' && /^E\d+$/.test(r.id))) return 'malformed';
+    if (x.kind === 'post' && THEATER_BOARD_MOD_ROSTER_KINDS.includes(k)) return 'elsewhere';
+    if (x.per.n >= THEATER_BOARD_MOD_CEIL) return 'over';
+    if (x.reuse && (Array.isArray(state.events) ? state.events : []).some((e) => soBdIsObj(e) && (e.id === r.id || (!!r.own && e.id === r.own)))) return 'exists';
+    // who does it
+    const holders = soBdRoleHolders(state);
+    const boot = k === 'appoint' && !holders.owner && !holders.mods.length;
+    const byName = soBdStr(r.by).trim();
+    const whoName = soBdStr(r.who).trim();
+    let by = '';
+    if (!byName) { if (!boot) return 'actor'; } else {
+        if (soBdIsPlayerName(state, byName, x.protect)) return 'player';
+        by = soBdPersonByName(state, byName);
+        if (!by && !boot) return 'actor';
+        if (k === 'remove' && by && whoName && soBdPersonByName(state, whoName) === by) k = 'stepdown';
+        // a muted person may still step down or leave (quitting in protest; root 2026-11-20) — nothing else; banned / left never act
+        const gag = by ? soBdGag(state, by) : '';
+        if (gag && !(gag === 'muted' && (k === 'stepdown' || k === 'leave'))) return 'actor';
+    }
+    // on what
+    const isThread = THEATER_BOARD_MOD_THREAD_KINDS.includes(k);
+    const self = k === 'stepdown' || k === 'leave';
+    let tid = '';
+    let pid = '';
+    let who = '';
+    let post = null;
+    if (isThread) {
+        const th = soBdModThread(state, r, x);
+        if (th.why) return th.why;
+        tid = th.tid;
+        if (k === 'fold') {
+            pid = x.reuse ? soBdStr(r.pid) : soBdModFoldPost(state, r, x, tid);
+            if (x.reuse && x.deadP.has(pid)) return 'dead';
+            post = state.threads[tid].posts.find((p) => soBdIsObj(p) && p.id === pid && !p.del) || null;
+            if (!post) return 'target';
+            who = soBdStr(post.by);
+        }
+    } else if (self) {
+        if (whoName && soBdNameKey(whoName) !== soBdNameKey(byName)) return 'authority';
+    } else {
+        if (!whoName) return 'target';
+        if (k === 'appoint' && soBdIsPlayerName(state, whoName, x.protect)) return 'player';
+        who = soBdPersonByName(state, whoName);
+        if (!who && k !== 'appoint') return 'target';
+        if (who && k === 'appoint' && (soBdGag(state, who) === 'left' || soBdGag(state, who) === 'banned')) return 'target';
+    }
+    // may he
+    const ar = by ? soBdRank(state, by) : 0;
+    const top = holders.owner ? by === holders.owner : ar >= 1;   // who may appoint / remove right now
+    if (['pin', 'unpin', 'lock', 'unlock'].includes(k)) { if (ar < 1) return 'authority'; }
+    else if (['fold', 'mute', 'unmute', 'ban', 'unban', 'unmute*'].includes(k)) { if (ar < 1 || (who ? soBdRank(state, who) : 0) >= ar) return 'authority'; }
+    else if (k === 'appoint') { if (!boot && !top) return 'authority'; }
+    else if (k === 'remove') { if ((who && who === holders.owner) || !top) return 'authority'; }
+    // 解禁 = un-mute when muted, else un-ban when banned, else nothing (noop below)
+    const T = tid ? state.threads[tid] : null;
+    const P = who && soBdOwn(state.roster, who) ? state.roster[who] : null;
+    if (k === 'unmute*') k = soBdMuteLeft(state, who) > 0 ? 'unmute' : (soBdIsObj(P) && soBdIsObj(P.ban) ? 'unban' : '');
+    // once per target AND action family per batch (root 2026-11-20: it stops flip-flops — lock then unlock — not pin + lock of one thread)
+    const fam = THEATER_BOARD_MOD_FAMILY[k] || 'mute';
+    const keys = [(isThread ? (k === 'fold' ? 'p:' + pid : 't:' + tid) : 'r:' + (self ? by : (who || 'n:' + soBdNameKey(whoName)))) + ':' + fam];
+    if (k === 'appoint' && whoName) keys.push('n:' + soBdNameKey(whoName) + ':' + fam);
+    if (keys.some((key) => x.per.keys.has(key))) return 'repeat';
+    // already so
+    const muted = () => soBdMuteLeft(state, who) > 0;
+    const noop = {
+        pin: () => soBdIsObj(T.pin), unpin: () => !soBdIsObj(T.pin), lock: () => soBdIsObj(T.lock), unlock: () => !soBdIsObj(T.lock),
+        fold: () => soBdIsObj(post.hid), mute: muted, unmute: () => !muted(), ban: () => soBdIsObj(P.ban), unban: () => !soBdIsObj(P.ban),
+        appoint: () => !!who && soBdRole(state, who) !== '', remove: () => soBdRole(state, who) !== 'mod', stepdown: () => soBdRole(state, by) === '',
+        leave: () => false,
+    };
+    if (!k || noop[k]()) return 'noop';
+    const byRole = k === 'stepdown' ? soBdRole(state, by) : '';   // the stepdown notice names the role he held (卸任了版主 / 站长)
+    // land it — every change recorded (exact undo)
+    x.batchId();
+    const me = soBdModIsMe(state, k === 'fold' ? { tid, pid } : (tid ? { tid } : (self ? {} : { rid: who })));
+    const c = x.catchAfter;
+    const why = soBdStr(r.why).trim();
+    const set = (o, f, v, ch) => {
+        ch.had = soBdOwn(o, f);
+        if (ch.had) ch.prev = soBdSafeCopy(o[f]);
+        x.changes.push(ch);
+        if (v === undefined) delete o[f]; else o[f] = v;
+    };
+    const pset = (rid, f, v) => set(state.roster[rid], f, v, { c: 'pset', rid, f });
+    const tset = (f, v) => set(T, f, v, { c: 'tset', tid, f });
+    if (k === 'appoint') {
+        if (!who) who = x.poster(whoName).id;
+        if (boot && byName && !by) by = x.poster(byName).id;
+    }
+    const mark = (o) => (why ? Object.assign(o, { why }) : o);
+    switch (k) {
+        case 'pin': tset('pin', { by, c, at: x.now }); break;
+        case 'unpin': tset('pin', undefined); break;
+        case 'lock': tset('lock', mark({ by, c })); break;
+        case 'unlock': tset('lock', undefined); break;
+        case 'fold': set(post, 'hid', mark({ by, c }), { c: 'hset', tid, pid }); break;
+        case 'mute': pset(who, 'mute', { by, c, until: c + THEATER_BOARD_MUTE_CATCHES }); break;
+        case 'unmute': pset(who, 'mute', undefined); break;
+        case 'ban': pset(who, 'ban', { by, c }); if (soBdOwn(state.roster[who], 'role')) pset(who, 'role', undefined); break;
+        case 'unban': pset(who, 'ban', undefined); break;
+        case 'appoint': pset(who, 'role', 'mod'); break;
+        case 'remove': pset(who, 'role', undefined); break;
+        case 'stepdown': pset(by, 'role', undefined); break;
+        case 'leave': pset(by, 'left', { c }); if (soBdOwn(state.roster[by], 'role')) pset(by, 'role', undefined); break;
+        default: break;
+    }
+    const evs = [];
+    if (boot && by && by !== who) {
+        pset(by, 'role', 'owner');
+        evs.push({ id: x.reuse && r.own ? r.own : '', k: 'own', by: '', who: by, c, at: x.now });
+    }
+    const e = { id: x.reuse ? r.id : '', k, by };
+    if (byRole) e.role = byRole;
+    if (who && !self) e.who = who;
+    if (tid) e.tid = tid;
+    if (pid) e.pid = pid;
+    if (tid) e.n = k === 'fold' ? post.n : T.posts.reduce((m, p) => Math.max(m, soBdIsObj(p) ? soBdInt(p.n, 0, 0) : 0), 0);
+    if (why) e.why = why;
+    e.c = c;
+    e.at = x.now;
+    if (me) e.me = 1;
+    evs.push(e);
+    for (const ev of evs) {
+        if (!ev.id) ev.id = soBdNewId(state, 'E');
+        const ch = { c: 'event', id: ev.id };
+        if (!Array.isArray(state.events)) {
+            ch.init = soBdOwn(state, 'events') ? { had: true, prev: soBdSafeCopy(state.events) } : { had: false };
+            state.events = [];
+        }
+        state.events.push(ev);
+        x.changes.push(ch);
+    }
+    // events older than THEATER_BOARD_EVENT_AGE catch-ups go (only the oldest run, so putting it back in front is exact)
+    let cut = 0;
+    while (cut < state.events.length && soBdIsObj(state.events[cut]) && Number.isInteger(state.events[cut].c) && state.events[cut].c < c - THEATER_BOARD_EVENT_AGE) cut++;
+    if (cut) {
+        x.changes.push({ c: 'evdrop', list: soBdSafeCopy(state.events.slice(0, cut)) });
+        state.events = state.events.slice(cut);
+    }
+    const rec = { r: 'mod', id: e.id, k, by: byName };
+    if (whoName && !self) rec.who = whoName;
+    if (tid) rec.tid = tid;
+    if (pid) rec.pid = pid;
+    if (why) rec.why = why;
+    if (evs.length > 1) rec.own = evs[0].id;
+    x.stored.push(rec);
+    x.counts.mods = (x.counts.mods || 0) + 1;
+    x.per.n++;
+    for (const key of keys) x.per.keys.add(key);
+    if (who && !isThread) x.per.keys.add('r:' + who + ':' + fam);   // an appointee made just now
+    if (boot && by && by !== who) x.per.keys.add('r:' + by + ':role');   // the bootstrap owner
+    return '';
+}
+
+// Undo of one stage-3 change (soBdRevert calls it for every change kind it does not know itself; the flag is not read: a batch made with
+// the moderators on can be undone with them off). → true when the kind is stage 3's (pset / tset / hset / event / evdrop).
+function soBdModRevertChange(state, c) {
+    if (!soBdIsObj(state) || !soBdIsObj(c)) return false;
+    const back = (o, f, ok) => {
+        if (!soBdIsObj(o) || !ok.includes(f)) return;
+        if (c.had) o[f] = soBdSafeCopy(c.prev); else delete o[f];
+    };
+    const ro = soBdIsObj(state.roster) ? state.roster : {};
+    const th = soBdIsObj(state.threads) ? state.threads : {};
+    if (c.c === 'pset') { back(soBdOwn(ro, c.rid) ? ro[c.rid] : null, c.f, ['role', 'mute', 'ban', 'left']); return true; }
+    if (c.c === 'tset') { back(soBdOwn(th, c.tid) ? th[c.tid] : null, c.f, ['pin', 'lock']); return true; }
+    if (c.c === 'hset') {
+        const t = soBdOwn(th, c.tid) ? th[c.tid] : null;
+        back(soBdIsObj(t) && Array.isArray(t.posts) ? t.posts.find((p) => soBdIsObj(p) && p.id === c.pid) : null, 'hid', ['hid']);
+        return true;
+    }
+    if (c.c === 'event') {
+        if (Array.isArray(state.events)) state.events = state.events.filter((e) => !(soBdIsObj(e) && e.id === c.id));
+        if (soBdIsObj(c.init)) { if (c.init.had) state.events = soBdSafeCopy(c.init.prev); else delete state.events; }
+        return true;
+    }
+    if (c.c === 'evdrop') {
+        state.events = soBdSafeCopy(Array.isArray(c.list) ? c.list : []).concat(Array.isArray(state.events) ? state.events : []);
+        return true;
+    }
+    return false;
+}
+
+/* —— 玩家发帖前的那道门（soBdPlayer 在 act.mods === true 时问；删帖永远不拦）—— */
+
+// act = {op: 'post', tid, name} (a locked thread → 'locked'; else the alias's gag) · {op: 'thread', name} · {op: 'name', name} (the name
+// box: the gag only). → '' | 'locked' | 'muted' | 'banned' ('left' only on a hand-edited board: code never lets an alias leave). A name that
+// is not one of the player's aliases yet is never gagged — he can always post under another name.
+function soBdModGate(state, act) {
+    if (!soBdIsObj(state) || !soBdIsObj(act)) return '';
+    if (act.op === 'post') {
+        const t = soBdIsObj(state.threads) && soBdOwn(state.threads, act.tid) ? state.threads[act.tid] : null;
+        if (soBdIsObj(t) && soBdIsObj(t.lock)) return 'locked';
+    } else if (act.op !== 'thread' && act.op !== 'name') return '';
+    const k = soBdNameKey(act.name);
+    const ro = soBdIsObj(state.roster) ? state.roster : {};
+    const rid = k ? Object.keys(ro).find((id) => soBdIsObj(ro[id]) && ro[id].me && ro[id].key === k) : '';
+    return rid ? soBdGag(state, rid) : '';
+}
+
+/* —— 请求里那一节【论坛的管理】的数据（文字在 mods-words.js）：现任的站长 / 版主、请求里给看的帖子哪些置顶 / 锁着、谁在禁言 / 封号 / 刚退出、最近的版务。
+ * 只有名字、帖子号和标题：id 不离开这个块；玩家的网名就是一个普通名字，从不标出来。 —— */
+
+// The stored events with c ≥ sinceC whose references still resolve (the thread is live, a folded post is not deleted, every named person is
+// on the roster), oldest first, as copies. → Event[].
+function soBdModRecent(state, sinceC) {
+    if (!soBdIsObj(state) || !Array.isArray(state.events)) return [];
+    const ro = soBdIsObj(state.roster) ? state.roster : {};
+    const th = soBdIsObj(state.threads) ? state.threads : {};
+    const since = Number.isFinite(Number(sinceC)) ? Number(sinceC) : 0;
+    const person = (rid) => rid === '' || rid == null || (typeof rid === 'string' && soBdOwn(ro, rid) && soBdIsObj(ro[rid]));
+    const out = [];
+    for (const e of state.events) {
+        if (!soBdIsObj(e) || !Number.isInteger(e.c) || e.c < since || !THEATER_BOARD_MOD_KINDS.concat(['own']).includes(e.k)) continue;
+        if (!person(e.by) || !person(e.who)) continue;
+        if (e.tid != null) {
+            const t = typeof e.tid === 'string' && soBdOwn(th, e.tid) ? th[e.tid] : null;
+            if (!soBdIsObj(t)) continue;
+            if (e.pid != null && !(Array.isArray(t.posts) && t.posts.some((p) => soBdIsObj(p) && p.id === e.pid && !p.del))) continue;
+        }
+        out.push(soBdSafeCopy(e));
+    }
+    return out;
+}
+
+// One stored event as names (the words block renders it): → {k, by, who, no, title, why, role?}. no = the thread's number only when `shown`
+// (a Set of the numbers the request shows) holds it, else null (the request then names the thread by its title); title = the thread's title
+// as a model reads it (soBdTitleLine — this item only ever feeds model text: the request section and the note's part 5).
+function soBdModEvItem(state, e, shown) {
+    const st = soBdIsObj(state) ? state : {};
+    const th = soBdIsObj(st.threads) ? st.threads : {};
+    const x = soBdIsObj(e) ? e : {};
+    const t = typeof x.tid === 'string' && soBdOwn(th, x.tid) && soBdIsObj(th[x.tid]) ? th[x.tid] : null;
+    const no = t && soBdIsObj(shown) && typeof shown.has === 'function' && shown.has(Number(t.no)) ? Number(t.no) : null;
+    const out = { k: soBdStr(x.k), by: soBdWho(st, x.by), who: soBdWho(st, x.who), no, title: t ? soBdTitleLine(t.title) : '', why: soBdStr(x.why) };
+    if (x.role === 'owner' || x.role === 'mod') out.role = x.role;
+    return out;
+}
+
+// The data of the request section (win = the BoardWin the request carries: only its thread numbers matter, a Set or an array).
+// → MW {owner: name | '', mods: name[], pins: no[], locks: no[], muted: name[], banned: name[], left: name[], more: {muted, banned, left},
+//       recent: [{k, by, who, no, title, why, role?}]} — pins / locks: the threads shown, ascending; the three name lists newest first,
+//       at most THEATER_BOARD_MOD_LIST_MAX each (the rest counted in more); left = within THEATER_BOARD_MOD_LEFT_SHOWN catch-ups; recent =
+//       the newest THEATER_BOARD_MOD_RECENT events of the last 3 catch-ups (c ≥ catches − 2), oldest of them first.
+function soBdModWin(state, win) {
+    const st = soBdIsObj(state) ? state : {};
+    const ro = soBdIsObj(st.roster) ? st.roster : {};
+    const th = soBdIsObj(st.threads) ? st.threads : {};
+    const w = soBdIsObj(win) ? win : {};
+    const tn = w.tnos && typeof w.tnos !== 'string' && typeof w.tnos[Symbol.iterator] === 'function' ? new Set([...w.tnos].map(Number)) : new Set();
+    const catches = soBdInt(st.catches, 0, 0);
+    const holders = soBdRoleHolders(st);
+    const shownWith = (f) => Object.keys(th).map((k) => th[k]).filter((t) => soBdIsObj(t) && soBdIsObj(t[f]) && tn.has(Number(t.no)))
+        .map((t) => Number(t.no)).sort((a, b) => a - b);
+    const lists = { muted: [], banned: [], left: [] };
+    Object.keys(ro).forEach((rid, i) => {
+        const p = ro[rid];
+        if (!soBdIsObj(p) || typeof p.name !== 'string') return;
+        const g = soBdGag(st, rid);
+        if (!g) return;
+        const f = g === 'left' ? p.left : (g === 'banned' ? p.ban : p.mute);
+        const c = Number.isInteger(f.c) ? f.c : 0;
+        if (g === 'left' && c < catches - THEATER_BOARD_MOD_LEFT_SHOWN) return;
+        lists[g].push({ name: p.name, c, i });
+    });
+    const more = {};
+    for (const k of ['muted', 'banned', 'left']) {
+        lists[k].sort((a, b) => (b.c - a.c) || (a.i - b.i));
+        more[k] = Math.max(0, lists[k].length - THEATER_BOARD_MOD_LIST_MAX);
+        lists[k] = lists[k].slice(0, THEATER_BOARD_MOD_LIST_MAX).map((x) => x.name);
+    }
+    const recent = soBdModRecent(st, catches - 2).slice(-THEATER_BOARD_MOD_RECENT).map((e) => soBdModEvItem(st, e, tn));
+    return {
+        owner: holders.owner ? soBdWho(st, holders.owner) : '', mods: holders.mods.map((rid) => soBdWho(st, rid)),
+        pins: shownWith('pin'), locks: shownWith('lock'), muted: lists.muted, banned: lists.banned, left: lists.left, more, recent,
+    };
+}
+/* <</BOARD:mods>> */
+/* <<BOARD:mods-words>> */
+// [BOARD] mods-words — spliced verbatim into index.js; edit HERE, re-splice, never hand-edit the copy. Model-visible stage-3 bytes (DRAFT; stage 3 Task 7).
+// 🗂 论坛板 · 版主与人员流动（stage 3）给模型看的每一个字：补帖 / 发帖请求 system 末尾多的一段（THEATER_BOARD_P_MODS），请求正文里人物表下面那一节
+//【论坛的管理】（THEATER_BOARD_P_MOD_LABELS），一件版务写成一句话（THEATER_BOARD_MOD_EV），主线知情那一格的第 5 部分（THEATER_BOARD_MOD_NOTE_LABELS）。
+// 主人 2026-11-20：不告诉 AI 版主必须做什么、多久做一次、做几次；一句话说论坛有版主（这个世界里的人，各有脾性和管事的方式）；格式行里的动作词是
+// 格式词汇，不是性格清单。这一段是它自己的常量、接在请求那一段（措辞 4 / 以后换的措辞）后面，从不拼进 stage 1 的格式表或分量行里——
+// 换掉补帖第一段不碰这里的一个字。版务行不算楼（这一段自己说；【本批】数的是楼）。DRAFT：真模型轮次过了、主人点头才改 FROZEN 并钉 sha256。
+// 纯函数：不读旗、不读时钟、不碰 DOM。
+
+const THEATER_BOARD_MOD_WORDS_FROZEN = false;
+
+// 那一句话（§9）：论坛有站长和版主，他们是这个世界里的人，各有各的样子。
+const THEATER_BOARD_P_MODS_SENT = '论坛有站长和版主，他们也是这个世界里的人，各有各的脾性和管事的方式。';
+// 格式（§4：说有这种行、怎么写；什么时候写交给模型）。W = 版务行的词（THEATER_BOARD_MOD_KIND）。动作词 = mods.js THEATER_BOARD_MOD_VERBS
+// 每一类的第一个词（board-mods-words「reader parity」钉住两边一致）。
+const THEATER_BOARD_P_MODS_FMT = (W) => '内容里还可以有版务行，记下站长和版主做的事、人的来去：\n'
+    + '【' + W + '】做这件事的网名｜动作｜对象｜缘由\n'
+    + '动作是这些词里的一个：置顶、取消置顶、锁帖、解锁、折叠、禁言、解除禁言、封号、解封、任命版主、撤销版主、卸任、退出。'
+    + '对象：帖子写 #帖子号，不写就是这一行所在的帖子；折叠写那一楼的网名（他在这个帖子里最近的一楼）；禁言、封号、任命这一类写网名；'
+    + '卸任、退出不写对象，做这件事的就是本人。缘由可以空着。版务行不算楼。';
+const THEATER_BOARD_P_MODS = (W) => THEATER_BOARD_P_MODS_SENT + '\n\n' + THEATER_BOARD_P_MODS_FMT(W);
+
+// 请求正文里那一节（人物表下面、帖子前面）的标签。{list} 用 sep 连；名单超了 THEATER_BOARD_MOD_LIST_MAX 时末尾接 more（{k} = 总人数）。
+const THEATER_BOARD_P_MOD_LABELS = Object.freeze({
+    head: '【论坛的管理】', owner: '站长：{n}', mods: '版主：{list}', none: '版主：还没有',
+    pins: '置顶的帖子：{list}', locks: '锁住的帖子：{list}', muted: '禁言中：{list}', banned: '封了号的：{list}', left: '已经退出的：{list}',
+    more: '等 {k} 人', recent: '最近的版务：{list}', sep: '、', evSep: '；', tref: '#{no}',
+});
+// 一件版务一句话；{t} = 帖子的指称（请求里给看的帖子：#n；别处：《标题》）；{role} = 版主 / 站长。
+const THEATER_BOARD_MOD_EV = Object.freeze({
+    pin: '{by}置顶了{t}', unpin: '{by}取消了{t}的置顶', lock: '{by}锁住了{t}', unlock: '{by}解锁了{t}', fold: '{by}折叠了{who}在{t}的一楼',
+    mute: '{by}禁言了{who}', unmute: '{by}解除了{who}的禁言', ban: '{by}封了{who}的号', unban: '{by}解封了{who}',
+    appoint: '{by}任命{who}为版主', appoint0: '{who}成了版主', own: '{who}是站长', remove: '{by}撤销了{who}的版主',
+    stepdown: '{by}卸任了{role}', leave: '{by}退出了论坛', why: '（{why}）', role: Object.freeze({ mod: '版主', owner: '站长' }),
+});
+// 主线知情那一格的第 5 部分（stage 2 soBdNote 的 extra）：标题行 + 一件一行；帖子写《标题》（主线不认帖子号）。
+const THEATER_BOARD_MOD_NOTE_LABELS = Object.freeze({ head: '▍论坛最近的版务', tref: '《{title}》' });
+// 第 5 部分最多几行：平常 dflt；这一格的上限（noteCap）小于 smallCap 时 small。
+const THEATER_BOARD_MOD_NOTE_MAX = Object.freeze({ dflt: 6, small: 3, smallCap: 1000 });
+
+// One event item (soBdModEvItem: names, not ids) as one sentence. tref = the thread reference template ({no} / {title}). Names / titles go
+// through the stage-2 rule (macros neutralised, line breaks → a space). → string ('' for an unknown kind).
+function soBdModEvText(ev, tref) {
+    const E = THEATER_BOARD_MOD_EV;
+    const x = soBdIsObj(ev) ? ev : {};
+    const k = x.k === 'appoint' && !soBdStr(x.by).trim() ? 'appoint0' : soBdStr(x.k);
+    if (!soBdOwn(E, k) || typeof E[k] !== 'string' || k === 'why') return '';
+    const t = soBdNoteFill(tref, { no: x.no == null ? '' : String(x.no), title: soBdStr(x.title) });
+    const role = E.role[x.role === 'owner' ? 'owner' : 'mod'];
+    const why = soBdStr(x.why).trim();
+    return soBdNoteFill(E[k], { by: soBdStr(x.by), who: soBdStr(x.who), t, role }) + (why ? soBdNoteFill(E.why, { why }) : '');
+}
+
+// The request section from MW (mods.js soBdModWin). → string: head; 站长 (only when there is one); 版主 (or 「还没有」); each non-empty list;
+// the recent events (a thread shown in the request as #n, any other by its title). '' only when mw is not an object.
+function soBdModPromptSection(mw) {
+    if (!soBdIsObj(mw)) return '';
+    const L = THEATER_BOARD_P_MOD_LABELS;
+    const arr = (v) => (Array.isArray(v) ? v.filter((x) => typeof x === 'string' && x.trim()) : []);
+    const more = soBdIsObj(mw.more) ? mw.more : {};
+    const list = (names, k) => {
+        const n = arr(names);
+        const extra = Number.isInteger(more[k]) && more[k] > 0 ? more[k] : 0;
+        return n.map((x) => soBdNoteLine(x)).join(L.sep) + (extra ? soBdNoteFill(L.more, { k: String(n.length + extra) }) : '');
+    };
+    const nos = (v) => (Array.isArray(v) ? v.filter((x) => Number.isInteger(x)) : []).map((no) => soBdNoteFill(L.tref, { no: String(no) })).join(L.sep);
+    const out = [L.head];
+    if (typeof mw.owner === 'string' && mw.owner.trim()) out.push(soBdNoteFill(L.owner, { n: mw.owner }));
+    out.push(arr(mw.mods).length ? soBdNoteFill(L.mods, { list: list(mw.mods, '') }) : L.none);
+    if (nos(mw.pins)) out.push(soBdNoteFill(L.pins, { list: nos(mw.pins) }));
+    if (nos(mw.locks)) out.push(soBdNoteFill(L.locks, { list: nos(mw.locks) }));
+    for (const k of ['muted', 'banned', 'left']) if (arr(mw[k]).length) out.push(soBdNoteFill(L[k], { list: list(mw[k], k) }));
+    const ev = (Array.isArray(mw.recent) ? mw.recent : []).map((e) => soBdModEvText(e, soBdIsObj(e) && Number.isInteger(e.no) ? L.tref : THEATER_BOARD_MOD_NOTE_LABELS.tref)).filter(Boolean);
+    if (ev.length) out.push(soBdNoteFill(L.recent, { list: ev.join(L.evSep) }));
+    return out.join('\n');
+}
+
+// Part 5 of the main-AI note (stage 2's soBdNote o.extra): [] when no event qualifies, else [heading, …one line per event] — the events of the
+// last 3 catch-ups (soBdModRecent: c ≥ catches − 2, references still resolve), the newest THEATER_BOARD_MOD_NOTE_MAX.dflt (small when
+// o.cap < smallCap), oldest of them first; threads by 《title》. o = {cap?}. Bounded, so stage 2's "extra is never cut" stays right.
+function soBdModNoteLines(state, o) {
+    const st = soBdIsObj(state) ? state : {};
+    const M = THEATER_BOARD_MOD_NOTE_MAX;
+    const cap = soBdIsObj(o) && Number.isFinite(Number(o.cap)) && o.cap !== null && o.cap !== '' ? Number(o.cap) : Infinity;
+    const n = cap < M.smallCap ? M.small : M.dflt;
+    const lines = soBdModRecent(st, soBdInt(st.catches, 0, 0) - 2).slice(-n)
+        .map((e) => soBdModEvText(soBdModEvItem(st, e, null), THEATER_BOARD_MOD_NOTE_LABELS.tref)).filter(Boolean);
+    return lines.length ? [THEATER_BOARD_MOD_NOTE_LABELS.head].concat(lines) : [];
+}
+/* <</BOARD:mods-words>> */
+/* <<BOARD:mods-view>> */
+// [BOARD] mods-view — spliced verbatim into index.js; edit HERE, re-splice, never hand-edit the copy. Viewer data for moderators (stage 3 Task 10).
+// 🗂 论坛板 · 版主与人员流动（stage 3）玩家看得见的那一层的数据：名字旁的身份、置顶 / 锁帖、折叠的楼、帖子里和版面上的通知、公告条、
+// 玩家的网名被禁言 / 封号时的那一句、查看层那一行的「你被管了」。每一句都在这里经 soBdTxt 填好（页面里一个字都不拼）；只有名字和帖子标题，
+// 玩家的网名是一个普通名字（这一层是 SO 给玩家自己看的，从不进任何请求）。纯函数，不读旗、不读时钟、不碰 DOM。
+
+// the classes the board page's moderator parts use (they join the look contract with the flag on: an AI skin may style them, the guard sheet
+// keeps them visible)
+const THEATER_BOARD_MOD_CLASSES = Object.freeze(['thx-ann', 'thx-ann-item', 'thx-notice', 'thx-mod', 'thx-flag', 'thx-lock', 'thx-hid']);
+// thread events show inside their thread, after the floor they followed; every other event shows on the board screen
+const THEATER_BOARD_MOD_IN_THREAD = Object.freeze(['pin', 'unpin', 'lock', 'unlock']);
+// the board screen shows the newest this-many of its notices (newest first)
+const THEATER_BOARD_MOD_BOARD_N = 5;
+
+// The moderator classes added to the contract's class list (in place; idempotent). → how many were added.
+function soBdModContractAdd(classes) {
+    if (!Array.isArray(classes)) return 0;
+    let n = 0;
+    for (const c of THEATER_BOARD_MOD_CLASSES) if (!classes.includes(c)) { classes.push(c); n++; }
+    return n;
+}
+
+// 缘由 → 「（缘由）」；没有 → ''.
+function soBdModWhyTail(why) {
+    const w = soBdStr(why).trim();
+    return w ? soBdTxt('whyTail', [w]) : '';
+}
+// 'owner' / 'mod' → 站长 / 版主 (anything else reads 版主: a stepdown stored without its role was a moderator's).
+function soBdModRoleWord(role) { return soBdTxt(role === 'owner' ? 'roleOwner' : 'roleMod'); }
+
+// One stored event as the player reads it (names from the roster; t = how its thread is named) → '' for a kind the viewer does not know.
+function soBdModEvLine(state, e, t) {
+    const x = soBdIsObj(e) ? e : {};
+    const by = soBdWho(state, x.by);
+    const who = soBdWho(state, x.who);
+    const tr = soBdStr(t);
+    const one = {
+        pin: () => soBdTxt('evPin', [by, tr]), unpin: () => soBdTxt('evUnpin', [by, tr]), lock: () => soBdTxt('evLock', [by, tr]),
+        unlock: () => soBdTxt('evUnlock', [by, tr]), fold: () => soBdTxt('evFold', [by, who]), mute: () => soBdTxt('evMute', [by, who]),
+        unmute: () => soBdTxt('evUnmute', [by, who]), ban: () => soBdTxt('evBan', [by, who]), unban: () => soBdTxt('evUnban', [by, who]),
+        appoint: () => (by ? soBdTxt('evAppoint', [by, who]) : soBdTxt('evAppoint0', [who])), own: () => soBdTxt('evOwn', [who]),
+        remove: () => soBdTxt('evRemove', [by, who]), stepdown: () => soBdTxt('evStepdown', [by, soBdModRoleWord(x.role)]), leave: () => soBdTxt('evLeave', [by]),
+    };
+    const k = soBdStr(x.k);
+    if (!soBdOwn(one, k)) return '';
+    const line = one[k]();
+    return line ? line + soBdModWhyTail(x.why) : '';
+}
+
+// The line the name box / a refused send shows for one of the player's aliases → '' when the name is not a gagged alias of his.
+// muted → 「这个网名正被禁言（还要过 n 次论坛更新）……」 · banned → 「这个网名被封号了……」.
+function soBdModGagLine(state, name) {
+    const g = soBdModGate(state, { op: 'name', name });
+    if (g === 'banned') return soBdTxt('nameBanned');
+    if (g !== 'muted') return '';
+    const k = soBdNameKey(name);
+    const ro = soBdIsObj(state.roster) ? state.roster : {};
+    const rid = Object.keys(ro).find((id) => soBdIsObj(ro[id]) && ro[id].me && ro[id].key === k) || '';
+    return soBdTxt('nameMuted', [soBdMuteLeft(state, rid)]);
+}
+
+function soBdModViewEmpty() {
+    return { roles: {}, roleWord: {}, pins: [], locks: {}, hid: {}, hidPlain: {}, notes: {}, board: [], ann: '', gag: {},
+        text: { pinMark: soBdTxt('pinMark'), lockMark: soBdTxt('lockMark'), annTitle: soBdTxt('annTitle') } };
+}
+
+// Board → the viewer's moderator data (plain JSON; nothing points back into the board; a broken board → the empty one, never throws).
+// → MX {roles: {rid: 'owner'|'mod'}, roleWord: {rid: 站长|版主}, pins: tid[] (newest pin first), locks: {tid: line}, hid: {pid: line} (folded
+//   posts, and every live post of a banned person), hidPlain: {pid: line} (the same posts, for the plain page), notes: {tid: [{n, line}]}
+//   (pin / unpin / lock / unlock, oldest first), board: line[] (the other events, newest first, ≤ THEATER_BOARD_MOD_BOARD_N), ann: the 站长 /
+//   版主 line ('' when nobody holds a role), gag: {alias name: line} (the player's muted / banned aliases), text: {pinMark, lockMark, annTitle}}.
+function soBdModView(state) {
+    const out = soBdModViewEmpty();
+    if (!soBdIsObj(state) || !soBdIsObj(state.threads)) return out;
+    try {
+        const ro = soBdIsObj(state.roster) ? state.roster : {};
+        for (const rid of Object.keys(ro)) {
+            const r = soBdRole(state, rid);
+            if (r) { out.roles[rid] = r; out.roleWord[rid] = soBdModRoleWord(r); }
+        }
+        const live = soBdViewThreads(state);
+        const th = state.threads;
+        const pinAt = (t) => (soBdIsObj(t.pin) && Number.isFinite(Number(t.pin.at)) ? Number(t.pin.at) : 0);
+        const pinC = (t) => (soBdIsObj(t.pin) && Number.isInteger(t.pin.c) ? t.pin.c : 0);
+        out.pins = live.filter((tid) => soBdIsObj(th[tid].pin)).map((tid, i) => ({ tid, i }))
+            .sort((a, b) => (pinAt(th[b.tid]) - pinAt(th[a.tid])) || (pinC(th[b.tid]) - pinC(th[a.tid])) || (a.i - b.i)).map((x) => x.tid);
+        for (const tid of live) {
+            const t = th[tid];
+            if (soBdIsObj(t.lock)) out.locks[tid] = soBdTxt('lockedNote', [soBdWho(state, t.lock.by), soBdModWhyTail(t.lock.why)]);
+            for (const p of soBdViewPosts(t)) {
+                if (p.del || typeof p.id !== 'string') continue;
+                if (soBdIsObj(p.hid)) {
+                    const by = soBdWho(state, p.hid.by);
+                    const tail = soBdModWhyTail(p.hid.why);
+                    out.hid[p.id] = soBdTxt('hidSum', [by, tail]);
+                    out.hidPlain[p.id] = soBdTxt('hidPlain', [by, tail]);
+                } else if (soBdGag(state, p.by) === 'banned') {
+                    const name = soBdWho(state, p.by);
+                    out.hid[p.id] = soBdTxt('banHid', [name]);
+                    out.hidPlain[p.id] = soBdTxt('banPlain', [name]);
+                }
+            }
+        }
+        const board = [];
+        for (const e of soBdModRecent(state, 0)) {
+            if (THEATER_BOARD_MOD_IN_THREAD.includes(e.k)) {
+                if (typeof e.tid !== 'string' || !live.includes(e.tid)) continue;
+                const line = soBdModEvLine(state, e, soBdTxt('thisThread'));
+                if (!line) continue;
+                if (!Array.isArray(out.notes[e.tid])) out.notes[e.tid] = [];
+                out.notes[e.tid].push({ n: Number.isInteger(e.n) ? e.n : 0, line });
+            } else {
+                if (typeof e.tid === 'string' && !live.includes(e.tid)) continue;
+                const line = soBdModEvLine(state, e, '');
+                if (line) board.push(line);
+            }
+        }
+        out.board = board.slice(-THEATER_BOARD_MOD_BOARD_N).reverse();
+        const holders = soBdRoleHolders(state);
+        const owner = holders.owner ? soBdWho(state, holders.owner) : '';
+        const mods = holders.mods.map((rid) => soBdWho(state, rid)).filter(Boolean).join('、');
+        out.ann = owner && mods ? soBdTxt('annLine', [owner, mods]) : (owner ? soBdTxt('annOwnerOnly', [owner]) : (mods ? soBdTxt('annNoOwner', [mods]) : ''));
+        for (const rid of Object.keys(ro)) {
+            const p = ro[rid];
+            if (!soBdIsObj(p) || !p.me || typeof p.name !== 'string' || !p.name) continue;
+            const line = soBdModGagLine(state, p.name);
+            if (line) out.gag[p.name] = line;
+        }
+        return out;
+    } catch (e) {
+        return soBdModViewEmpty();
+    }
+}
+
+// soBdAssemble's {W, B} → the same object with the moderators' parts (in place): W.forum.threads pinned first (newest pin first; the rest keep
+// their order — the runtime's 「最新」 tab shows that order, its 「最热」 tab sorts by heat as always), B.mods = soBdModView(state).
+function soBdModDecorate(a, state) {
+    if (!soBdIsObj(a) || !soBdIsObj(a.W) || !soBdIsObj(a.B)) return a;
+    const mx = soBdModView(state);
+    const f = a.W.forum;
+    if (soBdIsObj(f) && Array.isArray(f.threads) && mx.pins.length) {
+        const at = new Map(mx.pins.map((tid, i) => [tid, i]));
+        const pinned = f.threads.filter((t) => soBdIsObj(t) && at.has(t.id)).sort((x, y) => at.get(x.id) - at.get(y.id));
+        f.threads = pinned.concat(f.threads.filter((t) => !(soBdIsObj(t) && at.has(t.id))));
+    }
+    a.B.mods = mx;
+    return a;
+}
+
+// The viewer row's 「你被管了」 line: the newest event that touches the player (me: 1), newer than `seen` (ms), whose effect still holds now —
+// his alias muted (meMuted) / banned (meBanned), his post folded (meFolded), his thread locked (meLocked). → {line, at} | null.
+function soBdModRowNotice(state, seen) {
+    if (!soBdIsObj(state) || !Array.isArray(state.events)) return null;
+    const s = Number(seen) || 0;
+    const th = soBdIsObj(state.threads) ? state.threads : {};
+    const live = soBdViewThreads(state);
+    const tref = (tid) => soBdTxt('threadRef', [soBdOwn(th, tid) && soBdIsObj(th[tid]) ? soBdStr(th[tid].title) : '']);
+    for (let i = state.events.length - 1; i >= 0; i--) {
+        const e = state.events[i];
+        if (!soBdIsObj(e) || e.me !== 1 || !(Number(e.at) > s)) continue;
+        const by = soBdWho(state, e.by);
+        const tail = soBdModWhyTail(e.why);
+        let line = '';
+        if (e.k === 'mute' && soBdGag(state, e.who) === 'muted') line = soBdTxt('meMuted', [soBdWho(state, e.who), by, tail]);
+        else if (e.k === 'ban' && soBdGag(state, e.who) === 'banned') line = soBdTxt('meBanned', [soBdWho(state, e.who), by, tail]);
+        else if (e.k === 'fold' && live.includes(e.tid)) {
+            const p = soBdViewPosts(th[e.tid]).find((q) => q.id === e.pid);
+            if (p && !p.del && soBdIsObj(p.hid)) line = soBdTxt('meFolded', [by, tref(e.tid), tail]);
+        } else if (e.k === 'lock' && live.includes(e.tid) && soBdIsObj(th[e.tid].lock)) line = soBdTxt('meLocked', [by, tref(e.tid), tail]);
+        if (line) return { line, at: Number(e.at) };
+    }
+    return null;
+}
+/* <</BOARD:mods-view>> */
+/* <<BOARD:mods-ext>> */
+// [BOARD] mods-ext — spliced verbatim into index.js; edit HERE, re-splice, never hand-edit the copy. In-frame wrapper + CSS (stage 3 Task 11).
+// 🗂 论坛板页面里版主那一层（stage 3）：soBdModExt 整个函数经 .toString() 放进论坛板页面（<script data-so-board-mods>，在 P5 那段扩展之后、
+// 运行时之前），把 window.__thxBoardExt 包一层——P5 的扩展和运行时一个字节不动；旗关时这段脚本根本不在页面里。它只读 api、window、document
+// 和自己的局部变量；页面数据里没有 B.mods（D.board.mods）时每个挂点原样交给 P5。所有的字都是 SO 在 soBdModView 里填好的，只经 api.h 变成文字
+// 节点；控件带 data-so-ctl 与 data-so-board。函数正文里不许有反引号、关闭标签的开头、HTML 注释的开头（元测试查）。
+
+// 页面样式（P5 那份之后、AI 皮肤之前；颜色只用 --thx-* 变量；点按 ≥ 32px）。
+const THEATER_BOARD_MOD_APP_CSS = '.thx-ann{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:8px 12px;padding:8px 12px;border:1px solid var(--thx-line);border-radius:var(--thx-radius,12px);background:var(--thx-card);color:var(--thx-ink)}'
+    + '.thx-ann>.thx-meta{flex:0 0 auto}'
+    + '.thx-ann>div.thx-meta{flex:1 1 100%;color:var(--thx-ink)}'
+    + '.thx-ann-item{border:1px solid var(--thx-line);background:var(--thx-bg);color:var(--thx-ink);border-radius:999px;padding:4px 12px;font:inherit;font-size:13px;cursor:pointer;max-width:100%;min-height:32px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}'
+    + '.thx-notice{margin:6px 12px;padding:6px 0 0;border-top:1px dashed var(--thx-line);color:var(--thx-sub);font-size:12.5px;line-height:1.5;text-align:center;overflow-wrap:anywhere}'
+    + '.thx-ann>.thx-notice{flex:1 1 100%;margin:0;text-align:left}'
+    + '.thx-mod,.thx-flag{display:inline-block;margin:0 4px;padding:0 6px;border-radius:999px;font-size:11px;line-height:18px;vertical-align:middle;white-space:nowrap}'
+    + '.thx-mod{border:1px solid var(--thx-accent);color:var(--thx-ink)}'
+    + '.thx-flag{background:var(--thx-ink);color:var(--thx-card);margin:0 6px 4px 0}'
+    + '.thx-lock{margin:8px 12px;padding:10px 12px;border:1px dashed var(--thx-line);border-radius:var(--thx-radius,12px);background:var(--thx-card);color:var(--thx-sub);font-size:13.5px;line-height:1.5;text-align:center;overflow-wrap:anywhere}'
+    + '.thx-hid{margin-top:4px}'
+    + '.thx-hid>summary{cursor:pointer;padding:6px 0;color:var(--thx-sub);font-size:13px;line-height:1.5;overflow-wrap:anywhere}'
+    + '.thx-hid[open]>summary{margin-bottom:6px}';
+
+// 锁（在 P5 的锁之后）：AI 皮肤藏不掉这几样（选择器带 .thx 祖先：皮肤里同样写法的 !important 也压不过它，因为锁排在后面）。
+const THEATER_BOARD_MOD_GUARD_CSS = '.thx .thx-notice,.thx .thx-lock{display:block!important;visibility:visible!important;opacity:1!important;max-height:none!important}'
+    + '.thx .thx-ann{display:flex!important;visibility:visible!important;opacity:1!important;max-height:none!important}'
+    + '.thx .thx-ann-item{display:inline-block!important;visibility:visible!important;opacity:1!important}'
+    + '.thx .thx-hid,.thx .thx-hid>summary{visibility:visible!important;opacity:1!important}'
+    + '.thx .thx-hid{display:block!important}'
+    + '.thx .thx-hid>summary{display:list-item!important}'
+    + '.thx .thx-mod,.thx .thx-flag{display:inline-block!important;visibility:visible!important;opacity:1!important}';
+
+function soBdModExt(base) {
+    'use strict';
+    return function (api) {
+        const hooks = typeof base === 'function' ? base(api) : null;
+        if (!hooks || typeof hooks !== 'object') return hooks;
+        const h = api.h;
+        const D = api.D || {};
+        const own = (o, k) => !!o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, k);
+        const pick = (B) => (B && typeof B === 'object' && B.mods && typeof B.mods === 'object' ? B.mods : null);
+        // M = the moderators' part of the board data (B.mods); a new push (window.__thxBoardUpdate) swaps it BEFORE P5 redraws
+        let M = pick(D.board);
+        const up = window.__thxBoardUpdate;
+        if (typeof up === 'function') window.__thxBoardUpdate = function (W, B) { if (B && typeof B === 'object') M = pick(B); return up(W, B); };
+        const str = (v) => (typeof v === 'string' ? v : '');
+        const map = (k) => (M && M[k] && typeof M[k] === 'object' ? M[k] : {});
+        const tx = (k) => str(map('text')[k]);
+        const ctl = (role, a) => Object.assign({ who: 'so', 'data-so-ctl': true, 'data-so-board': role }, a || {});
+        const kids = (el) => Array.prototype.slice.call(el.children);
+        const flags = (tid) => {
+            const out = [];
+            if ((Array.isArray(M.pins) ? M.pins : []).indexOf(tid) >= 0) out.push(h('span', { class: 'thx-flag', who: 'so' }, tx('pinMark')));
+            if (own(map('locks'), tid)) out.push(h('span', { class: 'thx-flag', who: 'so' }, tx('lockMark')));
+            return out;
+        };
+        const badge = (rid) => (own(map('roleWord'), rid) && str(map('roleWord')[rid]) ? h('span', { class: 'thx-mod', who: 'so' }, str(map('roleWord')[rid])) : null);
+        // the gag line of a composer whose name box holds one of the player's muted / banned aliases (only into an empty line: busy / a refusal stay)
+        const gagLine = (comp) => {
+            const nm = Array.prototype.find.call(comp.querySelectorAll('[data-so-board]'), (x) => x.getAttribute('data-so-board') === 'name');
+            const line = comp.querySelector('[data-so-line]');
+            const v = nm ? String(nm.value == null ? '' : nm.value).trim() : '';
+            if (line && v && own(map('gag'), v) && !line.textContent) line.textContent = str(map('gag')[v]);
+        };
+        function boardHead(el) {
+            const at = el.childNodes.length;
+            hooks.boardHead(el);
+            if (!M) return;
+            const items = [];
+            (Array.isArray(M.pins) ? M.pins : []).forEach((tid) => {
+                const t = api.threadById(tid);
+                if (!t) return;
+                const cs = Array.from(String(t.title == null ? '' : t.title));
+                const ttl = cs.length > 18 ? cs.slice(0, 18).join('') + '…' : cs.join('');
+                items.push(h('button', ctl('ann', { class: 'thx-ann-item', type: 'button', 'data-tid': tid, onclick: () => api.push({ v: 'thread', id: tid }) }), '#' + t.no + ' ' + ttl));
+            });
+            const ann = str(M.ann);
+            const notes = (Array.isArray(M.board) ? M.board : []).filter((s) => typeof s === 'string' && s);
+            if (!items.length && !ann && !notes.length) return;
+            const box = h('div', { class: 'thx-ann', who: 'so' },
+                items.length ? [h('span', { class: 'thx-meta', who: 'so' }, tx('annTitle')), items] : null,
+                ann ? h('div', { class: 'thx-meta', who: 'so' }, ann) : null,
+                notes.map((s) => h('div', { class: 'thx-notice', who: 'so' }, s)));
+            el.insertBefore(box, el.childNodes[at] || null);
+            el.querySelectorAll('[data-so-compose]').forEach(gagLine);
+        }
+        // the list cards: marks only when every card's title is the thread the runtime drew there (same order as the runtime: the 「最热」 tab
+        // sorts by heat) — any mismatch → no marks at all (fail-safe)
+        function boardFoot(el, list) {
+            hooks.boardFoot(el, list);
+            if (!M || !list) return;
+            let ts = api.threads().slice();
+            if (el._sort === 'hot') ts = ts.sort((a, b) => b.heat - a.heat);
+            const cards = kids(list).filter((c) => c.classList.contains('thx-card'));
+            if (cards.length !== ts.length) return;
+            for (let i = 0; i < ts.length; i++) {
+                const tt = cards[i].querySelector('.thx-ttl');
+                if (!tt || tt.textContent !== String(ts[i].title == null ? '' : ts[i].title)) return;
+            }
+            cards.forEach((card, i) => {
+                const tt = card.querySelector('.thx-ttl');
+                flags(ts[i].id).forEach((f) => card.insertBefore(f, tt));
+                const nm = card.querySelector('.thx-name');
+                const b = badge(ts[i].author);
+                if (nm && b) nm.after(b);
+            });
+        }
+        function threadHead(el, t) {
+            hooks.threadHead(el, t);
+            if (!M) return;
+            const head = el.querySelector('.thx-card');
+            const tt = head ? head.querySelector('.thx-ttl') : null;
+            if (tt) flags(t.id).forEach((f) => head.insertBefore(f, tt));
+        }
+        function threadFoot(el, t, list) {
+            hooks.threadFoot(el, t, list);
+            if (!M) return;
+            // in-thread notices after the floor they followed; a notice whose floor is not drawn → after the last floor
+            const ns = own(map('notes'), t.id) && Array.isArray(map('notes')[t.id]) ? map('notes')[t.id] : [];
+            ns.forEach((x) => {
+                if (!x || typeof x.line !== 'string' || !x.line) return;
+                const nt = h('div', { class: 'thx-notice', who: 'so' }, x.line);
+                const card = kids(list).filter((c) => c.getAttribute('data-n') === String(x.n)).pop();
+                let at = card || null;
+                while (at && at.nextElementSibling && at.nextElementSibling.classList.contains('thx-notice')) at = at.nextElementSibling;
+                if (at) at.after(nt); else list.append(nt);
+            });
+            const comp = Array.prototype.find.call(el.querySelectorAll('[data-so-compose]'), (c) => c.getAttribute('data-so-compose') === 'reply' && c.getAttribute('data-tid') === t.id);
+            if (own(map('locks'), t.id)) {
+                if (comp) comp.remove();
+                el.append(h('div', { class: 'thx-lock', who: 'so', 'aria-live': 'polite' }, str(map('locks')[t.id])));
+                return;
+            }
+            if (comp) gagLine(comp);
+        }
+        function floor(card, t, f) {
+            hooks.floor(card, t, f);
+            if (!M || f.del) return;
+            const nm = card.querySelector('.thx-name');
+            const b = badge(f.u);
+            if (nm && b) nm.after(b);
+            const line = f.pid && own(map('hid'), f.pid) ? str(map('hid')[f.pid]) : '';
+            if (!line) return;
+            // the head row (avatar, name, floor number) stays; everything under it folds into one tap
+            const rest = kids(card).slice(1);
+            const det = h('details', { class: 'thx-hid', who: 'so' }, h('summary', ctl('hid'), line));
+            rest.forEach((c) => det.append(c));
+            card.append(det);
+        }
+        return Object.assign({}, hooks, { boardHead, boardFoot, threadHead, threadFoot, floor });
+    };
+}
+
+// 放进页面的两段样式 + 包一层的那一行脚本（接在 P5 那段 window.__thxBoardExt=… 之后）。
+function soBdModExtParts() {
+    return { css: THEATER_BOARD_MOD_APP_CSS, guard: THEATER_BOARD_MOD_GUARD_CSS, js: 'window.__thxBoardExt=(' + soBdModExt.toString() + ')(window.__thxBoardExt);' };
+}
+/* <</BOARD:mods-ext>> */
+/* —— 🗂 论坛板 · join（ENABLE_THR_BOARD）—— */
+// 两枚旗只在这两个助手里读（重做美化的先例）；其余代码一律问助手。
+function soThrBoardOn() { return ENABLE_THR_BOARD && soThrParallelOn(); }
+function soThrBoardSumOn() { return ENABLE_THR_BOARD_SUM && soThrBoardOn(); }
+// 板块的读帖器（块 read.js）用的场景读帖小工具——原样按引用交出去，块里不复制一份。peopleRow 在没有「网名」那版论坛措辞的拷贝里为 null（H14）。
+function soThrBoardReaderDeps() {
+    return {
+        clean: soThrScClean, person: soThrScPerson, name: soThrScName, heat: soThrScHeat, moreClean: soThrScMoreClean,
+        reasoning: stripReasoningTags, mech: stripMechanismBlocks,
+        peopleRow: typeof soThrScForumPeopleRow === 'function' ? soThrScForumPeopleRow : null,
+        floorRe: THEATER_SC_FLOOR_RE, nameColonRe: THEATER_SC_NAME_COLON_RE, recRe: THEATER_SC_REC_RE,
+        sep: THEATER_SC_SEP, listSep: THEATER_SC_LIST_SEP,
+        split: soThrScSplit, tailCut: soThrScTailCut, fenceRe: THEATER_SC_FENCE_RE,
+    };
+}
+// 跟着主聊天走（swipe / 删楼 / 插楼）要用的手机那几枚纯函数（不受旗管的那几枚，H15）——同样按引用交出去。
+function soThrBoardChatCx() {
+    return { lastAiFloor: soThrWeiyuLastAiFloor, swipeOf: soThrWeiyuSwipeOf, keyAt: soThrWeiyuKeyAt, locate: soThrWeiyuLocate };
+}
+/* —— 存储（P1 Task 8）——
+ * 论坛板 = 本聊天元数据里唯一一个键 THEATER_BOARD_META_KEY（块 model.js 的 State，v1，只加键）；没有板 = 没有这个键。
+ * 更新版本存的板（soBdIsForeign）：只读不写。存着却读不懂的值（broken）：不覆盖、不当成「没有」——只有玩家在设置里确认才删（P4）。 */
+const THEATER_BOARD_META_KEY = MODULE + '_thrBoard';
+const soThrBoardNormed = new WeakSet();   // 已经过 soBdNorm 的对象（身份判断：md[KEY] 还是它 = 不再重复规整；换聊天自然失效）
+const soThrBoardSubs = new Set();         // commit / remove 之后按登记顺序通知（fn(why)）
+// → { state, foreign, broken? }，绝不抛。规整后的对象只在内存里换进 md[KEY]（不存盘，随下一次 commit 落盘）。
+function soThrBoardRead() {
+    const none = { state: null, foreign: false };
+    if (!soThrBoardOn()) return none;
+    const md = getChatMetadataSafe();
+    if (!md || !Object.prototype.hasOwnProperty.call(md, THEATER_BOARD_META_KEY)) return none;
+    try {
+        const raw = md[THEATER_BOARD_META_KEY];
+        if (raw && typeof raw === 'object' && soThrBoardNormed.has(raw)) return { state: raw, foreign: false };
+        if (soBdIsForeign(raw)) return { state: null, foreign: true };
+        const st = soBdNorm(raw);
+        if (!st) return { state: null, foreign: false, broken: true };
+        md[THEATER_BOARD_META_KEY] = st;
+        soThrBoardNormed.add(st);
+        return { state: st, foreign: false };
+    } catch (e) {
+        return { state: null, foreign: false, broken: true };
+    }
+}
+// 此刻这个聊天的板（旗开、不是群聊、不是更新版本存的、读得懂）；否则 null。
+function soThrBoardState() {
+    let ctx = null;
+    try { ctx = getCtx(); } catch (e) { ctx = null; }
+    if (soThrGroupBlocked(ctx)) return null;
+    return soThrBoardRead().state;
+}
+function soThrBoardNotify(why) {
+    for (const fn of Array.from(soThrBoardSubs)) {
+        try { fn(why); } catch (e) { console.warn('[Story Oracle] 论坛板：订阅者出错', e); }
+    }
+}
+// 存整块板（不深拷贝、不存字符串）：rev + 1 → 收拾（批次头 / 暂存 / 通知封顶；摘要开着时才折叠）→ 写回 → 存盘 → 通知。
+// 旗关 / state 不是对象 / 没有元数据 / 群聊 / 存着的是更新版本的或读不懂的板 → false，什么都不写。
+function soThrBoardCommit(state, why) {
+    if (!soThrBoardOn() || !state || typeof state !== 'object' || Array.isArray(state) || soBdIsForeign(state)) return false;
+    const md = getChatMetadataSafe();
+    if (!md) return false;
+    let ctx = null;
+    try { ctx = getCtx(); } catch (e) { ctx = null; }
+    if (soThrGroupBlocked(ctx)) return false;
+    const cur = soThrBoardRead();
+    if (cur.foreign || cur.broken) return false;
+    state.rev = soBdInt(state.rev, 0, 0) + 1;
+    soBdHousekeep(state, { fold: soThrBoardSumOn() });
+    md[THEATER_BOARD_META_KEY] = state;
+    soThrBoardNormed.add(state);
+    saveChatMetadata();
+    soThrBoardNotify(String(why == null ? '' : why));
+    return true;
+}
+// 登记一个 commit / remove 之后的回调；→ 取消登记的函数。
+function soThrBoardSubscribe(fn) {
+    if (typeof fn !== 'function') return () => {};
+    soThrBoardSubs.add(fn);
+    return () => { soThrBoardSubs.delete(fn); };
+}
+// 删掉这个聊天的板（读不懂的那种也删——只由玩家确认后调用）。旗关 / 没有这个键 / 更新版本存的 → false。
+function soThrBoardRemove() {
+    if (!soThrBoardOn()) return false;
+    const md = getChatMetadataSafe();
+    if (!md || !Object.prototype.hasOwnProperty.call(md, THEATER_BOARD_META_KEY)) return false;
+    if (soBdIsForeign(md[THEATER_BOARD_META_KEY])) return false;
+    delete md[THEATER_BOARD_META_KEY];
+    saveChatMetadata();
+    soThrBoardNotify('remove');
+    return true;
+}
+/* —— 升格（P1 Task 9）：存着的一次性论坛（主线的）变成这个聊天的常驻论坛板。存着的那个场景一个字都不动、也不删。
+ * 板的起点 = 做这个场景之前最后一条 AI 回复（楼号 + 当时显示的 swipe + 那段正文的 key）；论坛上用主角名字发的帖 = 玩家自己的网名（O3）。 */
+// → {ok: true} | {ok: false, why: 'off'|'foreign'|'exists'|'gone'|'not-forum'|'not-main'|'unreadable'}，按这个顺序查。
+function soThrBoardPromote(sceneId) {
+    const no = (why) => ({ ok: false, why });
+    let ctx = null;
+    try { ctx = getCtx(); } catch (e) { ctx = null; }
+    if (!soThrBoardOn() || !getChatMetadataSafe() || soThrGroupBlocked(ctx)) return no('off');
+    const cur = soThrBoardRead();
+    if (cur.foreign) return no('foreign');
+    if (cur.state || cur.broken) return no('exists');
+    const item = soThrSceneGet(sceneId);
+    if (!item) return no('gone');
+    if (item.scene !== 'forum') return no('not-forum');
+    if (!item.owner || item.owner.kind !== 'main') return no('not-main');
+    const merged = soThrSceneMerge(item);
+    if (!merged || !merged.content) return no('unreadable');
+    const cx = soThrBoardChatCx();
+    const chat = ctx && Array.isArray(ctx.chat) ? ctx.chat : [];
+    const upTo = soThrBoardSceneEnd(item, chat.length);
+    const floor = cx.lastAiFloor(chat.slice(0, upTo));
+    let base = { floor: -1, swipe: 0, key: '' };
+    if (floor >= 0) {
+        const msg = chat[floor];
+        const swipe = cx.swipeOf(msg);
+        base = { floor, swipe, key: cx.keyAt(msg, swipe) || '' };
+    }
+    const look = { lex: merged.lex, skin: merged.skin, extras: merged.extras, from: { sceneId: item.id, so: SO_VERSION } };
+    const name1 = ctx && typeof ctx.name1 === 'string' ? ctx.name1 : '';
+    const state = soBdFromForum(merged.content, look, base, { so: SO_VERSION, now: Date.now(), protect: [name1].filter(Boolean) });
+    if (!state) return no('unreadable');
+    return soThrBoardCommit(state, 'promote') ? { ok: true } : no('off');
+}
+/* —— 🗂 论坛板 · 面板卡（P4）——
+ * 小剧场 → 小场景 → 论坛 顶上那张卡（只跟主线；平行线 / 群聊只给一行说明）：这个聊天有没有常驻论坛、设一个、打开、设置、移除。
+ * 唯一写者：卡 = soThrRefreshBoardCard（它的状态行另有一个写者）；骨架里一个字都没有，字一律经 textContent 进去。
+ * 设置 = 这个聊天的板自己的 opts（每个聊天各一份）。文案全在 P5 的 THEATER_BOARD_TEXT（块 view.js），经 soBdTxt 读。
+ * 升格的起点：自动场景（item.auto.floor === owner.floor）看过那一楼 → 含那一楼；手做的 owner.floor = 按下时的楼数 → 不含（soThrBoardSceneEnd）。 */
+// 卡上的一句字：P5 文案表里的那一句（函数键的参数按位置给数组、或按名字给对象）；不认识的键 → ''。
+function soThrBoardCardT(k, vars) {
+    return soBdTxt(k, vars);
+}
+// 升格时找起点用的楼段终点（chat.slice(0, end)）。自动场景的 owner.floor = 它跟着的那条 AI 回复（含：场景看过那一楼；贴上时
+// soThrSceneMarkAuto 写下 item.auto）；手做的 = 按下时的楼数（不含）；楼号不是 ≥ 0 的整数 → len。重新生成过 / 没贴上的自动场景没有 auto
+// → 按手做的算（早一条回复 = 第一次补帖多看一条，重叠本来就有，不会漏）。
+function soThrBoardSceneEnd(item, len) {
+    const o = item && item.owner;
+    const f = o && Number.isInteger(o.floor) && o.floor >= 0 ? o.floor : len;
+    const a = item && item.auto;
+    return a && typeof a === 'object' && Number.isInteger(a.floor) && a.floor === f ? f + 1 : f;
+}
+let soThrBoardCardMaking = false;   // 「新写一个」从按下到设为常驻之间
+let soThrBoardCardHooked = false;   // 板的提交 / 状态记录的两个订阅者登记过了（每个页面一次）
+// 帖子数 + 楼数（删掉的楼不算；楼主那一楼算 1 楼）。不是对象 → {t: 0, p: 0}。
+function soThrBoardCardStats(state) {
+    const out = { t: 0, p: 0 };
+    const ths = state && typeof state === 'object' && !Array.isArray(state) ? state.threads : null;
+    if (!ths || typeof ths !== 'object') return out;
+    for (const t of Object.values(ths)) {
+        if (!t || typeof t !== 'object') continue;
+        out.t++;
+        if (Array.isArray(t.posts)) for (const p of t.posts) if (p && typeof p === 'object' && !p.del) out.p++;
+    }
+    return out;
+}
+// 存着的论坛那几行要不要带「设为常驻」：旗开、不是群聊、有聊天元数据、这个聊天什么板值都没存（没有板、不是更新版本的、不是读不懂的）。
+function soThrBoardCardCanPromote() {
+    if (!soThrBoardOn()) return false;
+    let ctx = null;
+    try { ctx = getCtx(); } catch (e) { ctx = null; }
+    if (soThrGroupBlocked(ctx) || !getChatMetadataSafe()) return false;
+    const r = soThrBoardRead();
+    return !r.state && !r.foreign && !r.broken;
+}
+// 卡此刻该画成什么样（只读；不写元数据）。按这个顺序，先中先得：旗关 / 没选论坛 → hidden；群聊 → group；平行线 → if；
+// 更新版本存的 → foreign；读不懂 → broken（只能移除）；没有 → none；有 → board。出意外 → hidden（绝不 broken：那会让一块好板能被移除）。
+function soThrBoardCardView() {
+    const sumOn = soThrBoardSumOn();
+    const base = () => ({ show: false, mode: 'hidden', note: '', name: '', stats: null, size: null, opts: null, sumOn, canNew: false, canOpen: false, canRemove: false });
+    if (!soThrBoardOn() || soThrScenePick !== 'forum') return base();
+    try {
+        const v = base();
+        v.show = true;
+        let ctx = null;
+        try { ctx = getCtx(); } catch (e) { ctx = null; }
+        if (soThrGroupBlocked(ctx)) return Object.assign(v, { mode: 'group', note: THEATER_GROUP_REASON });
+        if (soThrSceneOwnerNow().kind === 'if') return Object.assign(v, { mode: 'if', note: soThrBoardCardT('ifNote') });
+        const r = soThrBoardRead();
+        if (r.foreign) return Object.assign(v, { mode: 'foreign', note: soThrBoardCardT('foreignNote') });
+        if (r.broken) return Object.assign(v, { mode: 'broken', note: soThrBoardCardT('brokenNote'), canRemove: true });
+        const st = r.state;
+        if (!st) return Object.assign(v, { mode: 'none', note: soThrBoardCardT('cardEmpty'), canNew: !soThrSceneBusy && !soThrBoardCardMaking });
+        const bytes = soBdSize(st);
+        const kb = Math.max(1, Math.round(bytes / 1000));
+        const level = soBdSizeLevel(st);
+        const text = level === 'full' ? soThrBoardCardT('sizeFull', [kb])
+            : level === 'warn' ? soThrBoardCardT(sumOn ? 'sizeWarn' : 'sizeWarnNoFold', [kb]) : soThrBoardCardT('sizeLine', [kb]);
+        return Object.assign(v, {
+            mode: 'board', name: String((st.board && st.board.name) || ''), stats: soThrBoardCardStats(st),
+            size: { bytes, kb, level, text },
+            opts: { follow: soBdOpt(st, 'follow'), sumAt: soBdOpt(st, 'sumAt'), sumKeep: soBdOpt(st, 'sumKeep'), keep: soBdOpt(st, 'keep') },
+            canOpen: typeof soThrBoardOpen === 'function', canRemove: true,
+        });
+    } catch (e) {
+        console.warn('[Story Oracle] 论坛板：面板卡读不出来', e);
+        return base();
+    }
+}
+// 设置里的三个数字框：[id, opts 的键]（摘要那两个只在摘要旗开着时才在）。
+const THEATER_BOARD_CARD_BOXES = Object.freeze([['so-thr-board-sum-at', 'sumAt'], ['so-thr-board-sum-keep', 'sumKeep'], ['so-thr-board-keep', 'keep']]);
+// 卡的骨架（一个字都没有：字由 soThrRefreshBoardCard 经 textContent 填）。摘要那三行只在摘要旗开着时才有。
+function soThrBoardCardHtml() {
+    const num = (key, id) => `<label class="so-thr-board-num"><span data-so-bt="${key}"></span><input type="number" id="${id}" min="1" step="1"></label>`;
+    const sum = soThrBoardSumOn()
+        ? '<div class="so-hint" id="so-thr-board-sum-note" data-so-bt="sumStatement"></div>' + num('sumAtLabel', 'so-thr-board-sum-at', 'sumAt') + num('sumKeepLabel', 'so-thr-board-sum-keep', 'sumKeep')
+        : '';
+    return '\n                        <div class="so-thr-board-card" id="so-thr-board-card" role="group" hidden>'
+        + '<div class="so-thr-board-head"><span class="so-thr-board-title" data-so-bt="cardTitle"></span><span class="so-thr-board-name" id="so-thr-board-name" hidden></span></div>'
+        + '<div class="so-hint so-thr-board-note" id="so-thr-board-note" hidden></div>'
+        + '<div class="so-thr-board-stats" id="so-thr-board-stats" hidden></div>'
+        + '<div class="so-hint so-thr-board-size" id="so-thr-board-size" hidden></div>'
+        + (soThrBoardTellOn() ? soThrBoardTellHtml('face') : '')   // 🗂 主线知情（stage 2）：卡面上「主线这次没读到什么」那一句
+        + '<div class="so-thr-board-acts">'
+        + '<button type="button" class="so-thr-scene-mini" id="so-thr-board-open" data-so-bt="openBtn" hidden></button>'
+        + '<button type="button" class="so-thr-scene-mini" id="so-thr-board-new" data-so-bt="newBtn" hidden></button>'
+        + '<button type="button" class="so-thr-scene-mini so-thr-board-danger" id="so-thr-board-remove" data-so-bt="removeBtn" hidden></button>'
+        + '</div>'
+        + '<div class="so-hint so-thr-board-status" id="so-thr-board-status" aria-live="polite" hidden></div>'
+        + '<details class="so-thr-board-set" id="so-thr-board-set" hidden><summary data-so-bt="setTitle"></summary>'
+        + '<label class="so-check so-lb-check"><input type="checkbox" id="so-thr-board-follow"><span data-so-bt="followLabel"></span></label>'
+        + '<div class="so-hint" data-so-bt="followCost"></div>'
+        + '<div class="so-hint" data-so-bt="openNote"></div>'
+        + sum
+        + num('keepLabel', 'so-thr-board-keep', 'keep')
+        + (soThrBoardTellOn() ? soThrBoardTellHtml('set') : '')   // 🗂 主线知情（stage 2）：开关 / 上限 / 尺寸行 / 预览键 + 整理论坛
+        + '</details>'
+        + '</div>';
+}
+// 卡的唯一写者（状态行除外）：按 soThrBoardCardView 显示 / 藏起每一块、填字（只在字变了时写，焦点 / 选区不丢）；玩家正在打的数字框不覆盖
+// ——o.force = 刚改完的那个框的 id：它照样写回存下的值（夹过的 / 没认的都显示真值）。
+function soThrRefreshBoardCard(o) {
+    if (!soThrBoardOn() || !win) return;
+    const card = win.querySelector('#so-thr-board-card');
+    if (!card) return;
+    const v = soThrBoardCardView();
+    const put = (e, t) => { if (e && e.textContent !== t) e.textContent = t; };
+    const vis = (e, on) => { if (e && e.hidden !== !on) e.hidden = !on; };
+    vis(card, v.show);
+    if (card.dataset.soMode !== v.mode) card.dataset.soMode = v.mode;   // 状态行的写者据此判断这一刻能不能显示
+    card.querySelectorAll('[data-so-bt]').forEach((e) => put(e, soThrBoardCardT(e.dataset.soBt)));
+    const label = soThrBoardCardT('cardTitle');
+    if (card.getAttribute('aria-label') !== label) card.setAttribute('aria-label', label);
+    const q = (id) => card.querySelector('#' + id);
+    const board = v.mode === 'board';
+    const note = q('so-thr-board-note');
+    put(note, v.note);
+    vis(note, !!v.note);
+    const name = q('so-thr-board-name');
+    put(name, board ? v.name : '');
+    vis(name, board);
+    const stats = q('so-thr-board-stats');
+    put(stats, board ? soThrBoardCardT('stats', [v.stats.t, v.stats.p]) : '');
+    vis(stats, board);
+    const size = q('so-thr-board-size');
+    put(size, board ? v.size.text : '');
+    vis(size, board);
+    if (size) {
+        size.classList.toggle('so-thr-board-size-warn', board && v.size.level === 'warn');
+        size.classList.toggle('so-thr-board-size-full', board && v.size.level === 'full');
+    }
+    vis(q('so-thr-board-open'), board && v.canOpen);
+    const nb = q('so-thr-board-new');
+    vis(nb, v.mode === 'none');
+    if (nb) nb.disabled = !v.canNew;
+    vis(q('so-thr-board-remove'), v.canRemove);
+    vis(q('so-thr-board-set'), board);
+    if (board) {
+        const follow = q('so-thr-board-follow');
+        if (follow) follow.checked = v.opts.follow === true;
+        for (const [id, k] of THEATER_BOARD_CARD_BOXES) {
+            const box = q(id);
+            if (!box || (document.activeElement === box && !(o && o.force === id))) continue;
+            const s = String(v.opts[k]);
+            if (box.value !== s) box.value = s;
+        }
+    }
+    if (soThrBoardTellOn()) soThrRefreshBoardTell(card, v, o);   // 🗂 主线知情（stage 2）：那几行的唯一写者
+    soThrBoardCardPaintStatus(soThrBoardLive());
+}
+// 状态行的一句：按下的那一趟板请求（P2 的 soThrBoardLive()）——排着队 = 「原因 · 已等 …」；回帖 = replying；补帖 = catching。没有 → ''。
+function soThrBoardCardStatusText(live) {
+    if (!live || typeof live !== 'object') return '';
+    if (live.wait && typeof live.wait === 'object') return soThrWaitWhy(live.wait) + ' · ' + soThrWaitElapsed(live.wait);
+    const n = Number(live.chars) || 0;
+    const s = Number(live.secs) || 0;
+    return soThrBoardCardT(live.kind === 'post' ? 'replying' : 'catching', [n, s]);
+}
+// 状态行的唯一写者（只写字，没有停止键）：卡不在 / 藏着 → 不动；只在「有板 / 还没有板」两种样子下显示，别的样子清空。每次都重新找卡。
+function soThrBoardCardPaintStatus(live) {
+    const card = win && win.querySelector('#so-thr-board-card');
+    if (!card || card.hidden) return;
+    const el = card.querySelector('#so-thr-board-status');
+    if (!el) return;
+    const m = card.dataset.soMode;
+    const text = m === 'board' || m === 'none' ? soThrBoardCardStatusText(live) : '';
+    if (el.textContent !== text) el.textContent = text;
+    if (el.hidden !== !text) el.hidden = !text;
+}
+// 卡的接线（每个卡元素只接一次）；接完画一遍。
+function soThrBindBoardCard(panel) {
+    if (!soThrBoardOn() || !panel) return;
+    const card = panel.querySelector('#so-thr-board-card');
+    if (!card) return;
+    if (card.dataset.soBound !== '1') {
+        card.dataset.soBound = '1';
+        // 卡上按钮 / 设置的监听接在这里（每个卡元素一次）
+        const warn = (e) => console.warn('[Story Oracle] 论坛板：面板卡操作出错', e);
+        const on = (id, type, fn) => { const e = card.querySelector('#' + id); if (e) e.addEventListener(type, fn); };
+        on('so-thr-board-new', 'click', (e) => { if (!e.currentTarget.disabled) soThrBoardCardNew().catch(warn); });
+        on('so-thr-board-remove', 'click', (e) => { if (!e.currentTarget.disabled) soThrBoardCardRemove().catch(warn); });
+        on('so-thr-board-open', 'click', (e) => { if (!e.currentTarget.disabled) soThrBoardCardOpen(); });
+        on('so-thr-board-follow', 'change', (e) => soThrBoardCardSetOpt('follow', e.currentTarget.checked === true));
+        for (const [id, k] of THEATER_BOARD_CARD_BOXES) on(id, 'change', (e) => soThrBoardCardSetOpt(k, e.currentTarget.value));
+        if (soThrBoardTellOn()) soThrBindBoardTell(card);   // 🗂 主线知情（stage 2）：开关 / 上限框 / 预览键
+        // 板的两个订阅者（每个页面一次；卡元素重建了也不重复登记）：状态记录一变就画状态行；一次提交 → 重画卡（设为常驻 / 移除连列表一起）
+        if (!soThrBoardCardHooked) {
+            soThrBoardCardHooked = true;
+            soThrBoardLiveSubscribe((live) => soThrBoardCardPaintStatus(live));
+            soThrBoardSubscribe((why) => { if (why === 'promote' || why === 'remove') soThrRefreshScenePanel(); else soThrRefreshBoardCard(); });
+        }
+    }
+    soThrRefreshBoardCard();
+}
+// 卡上所有提示都走这一个：字先 escapeHtml 再进 toastr。
+function soThrBoardCardSay(kind, text, o) {
+    if (typeof toastr === 'undefined' || !toastr || typeof toastr[kind] !== 'function') return;
+    if (o) toastr[kind](escapeHtml(String(text || '')), '', o);
+    else toastr[kind](escapeHtml(String(text || '')));
+}
+// 存着的那一行主线论坛的「设为常驻」（图标固定；字只进 title / aria-label）。
+function soThrBoardCardPromoteBtn() {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'so-thr-scene-act';
+    b.dataset.act = 'promote';
+    const t = soThrBoardCardT('promoteAct');
+    b.title = t;
+    b.setAttribute('aria-label', t);
+    b.innerHTML = '<i class="fa-solid fa-thumbtack"></i>';
+    return b;
+}
+// 把一个存着的论坛设为常驻（P1 的 soThrBoardPromote），按结果提示一句，再重画面板。→ P1 的结果；旗关 → {ok: false, why: 'off'}（不提示）。
+function soThrBoardCardPromote(id) {
+    if (!soThrBoardOn()) return { ok: false, why: 'off' };
+    let r = null;
+    try { r = soThrBoardPromote(id); } catch (e) { console.warn('[Story Oracle] 论坛板：设为常驻出错', e); r = { ok: false, why: 'off' }; }
+    const why = r && r.ok ? 'ok' : String((r && r.why) || '');
+    if (why === 'ok') soThrBoardCardSay('success', soThrBoardCardT('promoteDone'), { timeOut: 8000, onclick: typeof soThrBoardOpen === 'function' ? () => soThrBoardCardOpen() : undefined });
+    else if (why === 'exists') soThrBoardCardSay('info', soThrBoardCardT('promoteExists'));
+    else if (why === 'foreign') soThrBoardCardSay('info', soThrBoardCardT('foreignNote'));
+    else if (why === 'gone') soThrBoardCardSay('info', THEATER_SCENE_GONE);
+    else if (why === 'unreadable' || why === 'not-forum' || why === 'not-main') soThrBoardCardSay('warning', soThrBoardCardT('promoteBad'));
+    else console.warn('[Story Oracle] 论坛板：没能设为常驻（' + why + '）');
+    soThrRefreshScenePanel();
+    return r;
+}
+// 「写一个新论坛并设为常驻」：一次普通的论坛首轮（面板上那一句「想看谁」照用），写成了就设为常驻；那份一次性论坛照旧留在列表里。
+// 不发请求就 → null：旗关 / 正在做 / 别的场景首轮在写 / 群聊 / 平行线 / 这个聊天已经存着板值（提示 promoteExists）。首轮没写成 → null（原因在场景状态行）。
+async function soThrBoardCardNew() {
+    if (!soThrBoardOn() || soThrBoardCardMaking || soThrSceneBusy) return null;
+    let ctx = null;
+    try { ctx = getCtx(); } catch (e) { ctx = null; }
+    if (soThrGroupBlocked(ctx)) return null;
+    const owner = soThrSceneOwnerNow();
+    if (!owner || owner.kind !== 'main') return null;
+    const r0 = soThrBoardRead();
+    if (r0.state || r0.foreign || r0.broken) { soThrBoardCardSay('info', soThrBoardCardT('promoteExists')); return null; }
+    const box = win && win.querySelector('#so-thr-scene-note');
+    soThrBoardCardMaking = true;
+    soThrRefreshBoardCard();
+    let item = null;
+    try {
+        item = await soThrSceneRun('forum', box ? box.value : '', owner);
+    } finally {
+        soThrBoardCardMaking = false;
+    }
+    if (!item) { soThrRefreshBoardCard(); return null; }
+    return soThrBoardCardPromote(item.id);
+}
+// 移除这个聊天的常驻论坛：先问（读不懂的那种用 brokenConfirm）；不点确定 / 问的时候换了聊天 / 弹窗出错 → 什么都不删。
+// 确定 → 先停掉按下的那一趟板请求、开着的论坛查看层关掉，再删。更新版本存的 / 什么都没存 → false（不问）。→ 删了没有。
+async function soThrBoardCardRemove() {
+    if (!soThrBoardOn()) return false;
+    let ctx = null;
+    try { ctx = getCtx(); } catch (e) { ctx = null; }
+    if (soThrGroupBlocked(ctx)) return false;
+    const r0 = soThrBoardRead();
+    if (r0.foreign || (!r0.state && !r0.broken)) return false;
+    const key = fixChatKey();
+    let ok = false;
+    try { ok = (await uiConfirm(escapeHtml(r0.broken ? soThrBoardCardT('brokenConfirm') : soThrBoardCardT('removeConfirm')))) === true; } catch (e) { ok = false; }
+    if (!ok || fixChatKey() !== key) return false;
+    soThrBoardStop();
+    if (soThrSceneView && soThrSceneView.board === true) soThrSceneClose();
+    const done = soThrBoardRemove();
+    soThrRefreshScenePanel();
+    return done;
+}
+// 「打开论坛」（P5 的 soThrBoardOpen，不带参数）。没有它 → false。→ 打开了没有。
+function soThrBoardCardOpen() {
+    if (!soThrBoardOn() || typeof soThrBoardOpen !== 'function') return false;
+    try { return soThrBoardOpen() === true; } catch (e) { console.warn('[Story Oracle] 论坛板：打开出错', e); return false; }
+}
+// 改一项设置（这个聊天的板自己的 opts；P3 的「每条回复后跟上」= follow）。k = 'follow' | 'sumAt' | 'sumKeep' | 'keep'；follow 只认 true / false，
+// 数字框的字先 trim（空 = 不认）。数字不设范围（Prince 2026-11-20）：≥ 1 的数照存；唯一一条规则 sumKeep < sumAt 由 soBdOptCheck 判——
+// 违反 = 不改，并用一句 optRefused 告诉玩家为什么（不悄悄地改成别的数）。改完四项的实际值都没变 → 不提交（每次提交都是一次存盘）。
+// 旗关 / 没有板（群聊 / 更新版本的 / 读不懂的）/ 平行线 → false。无论成不成都重画，刚改的框显示存下的值。→ 提交了没有。
+function soThrBoardCardSetOpt(k, raw) {
+    const box = THEATER_BOARD_CARD_BOXES.find((x) => x[1] === k);
+    const done = (ok) => { soThrRefreshBoardCard({ force: box ? box[0] : '' }); return ok; };
+    if (!soThrBoardOn()) return false;
+    const st = soThrBoardState();
+    if (!st || soThrSceneOwnerNow().kind !== 'main') return done(false);
+    if (k !== 'follow' && !box) return done(false);
+    let v;
+    if (k === 'follow') {
+        if (typeof raw !== 'boolean') return done(false);
+        v = raw;
+    } else {
+        const t = String(raw == null ? '' : raw).trim();
+        v = t === '' ? '' : Number(t);
+    }
+    const c = soBdClone(st);
+    if (soBdOptCheck(c, k, v).why === 'cross') soThrBoardCardSay('warning', soThrBoardCardT('optRefused'));
+    if (!soBdSetOpt(c, k, v)) return done(false);
+    if (['follow', 'sumAt', 'sumKeep', 'keep'].every((x) => soBdOpt(c, x) === soBdOpt(st, x))) return done(false);
+    return done(soThrBoardCommit(c, 'opts'));
+}
+/* —— 🗂 论坛板 · 调用（P2）——
+ * 板的每一个请求（补帖 / 玩家回帖或开新帖之后 / 重新生成 / 安静的摘要）都是一趟普通的小剧场调用：soThrSceneOpts（同场景的拼法：神谕路 =
+ * 请求 + 角色卡 + 世界书；预设路 = 只加不动那一拍）→ 板自己的剧情范围（soThrBoardHistory，块 window.js 的 soBdStoryWin 给的楼）→
+ * soThrGenerateRecovered（重试次数 = 小剧场的「自动重试次数」）→ 引擎（排队 / 让路 / 停止）。块 flow.js 只经 deps 碰这一切。
+ * 按下的请求有一份内存里的状态记录（soThrBoardLive，给 P4 / P5 画状态行）；P2 不写 DOM、不写给玩家看的新字。摘要（silent）没有状态、
+ * 没有提示：一排队就不要了（这一次不做）。 */
+// 一个请求带的主线楼：story = {from, to}（块给的）；只看主线正在写的那一楼之前（info.mainFloor，没有 = 全部楼）。非系统楼，机制块剥掉。
+function soThrBoardHistory(ctx, story, info) {
+    if (!story || typeof story !== 'object') return [];
+    const chat = ctx && Array.isArray(ctx.chat) ? ctx.chat : [];
+    const mf = info && typeof info === 'object' && typeof info.mainFloor === 'number' && Number.isFinite(info.mainFloor) ? info.mainFloor : chat.length;
+    const from = Math.max(0, Math.floor(Number(story.from) || 0));
+    const to = typeof story.to === 'number' && Number.isFinite(story.to) ? story.to : chat.length;
+    const end = Math.max(0, Math.floor(Math.min(to, mf)));
+    return soThrHistoryFromMain({ chat: chat.slice(from, end) });
+}
+// 论坛格式的五行（从冻结的 THEATER_SCENE_SPECS.forum.format 按行首切下，一个字都不重打；缺 = ''）。
+function soThrBoardFmt() {
+    const f = THEATER_SCENE_SPECS && THEATER_SCENE_SPECS.forum ? String(THEATER_SCENE_SPECS.forum.format || '') : '';
+    const lines = f.split('\n');
+    const pick = (fn) => lines.find(fn) || '';
+    return {
+        person: pick((l) => l.startsWith('【人物】')),
+        thread: pick((l) => l.startsWith('【帖子】')),
+        op: pick((l) => l.startsWith('楼主：')),
+        floor: pick((l) => l.startsWith('- ') && !l.includes(' 回复@')),
+        reply: pick((l) => l.startsWith('- ') && l.includes(' 回复@')),
+    };
+}
+// 探针测试缝（惰性，同 soThrScenePrompt）：window.__soThrBoardArm 只有是【非 null 的对象】时才读。replyKind = 1–4 个字、不含【】｜和空白；
+// protect 恰好是 true。其余一律 {}。产品代码从不写它。
+function soThrBoardArm() {
+    let a = null;
+    try { a = (typeof window !== 'undefined') ? window.__soThrBoardArm : null; } catch (e) { a = null; }
+    if (a === null || typeof a !== 'object') return {};
+    const out = {};
+    try {
+        const k = a.replyKind;
+        if (typeof k === 'string' && [...k].length >= 1 && [...k].length <= 4 && !/[【】｜\s]/.test(k)) out.replyKind = k;
+        if (a.protect === true) out.protect = true;
+    } catch (e) { return {}; }
+    return out;
+}
+// 块的 deps.prompt：出厂 = soBdPrompt（fmt 由这里切好交进去）；探针臂 window.__soThrBoardArm[kind](win, args, shipped) 返回的 system / user
+// 字符串各自替换出厂的那一份（抛错 / 不是字符串 = 出厂）。→ {system, user, draft}。
+function soThrBoardPrompt(kind, win, args) {
+    const shipped = soBdPrompt(kind, win, Object.assign({ fmt: soThrBoardFmt() }, args && typeof args === 'object' ? args : {}));
+    let arm = null;
+    try { arm = (typeof window !== 'undefined') ? window.__soThrBoardArm : null; } catch (e) { arm = null; }
+    if (arm === null || typeof arm !== 'object') return shipped;
+    let fn = null;
+    try { fn = arm[kind]; } catch (e) { fn = null; }
+    if (typeof fn !== 'function') return shipped;
+    let v = null;
+    try { v = fn(win, args, shipped); } catch (e) { return shipped; }
+    if (!v || typeof v !== 'object') return shipped;
+    return {
+        system: typeof v.system === 'string' ? v.system : shipped.system,
+        user: typeof v.user === 'string' ? v.user : shipped.user,
+        draft: shipped.draft,
+    };
+}
+let soThrBoardSc = null;   // /script.js（回复后编排那一步的闸用；P3 填，同 soThrWeiyuSc）
+// 跟酒馆实时走却拒发（不是聊天补全）的那一句；'' = 不拒。
+function soThrBoardRefusal() {
+    let ctx = null;
+    try { ctx = getCtx(); } catch (e) { ctx = null; }
+    return String(soThrPresetRefusal(getSettings(), ctx) || '');
+}
+// '' = 可以开始；否则是原因（同步、不调引擎）。拒发那一句不在这里（块另问 refused()）。o.postReply = 回复后编排自己的一步（旧路）。
+function soThrBoardCanStart(o) {
+    const opt = o && typeof o === 'object' ? o : {};
+    let ctx = null;
+    try { ctx = getCtx(); } catch (e) { ctx = null; }
+    if (soThrGroupBlocked(ctx)) return THEATER_GROUP_REASON;
+    const s = getSettings();
+    const conn = soThrSceneConnIssue(s, soThrUsePreset(s, ctx));
+    if (conn && conn !== soThrPresetRefusal(s, ctx)) return String(conn);
+    if (opt.postReply === true) {
+        const st = soThrStartState(ctx, soThrBoardSc);
+        st.postReplyBusy = false;
+        return soThrCanStart(st).reason;
+    }
+    return soThrCanStart({ group: soThrGroupBlocked(ctx) }).reason;   // 轮流拼：别的小剧场请求在场 = 引擎排队，不拒
+}
+/* 按下的那一趟的状态记录（内存里，同一时刻至多一份）：{kind, key, t0, chars, phase, lastSt, wait, run, cancel, queued, showT, ticker}。
+ * 订阅者（P4 / P5 的状态行）在每次变化与每秒一跳时被叫（fn(soThrBoardLive())）。 */
+let soThrBoardLiveRec = null;
+const soThrBoardLiveFns = new Set();
+function soThrBoardLiveSubscribe(fn) {
+    if (typeof fn !== 'function') return () => {};
+    soThrBoardLiveFns.add(fn);
+    return () => { soThrBoardLiveFns.delete(fn); };
+}
+function soThrBoardLiveNotify() {
+    const now = soThrBoardLive();
+    for (const fn of Array.from(soThrBoardLiveFns)) {
+        try { fn(now); } catch (e) { console.warn('[Story Oracle] 论坛板：状态订阅者出错', e); }
+    }
+}
+function soThrBoardLiveStart(kind) {
+    const old = soThrBoardLiveRec;
+    if (old) { if (old.ticker) clearInterval(old.ticker); if (old.showT) clearTimeout(old.showT); }
+    const rec = { kind: String(kind == null ? '' : kind), key: fixChatKey(), t0: Date.now(), chars: 0, phase: 'start', lastSt: null, wait: null,
+        run: null, cancel: false, queued: false, showT: null, ticker: null };
+    soThrBoardLiveRec = rec;
+    rec.ticker = setInterval(() => { if (soThrBoardLiveRec === rec) soThrBoardLiveNotify(); }, 1000);
+    soThrBoardLiveNotify();
+    return rec;
+}
+function soThrBoardLiveEnd(rec) {
+    if (!rec) return;
+    if (rec.ticker) { clearInterval(rec.ticker); rec.ticker = null; }
+    if (rec.showT) { clearTimeout(rec.showT); rec.showT = null; }
+    if (soThrBoardLiveRec !== rec) return;
+    soThrBoardLiveRec = null;
+    soThrBoardLiveNotify();
+}
+// 引擎的 onState：排队满 THEATER_WAIT_SHOW_MS 还在排 → wait = 那份状态；开始拼 / 流式 → wait 清掉。每次变化都通知。
+function soThrBoardLiveOnState(rec, st) {
+    if (!rec || !st || typeof st !== 'object' || soThrBoardLiveRec !== rec) return;
+    rec.lastSt = st;
+    rec.phase = String(st.phase == null ? '' : st.phase);
+    if (st.phase === 'queued') {
+        rec.queued = true;
+        if (rec.wait) rec.wait = st;
+        else if (!rec.showT) {
+            rec.showT = setTimeout(() => {
+                rec.showT = null;
+                if (soThrBoardLiveRec !== rec || !rec.lastSt || rec.lastSt.phase !== 'queued') return;
+                rec.wait = rec.lastSt;
+                soThrBoardLiveNotify();
+            }, THEATER_WAIT_SHOW_MS);
+        }
+    } else {
+        if (rec.showT) { clearTimeout(rec.showT); rec.showT = null; }
+        rec.wait = null;
+    }
+    soThrBoardLiveNotify();
+}
+// → null | {kind, phase, chars, secs, wait: null | {phase, reason, attempt, since}}（一份拷贝）。
+function soThrBoardLive() {
+    const r = soThrBoardLiveRec;
+    if (!r) return null;
+    const w = r.wait && typeof r.wait === 'object' ? { phase: r.wait.phase, reason: r.wait.reason ?? null, attempt: r.wait.attempt ?? 0, since: r.wait.since ?? null } : null;
+    return { kind: r.kind, phase: r.phase, chars: r.chars, secs: Math.max(0, Math.round((Date.now() - r.t0) / 1000)), wait: w };
+}
+// 停止 / 「不等了」：按下的那一趟不要了；已经在引擎里 = 掐它（还在排队 = 一个请求都不发）。从不碰摘要（摘要没有停止键）。
+function soThrBoardStop() {
+    const r = soThrBoardLiveRec;
+    if (!r) return;
+    r.cancel = true;
+    if (r.run) soThrAbortRun(r.run, 'user');
+}
+// 块的 deps.generate：req = {kind, system, user, maxTokens, story: {from, to} | null, silent}；ctl = {cutOff, isStale, onPhase?, onRun?}（块给的）；
+// o = {postReply?, onRun?, report?}（调用方给的）。→ {text（已清洗）, finish, aborted, error, refused?, detail?, skipped?}，绝不抛。
+async function soThrBoardGenerate(req, ctl, o) {
+    const rq = req && typeof req === 'object' ? req : {};
+    const c = ctl && typeof ctl === 'object' ? ctl : {};
+    const opt = o && typeof o === 'object' ? o : {};
+    const silent = rq.silent === true;
+    const legacy = opt.postReply === true && !silent;
+    const clean = (t) => soThrScMoreClean(stripReasoningTags(String(t == null ? '' : t)));
+    const none = (extra) => Object.assign({ text: '', finish: '', aborted: false, error: null }, extra || {});
+    let rec = null;
+    try {
+        const refuse = soThrBoardRefusal();
+        if (refuse) return none({ refused: true, detail: refuse });
+        if (!silent) rec = soThrBoardLiveStart(rq.kind);
+        const ctx = getCtx();
+        const s = getSettings();
+        const system = String(rq.system == null ? '' : rq.system);
+        const user = String(rq.user == null ? '' : rq.user);
+        const onDelta = (full) => { if (rec) rec.chars = [...String(full == null ? '' : full)].length; };
+        const floor = ctx && Array.isArray(ctx.chat) ? ctx.chat.length : 0;
+        const opts = await soThrSceneOpts(ctx, s, { kind: 'main', floor }, system, user, onDelta, legacy);
+        if (!rq.story) {   // 摘要：不带故事楼层；神谕路 = 只有请求（没有角色卡、世界书——手机「总结」的规矩）
+            opts.history = [];
+            if (!opts.usePreset) opts.systemText = system;
+        } else {
+            const at = (info) => soThrBoardHistory(ctx, rq.story, info);
+            opts.history = legacy ? at(null) : at;
+            if (!opts.usePreset) opts.systemText = legacy ? await soThrSceneSoSystem(ctx, s, system, at(null)) : (info) => soThrSceneSoSystem(ctx, s, system, at(info));
+        }
+        if (Number(rq.maxTokens) > 0) opts.maxTokens = Math.round(Number(rq.maxTokens));
+        let dropQ = false;
+        if (legacy) opts.fromPostReply = true;   // 旧路（回复后编排自己的一步）：不排队
+        else if (silent) {
+            opts.onState = (st) => {
+                if (st && st.phase === 'queued') dropQ = true;
+                if (typeof c.onPhase === 'function') { try { c.onPhase(st && st.phase); } catch (e) { /* ignore */ } }
+            };
+            opts.stillWanted = () => !dropQ;   // 摘要一排队就不要了
+        } else {
+            const boardThere = (soThrMods && typeof soThrMods.boardThere === 'function') ? soThrMods.boardThere
+                : () => soThrStillThere(rec.key, typeof THEATER_BOARD_VIEW_ID === 'string' ? THEATER_BOARD_VIEW_ID : '__board');
+            opts.onState = (st) => soThrBoardLiveOnState(rec, st);
+            opts.stillWanted = () => !rec.cancel && (!rec.queued || boardThere());
+        }
+        opts.onRun = (run) => {
+            if (rec) { rec.run = run; if (rec.cancel) soThrAbortRun(run, 'user'); }
+            if (typeof c.onRun === 'function') { try { c.onRun(() => soThrAbortRun(run, 'user')); } catch (e) { /* ignore */ } }
+            if (!silent && typeof opt.onRun === 'function') { try { opt.onRun(run); } catch (e) { /* ignore */ } }
+        };
+        const r = (await soThrGenerateRecovered(opts, {
+            isStale: typeof c.isStale === 'function' ? c.isStale : undefined,
+            cutOff: typeof c.cutOff === 'function' ? (t, f) => c.cutOff(clean(t), f) : undefined,
+        })) || {};
+        if (!silent && r.conn && opt.report && typeof opt.report === 'object') opt.report.conn = r.conn;
+        if (!legacy) {   // 一个请求都没发出去的结局 / 中转一次只接一个
+            const C = THEATER_WAIT_COPY;
+            if (r.relay) return none({ error: C.t9t });
+            if (r.ended === 'timeout') return none({ error: C.t7NoLine });
+            if (r.ended === 'retries') return none({ error: C.t7rNoLine });
+            if (r.ended === 'cancel' && r.sent === false) return silent ? none({ aborted: true, skipped: 'queued' }) : none({ error: C.t8aNoLine });
+            if (r.ended === 'cancel' || r.ended === 'chat') return none({ aborted: true });
+        }
+        // 预设组件没载入（owner #95 分三句：说不清 / 酒馆太旧 / 这次没载入成功）= 一个字没发出：都算拒发，原句交给玩家。
+        if (r.error && [THEATER_PRESET_UNAVAILABLE, THEATER_PRESET_TOO_OLD, THEATER_PRESET_LOAD_FAILED].includes(String(r.error))) return none({ refused: true, detail: String(r.error) });
+        const out = { text: clean(r.text), finish: String(r.finish == null ? '' : r.finish), aborted: !!r.aborted,
+            error: r.error ? '错误：' + explainProviderError(String(r.error)) : null };
+        if (!out.error && !out.aborted && r.retryError) out.detail = '错误：' + String(r.retryError);
+        return out;
+    } catch (e) {
+        return none({ error: '错误：' + (errChainMessage(e) || String(e)) });
+    } finally {
+        soThrBoardLiveEnd(rec);
+    }
+}
+/* —— 入口（P3 / P4 / P5 调这些）：旗关 = {error: 'off'} / 什么都不做，一个请求都不发。 */
+// 块 flow.js 的 deps（契约见 bd-flow-interfaces.md）。o = {postReply?, onRun?, report?, silent?}。commit 交回 soThrBoardCommit 的结果
+//（false = 没写：块据此报 gone）。探针臂的 replyKind / protect 并进来（产品里没有）。
+function soThrBoardDeps(o) {
+    const opt = o && typeof o === 'object' ? o : {};
+    const cx = () => { try { return getCtx(); } catch (e) { return null; } };
+    const d = {
+        getState: () => { const st = soThrBoardState(); return st ? soBdFlowClone(st) : null; },
+        commit: (st, why) => soThrBoardCommit(st, why),
+        chatKey: () => fixChatKey(),
+        canStart: () => soThrBoardCanStart(opt),
+        refused: () => soThrBoardRefusal(),
+        prompt: (kind, win, args) => soThrBoardPrompt(kind, win, args),
+        generate: (req, ctl) => soThrBoardGenerate(req, ctl, opt),
+        estimate: (t) => soEstimateTokens([{ content: String(t == null ? '' : t) }]),
+        rd: soThrBoardReaderDeps(),
+        cx: soThrBoardChatCx(),
+        chat: () => { const c = cx(); return c && Array.isArray(c.chat) ? c.chat : []; },
+        // 「读最近几楼」：0 = 一楼都不带；空 / 读不懂 = 全部（同今天每一个小剧场请求）
+        depth: () => { const v = getSettings().contextDepth; if (soThrDepthNone(v)) return 0; const n = Number(v); return n > 0 ? n : Infinity; },
+        meName: () => { const c = cx(); return String((c && c.name1) ?? ''); },
+        sumOn: soThrBoardSumOn() && opt.postReply !== true,   // 回复后编排那一步：锁里起的摘要只会排队被丢——P3 等锁放开再给时机
+        silent: opt.silent === true,
+    };
+    if (soThrBoardModsOn()) d.mods = true;   // 🗂 stage 3：窗口带上版主、请求里多那一段和【论坛的管理】、读版务行、按权限落下、玩家发帖前过那道门
+    return Object.assign(d, soThrBoardArm());
+}
+// 补帖：板的起点之后主线走了（soBdMoved）才发一个请求；没走 = {ok, moved: false}，不发。o = {postReply?, report?, onRun?, still?}：
+// still() = 调用方的「这条回复还是那一条」（回复后编排那一步；不是了 = 这一趟作废，同手机的剧情同步）。
+async function soThrBoardCatchup(o) {
+    if (!soThrBoardOn()) return { error: 'off' };
+    const opt = o && typeof o === 'object' ? o : {};
+    const state = soThrBoardState();
+    if (!state) return { failed: true, why: 'gone' };
+    let ctx = null;
+    try { ctx = getCtx(); } catch (e) { ctx = null; }
+    const chat = ctx && Array.isArray(ctx.chat) ? ctx.chat : [];
+    const mv = soThrBoardCatchPrep() || soBdMoved(state, chat, soThrBoardChatCx());   // P3：先把板对好这条回复（校正 swipe = 已跟上；没跟上的 swipe 先暂存 / 定稿）
+    if (!mv || !mv.moved) return { ok: true, kind: 'catchup', at: '*catchup', batch: null, counts: { posts: 0, threads: 0, people: 0 }, drop: {}, moved: false };
+    const d = soThrBoardDeps(opt);
+    if (typeof opt.still === 'function') {
+        const k = fixChatKey();
+        d.chatKey = () => { let ok = false; try { ok = opt.still() === true; } catch (e) { ok = false; } return ok ? k : k + '::moved'; };
+    }
+    return soBdCall('catchup', { floor: mv.floor, swipe: mv.swipe, key: mv.key, replies: mv.replies }, d);
+}
+// 玩家发帖：a = {tid?, name, text, title?, to?, again?}。tid + again → 不再发一次，只再要一次回复；tid → 回这个帖；没有 tid → 开新帖。
+async function soThrBoardPost(a) {
+    if (!soThrBoardOn()) return { error: 'off' };
+    const x = a && typeof a === 'object' ? a : {};
+    const d = soThrBoardDeps({});
+    if (x.tid && x.again === true) return soBdCall('post', { tid: x.tid, again: true }, d);
+    if (x.tid) return soBdCall('post', { tid: x.tid, name: x.name, text: x.text, to: x.to }, d);
+    return soBdCall('thread', { name: x.name, title: x.title, text: x.text }, d);
+}
+// 撤销最后一批（还没被碰过的）：起点不动（不会自动再补一次，index §2.2）。→ {ok: true} | {ok: false, why: 'off'|'busy'|'none'|'foreign'|'gone'}。
+function soThrBoardUndo() {
+    if (!soThrBoardOn()) return { ok: false, why: 'off' };
+    if (soBdFlight()) return { ok: false, why: 'busy' };
+    const rd = soThrBoardRead();
+    if (rd.foreign) return { ok: false, why: 'foreign' };
+    const st = soThrBoardState();
+    if (!st) return { ok: false, why: 'none' };
+    const c = soBdFlowClone(st);
+    const u = soBdCanUndo(c);
+    if (!u) return { ok: false, why: 'none' };
+    if (!soBdRevert(c, u.bid, { stash: false, keepBase: true })) return { ok: false, why: 'none' };
+    return soThrBoardCommit(c, 'undo') ? { ok: true } : { ok: false, why: 'gone' };
+}
+// 重新生成最后一批（同一个起点、一个请求，旧的那批在同一次写入里换掉）。碰过了 / 没有 → {failed, why: 'none'}。
+async function soThrBoardRegen() {
+    if (!soThrBoardOn()) return { error: 'off' };
+    const st = soThrBoardState();
+    if (!st) return { failed: true, why: 'gone' };
+    const c = soBdCanUndo(st);
+    if (!c) return { failed: true, why: 'none' };
+    return soBdCall('regen', { bid: c.bid }, soThrBoardDeps({}));
+}
+// 安静的摘要：给排期一次「时机」（摘要旗关 / 已有一趟摘要 / 按下的请求在飞 → 什么都不做）。reason 只进 console.debug。
+function soThrBoardSumKick(reason) {
+    if (!soThrBoardSumOn() || soBdSumFlight() || soBdFlight()) return;
+    try { console.debug('[Story Oracle] 论坛板：摘要排期', String(reason == null ? '' : reason)); } catch (e) { /* ignore */ }
+    soBdSumRun(soThrBoardDeps({ silent: true })).catch(() => 0);
+}
+/* —— 🗂 论坛板 · 跟剧情（P3）——
+ * 免费的一半：主聊天里发生的事（划出新生成 / 重新生成 / 划回旧 swipe / 删楼 / 删 swipe / 改楼 / 继续 / ✨校正 / 换聊天 / 前面插删了楼）
+ * 只翻译成板的批次表（块 reduce.js：soBdBatchPlan / soBdBatchRun / soBdReconcile …），零调用；先在副本上做，真有不同才存一次。
+ * 唯一花钱的一步：「每条新回复后自动跟上剧情」勾着时，回复后编排 'scenes' 步里、自动场景和微谕之后的一趟补帖（旧路，从不排队）。
+ * 只复用手机那边纯的、不带旗的小工具；主聊天只读，一个字都不写。 */
+let soThrBoardSumOwed = false;      // 这一步落了一批补帖 → 锁放开后给摘要一次时机
+let soThrBoardRefusedSaid = false;  // 实时预设拒绝：每次页面载入只提示一次
+// 玩家角色的名字（O3：重放暂存时不许有帖子落在这个名字下）。没有 = []。
+function soThrBoardProtect() {
+    let ctx = null;
+    try { ctx = getCtx(); } catch (e) { ctx = null; }
+    const n = ctx ? ctx.name1 : '';
+    return typeof n === 'string' && n !== '' ? [n] : [];
+}
+// 存着的板 → 副本 → 先对一遍楼号（soBdReconcile）→ fn(副本, chat) → 跟存着的真有不同才存一次（soThrBoardCommit(c, 'sync')）。
+// → {r: fn 的结果, changed: 存了没有}。旗关 / 没有板（群聊 / 更新版本的板 / 读不懂）= {r: null, changed: false}。零调用，绝不抛。
+function soThrBoardWork(fn) {
+    const none = { r: null, changed: false };
+    if (!soThrBoardOn()) return none;
+    try {
+        const cur = soThrBoardState();
+        if (!cur) return none;
+        let ctx = null;
+        try { ctx = getCtx(); } catch (e) { ctx = null; }
+        const chat = ctx && Array.isArray(ctx.chat) ? ctx.chat : [];
+        const c = soBdClone(cur);
+        soBdReconcile(c, chat, soThrBoardChatCx());
+        const r = typeof fn === 'function' ? fn(c, chat) : null;
+        if (JSON.stringify(c) === JSON.stringify(cur)) return { r, changed: false };
+        return { r, changed: soThrBoardCommit(c, 'sync') };
+    } catch (e) {
+        return none;
+    }
+}
+// 一件主聊天的事在副本 st 上走一遍批次表（纯，改的是 st）。→ {catchup: null | {floor, swipe}, same?: true}。
+function soThrBoardApplyOn(st, ev) {
+    if (soBdSame(st, ev)) return { catchup: null, same: true };
+    const r = soBdBatchRun(st, soBdBatchPlan(st, ev), { now: Date.now(), protect: soThrBoardProtect(), ...(soThrBoardModsOn() ? { mods: true } : {}) });
+    const cu = r && r.catchup ? r.catchup : null;
+    // 新的补帖要落在这一楼，而这一楼还有一份活的批次（被碰过，表留下了它）→ 先把它定稿（bd-b ruling 7，item b）
+    if (cu && soBdLive(st, Number(cu.floor))) soBdFold(st, Number(cu.floor) + 1);
+    return { catchup: cu };
+}
+// 一件主聊天的事 → 批次表（零调用，绝不抛；先对一遍楼号）。→ {catchup, changed, same?}。
+function soThrBoardApplyEvent(ev) {
+    if (!soBdIsObj(ev)) return { catchup: null, changed: false };
+    const w = soThrBoardWork((c) => soThrBoardApplyOn(c, ev));
+    const r = soBdIsObj(w.r) ? w.r : {};
+    const out = { catchup: r.catchup || null, changed: w.changed };
+    if (r.same) out.same = true;
+    return out;
+}
+// 「继续」/ 改楼：同一条回复的正文变了，不重新补帖——这一楼属于这个 swipe 的活批次和板的起点（同一楼同一 swipe 时）的 key 跟着新正文走。
+// ✨校正写的 swipe 从不按正文比对 → 不改 key。→ 存了没有。
+function soThrBoardRekey(idx, msg, swipe) {
+    if (soThrWeiyuSwipeIsFix(msg, swipe)) return false;
+    const key = soThrWeiyuReplyKey(msg, swipe);
+    return soThrBoardWork((c) => {
+        const b = soBdLive(c, idx);
+        if (b && Array.isArray(b.swipes) && b.swipes.includes(swipe) && soBdIsObj(b.base)) b.base.key = key;
+        if (soBdIsObj(c.base) && c.base.floor === idx && c.base.swipe === swipe) c.base.key = key;
+    }).changed;
+}
+// 回复后编排要不要为这条回复排 'scenes' 步：勾了「每条新回复后自动跟上剧情」，或者还有能撤回 / 暂存的批次（取消勾选之后撤回照样要工作）。
+function soThrBoardSyncWanted(ctx) {
+    if (!soThrBoardOn() || soThrGroupBlocked(ctx)) return false;
+    const st = soThrBoardState();
+    if (!st) return false;
+    if (soBdOpt(st, 'follow') === true) return true;
+    return (Array.isArray(st.batches) && st.batches.some((b) => soBdIsObj(b) && b.kind === 'catchup' && !b.final)) || soBdIsObj(st.alts);
+}
+// 补帖之前先把板对好最新那条回复（打开时 = P5、每条回复后 = P3 都经 soThrBoardCatchup 走这里）：
+//   · 这一楼活的批次已经属于正显示的 swipe——同一段正文，或 ✨校正写的、批次被带过去的 swipe → 已跟上，不发请求（owned）；
+//   · 同一个 swipe、正文变了、没见到事件（P2 test 6）→ 照常补一次，活的批次原样不动；
+//   · 活的批次不属于正显示的 swipe：没碰过 → 先暂存（划回去免费还原）；碰过 → 先定稿（bd-b ruling 7）——一楼永远不会同时有两个 swipe 的内容。
+// → mv（{moved, replies, floor, swipe, key, owned?}）| null（旗关 / 没有板 / 出错）。零调用。
+function soThrBoardCatchPrep() {
+    const w = soThrBoardWork((c, chat) => {
+        const cx = soThrBoardChatCx();
+        const mv = soBdMoved(c, chat, cx);
+        if (!mv.moved) return mv;
+        const live = soBdLive(c, mv.floor);
+        if (!live) return mv;
+        if (Array.isArray(live.swipes) && live.swipes.includes(mv.swipe)) {
+            if ((soBdIsObj(live.base) && live.base.key === mv.key) || soThrWeiyuSwipeIsFix(chat[mv.floor], mv.swipe)) return Object.assign({}, mv, { moved: false, replies: 0, owned: true });
+            return mv;
+        }
+        if (!live.touched) soBdRevert(c, live.id, { stash: true });
+        else soBdFold(c, mv.floor + 1);
+        return soBdMoved(c, chat, cx);
+    });
+    return soBdIsObj(w.r) ? w.r : null;
+}
+/* 六个零调用监听（P3 Task 5）：主聊天的事只翻译成批次表，从不读结果里的 catchup（花钱的只有回复后那一步）；旗关 = 什么都不做。
+ * 每个都 → 板变了没有，绝不抛。事件参数的形状对着 ST 的 public/script.js（同手机那几个监听）。 */
+// MESSAGE_RECEIVED（楼号, 生成类型；ST 发它时新回复已经在 ctx.chat 里）：划出新生成 / 重新生成 / 新回复的批次表当场走一遍；「继续」= 同一条
+// 回复变长了 → 只跟着改 key。'first_message' 不是新回复。没勾、也没有活的批次 / 暂存 = 零工作。
+function soThrBoardOnReceived(id, type) {
+    if (!soThrBoardOn() || !postReplyHandlesType(type)) return false;
+    try {
+        let ctx = null;
+        try { ctx = getCtx(); } catch (e) { ctx = null; }
+        if (!soThrBoardSyncWanted(ctx)) return false;
+        const idx = Number(id);
+        const at = soThrWeiyuAiAt(idx);
+        if (!at) return false;
+        const swipe = soThrWeiyuSwipeOf(at.msg);
+        const t = soThrWeiyuEvType(type);
+        if (t === null) return soThrBoardRekey(idx, at.msg, swipe);
+        return soThrBoardApplyEvent(soThrWeiyuReplyEv(t, at.chat, idx, at.msg, swipe)).changed;
+    } catch (e) {
+        return false;
+    }
+}
+// MESSAGE_SWIPED（楼号）：换到一个已有的 swipe → 它存着的那一份免费还原；划出新生成的那一刻什么都还没有 → 表答「无」。
+function soThrBoardOnSwiped(id) {
+    if (!soThrBoardOn()) return false;
+    try {
+        const idx = Number(id);
+        const at = soThrWeiyuAiAt(idx);
+        if (!at) return false;
+        return soThrBoardApplyEvent(soThrWeiyuBackEv(at.chat, idx, at.msg, soThrWeiyuSwipeOf(at.msg))).changed;
+    } catch (e) {
+        return false;
+    }
+}
+// MESSAGE_DELETED（删完之后的楼数，不是楼号）：说明不了删的是哪一楼 → 只对一遍楼号（soBdReconcile：每份批次按正文找它的回复）。
+function soThrBoardOnDeleted(len) {
+    if (!soThrBoardOn()) return false;
+    const n = Number(len);
+    if (!Number.isInteger(n) || n < 0) return false;
+    return soThrBoardWork(null).changed;
+}
+// MESSAGE_SWIPE_DELETED（{messageId, swipeId, newSwipeId}；ST 已经 splice 完、swipe_id = newSwipeId）：先挪下标；活的批次一个 swipe 都不剩
+// = 它那条回复没了 → 按「删」处理；再按「划回 newSwipeId」处理。一次 commit。
+function soThrBoardOnSwipeDeleted(data) {
+    if (!soThrBoardOn() || !soBdIsObj(data)) return false;
+    const idx = Number(data.messageId);
+    if (!Number.isInteger(idx)) return false;
+    return soThrBoardWork((c) => {
+        if (soBdSwipeShift(c, idx, Number(data.swipeId)) === 'emptied') soThrBoardApplyOn(c, { type: 'delete', floor: idx, swipe: 0, lastFloor: idx });
+        const at = soThrWeiyuAiAt(idx);
+        const sw = Number(data.newSwipeId);
+        if (at && Number.isInteger(sw) && sw >= 0) soThrBoardApplyOn(c, soThrWeiyuBackEv(at.chat, idx, at.msg, sw));
+    }).changed;
+}
+// MESSAGE_EDITED（楼号；正文和 swipes[swipe_id] 都已写好）：改过的回复保住它的帖子——只跟着改 key。
+function soThrBoardOnEdited(id) {
+    if (!soThrBoardOn()) return false;
+    try {
+        const idx = Number(id);
+        const at = soThrWeiyuAiAt(idx);
+        if (!at) return false;
+        return soThrBoardRekey(idx, at.msg, soThrWeiyuSwipeOf(at.msg));
+    } catch (e) {
+        return false;
+    }
+}
+// ✨ applyFixAsSwipe 加完新 swipe 之后：这一楼活的批次带到新 swipe 上（不重新补帖）。src = 校正前显示的那个 swipe：它不属于这份批次就什么都不带。
+function soThrBoardOnFixer(id, src) {
+    if (!soThrBoardOn()) return false;
+    const idx = Number(id);
+    const at = soThrWeiyuAiAt(idx);
+    if (!at) return false;
+    return soThrBoardWork((c) => {
+        const b = soBdLive(c, idx);
+        if (!b || (Number.isInteger(src) && src >= 0 && !(Array.isArray(b.swipes) && b.swipes.includes(src)))) return;
+        const swipe = soThrWeiyuSwipeOf(at.msg);
+        soThrBoardApplyOn(c, { type: 'fixer', floor: idx, swipe, key: soThrWeiyuReplyKey(at.msg, swipe), lastFloor: soThrWeiyuLastAiFloor(at.chat) });
+    }).changed;
+}
+// CHAT_CHANGED（换聊天 / 分支 / 重新载入）：这个聊天自己存的板对一遍楼号（分支里没有的回复 → 没碰过的批次撤回，定稿的照旧留着）。
+function soThrBoardOnChatLoad() {
+    if (!soThrBoardOn()) return false;
+    return soThrBoardWork(null).changed;
+}
+// init 登记的六个零调用监听（事件名对着 ST 的 public/scripts/events.js；et 缺键 = 同名字符串）。登记本身在 init 里（这一节不碰 eventSource）。
+function soThrBoardSyncHandlers(et) {
+    const t = et || {};
+    return [
+        [t.MESSAGE_SWIPED || 'message_swiped', (id) => { soThrBoardOnSwiped(id); }],
+        [t.MESSAGE_DELETED || 'message_deleted', (len) => { soThrBoardOnDeleted(len); }],
+        [t.MESSAGE_SWIPE_DELETED || 'message_swipe_deleted', (data) => { soThrBoardOnSwipeDeleted(data); }],
+        [t.MESSAGE_RECEIVED || 'message_received', (id, type) => { soThrBoardOnReceived(id, type); }],
+        [t.MESSAGE_EDITED || 'message_edited', (id) => { soThrBoardOnEdited(id); }],
+        [t.CHAT_CHANGED || 'chat_id_changed', () => { soThrBoardOnChatLoad(); }],
+    ];
+}
+/* 唯一花钱的一步（P3 Task 6）：回复后编排 'scenes' 步里、自动场景和微谕之后（soThrBoardScenesStep）。先走免费的一半（批次表），
+ * 只有勾了「每条新回复后自动跟上剧情」、表要一次补帖时才发一个旧路请求（从不排队）。主聊天忙 / 按下的那一趟在飞 → 安静跳过；
+ * 回复被划走 / 被取代 / 换了聊天 → 结果作废、什么都不落。只在停在「小剧场」那一行选的连接上时提示（同手机），实时预设拒发每次页面载入只提示一次。 */
+// 跟剧情这一步的两句提示（DRAFT ①；P5 的 THEATER_BOARD_TEXT 有这两个键就用它的）。→ {followFailed(why) → 文字, followConnStopped: 文字}。
+function soThrBoardSyncWords(T = (typeof THEATER_BOARD_TEXT === 'object' && THEATER_BOARD_TEXT ? THEATER_BOARD_TEXT : {})) {
+    const tb = T && typeof T === 'object' ? T : {};
+    const ff = tb.followFailed;
+    return {
+        followFailed: (why) => {
+            const w = String(why == null ? '' : why);
+            if (typeof ff === 'function') { try { return String(ff(w)); } catch (e) { /* 表坏了 = 用 ① */ } }
+            if (typeof ff === 'string') return ff.split('{why}').join(w);
+            return '论坛没跟上这条回复：' + w;
+        },
+        followConnStopped: typeof tb.followConnStopped === 'string' ? tb.followConnStopped : '小剧场选的连接这一轮没跑成',
+    };
+}
+// 说一句（toastr.warning，转义）。没有 toastr = 什么都不做。
+function soThrBoardSay(text) {
+    try {
+        if (typeof toastr !== 'undefined' && toastr && typeof toastr.warning === 'function') toastr.warning(escapeHtml(String(text == null ? '' : text)));
+    } catch (e) { /* 提示失败不影响流程 */ }
+}
+// o = {type（MESSAGE_RECEIVED 的 type）, mvuWait?, chatKey?（这一轮起跑时的聊天）, scenes?（同一步里自动场景的结局）}。
+// → {ran, reason, batch?}（只供测试 / 诊断）。reason：nothing | stale | continue | same | no-catchup | conn | stopped | mvu-timeout | ok |
+// not-moved | busy | wait | refused | failed | aborted | error。绝不抛。
+async function soThrBoardSyncStep(ctx, s, idx, o) {
+    const opt = (o && typeof o === 'object') ? o : {};
+    const out = (ran, reason, extra) => Object.assign({ ran, reason }, extra || {});
+    try {
+        if (!soThrBoardOn() || soThrGroupBlocked(ctx)) return out(false, 'nothing');
+        const chat = ctx && Array.isArray(ctx.chat) ? ctx.chat : null;
+        const msg = chat ? chat[idx] : null;
+        if (!msg || msg.is_user || msg.is_system) return out(false, 'nothing');
+        const chatKey = fixChatKey();
+        if (opt.chatKey != null && opt.chatKey !== chatKey) return out(false, 'stale');
+        if (!soThrBoardState()) return out(false, 'nothing');
+        const swipe = soThrWeiyuSwipeOf(msg);
+        const type = soThrWeiyuEvType(opt.type);
+        if (type === null) {   // 「继续」：同一条回复变长了 → 只改 key（MVU 等完之后再算一次：额外解析可能还往续写的正文里写）
+            soThrBoardRekey(idx, msg, swipe);
+            if (opt.mvuWait && typeof opt.mvuWait.wait === 'function') {
+                try { await opt.mvuWait.wait(); } catch (e) { /* 等不到也按此刻的正文 */ }
+                if (fixChatKey() === chatKey && (ctx.chat || [])[idx] === msg) soThrBoardRekey(idx, msg, soThrWeiyuSwipeOf(msg));
+            }
+            return out(false, 'continue');
+        }
+        // 免费的一半：同一个事件监听器已经走过一遍 = 这里是空操作（表本身幂等）
+        const r = soThrBoardApplyEvent(soThrWeiyuReplyEv(type, chat, idx, msg, swipe));
+        if (r.same) return out(false, 'same');
+        if (!r.catchup) return out(false, 'no-catchup');
+        const W = soThrBoardSyncWords();
+        // 🔌 同一步里自动场景已经停在「小剧场」选的连接上 / 那一行选的连接不存在或没填完整 → 这一趟也不发，说一句
+        if (opt.scenes && opt.scenes.reason === 'conn') { soThrBoardSay(W.followFailed(W.followConnStopped)); return out(false, 'conn'); }
+        if (ENABLE_MODE_CONN) {
+            const mc = soConn('theater', s || getSettings());
+            if (mc.issue) { soThrBoardSay(W.followFailed(soConnIssueText(mc))); return out(false, 'conn'); }
+        }
+        if (postReplyShouldStop()) return out(false, 'stopped');
+        if (opt.mvuWait && typeof opt.mvuWait.wait === 'function') {
+            const w = await opt.mvuWait.wait();
+            if (w && (w.status === 'timed-out' || w.status === 'cancelled')) return out(false, w.status === 'cancelled' ? 'stale' : 'mvu-timeout');
+        }
+        // 等的时候玩家取消了勾选 = 不再花这一趟（在途的结果同样作废）
+        const ticked = () => { const st = soThrBoardState(); return !!st && soBdOpt(st, 'follow') === true; };
+        const still = () => !postReplyShouldStop() && fixChatKey() === chatKey && (ctx.chat || [])[idx] === msg && soThrWeiyuSwipeOf(msg) === swipe && ticked();
+        if (!still()) return out(false, 'stale');
+        try { soThrBoardSc = await soThrModule('script', loadScriptCore); } catch (e) { soThrBoardSc = null; }
+        if (!still()) return out(false, 'stale');
+        // 回复后编排的「中断」/ 玩家下一次发送（supersede）也要掐掉在途的这一趟（同手机的剧情同步）
+        const ctl = beginPostReplyCall(30 * 60000);
+        let run = null;
+        const onAbort = () => { soThrAbortRun(run, 'user'); };
+        try { if (ctl.signal) ctl.signal.addEventListener('abort', onAbort, { once: true }); } catch (e) { /* ignore */ }
+        const report = {};
+        let res = null;
+        try {
+            res = await soThrBoardCatchup({ postReply: true, report, onRun: (x) => { run = x; }, still });
+        } finally {
+            try { if (ctl.signal) ctl.signal.removeEventListener('abort', onAbort); } catch (e) { /* ignore */ }
+            ctl.end();
+        }
+        const rr = (res && typeof res === 'object') ? res : {};
+        if (rr.ok && rr.batch) {
+            soThrBoardSumOwed = true;   // 锁放开之后给摘要一次时机（Task 7）
+            return out(true, 'ok', { batch: rr.batch });
+        }
+        if (rr.ok) return out(false, 'not-moved');
+        const kind = rr.busy ? 'busy' : rr.wait ? 'wait' : rr.refused ? 'refused' : rr.failed ? 'failed' : rr.aborted ? 'aborted' : rr.stale ? 'stale' : 'error';
+        if (kind === 'refused') {   // 拒发会一直拒到玩家改设置：每次页面载入只说一次
+            if (!soThrBoardRefusedSaid) { soThrBoardRefusedSaid = true; soThrBoardSay(W.followFailed(String(rr.text || ''))); }
+            return out(false, 'refused');
+        }
+        if (report.conn && kind === 'error') { soThrBoardSay(W.followFailed(String(rr.error || W.followConnStopped).slice(0, 200))); return out(true, 'conn'); }
+        console.debug('[Story Oracle] 论坛板：这条回复的补帖没落地', kind, rr);
+        return out(kind !== 'busy' && kind !== 'wait', kind);
+    } catch (e) {
+        console.warn('[Story Oracle] 论坛板：跟剧情出错', e);
+        return out(false, 'error');
+    }
+}
+// 回复后编排的 'scenes' 步（板的旗开时）：自动场景（微谕的剧情同步开着 = 连同它）照旧先跑，板在最后、自己一层——前面出错不跳过板；
+// 前面的错误之后照原样抛给编排（今天的提示 / 记录不变）。→ 自动场景的结局。
+async function soThrBoardScenesStep(ctx, s, idx, o) {
+    const opt = (o && typeof o === 'object') ? o : {};
+    let scenes = null;
+    let err = null;
+    try { scenes = soThrWeiyuSyncOn() ? await soThrWeiyuScenesStep(ctx, s, idx, opt) : await runAutoScenes(ctx, s, idx, { type: opt.type, mvuWait: opt.mvuWait }); } catch (e) { err = e; }
+    await soThrBoardSyncStep(ctx, s, idx, Object.assign({}, opt, { scenes }));
+    if (err) throw err;
+    return scenes;
+}
+// 回复后编排放开锁之后（maybePostReply 的 finally）：这一轮跟剧情落了一批 → 现在才给摘要一次时机（锁里起的摘要只会排队、被丢掉；item c）。
+// 记号只用一次。摘要旗关 = soThrBoardSumKick 什么都不做。
+function soThrBoardAfterPostReply() {
+    if (!soThrBoardSumOwed) return;
+    soThrBoardSumOwed = false;
+    soThrBoardSumKick('follow');
+}
+/* —— 🗂 论坛板 · 查看层（P5）——
+ * 打开论坛板 = 一次性场景的同一个查看层（#so-thr-scene-view）画一份论坛板文档（soThrBoardDocument）：底色皮 → 板自己的样式 → 升格时那套
+ * AI 皮肤 → 锁。页面跑的是 THEATER_APP_JS 的一份派生副本（soThrBoardRuntimeJs：块 view.js 的八个挂点）；THEATER_APP_JS 一个字节不改，
+ * 一次性场景永远用原文（旗开旗关都一样，O1）。顶栏下面一行 #so-thr-board-row（唯一写者 soThrBoardRowPaint）：状态 / 排队 / 停止、
+ * 最近一批 + 撤回 / 重写（只在那一批还没被碰过时）、失败那一句 + 再试一次、收起旧帖的通知。页面里的控件经 window.__soThrBoardHost 找 SO
+ *（键只许加）。这一节不写主聊天、不发事件、不开别的传输：请求全经 P2 的入口（soThrBoardCatchup / Post / Undo / Regen / Stop）。 */
+let soThrBoardRtMemo = null;   // 挂好的运行时副本（第一次画论坛板时做一次；'' = 有锚点对不上）
+// → 论坛板页面的运行时；'' = 有锚点对不上（console.warn 一次；调用方改画纯文字版 + 一句说明）。测试缝 soThrMods.boardRuntime()（同 boardThere）。
+function soThrBoardRuntimeJs() {
+    if (soThrMods && typeof soThrMods.boardRuntime === 'function') {
+        let v = '';
+        try { v = soThrMods.boardRuntime(); } catch (e) { v = ''; }
+        return typeof v === 'string' ? v : '';
+    }
+    if (soThrBoardRtMemo === null) {
+        const r = soBdHookRuntime(THEATER_APP_JS);
+        soThrBoardRtMemo = r.js;
+        if (!r.js) console.warn('[Story Oracle] 论坛板：运行时的挂点对不上', r.missing);
+    }
+    return soThrBoardRtMemo;
+}
+// 一块板 → 一份完整的论坛板文档；'' = 旗关 / 没有板 / 运行时挂不上。opts = {plain}：plain = 贴图检查没过 → 不要 AI 皮肤和装饰（同一次性场景）。
+// 页面里的「正在写」= 按下的那一趟还在（soThrBoardLive）——不是飞行槽（落地写入之后槽才放开，且不通知任何人）。
+function soThrBoardDocument(state, opts) {
+    if (!soThrBoardOn() || !state || typeof state !== 'object') return '';
+    const js = soThrBoardRuntimeJs();
+    if (!js) return '';
+    const o = opts || {};
+    const plain = !!o.plain;
+    const look = state.look && typeof state.look === 'object' ? state.look : {};
+    const parts = soBdExtParts();
+    const skin = soThrSceneSkinText({ skin: look.skin }, plain);
+    const extras = soThrSceneExtras({ scene: 'forum', extras: (look.extras && typeof look.extras === 'object') ? look.extras : {} }, getSettings().theaterAllowScripts !== false, plain);
+    const a = soBdAssemble(state, { busy: !!soThrBoardLive(), text: soBdFrameText() });
+    if (soThrBoardModsOn()) soBdModDecorate(a, state);   // 🗂 stage 3：置顶的帖子排前面 + B.mods（身份、标记、通知、锁帖、折叠、玩家网名被管时那一句）
+    const data = soBdDocData(a.W, a.B, { lex: (look.lex && typeof look.lex === 'object') ? look.lex : {}, lexDefault: THEATER_SCENE_DEFAULT_LEX, extras, text: THEATER_APP_TEXT });
+    return '<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+        + '<style data-so-base>' + THEATER_APP_BASE_CSS + '</style>'
+        + '<style data-so-board>' + parts.css + '</style>'
+        + (soThrBoardModsOn() ? '<style data-so-board-mods>' + THEATER_BOARD_MOD_APP_CSS + '</style>' : '')
+        + (skin ? '<style data-so-ai-skin>\n' + skin + '\n</style>' : '')
+        + '<style data-so-guard>' + THEATER_APP_GUARD_CSS + '</style>'
+        + (soThrBoardModsOn() ? '<style data-so-board-mods-guard>' + THEATER_BOARD_MOD_GUARD_CSS + '</style>' : '')
+        + '</head><body>' + THEATER_APP_SHELL
+        + '<script data-so-board>' + parts.js + '</' + 'script>'
+        + (soThrBoardModsOn() ? '<script data-so-board-mods>' + soBdModExtParts().js + '</' + 'script>' : '')
+        + '<script data-so-runtime>window.__SO_THR__=' + soThrJsonForScript(data) + ';\n' + js + '\n</' + 'script></body></html>';
+}
+const soThrBoardNoticeSeen = new Map();   // 聊天 key → 看过的最后一条收起通知的 at（只在内存里；关查看层时记下）
+const soThrBoardPressed = new Set();      // 那一行里按下了、结果还没回来的按钮 id（一下一次；soThrBoardRowPaint 据此置灰）
+// 打开这个聊天的论坛板（P4 的「打开论坛」不带参数叫它）。opts = {plain?, fallback?, noCatch?}：plain = 文字版；fallback = 贴图检查没过、
+// 换素颜重画一次；noCatch = 不补帖（切换文字版 / 素颜重画）。→ true = 画了；false = 旗关 / 没有板 / 没有窗口。
+// 剧情往前走了才补一次（P2：没走 = {moved:false}，不发请求）；已经有一趟在飞 = 不再起。
+function soThrBoardOpen(opts) {
+    if (!soThrBoardOn() || !win) return false;
+    const st = soThrBoardState();
+    if (!st) return false;
+    const o = opts && typeof opts === 'object' ? opts : {};
+    if (win.style.display === 'none') toggleWindow(true);
+    if (soThrSceneView && !soThrSceneView.board) soThrSceneClose();   // 一次性场景开着 → 先关（重做美化试穿到一半的那份放回去）
+    const prev = soThrSceneView && soThrSceneView.board ? soThrSceneView : null;
+    const el = soThrSceneViewEl();
+    if (prev && prev.guardTimer) clearTimeout(prev.guardTimer);
+    const fellBack = !!o.fallback;
+    let plain = !!o.plain;
+    const doc = plain ? '' : soThrBoardDocument(st, { plain: fellBack });
+    const missing = !plain && !doc;
+    if (missing) plain = true;
+    // 切换文字版 / 素颜重画：最近那一句、重试、看过的那一批、等待行都留着
+    soThrSceneView = { id: THEATER_BOARD_VIEW_ID, board: true, plain, guardTimer: null, fellBack, chatKey: prev ? prev.chatKey : fixChatKey(),
+        last: prev ? prev.last : null, retryTid: prev ? prev.retryTid : '', undoSeen: prev ? prev.undoSeen : '', busyShown: !!soThrBoardLive(),
+        waitRow: prev ? prev.waitRow : null, noticeAt: prev ? prev.noticeAt : 0 };
+    const bn = st.board && typeof st.board.name === 'string' && st.board.name.trim() ? st.board.name : THEATER_SCENE_DEFAULT_LEX.forumTitle;
+    el.querySelector('#so-thr-scene-title').textContent = soBdTxt('viewTitle', { board: bn });
+    el.querySelector('#so-thr-scene-mode').textContent = plain ? THEATER_SCENE_PAGE : THEATER_SCENE_PLAIN;
+    const notes = [];
+    if (fellBack) notes.push(THEATER_SCENE_GUARD_NOTE);
+    if (missing) notes.push(soBdTxt('runtimeMissing'));
+    const nl = el.querySelector('#so-thr-scene-note-line');
+    nl.hidden = !notes.length;
+    nl.textContent = notes.join(' ');
+    const fr = el.querySelector('#so-thr-scene-frame');
+    const raw = el.querySelector('#so-thr-scene-raw');
+    if (plain) {
+        fr.hidden = true;
+        fr.removeAttribute('srcdoc');
+        raw.hidden = false;
+        raw.textContent = soBdPlainText(st, ...(soThrBoardModsOn() ? [soBdModView(st)] : []));
+    } else {
+        raw.hidden = true;
+        raw.textContent = '';
+        fr.hidden = false;
+        fr.srcdoc = doc;
+    }
+    const lookRow = el.querySelector('#so-thr-scene-look-row');   // 论坛板没有「重做美化」（O8）
+    if (lookRow) lookRow.hidden = true;
+    el.classList.add('open');
+    soThrBoardRowPaint();
+    if (!o.noCatch && !o.fallback && !soBdFlight()) {
+        soThrBoardCatchup({}).then((r) => { soThrBoardRowResult(r, 'catchup'); }).catch((e) => console.warn('[Story Oracle] 论坛板：补帖出错', e));
+    }
+    return true;
+}
+// 查看层离开论坛板（关掉 / 换成一次性场景 / 换聊天）：记下看过的收起通知，那一行交给唯一写者收起来（等待行停表）。
+function soThrBoardViewLeft(v) {
+    if (!v || !v.board) return;
+    v.left = true;
+    const k = v.chatKey || fixChatKey();
+    soThrBoardNoticeSeen.set(k, Math.max(soThrBoardNoticeSeen.get(k) || 0, Number(v.noticeAt) || 0));
+    soThrBoardRowPaint();
+}
+// 板写入之后（soThrBoardSubscribe）：查看层开着论坛板 → 就地更新页面（不重载，发帖框里的字和光标留着）；更新不了 → 整份重画。
+// why = 写入的原因：'remove'（板没了）→ 关查看层；'opts' / 'opt'（只改了设置，页面里没有一样跟着变）→ 只重画那一行。
+function soThrBoardViewPush(why) {
+    const v = soThrSceneView;
+    if (!soThrBoardOn() || !win || !v || !v.board || v.left) return;
+    const st = soThrBoardState();
+    if (!st) { soThrSceneClose(); return; }
+    const w = String(why == null ? '' : why);
+    const el = win.querySelector('#so-thr-scene-view');
+    if (el && w !== 'opts' && w !== 'opt') {
+        const fr = el.querySelector('#so-thr-scene-frame');
+        const raw = el.querySelector('#so-thr-scene-raw');
+        if (v.plain) raw.textContent = soBdPlainText(st, ...(soThrBoardModsOn() ? [soBdModView(st)] : []));
+        else {
+            let ok = false;
+            try {
+                const fw = fr.contentWindow;
+                if (fw && fw.__thxReady === true && typeof fw.__thxBoardUpdate === 'function') {
+                    const a = soBdAssemble(st, { busy: !!soThrBoardLive(), text: soBdFrameText() });
+                    if (soThrBoardModsOn()) soBdModDecorate(a, st);   // 🗂 stage 3：就地更新也带上版主那一层（同 soThrBoardDocument）
+                    const d = fw.JSON.parse(JSON.stringify({ W: a.W, B: a.B }));   // 经页面自己的 JSON：页面拿到的是它那边的对象，没有一个指回 SO 的存档
+                    ok = fw.__thxBoardUpdate(d.W, d.B) === true;
+                }
+            } catch (e) { ok = false; }
+            if (!ok) {
+                const doc = soThrBoardDocument(st, { plain: v.fellBack });
+                if (doc) fr.srcdoc = doc;
+                else soThrBoardOpen({ plain: true, noCatch: true });   // 运行时挂不上了：文字版
+            }
+        }
+    }
+    soThrBoardRowPaint();
+}
+// 那一行的 HTML（查看层建一次时插在外观栏后面；文案都是 THEATER_BOARD_TEXT 里的，经 escapeHtml）。
+function soThrBoardRowHtml() {
+    const T = THEATER_BOARD_TEXT;
+    return '<div id="so-thr-board-row" class="so-thr-board-row" hidden>'
+        + '<div class="so-hint" id="so-thr-board-vstatus" aria-live="polite" hidden></div>'
+        + '<div id="so-thr-board-wait" hidden></div>'
+        + `<button type="button" class="so-thr-scene-mini" id="so-thr-board-stop" hidden>${escapeHtml(T.stopBtn)}</button>`
+        + '<span class="so-hint" id="so-thr-board-batch" hidden></span>'
+        + `<button type="button" class="so-thr-scene-mini" id="so-thr-board-undo" hidden>${escapeHtml(T.undoBtn)}</button>`
+        + `<button type="button" class="so-thr-scene-mini" id="so-thr-board-regen" hidden>${escapeHtml(T.regenBtn)}</button>`
+        + `<button type="button" class="so-thr-scene-mini" id="so-thr-board-retry" hidden>${escapeHtml(T.retry)}</button>`
+        + '<div class="so-hint" id="so-thr-board-notice" hidden></div>'
+        + '</div>';
+}
+// 那一行的点击（建查看层时绑一次）。每个按钮按一下 = 一次调用：结果回来之前再按不算（soThrBoardPressed）。
+function soThrBoardBindRow(el) {
+    const row = el && el.querySelector('#so-thr-board-row');
+    if (!row) return;
+    const press = (id, run) => {
+        const b = row.querySelector('#' + id);
+        if (!b) return;
+        b.addEventListener('click', () => {
+            if (b.disabled || soThrBoardPressed.has(id)) return;
+            soThrBoardPressed.add(id);
+            soThrBoardRowPaint();
+            Promise.resolve().then(run).catch((e) => console.warn('[Story Oracle] 论坛板：', e))
+                .finally(() => { soThrBoardPressed.delete(id); soThrBoardRowPaint(); });
+        });
+    };
+    row.querySelector('#so-thr-board-stop').addEventListener('click', () => soThrBoardStop());
+    press('so-thr-board-undo', async () => {
+        let ok = false;
+        try { ok = await uiConfirm(escapeHtml(THEATER_BOARD_TEXT.undoConfirm)); } catch (e) { ok = false; }
+        if (ok) soThrBoardRowResult(soThrBoardUndo(), 'undo');
+    });
+    press('so-thr-board-regen', async () => { soThrBoardRowResult(await soThrBoardRegen(), 'regen'); });
+    press('so-thr-board-retry', async () => {
+        const v = soThrSceneView;
+        const how = v && v.board && v.last ? String(v.last.retry || '') : '';
+        if (how === 'catchup') soThrBoardRowResult(await soThrBoardCatchup({}), 'catchup');
+        else if (how === 'again' && v.retryTid) soThrBoardRowResult(await soThrBoardPost({ tid: v.retryTid, again: true }), 'again');
+        else if (how === 'regen') soThrBoardRowResult(await soThrBoardRegen(), 'regen');
+    });
+}
+// 一次结果 → 那一句（soBdResultLine，唯一一处对照）；在那一行说的记进查看层（v.last），成功了清掉旧的那一句。→ ui（页面拿去用）。
+function soThrBoardRowResult(r, kind) {
+    const ui = soBdResultLine(r, kind);
+    const v = soThrSceneView;
+    if (v && v.board && !v.left) {
+        if (ui.where === 'row') {
+            v.last = { line: ui.line, retry: ui.retry };
+            v.retryTid = r && r.posted && typeof r.posted.tid === 'string' ? r.posted.tid : '';
+        } else if (ui.line === '' && r && r.ok === true) v.last = null;
+    }
+    soThrBoardRowPaint();
+    return ui;
+}
+// 按下的那一趟的状态变了（soThrBoardLiveSubscribe，每秒也来一次）：重画那一行；忙 / 不忙翻了面 → 页面也更新（发出键置灰 / 放开）。
+function soThrBoardRowLive(live) {
+    soThrBoardRowPaint();
+    const v = soThrSceneView;
+    if (!v || !v.board || v.left) return;
+    if (!!live !== !!v.busyShown) {
+        v.busyShown = !!live;
+        soThrBoardViewPush('busy');
+    }
+}
+// 那一行的唯一写者：查看层没在看论坛板 → 收起来；否则照 soBdRowModel 摆（文字只走 textContent）。
+function soThrBoardRowPaint() {
+    if (!soThrBoardOn() || !win) return;
+    const row = win.querySelector('#so-thr-board-row');
+    if (!row) return;
+    const q = (id) => row.querySelector('#' + id);
+    const sv = soThrSceneView && soThrSceneView.board ? soThrSceneView : null;
+    const v = sv && !sv.left ? sv : null;
+    const st = v ? soThrBoardState() : null;
+    const box = q('so-thr-board-wait');
+    if (!v || !st) {
+        if (sv && sv.waitRow) { sv.waitRow.stop(); sv.waitRow = null; }
+        box.textContent = '';
+        box.hidden = true;
+        row.hidden = true;
+        return;
+    }
+    const m = soBdRowModel({ state: st, live: soThrBoardLive(), flying: !!soBdFlight(), last: v.last, undoSeen: v.undoSeen,
+        noticeSeen: soThrBoardNoticeSeen.get(v.chatKey) || 0, ...(soThrBoardModsOn() ? { modNotice: soBdModRowNotice(st, soThrBoardNoticeSeen.get(v.chatKey) || 0) } : {}) });
+    const say = (id, text) => { const e = q(id); e.textContent = text || ''; e.hidden = !text; };
+    say('so-thr-board-vstatus', m.status);
+    say('so-thr-board-batch', m.batch);
+    say('so-thr-board-notice', m.notice);
+    for (const [id, on] of [['so-thr-board-stop', m.stop], ['so-thr-board-undo', m.undo], ['so-thr-board-regen', m.regen], ['so-thr-board-retry', !!m.retry]]) {
+        const b = q(id);
+        b.hidden = !on;
+        b.disabled = soThrBoardPressed.has(id);
+    }
+    if (m.wait) {
+        if (!v.waitRow) {
+            v.waitRow = soThrWaitRow({ variant: 'box', state: m.wait, onCancel: soThrBoardStop });
+            box.textContent = '';
+            box.appendChild(v.waitRow.el);
+        } else v.waitRow.set(m.wait);
+        box.hidden = false;
+    } else {
+        if (v.waitRow) { v.waitRow.stop(); v.waitRow = null; }
+        box.textContent = '';
+        box.hidden = true;
+    }
+    if (m.undoBid) v.undoSeen = m.undoBid;
+    if (m.noticeAt) v.noticeAt = m.noticeAt;
+    row.hidden = m.hidden;
+}
+/* —— 玩家在页面里的三样操作（P2 没有包它们）：删一楼、删整个帖子、试一个网名。删帖在一趟请求飞着的时候也可以（落地会重读存档，
+ * 墓碑挡着删掉的帖子 / 楼回不来）；发帖照旧要等（流程给 {busy}）。 */
+// → {ok: true} | {ok: false, why: 'off' | 'gone' | …}。
+function soThrBoardDelPost(tid, pid) {
+    if (!soThrBoardOn()) return { ok: false, why: 'off' };
+    const st = soThrBoardState();
+    const t = typeof tid === 'string' && /^T\d+$/.test(tid) ? tid : '';
+    const p = typeof pid === 'string' && /^P\d+$/.test(pid) ? pid : '';
+    if (!st || !t || !p) return { ok: false, why: 'gone' };
+    const c = soBdFlowClone(st);
+    const r = soBdPlayer(c, { op: 'delPost', tid: t, pid: p });
+    if (!r || r.ok !== true) return { ok: false, why: String((r && r.why) || 'gone') };
+    return soThrBoardCommit(c, 'del-post') ? { ok: true } : { ok: false, why: 'gone' };
+}
+function soThrBoardDelThread(tid) {
+    if (!soThrBoardOn()) return { ok: false, why: 'off' };
+    const st = soThrBoardState();
+    const t = typeof tid === 'string' && /^T\d+$/.test(tid) ? tid : '';
+    if (!st || !t) return { ok: false, why: 'gone' };
+    const c = soBdFlowClone(st);
+    const r = soBdPlayer(c, { op: 'delThread', tid: t });
+    if (!r || r.ok !== true) return { ok: false, why: String((r && r.why) || 'gone') };
+    return soThrBoardCommit(c, 'del-thread') ? { ok: true } : { ok: false, why: 'gone' };
+}
+// 网名能不能用（从不写）。→ {ok, why?, line}：line = 被拒的那一句（能用 = ''）。
+function soThrBoardCheckName(name) {
+    if (!soThrBoardOn()) return { ok: false, why: 'off', line: '' };
+    const st = soThrBoardState();
+    if (!st) return { ok: false, why: 'gone', line: '' };
+    if (soThrBoardModsOn()) { const g = soBdModGate(st, { op: 'name', name: soBdPostArgs({ name }).name }); if (g) return { ok: false, why: g, line: soBdModGagLine(st, soBdPostArgs({ name }).name) || soBdWhyText(g) }; }   // 🗂 stage 3：被禁言 / 封号的网名
+    const r = soBdPlayer(soBdFlowClone(st), { op: 'checkName', name: soBdPostArgs({ name }).name });
+    if (r && r.ok === true) return { ok: true, line: '' };
+    const why = String((r && r.why) || '');
+    return { ok: false, why, line: soBdNameLine(why) };
+}
+// 页面的「发出」：参数当不可信的（soBdPostArgs 只收字符串、截断、tid 只认 T + 数字）→ P2 的发帖入口 → 结果 + ui（那一行的话已经在那一行说了）。
+async function soThrBoardHostPost(a) {
+    const args = soBdPostArgs(a);
+    if (args.again && !args.tid) delete args.again;
+    const kind = args.again ? 'again' : (args.tid ? 'post' : 'thread');
+    let r = null;
+    try { r = await soThrBoardPost(args); } catch (e) { r = { error: String(e) }; }
+    if (!r || typeof r !== 'object') r = { error: 'kind' };
+    r.ui = soThrBoardRowResult(r, kind);
+    return r;
+}
+// 页面的「删除这一楼」/「删除整个帖子」：先在 SO 这边问一句（文字经 escapeHtml），取消 = {ok:false, why:'cancel'}，什么都不写。
+async function soThrBoardHostDel(tid, pid) {
+    let ok = false;
+    try { ok = await uiConfirm(escapeHtml(THEATER_BOARD_TEXT.delPostConfirm)); } catch (e) { ok = false; }
+    const r = ok ? soThrBoardDelPost(tid, pid) : { ok: false, why: 'cancel' };
+    r.ui = soThrBoardRowResult(r, 'del');
+    return r;
+}
+async function soThrBoardHostDelThread(tid) {
+    let ok = false;
+    try { ok = await uiConfirm(escapeHtml(THEATER_BOARD_TEXT.delThreadConfirm)); } catch (e) { ok = false; }
+    const r = ok ? soThrBoardDelThread(tid) : { ok: false, why: 'cancel' };
+    r.ui = soThrBoardRowResult(r, 'del');
+    return r;
+}
+// 载入时（旗开才做）：论坛板页面的类加进样式契约；页面里的控件找的 window.__soThrBoardHost；板写入 / 按下那一趟的状态 → 查看层。
+if (soThrBoardOn()) soBdContractAdd(THEATER_SCENE_CONTRACT.classes);
+if (soThrBoardOn() && typeof window !== 'undefined') {
+    // 论坛板页面里的控件找它（键只许加不许改 / 删）。__soThrHost 一个字节不动。
+    window.__soThrBoardHost = {
+        post: (a) => soThrBoardHostPost(a), del: (tid, pid) => soThrBoardHostDel(tid, pid), delThread: (tid) => soThrBoardHostDelThread(tid),
+        checkName: (name) => soThrBoardCheckName(name), live: () => soThrBoardLive(),
+    };
+    soThrBoardSubscribe(soThrBoardViewPush);
+    soThrBoardLiveSubscribe(soThrBoardRowLive);
+}
+/* —— 🗂 论坛板 · 主线知情（stage 2）——
+ * 每个聊天一个开关（opts.tell，默认关）。勾上后主线 AI 读【一格】扩展提示词（深度 4、系统角色），由代码按块 tell.js 的 soBdNote 拼好——不发任何请求。
+ * 小剧场自己跑的每一趟（论坛板 / 微谕 / 场景 / IF / 实时预设）都把这一格停放（THEATER_PARK_KEYS），所以论坛的请求永远看不到网名背后是谁。
+ * 安静生成（别的扩展的总结、酒馆助手）和群聊里这一格是空的。这一节只注册扩展提示词：从不写主聊天、不发事件、不开别的传输。 */
+function soThrBoardTellOn() { return ENABLE_THR_BOARD_TELL && soThrBoardOn(); }
+/* 那一格：键 THEATER_BOARD_NOTE_KEY · IN_CHAT · 深度 THEATER_BOARD_NOTE_DEPTH（固定 4，不跟参谋深度走）· SYSTEM · 不参与世界书扫描（帖子会随机触发
+ * 条目）· filter = soThrBoardNoteFilter（ST 调它时不给参数）。做法与微谕那一格（soThrWeiyuNote* 一组）逐条相同，只是名字和状态各自一份；
+ * 手机那几个函数由手机的旗管着，这里一个都不调。
+ * ST 读扩展提示词时按【键名排序】、同深度同角色拼成一条：storyOracle_boardNote → storyOracle_weiyuNote → story_oracle_plan（参谋的引导恒在最后）。
+ * 从没勾过：一次都不碰 ST 的登记表（键根本不存在）；取消勾选 / 板删了 / 群聊 / 更新版本存的板 / 读不懂的板 = 登记成 ''（ST 丢掉空值）。
+ * 刷新时机：板每次 commit 之后（本节末尾的订阅）、换聊天（CHAT_CHANGED 监听）、init 末尾、每次非干跑的生成开始（主角换名 / 换 persona 跟上）。
+ * 小剧场正在借 ST 的状态拼它自己的请求（soThrBorrowing）→ 这一刻不登记，THEATER_WAIT_POLL_MS 后再试。
+ * quiet 生成不带这一格（微谕 t6 那一套）：非干跑的 quiet GENERATION_STARTED 同步登记成 ''，那一趟提示词拼完（它自己的 GENERATE_AFTER_DATA）立刻换回；
+ * 记账 soThrBoardBuilds（后进先出：quiet 压 'q'，有 'q' 开着时主线类的 GENERATION_AFTER_COMMANDS 压 'm'，每个非干跑、非借用中的 GENERATE_AFTER_DATA 弹一个）；
+ * 一趟 quiet 拼到一半出错 → THEATER_BOARD_QUIET_STALE_MS 后作废。不听 ENDED / STOPPED。
+ * 监听登记在 init 里（这一节不碰 ST 的事件总线）。 */
+const THEATER_BOARD_NOTE_KEY = MODULE + '_boardNote';
+const THEATER_BOARD_NOTE_DEPTH = 4;
+let soThrBoardNoteLive = false;   // 这次页面载入登记过非空的一格（读不到 ST 登记表时的判据）
+let soThrBoardGenType = null;     // 最近一次非干跑 GENERATION_STARTED 的类型（null = 还没见过）
+let soThrBoardNoteTimer = null;   // 小剧场借用期间待重试的那一次
+const THEATER_BOARD_QUIET_STALE_MS = 20000;   // 一趟 quiet 拼提示词最长算多久（出错没有 AFTER_DATA 时的兜底）
+let soThrBoardBuilds = [];        // 'q' / 'm'：正在拼提示词、还没到 GENERATE_AFTER_DATA 的生成（后进先出；只在有 'q' 时记）
+let soThrBoardQuietAt = 0;        // 最近一次压 'q' 的时刻（Date.now()）
+// 此刻有没有一趟 quiet 生成还在拼提示词（有 = 这一格必须是空的）。纯读，不改记账。
+function soThrBoardQuietOpen() {
+    return soThrBoardBuilds.includes('q') && Date.now() - soThrBoardQuietAt < THEATER_BOARD_QUIET_STALE_MS;
+}
+// 这块板此刻给主线的那一段（块 soBdNote 的结果：text / tokens / cut …）；拼不出来 = null，绝不抛。token 用 SO 自己的估算（同步）：
+// 收缩的判断、尺寸行、「省掉了什么」三处是同一个数。
+function soThrBoardNoteBuild(st, ctx) {
+    try {
+        const me = ctx && typeof ctx.name1 === 'string' ? ctx.name1 : '';
+        const r = soBdNote(st, { me, estimate: (t) => soEstimateTokens([{ content: String(t) }]), ...(soThrBoardModsOn() ? { extra: soBdModNoteLines(st, { cap: soBdTellOpt(st, 'noteCap') }) } : {}) });
+        return soBdIsObj(r) ? r : null;
+    } catch (e) {
+        return null;
+    }
+}
+// 这个聊天此刻该给主线的那段文字；'' = 什么都不给。绝不抛。
+function soThrBoardNoteText() {
+    if (!soThrBoardTellOn()) return '';
+    try {
+        let ctx = null;
+        try { ctx = getCtx(); } catch (e) { ctx = null; }
+        if (soThrGroupBlocked(ctx)) return '';
+        const rd = soThrBoardRead();
+        const st = rd.state;
+        if (rd.foreign || rd.broken || !st || !soBdTellOpt(st, 'tell')) return '';
+        const r = soThrBoardNoteBuild(soThrBoardNoteView(st, ctx), ctx);
+        return r && typeof r.text === 'string' ? r.text : '';
+    } catch (e) {
+        return '';
+    }
+}
+// 划出新生成（'swipe'）时 ST 先开主线请求，板到 MESSAGE_RECEIVED 才撤回被换掉的那条回复的补帖——这一趟主线读到的这一格由一份【副本】来写：
+// 最新那条回复上没被碰过、又不拥有 ST 此刻显示的 swipe 的活批次从副本里撤掉（不暂存）。存着的板一个字不动；碰过的批次照旧留着。
+function soThrBoardNoteView(st, ctx) {
+    if (soThrBoardGenType !== 'swipe') return st;
+    const chat = ctx && Array.isArray(ctx.chat) ? ctx.chat : null;
+    if (!chat) return st;
+    const cx = soThrBoardChatCx();
+    const c = soBdClone(st);
+    soBdReconcile(c, chat, cx);
+    const idx = cx.lastAiFloor(chat);
+    const b = idx >= 0 ? soBdLive(c, idx) : null;
+    if (!b || b.touched || (Array.isArray(b.swipes) && b.swipes.includes(cx.swipeOf(chat[idx])))) return st;
+    return soBdRevert(c, b.id, { stash: false }) ? c : st;
+}
+// ST 的登记表里此刻有没有我们的非空一格（ST 每次载入聊天都换一张新表；读不到表 = 退回这次页面载入的记号）。
+function soThrBoardNoteHeld(ctx) {
+    const reg = ctx && ctx.extensionPrompts;
+    if (!reg || typeof reg !== 'object') return soThrBoardNoteLive;
+    const e = Object.prototype.hasOwnProperty.call(reg, THEATER_BOARD_NOTE_KEY) ? reg[THEATER_BOARD_NOTE_KEY] : null;
+    return !!(e && e.value);
+}
+function soThrBoardNoteLater() {
+    if (soThrBoardNoteTimer) return;
+    soThrBoardNoteTimer = setTimeout(() => { soThrBoardNoteTimer = null; soThrBoardNoteSync(); }, THEATER_WAIT_POLL_MS);
+}
+// 把这一格对上板此刻的样子。→ 这一次调没调 ST 的 setExtensionPrompt。
+function soThrBoardNoteSync() {
+    if (!soThrBoardTellOn()) return false;
+    let ctx = null;
+    try { ctx = getCtx(); } catch (e) { ctx = null; }
+    if (!ctx || typeof ctx.setExtensionPrompt !== 'function') return false;
+    const quiet = soThrBoardQuietOpen();   // quiet 正在拼 = 这一格只能是空的（借用期间也写：空值带不进任何请求；挪开期间写 = 小剧场不再放回原文）
+    const text = quiet ? '' : soThrBoardNoteText();
+    if (text === '' && !soThrBoardNoteLive && !soThrBoardNoteHeld(ctx)) return false;   // 从没登记过：不碰 ST
+    if (!quiet && soThrBorrowing()) { soThrBoardNoteLater(); return false; }
+    if (text === '' && !quiet && !soThrBoardNoteHeld(ctx)) { soThrBoardNoteLive = false; return false; }   // ST 换过登记表，里面本来就没有
+    const pos = (ctx.extension_prompt_types && ctx.extension_prompt_types.IN_CHAT != null) ? ctx.extension_prompt_types.IN_CHAT : 1;
+    const role = (ctx.extension_prompt_roles && ctx.extension_prompt_roles.SYSTEM != null) ? ctx.extension_prompt_roles.SYSTEM : 0;
+    try {
+        ctx.setExtensionPrompt(THEATER_BOARD_NOTE_KEY, text, pos, THEATER_BOARD_NOTE_DEPTH, false, role, soThrBoardNoteFilter);
+    } catch (e) {
+        console.warn('[Story Oracle] 论坛板：主线知情登记失败', e);
+        return false;
+    }
+    soThrBoardNoteLive = text !== '';
+    return true;
+}
+// ST 拼提示词时问这一格要不要（不给参数）。聊天内的槽 ST 其实不等它（微谕 t6）——留着它、说的与这一格本身一样（quiet 正在拼 = 不要）。
+function soThrBoardNoteFilter() {
+    return !soThrBoardQuietOpen();
+}
+// 非干跑的 GENERATION_STARTED（type, params, dryRun）：记下类型；quiet = 压 'q' 并同步清空这一格；别的类型顺手刷新一次（有 quiet 在拼时仍是空的）。
+function soThrBoardTellStarted(type, params, dryRun) {
+    if (!soThrBoardTellOn() || dryRun) return;
+    soThrBoardGenType = type == null ? null : String(type);
+    let ctx = null;
+    try { ctx = getCtx(); } catch (e) { ctx = null; }
+    // 群聊里这一格恒空，不记账（ST 群聊外层那一趟永远不发 AFTER_DATA）
+    if (soThrBoardGenType === 'quiet' && !soThrGroupBlocked(ctx)) {
+        if (!soThrBoardQuietOpen()) soThrBoardBuilds = [];   // 作废的旧账不留
+        soThrBoardBuilds.push('q');
+        soThrBoardQuietAt = Date.now();
+    }
+    soThrBoardNoteSync();
+}
+// 非干跑的 GENERATION_AFTER_COMMANDS（type, params, dryRun）：有 quiet 在拼时，主线类这一趟也记一笔（quiet 自己在开始时已经记过）。
+function soThrBoardTellCommands(type, params, dryRun) {
+    if (!soThrBoardTellOn() || dryRun || String(type) === 'quiet') return;
+    if (soThrBoardQuietOpen()) soThrBoardBuilds.push('m');
+}
+// 非干跑的 GENERATE_AFTER_DATA（generateData, dryRun）：一趟提示词拼完了。小剧场借用期间到的可能是小剧场预设路自己的那一个 → 不算。
+// 弹掉最近记的一笔；栈里再没有 'q' = 这一格换回原文。
+function soThrBoardTellBuilt(data, dryRun) {
+    if (!soThrBoardTellOn() || dryRun || soThrBorrowing()) return;
+    if (!soThrBoardQuietOpen()) { soThrBoardBuilds = []; return; }
+    soThrBoardBuilds.pop();
+    if (!soThrBoardQuietOpen()) { soThrBoardBuilds = []; soThrBoardNoteSync(); }
+}
+// CHAT_CHANGED：新聊天的那一格（没有板 / 没勾 = 清空，或者根本不碰 ST）。
+function soThrBoardTellChat() {
+    return soThrBoardNoteSync();
+}
+// init 登记的监听（事件名对着 ST 的 public/scripts/events.js；et 缺键 = 同名字符串）。GENERATION_STARTED 恒在第一个。
+function soThrBoardTellHandlers(et) {
+    const t = et || {};
+    return [
+        [t.GENERATION_STARTED || 'generation_started', (type, params, dryRun) => { soThrBoardTellStarted(type, params, dryRun); }],
+        [t.GENERATION_AFTER_COMMANDS || 'GENERATION_AFTER_COMMANDS', (type, params, dryRun) => { soThrBoardTellCommands(type, params, dryRun); }],
+        [t.GENERATE_AFTER_DATA || 'generate_after_data', (data, dryRun) => { soThrBoardTellBuilt(data, dryRun); }],
+        [t.CHAT_CHANGED || 'chat_id_changed', () => { soThrBoardTellChat(); }],
+    ];
+}
+/* —— 面板卡上的这几行（stage 2 piece C）：设置里（details#so-thr-board-set）= 开关 / 上限框 / 尺寸行 / 「看看主线读到什么」+ 整理论坛那一组；
+ * 卡面上 = 「主线这次没读到什么」那一句（省掉了东西就一定说出来，从不悄悄地收）。尺寸行、那一句、预览键只在勾上时出现。
+ * 骨架里一个字都没有：带 data-so-bt 的由 P4 的 soThrRefreshBoardCard 填（字符串键），其余只由 soThrRefreshBoardTell 经 textContent 写。
+ * 尺寸行和那一句读 soThrBoardNoteBuild（不走划新回复时的副本）——与登记进 ST 的那段同一个估算；预览框显示 soThrBoardNoteText()（登记的原文）。 */
+// where = 'face'（卡面那一句）| 'set'（设置里的几行 + 整理论坛那一组：「现在给长帖做摘要」+ 一行结果、「删掉多久没人回的帖子」的选择 + 按钮）；
+// 别的 → ''。下拉的选项只带数值（字由 soThrRefreshBoardTell 写），默认选中 THEATER_BOARD_SWEEP_DEFAULT；选哪一项不存。
+function soThrBoardTellHtml(where) {
+    if (where === 'face') return '<div class="so-hint so-thr-board-note-cut" id="so-thr-board-note-cut" aria-live="polite" hidden></div>';
+    if (where !== 'set') return '';
+    return '<div class="so-thr-board-tell" id="so-thr-board-tell-box">'
+        + '<label class="so-check so-lb-check"><input type="checkbox" id="so-thr-board-tell"><span data-so-bt="tellLabel"></span></label>'
+        + '<div class="so-hint" data-so-bt="tellCost"></div>'
+        + '<div class="so-hint so-thr-board-note-size" id="so-thr-board-note-size" hidden></div>'
+        + '<label class="so-thr-board-num"><span data-so-bt="noteCapLabel"></span><input type="number" id="so-thr-board-note-cap" min="1" step="1"></label>'
+        + '<button type="button" class="so-thr-scene-mini" id="so-thr-board-note-view" data-so-bt="noteViewBtn" hidden></button>'
+        + '</div>'
+        + '<div class="so-thr-board-clean" id="so-thr-board-clean"><div class="so-thr-board-subhead" data-so-bt="cleanTitle"></div>'
+        + (soThrBoardSumOn()   // 「现在给长帖做摘要」只在摘要旗开着时才有（键上的字 sumNowBtn / sumNowNone 由 soThrRefreshBoardTell 写）
+            ? '<button type="button" class="so-thr-scene-mini" id="so-thr-board-sum-now"></button>'
+                + '<div class="so-hint" data-so-bt="sumNowCost"></div>'
+                + '<div class="so-hint so-thr-board-sum-now-line" id="so-thr-board-sum-now-line" aria-live="polite" hidden></div>'
+            : '')
+        + '<label class="so-thr-board-num"><span data-so-bt="sweepLabel"></span><select id="so-thr-board-sweep-age">'
+        + THEATER_BOARD_SWEEP_AGES.map((n) => '<option value="' + n + '"' + (n === THEATER_BOARD_SWEEP_DEFAULT ? ' selected' : '') + '></option>').join('')
+        + '</select></label>'
+        + '<button type="button" class="so-thr-scene-mini so-thr-board-danger" id="so-thr-board-sweep"></button>'
+        + '<div class="so-hint" data-so-bt="cleanOneHint"></div></div>';
+}
+// 这几行此刻该画成什么样（只读；不写元数据、不碰 ST）。v = soThrBoardCardView()；只有 'board' 才显示。
+// → {show, on, cap, note: soBdNote 的结果 | null, sizeText, cutText}（cutText = 省掉了什么 + 一句怎么腾地方；没省 / 没勾 = ''）。
+function soThrBoardTellView(v) {
+    const out = { show: false, on: false, cap: THEATER_BOARD_NOTE_CAP.dflt, note: null, sizeText: '', cutText: '' };
+    if (!soThrBoardTellOn() || !v || v.mode !== 'board') return out;
+    try {
+        const st = soThrBoardState();
+        if (!st) return out;
+        out.show = true;
+        out.on = soBdTellOpt(st, 'tell');
+        out.cap = soBdTellOpt(st, 'noteCap');
+        if (!out.on) return out;
+        let ctx = null;
+        try { ctx = getCtx(); } catch (e) { ctx = null; }
+        const r = soThrBoardNoteBuild(st, ctx);
+        out.note = r;
+        out.sizeText = r && r.text ? soThrBoardCardT('noteSize', [r.tokens, r.cap]) : soThrBoardCardT('noteEmpty');
+        const cut = r ? soBdNoteCutText(r) : '';
+        out.cutText = cut ? cut + ' ' + soThrBoardCardT('cutHint') : '';
+    } catch (e) {
+        console.warn('[Story Oracle] 论坛板：主线知情那几行读不出来', e);
+    }
+    return out;
+}
+// 这几行的唯一写者（P4 的 soThrRefreshBoardCard 末尾调）：显示 / 藏起、写字（只在变了时写）；玩家正在打的上限框不覆盖——o.force = 刚改完的那个框。
+function soThrRefreshBoardTell(card, v, o) {
+    if (!soThrBoardTellOn() || !card) return;
+    const tv = soThrBoardTellView(v);
+    const q = (id) => card.querySelector('#' + id);
+    const put = (e, t) => { if (e && e.textContent !== t) e.textContent = t; };
+    const vis = (e, on) => { if (e && e.hidden !== !on) e.hidden = !on; };
+    vis(q('so-thr-board-tell-box'), tv.show);
+    vis(q('so-thr-board-clean'), tv.show);
+    const tick = q('so-thr-board-tell');
+    if (tick && tick.checked !== tv.on) tick.checked = tv.on;
+    const cap = q('so-thr-board-note-cap');
+    if (cap && tv.show && !(document.activeElement === cap && !(o && o.force === 'so-thr-board-note-cap'))) {
+        const s = String(tv.cap);
+        if (cap.value !== s) cap.value = s;
+    }
+    const lit = tv.show && tv.on;
+    const size = q('so-thr-board-note-size');
+    put(size, lit ? tv.sizeText : '');
+    vis(size, lit && !!tv.sizeText);
+    vis(q('so-thr-board-note-view'), lit);
+    const cut = q('so-thr-board-note-cut');
+    put(cut, lit ? tv.cutText : '');
+    vis(cut, lit && !!tv.cutText);
+    // 整理论坛（有板就在，勾不勾都在）：两个按钮的字和能不能按都按此刻的板算
+    const st = tv.show ? soThrBoardState() : null;
+    const sb = q('so-thr-board-sum-now');
+    if (sb) {
+        const pick = st ? soBdNoteSumPick(st) : [];
+        put(sb, soThrBoardCardT(pick.length ? 'sumNowBtn' : 'sumNowNone'));
+        const off = !st || !pick.length || soThrBoardSumNowBusy();
+        if (sb.disabled !== off) sb.disabled = off;
+        const ln = q('so-thr-board-sum-now-line');
+        const lt = st ? soThrBoardSumNowLine() : '';
+        put(ln, lt);
+        vis(ln, !!lt);
+    }
+    const sel = q('so-thr-board-sweep-age');
+    if (sel) for (const op of Array.from(sel.options)) put(op, soThrBoardCardT('sweepAge', [Number(op.value)]));
+    const sw = q('so-thr-board-sweep');
+    if (sw) {
+        const n = st ? soBdSweepPick(st, soThrBoardSweepAge(sel ? sel.value : '')).length : 0;
+        put(sw, n ? soThrBoardCardT('sweepBtn', [n]) : soThrBoardCardT('sweepNone'));
+        if (sw.disabled !== (n === 0)) sw.disabled = n === 0;
+    }
+}
+// 这几行的接线（P4 的 soThrBindBoardCard 里、每个卡元素一次）。
+function soThrBindBoardTell(card) {
+    if (!soThrBoardTellOn() || !card) return;
+    const on = (id, type, fn) => { const e = card.querySelector('#' + id); if (e) e.addEventListener(type, fn); };
+    on('so-thr-board-tell', 'change', (e) => soThrBoardTellSetOpt('tell', e.currentTarget.checked === true));
+    on('so-thr-board-note-cap', 'change', (e) => soThrBoardTellSetOpt('noteCap', e.currentTarget.value));
+    on('so-thr-board-note-view', 'click', (e) => { if (!e.currentTarget.disabled) soThrBoardNoteOpen(); });
+    const warn = (e) => console.warn('[Story Oracle] 论坛板：整理论坛出错', e);
+    on('so-thr-board-sum-now', 'click', (e) => { if (!e.currentTarget.disabled) soThrBoardSumNow().catch(warn); });
+    on('so-thr-board-sweep-age', 'change', () => soThrRefreshBoardCard());   // 换了期限 → 按钮上的个数跟上
+    on('so-thr-board-sweep', 'click', (e) => {
+        if (e.currentTarget.disabled) return;
+        const sel = card.querySelector('#so-thr-board-sweep-age');
+        soThrBoardSweep(sel ? sel.value : '').catch(warn);
+    });
+}
+// 改开关 / 上限（P4 的 soThrBoardCardSetOpt 那一套）：k = 'tell'（只认 true / false）| 'noteCap'（框里的字先 trim；≥ 1 的数照存、不设范围，
+// 空 / 不是数 / < 1 = 不收，框里重新显示存着的值）。旗关 / 没有板 / 平行线 → false；实际值没变 → 不提交；提交 why 'opts'（那一格经订阅跟上）。
+// 无论成不成都重画，刚改的框显示存下的值。→ 提交了没有。
+function soThrBoardTellSetOpt(k, raw) {
+    const done = (ok) => { soThrRefreshBoardCard({ force: k === 'noteCap' ? 'so-thr-board-note-cap' : '' }); return ok; };
+    if (!soThrBoardTellOn()) return false;
+    const st = soThrBoardState();
+    if (!st || soThrSceneOwnerNow().kind !== 'main') return done(false);
+    let v;
+    if (k === 'tell') {
+        if (typeof raw !== 'boolean') return done(false);
+        v = raw;
+    } else if (k === 'noteCap') {
+        const t = String(raw == null ? '' : raw).trim();
+        v = t === '' ? '' : Number(t);
+    } else return done(false);
+    const c = soBdClone(st);
+    if (!soBdTellSetOpt(c, k, v)) return done(false);
+    if (soBdTellOpt(c, 'tell') === soBdTellOpt(st, 'tell') && soBdTellOpt(c, 'noteCap') === soBdTellOpt(st, 'noteCap')) return done(false);
+    return done(soThrBoardCommit(c, 'opts'));
+}
+/* —— 「看看主线读到什么」（stage 2 piece C Task 9）：页面居中的一个对话框（soShowLocalDialog），里面是登记进 ST 的那段原文；全经 textContent。 */
+// 旗开 + 这个聊天有板 + 勾上了 → 打开（已开着的先关掉，一次只一个）。→ 打开了没有。
+function soThrBoardNoteOpen() {
+    if (!soThrBoardTellOn()) return false;
+    const st = soThrBoardState();
+    if (!st || !soBdTellOpt(st, 'tell')) return false;
+    soThrBoardNoteClose();
+    let ctx = null;
+    try { ctx = getCtx(); } catch (e) { ctx = null; }
+    const r = soThrBoardNoteBuild(st, ctx);
+    const text = soThrBoardNoteText();
+    const mk = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+    const dlg = document.createElement('dialog');
+    dlg.id = 'so-thr-board-note-dlg';
+    dlg.className = 'so-local-dialog so-owned-dialog';
+    soMarkLocalUi(dlg);
+    const box = mk('div', 'so-local-box');
+    const head = mk('div', 'so-local-head');
+    const h = mk('h3', 'so-local-title', soThrBoardCardT('noteViewTitle'));
+    h.dataset.soBt = 'noteViewTitle';
+    head.appendChild(h);
+    box.appendChild(head);
+    const size = mk('div', 'so-local-msg', r && r.text ? soThrBoardCardT('noteSize', [r.tokens, r.cap]) : soThrBoardCardT('noteEmpty'));
+    size.id = 'so-thr-board-note-dlg-size';
+    box.appendChild(size);
+    const cutText = r ? soBdNoteCutText(r) : '';
+    if (cutText) {
+        const cut = mk('div', 'so-local-msg so-thr-board-note-cut', cutText);
+        cut.id = 'so-thr-board-note-dlg-cut';
+        box.appendChild(cut);
+    }
+    const pre = mk('pre', 'so-thr-board-note-pre', text || soThrBoardCardT('noteEmpty'));
+    pre.id = 'so-thr-board-note-pre';
+    box.appendChild(pre);
+    const btns = mk('div', 'so-local-choices');
+    const close = mk('button', 'so-local-btn', soThrBoardCardT('noteViewClose'));
+    close.type = 'button';
+    close.id = 'so-thr-board-note-close';
+    btns.appendChild(close);
+    box.appendChild(btns);
+    dlg.appendChild(box);
+    close.addEventListener('click', () => soThrBoardNoteClose());
+    dlg.addEventListener('cancel', (e) => { e.preventDefault(); soThrBoardNoteClose(); });
+    dlg.addEventListener('click', (e) => { if (e.target === dlg) soThrBoardNoteClose(); });   // 点到框外的背景
+    document.body.appendChild(dlg);
+    soShowLocalDialog(dlg);
+    return true;
+}
+// 关掉并删掉预览框（提示条按 soShowLocalDialog 的规矩挪回去）。→ 有没有可关的。
+function soThrBoardNoteClose() {
+    const d = document.getElementById('so-thr-board-note-dlg');
+    if (!d) return false;
+    try { if (typeof d.close === 'function' && d.open) d.close(); } catch (e) { /* 关不上也照样删 */ }
+    d.remove();
+    soToastsToTopDialog();
+    return true;
+}
+/* —— 整理论坛（stage 2 piece C Task 10；spec §8 / §15c）：两个按钮，什么都不自动做。
+ * 「现在给长帖做摘要」：按一下 = 一趟安静的摘要（块 flow.js 的 soBdSumRun，挑法 soBdNoteSumPick：先挑摘要能让主线那一格变短的玩家的帖子，
+ * 再挑安静的摘要本来就会做的；最多 THEATER_BOARD_SUM_PER_OCCASION 个）。结果只写在卡上的一行（从不弹提示、从不报错）；有别的板请求正在飞 /
+ * 一排队就不做了 = 「等它们写完再按」。摘要旗关 = 按钮根本不画。
+ * 「删掉多久没人回的帖子」：期限 THEATER_BOARD_SWEEP_AGES（几次补帖；默认 THEATER_BOARD_SWEEP_DEFAULT；选哪一项不存）→ 先问（列出要删的帖子），
+ * 确定 = 删掉、找不回来（经 soBdPlayer delThread：墓碑 + 批次标成碰过——之后落地的回帖 / 摘要都不会让它们回来）；从不删热帖、玩家发过帖的帖子。
+ * 一次提交（why 'del-sunk'）。板请求正在飞也可以删。平行线 / 群聊 / 更新版本存的 / 读不懂的板 → 不做（同卡上别的操作）。 */
+let soThrBoardSumNowState = null;   // 按下的那一趟：{busy: true, key} | {line, key}（key = 按下时的聊天；换了聊天这一行就不显示）
+// 自己按下的那一趟摘要还在跑没有。
+function soThrBoardSumNowBusy() {
+    return !!(soThrBoardSumNowState && soThrBoardSumNowState.busy);
+}
+// 卡上那一行此刻的字（不是这个聊天按的 / 没按过 = ''）。
+function soThrBoardSumNowLine() {
+    const s = soThrBoardSumNowState;
+    if (!s || s.key !== fixChatKey()) return '';
+    return s.busy ? soThrBoardCardT('sumNowBusy') : String(s.line || '');
+}
+// 期限：THEATER_BOARD_SWEEP_AGES 里的一个（下拉的值是字符串）；别的 → THEATER_BOARD_SWEEP_DEFAULT。
+function soThrBoardSweepAge(v) {
+    const n = Number(v);
+    return THEATER_BOARD_SWEEP_AGES.includes(n) ? n : THEATER_BOARD_SWEEP_DEFAULT;
+}
+// 按下「现在给长帖做摘要」。→ {ok: true, done, failed, queued} | {ok: false, why: 'off' | 'busy' | 'none' | 'gone'}。绝不抛、绝不弹提示。
+// 'busy'：自己那一趟还在跑（不写字）/ 别的板请求或摘要正在飞（那一行 = sumNowLater）。结果那一行：做好了几段 / 排队就没做 = sumNowLater / 别的 = sumNowFail。
+async function soThrBoardSumNow() {
+    if (!soThrBoardTellOn() || !soThrBoardSumOn()) return { ok: false, why: 'off' };
+    if (soThrBoardSumNowBusy()) return { ok: false, why: 'busy' };
+    const st = soThrBoardState();
+    if (!st || soThrSceneOwnerNow().kind !== 'main') return { ok: false, why: 'gone' };
+    const key = fixChatKey();
+    const T = (k, a) => soThrBoardCardT(k, a);
+    if (soBdFlight() || soBdSumFlight()) {
+        soThrBoardSumNowState = { line: T('sumNowLater'), key };
+        soThrRefreshBoardCard();
+        return { ok: false, why: 'busy' };
+    }
+    const pick = soBdNoteSumPick(st);
+    if (!pick.length) { soThrRefreshBoardCard(); return { ok: false, why: 'none' }; }
+    soThrBoardSumNowState = { busy: true, key };
+    soThrRefreshBoardCard();
+    const outs = [];
+    let done = 0;
+    try {
+        done = Number(await soBdSumRun(soThrBoardDeps({ silent: true }), { pick, report: (tid, out) => { outs.push(String(out)); } })) || 0;
+    } catch (e) {
+        done = 0;   // soBdSumRun 本来就不抛；兜底
+    }
+    const failed = outs.filter((x) => x === 'fail').length;
+    const queued = outs.filter((x) => x === 'queued').length;
+    // 一个结果都没有 = 那一趟根本没开始（安静的摘要那一串正好在两段之间 / 板请求刚起飞）→ 同「排队」
+    const line = done > 0 ? T('sumNowDone', [done]) : (queued > 0 || !outs.length ? T('sumNowLater') : T('sumNowFail'));
+    soThrBoardSumNowState = { line, key };
+    soThrRefreshBoardCard();
+    return { ok: true, done, failed, queued };
+}
+// 按下「删除 n 个沉底的帖子」。age = 下拉的值。→ {ok: true, n} | {ok: false, why: 'off' | 'none' | 'cancel' | 'gone'}。
+// 先问（字经 escapeHtml；列出每个要删的帖子标题——个数本来就不多）；不点确定 / 问的时候换了聊天 / 弹窗出错 = 'cancel'，什么都不写。
+// 确定 → 重新读板、重新挑（只删问过的、此刻仍然该删的），一次提交，成功一条提示。
+async function soThrBoardSweep(age) {
+    if (!soThrBoardTellOn()) return { ok: false, why: 'off' };
+    const a = soThrBoardSweepAge(age);
+    const st = soThrBoardState();
+    if (!st || soThrSceneOwnerNow().kind !== 'main') return { ok: false, why: 'gone' };
+    const pick = soBdSweepPick(st, a);
+    if (!pick.length) return { ok: false, why: 'none' };
+    const titles = pick.map((tid) => '《' + String(st.threads[tid].title || '') + '》').join('、');
+    const key = fixChatKey();
+    let ok = false;
+    try { ok = (await uiConfirm(escapeHtml(soThrBoardCardT('sweepConfirm', [pick.length, titles])))) === true; } catch (e) { ok = false; }
+    if (!ok || fixChatKey() !== key) return { ok: false, why: 'cancel' };
+    const st2 = soThrBoardState();
+    if (!st2 || soThrSceneOwnerNow().kind !== 'main') return { ok: false, why: 'gone' };
+    const still = new Set(soBdSweepPick(st2, a));
+    const c = soBdFlowClone(st2);
+    const n = soBdSweep(c, pick.filter((tid) => still.has(tid)));
+    if (!n) { soThrRefreshBoardCard(); return { ok: false, why: 'none' }; }
+    if (!soThrBoardCommit(c, 'del-sunk')) return { ok: false, why: 'gone' };
+    soThrBoardCardSay('success', soThrBoardCardT('sweepDone', [n]));
+    return { ok: true, n };
+}
+// 载入时（旗开才做）：板每次 commit / 删掉之后那一格跟上。
+if (soThrBoardTellOn()) soThrBoardSubscribe(() => { soThrBoardNoteSync(); });
+/* —— 🗂 论坛板 · 版主与人员流动（stage 3）——
+ * 论坛有站长和版主，他们也是论坛里的人。模型在回复里写「版务」行（谁｜做了什么｜对谁 / 哪个帖子｜缘由）；代码按那一刻的板子查权限
+ *（只有现任版主能管事、站长才能任免、卸任 / 退出只能本人），不合格的带着原因丢掉。每一件都记进那一批，撤销 / 重新生成精确还原。
+ * 这一节和块 mods*.js 从不写主聊天、不发事件、不开别的传输。旗关 = 一行都不跑。 */
+function soThrBoardModsOn() { return ENABLE_THR_BOARD_MODS && soThrBoardOn(); }
+// 载入时（旗开才做）：论坛板页面里版主那一层的七个类加进样式契约（在 P5 那六个之后；AI 皮肤可以给它们配样式，锁让它们藏不掉）。
+if (soThrBoardModsOn()) soBdModContractAdd(THEATER_SCENE_CONTRACT.classes);
 
 /* —— 主聊天自动场景（theater plan 4 Tasks 1–3；spec §5.6）——
  * 设置 theaterAutoScenes（THEATER_SCENES 的子集，按其顺序）：每条新 AI 回复后，回复后编排的最后一步 'scenes' 依次给每个勾选的场景跑一次
@@ -32760,6 +41826,8 @@ function init() {
             if (soLiveFlagOn()) soLiveListen(ctx);
             // 💬 微谕 剧情同步：换 swipe / 删楼 / 删 swipe / 回复到达 / 改楼 五个零调用监听（旗关 = 一个都不登记）。
             if (soThrWeiyuSyncOn()) for (const [ev, fn] of soThrWeiyuSyncHandlers(et)) ctx.eventSource.on(ev, fn);
+            if (soThrBoardOn()) for (const [ev, fn] of soThrBoardSyncHandlers(et)) ctx.eventSource.on(ev, fn);   // 🗂 论坛板 跟剧情：六个零调用监听（旗关 = 一个都不登记）
+            if (soThrBoardTellOn()) for (const [ev, fn] of soThrBoardTellHandlers(et)) ctx.eventSource.on(ev, fn);   // 🗂 论坛板 主线知情：生成开始 / 拼完 / 换聊天四个零调用监听（旗关 = 一个都不登记）
             // 💬 微谕 主线知情：生成开始时记下类型（只挡 quiet）并刷新那一格（旗关 = 不登记）。
             if (soThrWeiyuTellOn()) for (const [ev, fn] of soThrWeiyuTellHandlers(et)) ctx.eventSource.on(ev, fn);
             // 🎬 主聊天生成时也能开小剧场：只读的主聊天跟踪器（旗关 = 不登记任何监听）。
@@ -32843,6 +41911,7 @@ function init() {
     document.addEventListener('selectionchange', onChatSelectionChange);   // ✂️ 划选追踪（守卫在函数内）
     refreshFixChatEntry();   // ✂️ 首载补挂（此刻聊天可能已渲染完）
     if (soThrWeiyuTellOn()) soThrWeiyuNoteSync();   // 💬 微谕：已经载入的聊天的主线知情那一格（没勾过 = 不碰 ST）
+    if (soThrBoardTellOn()) soThrBoardNoteSync();   // 🗂 论坛板：已经载入的聊天的主线知情那一格（没勾过 = 不碰 ST）
     if (ENABLE_HOOK_API) soExposeHookApi();   // 稳定挂载接口：全部接线就绪后再暴露 + 广播 ready
 }
 
@@ -35994,9 +45063,9 @@ function saveChatMetadata() {
 function serializeConvo(list) {
     const out = (Array.isArray(list) ? list : [])
         .filter((m) => m && (m.role === 'user' || m.role === 'assistant' || m.role === 'note') && typeof m.content === 'string')
-        .map((m) => soWithTheaterFields(m, soWithHideFields(m, soWithRawFields(m, soWithReplyVersionFields(m, (m.diagStamp && typeof m.diagStamp === 'object')
+        .map((m) => soWithStopFields(m, soWithTheaterFields(m, soWithHideFields(m, soWithRawFields(m, soWithReplyVersionFields(m, (m.diagStamp && typeof m.diagStamp === 'object')
             ? { id: m.id, role: m.role, content: m.content, diagStamp: m.diagStamp }
-            : { id: m.id, role: m.role, content: m.content })))));
+            : { id: m.id, role: m.role, content: m.content }))))));   // ✋ soWithStopFields：停下留下的那一版的指纹
     for (let i = out.length - 1, seen = false; i >= 0; i--) {
         if (!out[i].diagStamp) continue;
         if (seen) delete out[i].diagStamp; else seen = true;
@@ -46253,6 +55322,7 @@ function postReplyPlan(flags, s) {
     // 💬 微谕 剧情同步跑在同一步里（自动场景之后）：旗关 / flags.weiyu 没开 / 这个聊天不要 = 原计划。
     if ((flags && flags.scenes && s && Array.isArray(s.theaterAutoScenes) && s.theaterAutoScenes.length)
         || (ENABLE_THR_WEIYU_SYNC && flags && flags.weiyu && s && s.weiyuSync === true)) plan.push('scenes');
+    else if (s && s.boardSync === true && soThrBoardOn()) plan.push('scenes');   // 🗂 论坛板：勾了「每条回复后跟上剧情」或还有能撤回 / 暂存的批次——同一步（自动场景 → 微谕 → 板）
     return plan;
 }
 
@@ -46457,6 +55527,7 @@ async function maybePostReply(messageId, type) {
         theaterAutoScenes: ENABLE_THEATER ? s.theaterAutoScenes : undefined,
         // 💬 微谕 剧情同步：这个聊天勾了「跟着剧情更新」或还有能撤回的增量（旗关 = undefined）。
         weiyuSync: soThrWeiyuSyncOn() ? soThrWeiyuSyncWanted(ctx) : undefined,
+        boardSync: soThrBoardOn() ? soThrBoardSyncWanted(ctx) : undefined,   // 🗂 论坛板（旗关 = undefined）
     };
     const plan = postReplyPlan({ fix: ENABLE_REPLY_FIX, diag: ENABLE_AUTO_DIAGNOSE, trainer: ENABLE_MVU_TRAINER, custom: ENABLE_FIX_CUSTOM_TASK && ENABLE_REPLY_FIX, scenes: ENABLE_THEATER, weiyu: ENABLE_THR_WEIYU_SYNC && ENABLE_THR_WEIYU && ENABLE_THEATER }, gate);
     if (!plan.length) return;                               // 两个杀死开关 / 两个设置都没开 → 不做事、不动模型
@@ -46512,6 +55583,7 @@ async function maybePostReply(messageId, type) {
                 if (step === 'fix') await runAutoFix(ctx, s, idx, compatSession);
                 else if (step === 'custom') await runCustomTask(ctx, s, idx, compatSession);
                 else if (step === 'diag') await runAutoDiagnoseWithRetry(ctx, s, idx, chatKey, compatSession);
+                else if (step === 'scenes' && soThrBoardOn()) await soThrBoardScenesStep(ctx, s, idx, { type: run.type, mvuWait: scenesMvuWait, chatKey });   // 🗂 自动场景 → 微谕 → 论坛板（一步、依次）
                 else if (step === 'scenes' && soThrWeiyuSyncOn()) await soThrWeiyuScenesStep(ctx, s, idx, { type: run.type, mvuWait: scenesMvuWait, chatKey });   // 💬 自动场景 → 微谕 剧情同步
                 else if (step === 'scenes') await runAutoScenes(ctx, s, idx, { type: run.type, mvuWait: scenesMvuWait });
                 else await runTrainer(chatKey, compatSession);
@@ -46548,6 +55620,7 @@ async function maybePostReply(messageId, type) {
         // 锁忙期间若又落了一条 AI 回复，立即补跑最新那条（共用 drainPendingPostReply）。
         drainPendingPostReply();
         soSyncReplyBusy();   // 锁已释放（补跑那一轮若同步重新上锁，判据现读，照样置灰）
+        if (soThrBoardOn()) soThrBoardAfterPostReply();   // 🗂 锁已放开：这一轮跟剧情落了一批 → 现在才给摘要一次时机（锁里起的会排队、被丢掉）
     }
 }
 
@@ -50871,8 +59944,10 @@ async function applyFixAsSwipe(idx, finalText) {
     const now = new Date();
     const info = { send_date: now.toISOString(), gen_started: null, gen_finished: now.toISOString(), extra: { story_oracle_fix: true } };
     const wySrc = soThrWeiyuSyncOn() ? soThrWeiyuSwipeOf(m) : -1;   // 💬 微谕：校正前显示的是哪个 swipe（剧情同步只带走属于它的增量）
+    const bdSrc = soThrBoardOn() ? soThrBoardChatCx().swipeOf(m) : -1;   // 🗂 论坛板：校正前显示的是哪个 swipe
     addSwipeToMessage(m, finalText, info);
     if (soThrWeiyuSyncOn()) soThrWeiyuOnFixer(idx, wySrc);   // 💬 微谕：同一个剧情事件——这一楼的增量带到新 swipe 上（零调用）
+    if (soThrBoardOn()) soThrBoardOnFixer(idx, bdSrc);   // 🗂 论坛板：这一楼活的批次带到新 swipe 上（零调用）
     try { if (typeof ctx.saveChat === 'function') await ctx.saveChat(); }
     catch (e) { console.warn('[Story Oracle] 校正写入 swipe 后保存失败：', e); return false; }
 
@@ -57209,6 +66284,9 @@ const LIVE_COPY = Object.freeze({
     notCC: '实时预设只在酒馆用「聊天补全」接口时能用，这一条没有发出',
     group: '群聊里暂时不能用实时预设，这一条没有发出',
     engine: '没能载入酒馆的预设组件，这一条没有发出',
+    // owner #95：两种原因分开说（DRAFT 候选 1，同 THEATER_PRESET_TOO_OLD / THEATER_PRESET_LOAD_FAILED，只把「这一轮」换成「这一条」）。说不清时仍是上面那句。
+    engineOld: '跟酒馆预设需要 SillyTavern 1.15.0 以上，这一条没有发出',   // Prince 亲选（2026-11-20，候选 2）
+    engineLoad: '预设功能没载入成功，这一条没有发出，请再试一次',   // Prince 亲选（2026-11-20，候选 2）
     noPreset: '读不到酒馆当前选中的预设，这一条没有发出',
     noHistorySlot: (name) => '预设「' + name + '」里没有「聊天记录」这一格，故事和你的问题没地方放，这一条没有发出',
     unpicked: (name) => '预设「' + name + '」还没挑条目：先挑一次，再发送',
@@ -57310,6 +66388,10 @@ function soLivePicksFor(entries, rec) {
     for (const id of ids) if (on.has(id) || LIVE_FORCED_IDS.includes(id)) enabled.add(id);
     return { enabled, count: enabled.size, fresh: rec ? ids.filter((id) => !seen.has(id)) : [], hasHistory: ids.includes('chatHistory') };
 }
+// 纯（owner #95）：预设组件载不进的那一句（实时的「这一条」）：'old' = 酒馆太旧 / 改过；'load' = 这次没载入成功；别的 = 原来那句。
+function soLiveEngineCopy(why) {
+    return why === 'old' ? LIVE_COPY.engineOld : (why === 'load' ? LIVE_COPY.engineLoad : LIVE_COPY.engine);
+}
 // 纯：状态行 / 发送前的闸。第一条命中的原因：不是聊天补全 → 群聊 → 预设组件载不进 → 读不到预设 → 没有聊天记录格 → 还没挑 → ok。
 function soLiveStatus(inp) {
     const o = inp || {};
@@ -57324,7 +66406,8 @@ function soLiveStatus(inp) {
     else if (!o.rec) st.reason = 'unpicked';
     if (st.reason) {
         st.text = st.reason === 'unpicked' ? LIVE_COPY.statusUnpicked(name)
-            : st.reason === 'noHistorySlot' ? LIVE_COPY.noHistorySlot(name) : LIVE_COPY[st.reason];
+            : st.reason === 'noHistorySlot' ? LIVE_COPY.noHistorySlot(name)
+                : st.reason === 'engine' ? soLiveEngineCopy(o.engineWhy) : LIVE_COPY[st.reason];   // owner #95：engineWhy 'old' / 'load' / 说不清
         return st;
     }
     const f = soLivePicksFor(entries, o.rec);
@@ -58095,7 +67178,7 @@ function soLiveSwitch(owner, on) {
 // 状态行的字：闸的原因去掉「这一条没有发出」（状态行不是一次发送）。
 function soLiveStatusLine(st) {
     const t = String((st && st.text) || LIVE_COPY.engine);
-    return (st && st.ok) ? t : t.replace(/，这一条没有发出$/, '');
+    return (st && st.ok) ? t : t.replace(/，这一条没有发出(?=。|，|$)/, '');   // owner #95：新话里它后面可能还跟半句（「…没有发出，请再试一次」）
 }
 // 行的唯一写者：单选框、显隐、锁（同步）；有模式开着实时才读 ST 的预设（异步）写状态行。没人勾 = 一行 ST 都不读。绝不抛。
 // 🎚 预设块开着：小剧场那一行也在（ENABLE_LIVE_PRESET 关着时只有它，addendum C-1），它的状态行另有一套字（soPbThrLiveStatus：从不说「还没挑」）。
@@ -59262,7 +68345,7 @@ async function soLiveOpenPick(name, forOwner) {
         try { oai = await soThrModule('openai', soThrLoadOpenAI); } catch (e) { oai = null; }
     }
     const oset = (oai && oai.oai_settings && typeof oai.oai_settings === 'object') ? oai.oai_settings : null;
-    if (!oset) { addSystemNote(soLiveStatusLine({ ok: false, text: LIVE_COPY.engine })); return; }
+    if (!oset) { addSystemNote(soLiveStatusLine({ ok: false, text: oai ? LIVE_COPY.engine : soLiveEngineCopy(soThrOpenAIWhy()) })); return; }   // owner #95
     let active = typeof oset.preset_settings_openai === 'string' ? oset.preset_settings_openai : '';
     if (!active) { try { active = String(getActiveMainPresetName() || ''); } catch (e) { active = ''; } }
     const entries = soLiveEntries(oset);
@@ -65160,7 +74243,9 @@ function soLiveStatusSync(s) {
     if (!name) { try { name = String(getActiveMainPresetName() || ''); } catch (e) { name = ''; } }
     const entries = oset ? soLiveEntries(oset) : [];
     const rec = soLivePicksGet(set, name);
-    const st = soLiveStatus({ avail: soThrPresetAvailable(ctx).ok, group: soThrGroupBlocked(ctx), loaded: !!(oai && oai.promptManager), name, entries, rec });
+    // owner #95：openai.js 没取到 → 原因（'old' / 'load'）；取到了只缺 promptManager = 说不清（原来那句）。
+    const st = soLiveStatus({ avail: soThrPresetAvailable(ctx).ok, group: soThrGroupBlocked(ctx), loaded: !!(oai && oai.promptManager), name, entries, rec,
+        engineWhy: oai ? '' : soThrOpenAIWhy() });
     st.enabled = st.ok ? soLivePicksFor(entries, rec).enabled : new Set();
     return st;
 }
@@ -65302,6 +74387,7 @@ async function soLiveRun(job) {
             },
         },
         onDelta: (full) => {
+            if (typeof j.onFull === 'function') j.onFull(full);   // ✋ ENABLE_STOP_KEEP：generateReply 记下流到的全文（只有它给这个键）
             if (!contentEl) return;
             clearDots();
             if (!contentEl.classList.contains('so-streaming')) {
@@ -65404,6 +74490,8 @@ function soLiveOutcome(r, o) {
         else if (msg === THEATER_START_REASONS.group) msg = LIVE_COPY.group;
         else if (Object.values(THEATER_START_REASONS).includes(msg)) msg = LIVE_COPY.busy;
         else if (msg === THEATER_PRESET_UNAVAILABLE) msg = LIVE_COPY.engine;
+        else if (msg === THEATER_PRESET_TOO_OLD) msg = LIVE_COPY.engineOld;   // owner #95：A 酒馆太旧 / 改过
+        else if (msg === THEATER_PRESET_LOAD_FAILED) msg = LIVE_COPY.engineLoad;   // owner #95：B 这次没载入成功
         else msg = msg.split('\n' + THEATER_MAXTOK_400_HINT).join('\n' + LIVE_COPY.maxTok400);
         throw Object.assign(new Error(msg), { soLive: true });
     }
@@ -65618,6 +74706,8 @@ function soModeLiveResult(r) {
         else if (msg === THEATER_START_REASONS.group) msg = LIVE_COPY.group;
         else if (Object.values(THEATER_START_REASONS).includes(msg)) msg = LIVE_COPY.busy;
         else if (msg === THEATER_PRESET_UNAVAILABLE) msg = LIVE_COPY.engine;
+        else if (msg === THEATER_PRESET_TOO_OLD) msg = LIVE_COPY.engineOld;   // owner #95：A 酒馆太旧 / 改过
+        else if (msg === THEATER_PRESET_LOAD_FAILED) msg = LIVE_COPY.engineLoad;   // owner #95：B 这次没载入成功
         else msg = msg.split('\n' + THEATER_MAXTOK_400_HINT).join('\n' + LIVE_COPY.maxTok400);
         throw Object.assign(new Error(msg), { soLive: true }, x.conn ? { soConn: Object.assign({}, x.conn) } : {});
     }
@@ -65738,11 +74828,47 @@ function buildMessages() {
  * own role; marker blocks expand IN PLACE with the Oracle's own context. The
  * chatHistory slot expands to story-context turns followed by the Oracle's own
  * Q&A turns (per the user's choice). Each text block runs through
- * substituteParams, so getvar/setvar resolve live (setvar self-heals on the
- * next main-chat turn). The built-in short prompt / textarea is never used here.
+ * substituteParams, so getvar/setvar resolve live within one build. With
+ * ENABLE_PRESET_VAR_DETACH every builder runs inside soVarDetached, so those
+ * writes land in a throw-away copy and never reach the main chat (flag off:
+ * they write the chat's / global variables, as before).
+ * The built-in short prompt / textarea is never used here.
  * ------------------------------------------------------------------ */
 function subst(ctx, text) {
     try { return ctx.substituteParams(String(text || '')); } catch (e) { return String(text || ''); }
+}
+
+// 🎚 ENABLE_PRESET_VAR_DETACH：run()（同步）期间把主聊天的变量本 chatMetadata.variables 和全局变量本 extensionSettings.variables.global
+// 各换成一份浅拷贝，run 一结束（含抛错）把【原来那两个对象】按身份放回；进来时没有的键出去时也没有（拼装里新建的删掉）。回 run() 的返回值。
+// 为什么浅拷贝就够：ST 的变量读写（variables.js 的 get/set/add/inc/dec/del + 新宏引擎经 ctx.variables.local / .global 调的同一批函数）
+// 每次调用时现读 chat_metadata.variables / extension_settings.variables.global 这两个属性，且只整键赋值 / 删键、从不原地改值。
+// 绝不能包住 await（只给六个同步的精选组装器用）。旗关 = 直接 run()。
+function soVarDetached(ctx, run) {
+    if (!ENABLE_PRESET_VAR_DETACH) return run();
+    let c = ctx;
+    if (!c) { try { c = getCtx(); } catch (e) { c = null; } }
+    const recs = [];
+    const take = (holder, key) => {
+        if (!holder || typeof holder !== 'object') return;
+        const had = Object.hasOwn(holder, key);
+        const orig = had ? holder[key] : undefined;
+        recs.push({ holder, key, had, orig });
+        if (had && orig && typeof orig === 'object') holder[key] = Array.isArray(orig) ? orig.slice() : Object.assign({}, orig);
+    };
+    take(c && c.chatMetadata, 'variables');
+    const ev = c && c.extensionSettings && c.extensionSettings.variables;
+    take(ev, 'global');
+    try {
+        return run();
+    } finally {
+        for (let i = recs.length - 1; i >= 0; i--) {
+            const r = recs[i];
+            try {
+                if (r.had) r.holder[r.key] = r.orig;
+                else if (Object.hasOwn(r.holder, r.key)) delete r.holder[r.key];
+            } catch (e) { /* 放不回去（冻结对象之类）：不吞掉 run 的结果 */ }
+        }
+    }
 }
 
 // Push a message, coalescing into the previous one if roles match — keeps the
@@ -65808,50 +74934,52 @@ function expandMarker(out, identifier, ctx, s) {
 }
 
 function buildPresetMessages(s) {
-    const ctx = getCtx();
-    const snap = getCuratedSnapshot(s, s.sysPromptPresetName);
-    const items = (snap && snap.items) || [];
-    const out = [];
+    return soVarDetached(null, () => {
+        const ctx = getCtx();
+        const snap = getCuratedSnapshot(s, s.sysPromptPresetName);
+        const items = (snap && snap.items) || [];
+        const out = [];
 
-    // 戏外守卫（1.32.1）：预设路径的【顶部身份头】。预设组装完全替换了神谕自己的系统提示——
-    // 组装里没有任何一处说明「这是侧聊分析窗口」，预设的写手/角色人设 + 正文格式契约（思考块/
-    // 样式注释/assistant 预填）就成了唯一身份来源 → 挂预设时「continue」被当成正文续写指令
-    // （Prince Opus 实况；本地电池 5/5 复现，终位单尾锚也压不住）。身份头立在预设块之前，把
-    // 预设降为风格/语境参考；与故事轮后的尾锚构成与默认路径同款的「顶部身份 + 边界尾锚」夹心。
-    if (ENABLE_OFFSTAGE_GUARD) pushMsg(out, 'system', OFFSTAGE_PRESET_HEADERS.normal);
+        // 戏外守卫（1.32.1）：预设路径的【顶部身份头】。预设组装完全替换了神谕自己的系统提示——
+        // 组装里没有任何一处说明「这是侧聊分析窗口」，预设的写手/角色人设 + 正文格式契约（思考块/
+        // 样式注释/assistant 预填）就成了唯一身份来源 → 挂预设时「continue」被当成正文续写指令
+        // （Prince Opus 实况；本地电池 5/5 复现，终位单尾锚也压不住）。身份头立在预设块之前，把
+        // 预设降为风格/语境参考；与故事轮后的尾锚构成与默认路径同款的「顶部身份 + 边界尾锚」夹心。
+        if (ENABLE_OFFSTAGE_GUARD) pushMsg(out, 'system', OFFSTAGE_PRESET_HEADERS.normal);
 
-    // Optional voice-persona layer, off by default in preset mode. When chosen,
-    // it leads as a top-level voice directive; the preset still governs content.
-    const personaBlock = buildPersonaBlock(s.personaId, null, s);
-    if (personaBlock) pushMsg(out, 'system', subst(ctx, personaBlock));
+        // Optional voice-persona layer, off by default in preset mode. When chosen,
+        // it leads as a top-level voice directive; the preset still governs content.
+        const personaBlock = buildPersonaBlock(s.personaId, null, s);
+        if (personaBlock) pushMsg(out, 'system', subst(ctx, personaBlock));
 
-    let sawHistory = false;
-    for (const it of items) {
-        if (it.kind === 'marker') {
-            if (it.identifier === 'chatHistory') sawHistory = true;
-            expandMarker(out, it.identifier, ctx, s);
-        } else {
-            pushMsg(out, it.role || 'system', subst(ctx, it.content));
+        let sawHistory = false;
+        for (const it of items) {
+            if (it.kind === 'marker') {
+                if (it.identifier === 'chatHistory') sawHistory = true;
+                expandMarker(out, it.identifier, ctx, s);
+            } else {
+                pushMsg(out, it.role || 'system', subst(ctx, it.content));
+            }
         }
-    }
 
-    // If the curation dropped the chatHistory slot, the Oracle still needs the
-    // story + the question — append them so it never sends a question with no
-    // context and no final user turn.
-    if (!sawHistory) {
-        pushMsg(out, 'system', buildSummarySection(getSummary()));
-        pushMsg(out, 'system', buildBbsHistorySection(getBbsHistoryText()));   // 柏宝书记忆桥（同 marker 位）
-        pushMsg(out, 'system', buildLwbHistorySection(getLwbSummaryText()));   // 小白X 记忆桥（同 marker 位）
-        let sawStoryTurns = false;
-        for (const t of buildTranscriptTurns(ctx, s)) { pushMsg(out, t.role, t.text); sawStoryTurns = true; }
-        // 戏外守卫（1.32.1）：与 chatHistory marker 分支同拍——尾锚紧跟故事轮（指代正确位）。
-        if (ENABLE_OFFSTAGE_GUARD && sawStoryTurns) pushMsg(out, 'system', OFFSTAGE_TAILS.normal);
-        if (soKbAnchorIndex < 0) soKbAnchorIndex = out.length;   // TBW spec D：同 chatHistory 分支
-        for (const m of convoForPrompt()) pushMsg(out, m.role, m.content);
-    }
+        // If the curation dropped the chatHistory slot, the Oracle still needs the
+        // story + the question — append them so it never sends a question with no
+        // context and no final user turn.
+        if (!sawHistory) {
+            pushMsg(out, 'system', buildSummarySection(getSummary()));
+            pushMsg(out, 'system', buildBbsHistorySection(getBbsHistoryText()));   // 柏宝书记忆桥（同 marker 位）
+            pushMsg(out, 'system', buildLwbHistorySection(getLwbSummaryText()));   // 小白X 记忆桥（同 marker 位）
+            let sawStoryTurns = false;
+            for (const t of buildTranscriptTurns(ctx, s)) { pushMsg(out, t.role, t.text); sawStoryTurns = true; }
+            // 戏外守卫（1.32.1）：与 chatHistory marker 分支同拍——尾锚紧跟故事轮（指代正确位）。
+            if (ENABLE_OFFSTAGE_GUARD && sawStoryTurns) pushMsg(out, 'system', OFFSTAGE_TAILS.normal);
+            if (soKbAnchorIndex < 0) soKbAnchorIndex = out.length;   // TBW spec D：同 chatHistory 分支
+            for (const m of convoForPrompt()) pushMsg(out, m.role, m.content);
+        }
 
-    if (!out.length) soKbAnchorIndex = 1;
-    return out.length ? out : [{ role: 'system', content: subst(ctx, '（预设无可用内容）') }, ...convoForPrompt()];
+        if (!out.length) soKbAnchorIndex = 1;
+        return out.length ? out : [{ role: 'system', content: subst(ctx, '（预设无可用内容）') }, ...convoForPrompt()];
+    });
 }
 
 /* ------------------------------------------------------------------ *
@@ -65867,36 +74995,38 @@ function buildPresetMessages(s) {
 // 🎚 预设块 Stage 1（一条规矩）：inner（可选）= 子功能（🪄 智能选条）自己建好的那组消息——放进 chatHistory 位，替掉世界书管家块 + 问答，
 // 末尾也不带世界书快照（智能选条自带目录）。不给 inner = 今天的字节。
 function buildLorebookPresetMessages(s, inner) {
-    const ctx = getCtx();
-    const snap = getCuratedSnapshot(s, s.sysPromptPresetName);
-    const items = (snap && snap.items) || [];
-    const out = [];
-    const own = Array.isArray(inner);
+    return soVarDetached(null, () => {
+        const ctx = getCtx();
+        const snap = getCuratedSnapshot(s, s.sysPromptPresetName);
+        const items = (snap && snap.items) || [];
+        const out = [];
+        const own = Array.isArray(inner);
 
-    const loreBlock = own ? '' : buildLorebookPrompt(ctx, s);  // directive (+ optional transcript)；书正文已移出、见下方尾部快照
-    let placed = false;
-    const placeLore = () => {
-        if (placed) return;
-        if (own) { for (const m of inner) pushMsg(out, m.role, m.content); placed = true; return; }
-        pushMsg(out, 'system', loreBlock);
-        for (const m of convoForPrompt()) pushMsg(out, m.role, m.content);
-        placed = true;
-    };
+        const loreBlock = own ? '' : buildLorebookPrompt(ctx, s);  // directive (+ optional transcript)；书正文已移出、见下方尾部快照
+        let placed = false;
+        const placeLore = () => {
+            if (placed) return;
+            if (own) { for (const m of inner) pushMsg(out, m.role, m.content); placed = true; return; }
+            pushMsg(out, 'system', loreBlock);
+            for (const m of convoForPrompt()) pushMsg(out, m.role, m.content);
+            placed = true;
+        };
 
-    for (const it of items) {
-        if (it.kind === 'marker') {
-            if (it.identifier === 'chatHistory') placeLore();
-            // every other marker is skipped in lore mode
-        } else {
-            pushMsg(out, it.role || 'system', subst(ctx, it.content));
+        for (const it of items) {
+            if (it.kind === 'marker') {
+                if (it.identifier === 'chatHistory') placeLore();
+                // every other marker is skipped in lore mode
+            } else {
+                pushMsg(out, it.role || 'system', subst(ctx, it.content));
+            }
         }
-    }
-    placeLore(); // no chatHistory marker in the curation -> append at the end
-    if (own) return out.length ? out : inner.map((m) => ({ role: m.role, content: m.content }));
+        placeLore(); // no chatHistory marker in the curation -> append at the end
+        if (own) return out.length ? out : inner.map((m) => ({ role: m.role, content: m.content }));
 
-    // F5：书正文快照钉在【全部内容之后】的末尾（与裸路径同规则，唯一权威、只出现这一次）。
-    out.push(lbSnapshotMsg());
-    return out;
+        // F5：书正文快照钉在【全部内容之后】的末尾（与裸路径同规则，唯一权威、只出现这一次）。
+        out.push(lbSnapshotMsg());
+        return out;
+    });
 }
 
 /* ------------------------------------------------------------------ *
@@ -65911,38 +75041,40 @@ function buildLorebookPresetMessages(s, inner) {
 // 🎚 预设块 Stage 1（一条规矩）：inner（可选，数组）= 子功能（✂ 选段校正）自己建好的那组消息——放进 chatHistory 位，替掉 buildFixPrompt +
 // directive / 问答；其余标记照旧展开。不给 inner = 今天的字节。
 function buildFixPresetMessages(s, directive, inner) {
-    const ctx = getCtx();
-    const snap = getCuratedSnapshot(s, s.sysPromptPresetName);
-    const items = (snap && snap.items) || [];
-    const out = [];
-    const own = Array.isArray(inner);
+    return soVarDetached(null, () => {
+        const ctx = getCtx();
+        const snap = getCuratedSnapshot(s, s.sysPromptPresetName);
+        const items = (snap && snap.items) || [];
+        const out = [];
+        const own = Array.isArray(inner);
 
-    let placed = false;
-    const placeFix = () => {
-        if (placed) return;
-        if (own) { for (const m of inner) pushMsg(out, m.role, m.content); placed = true; return; }
-        pushMsg(out, 'system', buildFixPrompt(ctx, s));
-        if (directive != null) pushMsg(out, 'user', directive);
-        else for (const m of convoForPrompt()) pushMsg(out, m.role, m.content);
-        placed = true;
-    };
+        let placed = false;
+        const placeFix = () => {
+            if (placed) return;
+            if (own) { for (const m of inner) pushMsg(out, m.role, m.content); placed = true; return; }
+            pushMsg(out, 'system', buildFixPrompt(ctx, s));
+            if (directive != null) pushMsg(out, 'user', directive);
+            else for (const m of convoForPrompt()) pushMsg(out, m.role, m.content);
+            placed = true;
+        };
 
-    for (const it of items) {
-        if (it.kind === 'marker') {
-            // chatHistory 槽 = 校正调用（slim 信封）；其余 RP 内容标记照预设位置展开（卡 / 世界书 / 场景 / 示例 / 人格），
-            // 让校正模型看到角色 / 世界设定（改对话 / 知不知道某事都用得上），且只出现一次（信封已 slim）。
-            if (it.identifier === 'chatHistory') placeFix();
-            else expandMarker(out, it.identifier, ctx, s);
-        } else {
-            pushMsg(out, it.role || 'system', subst(ctx, it.content));
+        for (const it of items) {
+            if (it.kind === 'marker') {
+                // chatHistory 槽 = 校正调用（slim 信封）；其余 RP 内容标记照预设位置展开（卡 / 世界书 / 场景 / 示例 / 人格），
+                // 让校正模型看到角色 / 世界设定（改对话 / 知不知道某事都用得上），且只出现一次（信封已 slim）。
+                if (it.identifier === 'chatHistory') placeFix();
+                else expandMarker(out, it.identifier, ctx, s);
+            } else {
+                pushMsg(out, it.role || 'system', subst(ctx, it.content));
+            }
         }
-    }
-    placeFix(); // 预设里没有 chatHistory marker -> 追加到末尾
-    if (own) return out.length ? out : inner.map((m) => ({ role: m.role, content: m.content }));
+        placeFix(); // 预设里没有 chatHistory marker -> 追加到末尾
+        if (own) return out.length ? out : inner.map((m) => ({ role: m.role, content: m.content }));
 
-    return out.length ? out : (directive != null
-        ? [{ role: 'system', content: buildFixPrompt(ctx, s) }, { role: 'user', content: directive }]
-        : [{ role: 'system', content: buildFixPrompt(ctx, s) }, ...convoForPrompt()]);
+        return out.length ? out : (directive != null
+            ? [{ role: 'system', content: buildFixPrompt(ctx, s) }, { role: 'user', content: directive }]
+            : [{ role: 'system', content: buildFixPrompt(ctx, s) }, ...convoForPrompt()]);
+    });
 }
 
 /* ------------------------------------------------------------------ *
@@ -65956,41 +75088,43 @@ function buildFixPresetMessages(s, directive, inner) {
 // 🎚 预设块 Stage 1（一条规矩）：inner（可选）= 子功能（🧭 下一拍建议）自己建好的那组消息——身份头与预设文本块照旧，inner 放进 chatHistory 位，
 // 替掉参谋块 + 问答；不写知识库锚点 soKbAnchorIndex。不给 inner = 今天的字节。
 function buildAdvisorPresetMessages(s, inner) {
-    const ctx = getCtx();
-    const snap = getCuratedSnapshot(s, s.sysPromptPresetName);
-    const items = (snap && snap.items) || [];
-    const out = [];
-    const own = Array.isArray(inner);
+    return soVarDetached(null, () => {
+        const ctx = getCtx();
+        const snap = getCuratedSnapshot(s, s.sysPromptPresetName);
+        const items = (snap && snap.items) || [];
+        const out = [];
+        const own = Array.isArray(inner);
 
-    // 戏外守卫（1.32.1）：顶部身份头（同 buildPresetMessages 的理由；advBlock 内部已带围栏+
-    // 尾锚，头负责在预设人设/格式契约之前先立住窗口身份）。终位追加尾锚实测有害（「以上故事
-    // 记录」的指代在预设示例块之后错位，把预设范文认成剧情）——不加。
-    if (ENABLE_OFFSTAGE_GUARD) pushMsg(out, 'system', OFFSTAGE_PRESET_HEADERS.advisor);
+        // 戏外守卫（1.32.1）：顶部身份头（同 buildPresetMessages 的理由；advBlock 内部已带围栏+
+        // 尾锚，头负责在预设人设/格式契约之前先立住窗口身份）。终位追加尾锚实测有害（「以上故事
+        // 记录」的指代在预设示例块之后错位，把预设范文认成剧情）——不加。
+        if (ENABLE_OFFSTAGE_GUARD) pushMsg(out, 'system', OFFSTAGE_PRESET_HEADERS.advisor);
 
-    const advBlock = own ? '' : buildAdvisorPrompt(ctx, s);  // directive + plan + card + WI + full transcript
-    let placed = false;
-    const placeAdv = () => {
-        if (placed) return;
-        if (own) { for (const m of inner) pushMsg(out, m.role, m.content); placed = true; return; }
-        pushMsg(out, 'system', advBlock);
-        soKbAnchorIndex = out.length;   // TBW spec D：参谋块之后 = 神谕问答之前
-        for (const m of convoForPrompt()) pushMsg(out, m.role, m.content);
-        placed = true;
-    };
+        const advBlock = own ? '' : buildAdvisorPrompt(ctx, s);  // directive + plan + card + WI + full transcript
+        let placed = false;
+        const placeAdv = () => {
+            if (placed) return;
+            if (own) { for (const m of inner) pushMsg(out, m.role, m.content); placed = true; return; }
+            pushMsg(out, 'system', advBlock);
+            soKbAnchorIndex = out.length;   // TBW spec D：参谋块之后 = 神谕问答之前
+            for (const m of convoForPrompt()) pushMsg(out, m.role, m.content);
+            placed = true;
+        };
 
-    for (const it of items) {
-        if (it.kind === 'marker') {
-            if (it.identifier === 'chatHistory') placeAdv();
-            // every other marker is skipped in advisor mode
-        } else {
-            pushMsg(out, it.role || 'system', subst(ctx, it.content));
+        for (const it of items) {
+            if (it.kind === 'marker') {
+                if (it.identifier === 'chatHistory') placeAdv();
+                // every other marker is skipped in advisor mode
+            } else {
+                pushMsg(out, it.role || 'system', subst(ctx, it.content));
+            }
         }
-    }
-    placeAdv(); // no chatHistory marker in the curation -> append at the end
-    if (own) return out.length ? out : inner.map((m) => ({ role: m.role, content: m.content }));
+        placeAdv(); // no chatHistory marker in the curation -> append at the end
+        if (own) return out.length ? out : inner.map((m) => ({ role: m.role, content: m.content }));
 
-    if (!out.length) soKbAnchorIndex = 1;
-    return out.length ? out : [{ role: 'system', content: advBlock }, ...convoForPrompt()];
+        if (!out.length) soKbAnchorIndex = 1;
+        return out.length ? out : [{ role: 'system', content: advBlock }, ...convoForPrompt()];
+    });
 }
 
 /* ------------------------------------------------------------------ *
@@ -66010,33 +75144,35 @@ function buildAdvisorPresetMessages(s, inner) {
  * 【自动诊断】指令），同 buildFixPresetMessages 的双形态。
  * ------------------------------------------------------------------ */
 function buildDiagnosePresetMessages(s, systemPrompt, directive) {
-    const ctx = getCtx();
-    const snap = getCuratedSnapshot(s, s.sysPromptPresetName);
-    const items = (snap && snap.items) || [];
-    const out = [];
+    return soVarDetached(null, () => {
+        const ctx = getCtx();
+        const snap = getCuratedSnapshot(s, s.sysPromptPresetName);
+        const items = (snap && snap.items) || [];
+        const out = [];
 
-    let placed = false;
-    const placeDiag = () => {
-        if (placed) return;
-        pushMsg(out, 'system', systemPrompt);
-        if (directive != null) pushMsg(out, 'user', directive);
-        else for (const m of convoForPrompt()) pushMsg(out, m.role, m.content);
-        placed = true;
-    };
+        let placed = false;
+        const placeDiag = () => {
+            if (placed) return;
+            pushMsg(out, 'system', systemPrompt);
+            if (directive != null) pushMsg(out, 'user', directive);
+            else for (const m of convoForPrompt()) pushMsg(out, m.role, m.content);
+            placed = true;
+        };
 
-    for (const it of items) {
-        if (it.kind === 'marker') {
-            if (it.identifier === 'chatHistory') placeDiag();
-            // 其余标记在诊断模式一概跳过（诊断信封自带这些材料）
-        } else {
-            pushMsg(out, it.role || 'system', subst(ctx, it.content));
+        for (const it of items) {
+            if (it.kind === 'marker') {
+                if (it.identifier === 'chatHistory') placeDiag();
+                // 其余标记在诊断模式一概跳过（诊断信封自带这些材料）
+            } else {
+                pushMsg(out, it.role || 'system', subst(ctx, it.content));
+            }
         }
-    }
-    placeDiag(); // 预设里没有 chatHistory marker -> 追加到末尾
+        placeDiag(); // 预设里没有 chatHistory marker -> 追加到末尾
 
-    return out.length ? out : (directive != null
-        ? [{ role: 'system', content: systemPrompt }, { role: 'user', content: directive }]
-        : [{ role: 'system', content: systemPrompt }, ...convoForPrompt()]);
+        return out.length ? out : (directive != null
+            ? [{ role: 'system', content: systemPrompt }, { role: 'user', content: directive }]
+            : [{ role: 'system', content: systemPrompt }, ...convoForPrompt()]);
+    });
 }
 
 /* ------------------------------------------------------------------ *
@@ -66049,31 +75185,33 @@ function buildDiagnosePresetMessages(s, systemPrompt, directive) {
  * the preset — the forge (runForge/buildForgeMessages) is NEVER preset-routed.
  * ------------------------------------------------------------------ */
 function buildBuilderPresetMessages(s) {
-    const ctx = getCtx();
-    const snap = getCuratedSnapshot(s, s.sysPromptPresetName);
-    const items = (snap && snap.items) || [];
-    const out = [];
+    return soVarDetached(null, () => {
+        const ctx = getCtx();
+        const snap = getCuratedSnapshot(s, s.sysPromptPresetName);
+        const items = (snap && snap.items) || [];
+        const out = [];
 
-    const bldBlock = buildBuilderPrompt(ctx, s);  // 工序指令 + 卡 + WI + 变量 + 概要 + 对话记录
-    let placed = false;
-    const placeBld = () => {
-        if (placed) return;
-        pushMsg(out, 'system', bldBlock);
-        for (const m of convoForPrompt()) pushMsg(out, m.role, m.content);
-        placed = true;
-    };
+        const bldBlock = buildBuilderPrompt(ctx, s);  // 工序指令 + 卡 + WI + 变量 + 概要 + 对话记录
+        let placed = false;
+        const placeBld = () => {
+            if (placed) return;
+            pushMsg(out, 'system', bldBlock);
+            for (const m of convoForPrompt()) pushMsg(out, m.role, m.content);
+            placed = true;
+        };
 
-    for (const it of items) {
-        if (it.kind === 'marker') {
-            if (it.identifier === 'chatHistory') placeBld();
-            // every other marker is skipped in builder mode
-        } else {
-            pushMsg(out, it.role || 'system', subst(ctx, it.content));
+        for (const it of items) {
+            if (it.kind === 'marker') {
+                if (it.identifier === 'chatHistory') placeBld();
+                // every other marker is skipped in builder mode
+            } else {
+                pushMsg(out, it.role || 'system', subst(ctx, it.content));
+            }
         }
-    }
-    placeBld(); // no chatHistory marker in the curation -> append at the end
+        placeBld(); // no chatHistory marker in the curation -> append at the end
 
-    return out.length ? out : [{ role: 'system', content: bldBlock }, ...convoForPrompt()];
+        return out.length ? out : [{ role: 'system', content: bldBlock }, ...convoForPrompt()];
+    });
 }
 
 /* ------------------------------------------------------------------ *
@@ -66141,6 +75279,37 @@ async function onSend() {
 // 其余错误（429 限流 / 网络 / 空回复传 null）都不是中止 → 给重试。容错：无错误对象按非中止处理。
 function isUserAbort(err) {
     return err?.name === 'AbortError';
+}
+
+// ✋ 停下也算一条回复（ENABLE_STOP_KEEP）。纯判定：玩家按停止时已经流到的原文 raw，值不值得留。
+// 判据用定稿路径同一套清理：mechStrip（诊断 / 世界书以外的模式）先剥机制块、再剥思维链（含没闭合的尾巴）；诊断 / 世界书只剥思维链。
+// 剥完只剩空白（没字 / 只有没写完的 <think> / 只有机制块）→ ''（照旧「(已停止)」）；否则 → 原文去掉尾部空白（只用来判，留下的字由定稿路径照常清理）。
+function soStopKeepText(raw, opts) {
+    if (typeof raw !== 'string' || !raw.trim()) return '';
+    const o = opts || {};
+    const seen = stripReasoningTags(o.mechStrip ? stripMechanismBlocks(raw) : raw);
+    return seen.trim() ? raw.replace(/\s+$/, '') : '';
+}
+// generateReply 传输段的中断要不要接住：→ 要留的原文 | ''（不接 = 今天的路）。只认【玩家自己按的停止】（stopGeneration 在当时那个中止器上
+// 记 soUserStop；换聊天 / 换房 / 超时的中断都不记），而且房间 / 聊天 / 侧聊记录还是开跑时那一份（sk = generateReply 开跑时记下的）。
+function soStopKeepCatch(err, sk, opts) {
+    if (!ENABLE_STOP_KEEP || !sk || !isUserAbort(err)) return '';
+    if (!sk.ctl || sk.ctl.soUserStop !== true) return '';
+    if (sk.convo !== convo || sk.room !== convoStreamKey || sk.chat !== fixChatKey()) return '';
+    return soStopKeepText(sk.text, opts);
+}
+// 停下留下的那一版：条目上记它的指纹（soStopped）。「这条是停下留下的」= 指纹还对得上当前正文——✏ 改过 / ⏩ 续完 / 切到别的版本都自然对不上。
+function soStopKeepMark(entry) {
+    if (entry && typeof entry.content === 'string') entry.soStopped = fixFingerprint(entry.content);
+}
+function soStopKeepMarked(entry) {
+    return !!(ENABLE_STOP_KEEP && entry && typeof entry.soStopped === 'string' && typeof entry.content === 'string'
+        && entry.soStopped === fixFingerprint(entry.content));
+}
+// 落盘 / 读回（serializeConvo 同一份白名单）：助手回复带着 soStopped。旗关 = 原样返回。
+function soWithStopFields(m, o) {
+    if (ENABLE_STOP_KEEP && m && m.role === 'assistant' && typeof m.soStopped === 'string' && m.soStopped) o.soStopped = m.soStopped;
+    return o;
 }
 
 // 把错误的 cause 链拍成一句人话。存在的理由：profile（连接配置）模式走酒馆的
@@ -66404,6 +75573,9 @@ async function generateReply(options = {}) {
     setGenerating(true);
     abortCtl = new AbortController();
     let modeRx;   // 🎚 Stage 3：实时流式那一发的显示规则画笔（mreq.onFull 第一笔时建；没走实时 = 一直 undefined）
+    // ✋ ENABLE_STOP_KEEP：这一趟流到的原文（各条流式路的画笔旁边记一份）+ 开跑时的中止器 / 侧聊记录 / 房间 / 聊天（停下时据此认「还是同一处」）。
+    // 旗关 = null，下面每一处都不做事。
+    const sk = ENABLE_STOP_KEEP ? { text: '', ctl: abortCtl, convo, room: convoStreamKey, chat: fixChatKey(), rx: null, kept: false } : null;
 
     try {
         let finalText = '';
@@ -66420,13 +75592,16 @@ async function generateReply(options = {}) {
         const mreq = { messages, maxTokens: effMaxTokens, stream: !!s.stream, signal: replySig, feature: modeOwner || 'chat', debugPrev: modeDebugPrev,
             bubble: { aEl: assistantEl, contentEl, clearTyping },
             onFull: (full) => {
+                if (sk) sk.text = String(full || '');   // ✋
                 clearTyping();
                 if (modeRx === undefined) modeRx = ENABLE_ORACLE_REGEX ? soRegexStreamPainter(contentEl, convoStreamKey) : null;
                 if (modeRx) modeRx.set(full); else contentEl.textContent = full;
                 if (soFollowStream) scrollToBottom();
             } };
+        try {   // ✋ ENABLE_STOP_KEEP：传输这一段的内层 try（旧代码不加缩进）——玩家按停止、已经流到字 = 接住，往下走定稿路径；其余一律原样抛给外层 catch
         if (liveOwner) {
             // 🎚 实时：小剧场预设路的引擎（排队 / 让路 / 私有条目表 / 本趟自己的世界书与节拍）；没发出 / 闸没过 = 气泡已在里面收尾。
+            if (sk) liveJob.onFull = (full) => { sk.text = String(full || ''); };   // ✋ 引擎流到的全文（soLiveRun 的 onDelta 转来）
             const got = await soLiveRun(Object.assign(liveJob, { aEntry, assistantEl, contentEl, clearTyping, signal: replySig, debugPrev: liveDebugPrev }));
             if (got.done) return;
             finalText = got.text;
@@ -66442,7 +75617,9 @@ async function generateReply(options = {}) {
             if (s.stream) {
                 contentEl.classList.add('so-streaming');
                 const rxStream = ENABLE_ORACLE_REGEX ? soRegexStreamPainter(contentEl, convoStreamKey) : null;   // TBW spec B · B6：流式也过显示规则（节流）
+                if (sk) sk.rx = rxStream;   // ✋
                 finalText = await soModeSend(modeOwner, mc, mreq, () => streamDirect(mc.url, mc.apiKey, body, abortCtl.signal, (delta) => {
+                    if (sk) sk.text += String(delta || '');   // ✋
                     clearTyping();
                     if (rxStream) rxStream.add(delta); else contentEl.textContent += delta;
                     if (soFollowStream) scrollToBottom();   // #1 只在用户跟随到底部时才自动滚
@@ -66459,7 +75636,9 @@ async function generateReply(options = {}) {
             if (s.stream) {
                 contentEl.classList.add('so-streaming');
                 const rxStream = ENABLE_ORACLE_REGEX ? soRegexStreamPainter(contentEl, convoStreamKey) : null;   // TBW spec B · B6：流式也过显示规则（节流）
+                if (sk) sk.rx = rxStream;   // ✋
                 finalText = await soModeSend(modeOwner, mc, mreq, () => callProfileStream(mc.profileId, messages, effMaxTokens, override, abortCtl.signal, (full) => {
+                    if (sk) sk.text = String(full || '');   // ✋
                     clearTyping();
                     if (rxStream) rxStream.set(full); else contentEl.textContent = full;
                     if (soFollowStream) scrollToBottom();   // #1 只在用户跟随到底部时才自动滚
@@ -66471,6 +75650,19 @@ async function generateReply(options = {}) {
                 clearTyping();
                 contentEl.textContent = finalText;
             }
+        }
+        } catch (stopErr) {
+            // ✋ 玩家按了停止、已经流到值得留的字 → 流式画笔收笔、去掉流式样式，气泡换成流到的原文（同非流式那一枝的 textContent = finalText），
+            // 之后与跑完的回复走同一条定稿路径（sk.kept = 不挂卡、不做模式副作用）。别的一切（没字 / 超时 / 换聊天 / 出错）= 原样抛给外层 catch。
+            const kept = soStopKeepCatch(stopErr, sk, { mechStrip: !diagnoseMode && !lorebookMode });
+            if (!kept) throw stopErr;
+            if (sk.rx) sk.rx.stop();
+            if (modeRx) modeRx.stop();
+            contentEl.classList.remove('so-streaming');
+            clearTyping();
+            contentEl.textContent = kept;
+            finalText = kept;
+            sk.kept = true;
         }
         if (modeRx) modeRx.stop();   // 🎚 Stage 3：实时流式的最后一笔立刻画掉（之后的渲染照旧盖在它上面）
 
@@ -66603,6 +75795,7 @@ async function generateReply(options = {}) {
                 soRecordRaw(aEntry, finalText, rxMap);
             }
             if (contentEl) contentEl.dataset.soRaw = finalText;   // Hook API：原始模型输出（未 strip / 未 DOMPurify），供插件读自定义标签
+            if (sk && sk.kept) soStopKeepMark(aEntry);   // ✋ 这一版是停下留下的（随下面 persistConvo 落盘；重画时据此不挂卡）
             // 🩺 陈旧印章（Task 5，审计簇 F）：把「这份诊断是按【哪个聊天】、按【哪份状态】算的」钉在
             // 条目上——应用按钮据此判断「诊断之后世界又变过没有」。必须钉在 convo.push / persistConvo
             // 【之前】：它跟着这条记录同一次写入落盘，重载后那道闸才有依据（serializeConvo 会带上它）。
@@ -66612,7 +75805,7 @@ async function generateReply(options = {}) {
             // 在旧版本上 ⏩ 不得给它挂卡，也不得把它的印章写成最新版本那张卡要读的那一枚。新回复（rv 空）= 1.90.0 原样。
             const applyOk = !rv || soApplyAllowedFor(aEntry);
             const block = (diagnoseMode && applyOk) ? extractUpdateBlock(finalText) : '';
-            if (block) {
+            if (block && !(sk && sk.kept)) {   // ✋ 停下留下的：不钉印章、不记注入靶子（应用卡在下面的分流里同样跳过）
                 aEntry.diagStamp = {
                     chatKey: fixChatKey(),
                     statKey: diagStampKey != null ? diagStampKey : diagStatKey(await getMvuStatData()),
@@ -66638,7 +75831,9 @@ async function generateReply(options = {}) {
             if (!rv) convo.push(aEntry);   // 重新生成 / 续写：目标本来就在记录里
             persistConvo();
             if (rv) soRefreshActionRow(aEntry);   // 临时气泡的按钮行换成目标那条的（版本切换器 n/m 随之出现）
-            if (diagnoseMode) {
+            if (sk && sk.kept) {
+                // ✋ 停下留下的回复只是一段字：不挂诊断 / 世界书应用卡、方案 / 序列卡、校正卡，工坊不收汇总 / 草稿 / 修改区块。⏩ 续完那一趟照常走下面。
+            } else if (diagnoseMode) {
                 // 第 4 参 finalText（1.68.0）：双区块闸要数「MVU 会执行几块」，而 block 只是最早那一个
                 // 包装块 —— 模型甩两个包装块时，第二块的指令会被静默丢掉。
                 if (block) {
@@ -66714,7 +75909,7 @@ async function generateReply(options = {}) {
             }
             // TBW spec A：回复已落进侧聊记录（新回复 / 重新生成的新版本 / 续写）→ 通知扩展。
             if (ENABLE_REPLY_VERSIONS) soSyncAllReplyTools();   // 新的「最新一条」到场 → 诊断等房的 ⏩🔄 挪过去
-            if (ENABLE_HOOK_API_UI) soEmitHook('reply-done', { id: aEntry.id, room: convoStreamKey, mode: currentOracleMode(), kind: rv ? rv.kind : 'new' });
+            if (ENABLE_HOOK_API_UI) soEmitHook('reply-done', { id: aEntry.id, room: convoStreamKey, mode: currentOracleMode(), kind: rv ? rv.kind : 'new', ...((sk && sk.kept) ? { stopped: true } : {}) });   // ✋ 停下留下的多一个 stopped:true（只加键）
         }
     } catch (err) {
         clearTyping();
@@ -69951,6 +79146,8 @@ async function runAutoFix(ctx, s, targetId, compatSession) {
 }
 
 function stopGeneration() {
+    // ✋ ENABLE_STOP_KEEP：记下「这一下是玩家按的停止」（换聊天 / 换房 / 超时的中断不经这里）——generateReply 据此接住流到的字。
+    if (ENABLE_STOP_KEEP && abortCtl) { try { abortCtl.soUserStop = true; } catch (e) { /* ignore */ } }
     try { abortCtl?.abort(); } catch (e) { /* ignore */ }
 }
 
@@ -70796,6 +79993,32 @@ function soVertexAuthFill(profileId, ctx) {
     }
 }
 
+// Vertex AI 区域补键（2026-11-21 报障修：配置档路的 Vertex 一律撞 us-central1）：
+// 区域存在配置档的「服务器 URL」（profile['api-url']）里——ST 1.15 起才存得进、发得出；ST ≤ 1.14 的配置档根本没有这一格，
+// sendRequest 不带 vertexai_region，服务端缺省就是 us-central1。神谕的实时 / 小剧场预设路（soThrPresetConn → soThrPresetBody）
+// 照 api-url 填区域、没有回落，配置档没存区域就一个都不发（新版 ST 上也一样）。
+// 只在【配置档源 = vertexai】且【配置档没存区域（api-url 缺 / 空白）】且【酒馆当前区域是非空字符串】时补
+// { vertexai_region: 酒馆当前区域 }；认证模式不限。配置档存了区域 = 永远照它，这里不碰。
+// 与 ST 自己的回落链有意不同：配置档没区域时不用预设里存的区域（多半是旧的 us-central1），直接用酒馆当前的设置。
+// 任何异常 → {}，绝不抛。
+function soVertexRegionFill(profileId, ctx) {
+    try {
+        const profiles = ctx?.extensionSettings?.connectionManager?.profiles;
+        if (!Array.isArray(profiles)) return {};
+        const p = profiles.find((x) => x?.id === profileId);
+        if (!p) return {};
+        const source = ctx?.CONNECT_API_MAP?.[p?.api]?.source ?? p?.api;
+        if (source !== 'vertexai') return {};
+        const saved = p['api-url'];
+        if (typeof saved === 'string' && saved.trim()) return {};
+        const cur = ctx?.chatCompletionSettings?.vertexai_region;
+        if (typeof cur !== 'string' || !cur.trim()) return {};
+        return { vertexai_region: cur.trim() };
+    } catch {
+        return {};
+    }
+}
+
 async function callProfile(profileId, messages, maxTokens, overridePayload, signal) {
     messages = yzmShieldMessages(messages);   // 柚月记忆兼容垫（1.77.1）：配置文件路也经它包过的 fetch
     messages = normalizeOutgoingMessages(messages);   // Gemini 加固（2026-09-15）：良构消毒 + 相邻同角色合并，同一咽喉
@@ -70808,7 +80031,7 @@ async function callProfile(profileId, messages, maxTokens, overridePayload, sign
         messages,
         maxTokens,
         { stream: false, extractData: true, signal: soThrParallelOn() ? soThrOwnSignal(signal) : signal },   // 🎬 fu-1：这一发是神谕自己的（中转旁观者认它）
-        { ...extraParamsOverride(extra), ...soVertexAuthFill(profileId, ctx), ...(overridePayload || {}) },
+        { ...extraParamsOverride(extra), ...soVertexAuthFill(profileId, ctx), ...soVertexRegionFill(profileId, ctx), ...(overridePayload || {}) },
     );
     return result?.content ?? '';
 }
@@ -70825,7 +80048,7 @@ async function callProfileStream(profileId, messages, maxTokens, overridePayload
         messages,
         maxTokens,
         { stream: true, signal: soThrParallelOn() ? soThrOwnSignal(signal) : signal },   // 🎬 fu-1：这一发是神谕自己的（中转旁观者认它；写在参数里 = 垫在 sendRequest 之前的钉不动）
-        { ...extraParamsOverride(extra), ...soVertexAuthFill(profileId, ctx), ...(overridePayload || {}) },
+        { ...extraParamsOverride(extra), ...soVertexAuthFill(profileId, ctx), ...soVertexRegionFill(profileId, ctx), ...(overridePayload || {}) },
     );
     const iterator = (typeof gen === 'function') ? gen() : gen;
     let full = '';
@@ -72595,9 +81818,11 @@ function repaintControlPlan(streamKey, list) {
     const arr = Array.isArray(list) ? list : [];
     const out = [];
     const isReply = (m) => m && m.role === 'assistant' && typeof m.content === 'string';
+    // ✋ ENABLE_STOP_KEEP：停下留下的回复（指纹还对得上）不挂任何卡；诊断 / 校正只看最新一条——最新的是停下留下的 = 不挂（不回退到更早那条）。旗关 = 恒 false。
+    const stopped = (m) => soStopKeepMarked(m);
     if (streamKey === 'advisor') {
         for (const m of arr) {
-            if (!isReply(m)) continue;
+            if (!isReply(m) || stopped(m)) continue;
             const plans = parseStoryPlans(m.content);
             if (plans.length) out.push({ id: m.id, kind: 'plans', plans });
             // 序列提案卡也要重挂（1.72.0）：漏了这一处 = 切房间 / 重载后采用钮静默消失，
@@ -72609,17 +81834,17 @@ function repaintControlPlan(streamKey, list) {
         }
     } else if (streamKey === 'lorebook') {
         for (const m of arr) {
-            if (!isReply(m)) continue;
+            if (!isReply(m) || stopped(m)) continue;
             const parsed = parseLorebookBlocks(m.content);
             if (parsed.ops.length || parsed.errors.length) out.push({ id: m.id, kind: 'lorebook', parsed });
         }
     } else if (streamKey === 'diagnose') {
         const latest = [...arr].reverse().find(isReply);
-        const block = latest ? extractUpdateBlock(latest.content) : '';
+        const block = (latest && !stopped(latest)) ? extractUpdateBlock(latest.content) : '';
         if (block) out.push({ id: latest.id, kind: 'diagPatch', block });
     } else if (streamKey === 'fix') {
         const latest = [...arr].reverse().find(isReply);
-        if (latest) out.push({ id: latest.id, kind: 'fixApply' });
+        if (latest && !stopped(latest)) out.push({ id: latest.id, kind: 'fixApply' });
     }
     return out;
 }
