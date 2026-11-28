@@ -6,6 +6,182 @@
    （.interactable + fa-）；只着主题强调色以便一眼认出。它在 #so-window 之外，故直接用主题色而非 --so-accent。 */
 #so-chatbar-button { color: var(--SmartThemeQuoteColor, #8ab4f8); }
 
+/* 💬 微谕 · 一键进手机（ENABLE_THR_WEIYU_QUICK）。输入栏图标 #so-wyq-bar 与 🌙 同款：住在酒馆自己的输入栏里、只着酒馆主题强调色。
+   悬浮按钮 #so-wyq-float 是 body 上一颗圆钮：位置全由 JS 写 left / top（从顶部算——酒馆给 html 加了 transform，fixed 元素绝不用 bottom:），
+   层级 2998 = 在神谕窗口（3000）/ 引导浮窗（2999）/ 酒馆弹窗之下。颜色只读酒馆主题变量——深色 / 浅色两档皮肤在文件后面的皮肤根里替它重新声明。 */
+#so-wyq-bar { color: var(--SmartThemeQuoteColor, #8ab4f8); }
+#so-wyq-float {
+    position: fixed;
+    top: 160px;
+    left: 12px;
+    z-index: 2998;
+    box-sizing: border-box;
+    width: 44px;
+    height: 44px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 19px;
+    line-height: 1;
+    color: var(--SmartThemeQuoteColor, #8ab4f8);
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.12));
+    border-radius: 50%;
+    background: var(--SmartThemeBlurTintColor, rgba(22, 24, 28, 0.96));
+    box-shadow: 0 6px 18px -6px rgba(var(--so-shadow-rgb, 0, 0, 0), 0.6);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+#so-wyq-float:hover { border-color: var(--SmartThemeQuoteColor, #8ab4f8); }
+#so-wyq-float:focus-visible { outline: 2px solid var(--SmartThemeQuoteColor, #8ab4f8); outline-offset: 2px; }
+#so-wyq-float:active { cursor: grabbing; }
+/* 💬 微谕 外观（looks Task 15，ENABLE_THR_WEIYU_LOOKS）：两颗一键按钮跟着这个聊天的样子（JS 挂 data-so-wy-look；手机的样子 = 不挂 = 上面原样）。
+   输入栏图标只换字形（水晶 = 宝石、卷轴 = 卷轴；颜色照旧跟酒馆主题——它住在酒馆自己的栏里）。悬浮按钮换成那件东西：一件东西只有一套颜色，
+   所以重新声明酒馆主题变量（上面的规则本来就读它们）；特异度 (1,1,2) 压过两档皮肤的根 (1,1,1)。几何不动（拖动 / 位置照旧，从顶部算）。 */
+#so-wyq-bar[data-so-wy-look="crystal"]::before,
+#so-wyq-float[data-so-wy-look="crystal"] i::before { content: "\f3a5"; }
+#so-wyq-bar[data-so-wy-look="scroll"]::before,
+#so-wyq-float[data-so-wy-look="scroll"] i::before { content: "\f70e"; }
+body button#so-wyq-float[data-so-wy-look="crystal"] {
+    --SmartThemeBlurTintColor: #15122A;
+    --SmartThemeBorderColor: rgba(143, 240, 255, 0.5);
+    --SmartThemeQuoteColor: #8FF0FF;
+    border-radius: 8px 16px 8px 16px;
+    box-shadow: 0 0 16px -4px var(--SmartThemeQuoteColor), 0 6px 18px -6px rgba(var(--so-shadow-rgb, 0, 0, 0), 0.6);
+}
+body button#so-wyq-float[data-so-wy-look="scroll"] {
+    --SmartThemeBodyColor: #2B2420;
+    --SmartThemeBlurTintColor: #F4EBD3;
+    --SmartThemeBorderColor: rgba(168, 50, 31, 0.45);
+    --SmartThemeQuoteColor: #A8321F;
+    border-radius: 6px;
+    border-top: 4px solid var(--SmartThemeBodyColor);      /* 上下两根轴 */
+    border-bottom: 4px solid var(--SmartThemeBodyColor);
+}
+/* 💬 未读角标（Prince 2026-11-26 选 C；JS 只在有未读时挂 data-so-wyq-unread = 角标上的字，0 = 不挂 = 这里什么都不画）。
+   输入栏图标 = 右上角一个 8px 小红点（不带数，栏里挤）；悬浮按钮 = 右上角红底白字的数（超过 99 = 99+）。都是伪元素：不加节点、
+   不接点击（pointer-events: none——点 / 拖照旧落在按钮上）。红 = 危险填充色的令牌（主题可改），白字 ≥ 4.5:1；一圈底色描边把它
+   从底下的图标 / 按钮边上剥开（深浅两档皮肤、水晶 / 卷轴外观都读各自的 BlurTintColor）。 */
+#so-wyq-bar[data-so-wyq-unread] { position: relative; }
+#so-wyq-bar[data-so-wyq-unread]::after {
+    content: "";
+    position: absolute;
+    top: calc(50% - 0.5em - 3px);           /* 字形（1em 见方、在按钮框里居中）的右上角上；酒馆的按钮框首尾相接（☰ 的框紧贴着），点不出自己的框 */
+    right: calc(50% - 0.5em - 4px);
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--so-danger-fill, #dc2f3a);
+    box-shadow: 0 0 0 2px var(--SmartThemeBlurTintColor, #171717);
+    pointer-events: none;
+}
+#so-wyq-float[data-so-wyq-unread]::after {
+    content: attr(data-so-wyq-unread);
+    position: absolute;
+    top: -7px;
+    right: -7px;
+    box-sizing: border-box;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 9px;
+    background: var(--so-danger-fill, #dc2f3a);
+    color: var(--so-on-danger, #fff);
+    font: 700 11px/18px system-ui, -apple-system, "Segoe UI", sans-serif;
+    letter-spacing: 0;
+    text-align: center;
+    white-space: nowrap;
+    box-shadow: 0 0 0 2px var(--SmartThemeBlurTintColor, #16171a);
+    pointer-events: none;
+}
+
+/* 💬 微谕 · 页面来电卡 #so-wy-callcard（来电那枚旗；phone upgrades Task 14）：手机关着时一通电话打给玩家，卡浮在页面上。body 的孩子、
+   position: fixed、只用 top 定位（酒馆给 html 加了 transform，fixed 元素绝不用 bottom:）；层级 3002 = 压在神谕窗口（3000）之上。
+   颜色只读酒馆主题变量——深色 / 浅色两档皮肤在文件后面的皮肤根里替它重新声明。 */
+#so-wy-callcard {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 3002;
+    box-sizing: border-box;
+    width: min(340px, calc(100vw - 24px));
+    margin: 0;
+    padding: 14px 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 15px;
+    line-height: 1.4;
+    color: var(--SmartThemeBodyColor, #e6e6e6);
+    background: var(--SmartThemeBlurTintColor, rgba(22, 24, 28, 0.96));
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.12));
+    border-radius: 14px;
+    box-shadow: 0 10px 30px -8px rgba(var(--so-shadow-rgb, 0, 0, 0), 0.6);
+}
+#so-wy-callcard .so-wy-callcard-line { font-weight: 600; overflow-wrap: anywhere; }
+#so-wy-callcard .so-wy-callcard-note { font-size: 13px; opacity: 0.8; }
+#so-wy-callcard .so-wy-callcard-note[hidden] { display: none; }
+#so-wy-callcard .so-wy-callcard-btns { display: flex; gap: 10px; justify-content: flex-end; }
+#so-wy-callcard .so-wy-callcard-btns button {
+    min-width: 72px;
+    min-height: 36px;
+    margin: 0;
+    padding: 6px 16px;
+    font: inherit;
+    color: var(--SmartThemeBodyColor, #e6e6e6);
+    background: transparent;
+    border: 1px solid var(--SmartThemeBorderColor, rgba(255, 255, 255, 0.12));
+    border-radius: 18px;
+    cursor: pointer;
+}
+#so-wy-callcard .so-wy-callcard-btns .so-wy-callcard-yes {
+    color: var(--SmartThemeBlurTintColor, #16171a);
+    background: var(--SmartThemeQuoteColor, #8ab4f8);
+    border-color: var(--SmartThemeQuoteColor, #8ab4f8);
+}
+#so-wy-callcard .so-wy-callcard-btns button:focus-visible { outline: 2px solid var(--SmartThemeQuoteColor, #8ab4f8); outline-offset: 2px; }
+/* 💬 微谕 外观（looks Task 15，ENABLE_THR_WEIYU_LOOKS）：来电卡跟着这个故事的样子换成那件东西（JS 挂 data-so-wy-look；手机的样子 = 不挂 = 上面原样）。
+   水晶 = 一块冷光的玻璃（切角、发光的边、左上一抹亮）；卷轴 = 一张托在两根木轴之间的纸（暖纸色、朱砂、楷书字——不带字体文件，按名字要楷体，
+   没有就退到系统衬线）。一件东西只有一套颜色（不分深浅）：只重新声明酒馆主题变量，上面的卡和按钮本来就读它们；特异度 (1,2,1) 压过两档皮肤的根
+   (1,1,1)。位置不动（仍只从顶部定位）。字的对比：水晶 正文 15.4 / 接听 13.9；卷轴 正文 12.8 / 接听 5.6（都 ≥ 4.5）。 */
+body #so-wy-callcard.so-wy-callcard[data-so-wy-look="crystal"] {
+    --SmartThemeBodyColor: #ECEAFF;
+    --SmartThemeBlurTintColor: #15122A;
+    --SmartThemeBorderColor: rgba(143, 240, 255, 0.45);
+    --SmartThemeQuoteColor: #8FF0FF;
+    --SmartThemeBotMesBlurTintColor: rgba(191, 244, 255, 0.14);
+    border-radius: 6px 20px 6px 20px;
+    background-image: linear-gradient(160deg, var(--SmartThemeBotMesBlurTintColor) 0%, transparent 55%);
+    box-shadow: 0 0 22px -6px var(--SmartThemeQuoteColor), 0 10px 30px -8px rgba(var(--so-shadow-rgb, 0, 0, 0), 0.6);
+}
+body #so-wy-callcard.so-wy-callcard[data-so-wy-look="scroll"] {
+    --SmartThemeBodyColor: #2B2420;
+    --SmartThemeBlurTintColor: #F4EBD3;
+    --SmartThemeBorderColor: rgba(168, 50, 31, 0.45);
+    --SmartThemeQuoteColor: #A8321F;
+    --SmartThemeBotMesBlurTintColor: rgba(120, 72, 30, 0.1);
+    border-radius: 4px;
+    border-top: 7px solid var(--SmartThemeBodyColor);      /* 上下两根木轴 */
+    border-bottom: 7px solid var(--SmartThemeBodyColor);
+    background-image: linear-gradient(180deg, var(--SmartThemeBotMesBlurTintColor) 0%, transparent 18%, transparent 82%, var(--SmartThemeBotMesBlurTintColor) 100%);
+    font-family: "STKaiti", "KaiTi", "Kaiti SC", "BiauKai", "楷体", serif;
+}
+/* 卡上那一行前面的小物件：水晶 = 宝石、卷轴 = 卷轴（酒馆自带的 Font Awesome 字形）。 */
+#so-wy-callcard[data-so-wy-look] .so-wy-callcard-line::before {
+    margin-right: 6px;
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    color: var(--SmartThemeQuoteColor);
+}
+#so-wy-callcard[data-so-wy-look="crystal"] .so-wy-callcard-line::before { content: "\f3a5"; }
+#so-wy-callcard[data-so-wy-look="scroll"] .so-wy-callcard-line::before { content: "\f70e"; }
+#so-wy-callcard[data-so-wy-look="scroll"] .so-wy-callcard-btns button { border-radius: 4px; }
+
 #so-window {
     --so-accent: var(--SmartThemeQuoteColor, #8ab4f8);
     --so-radius: 14px;          /* 大圆角：窗口 / 叠层 */
@@ -28,6 +204,10 @@
     --so-thr-warn-ink: #e9b65f;
     --so-thr-warn-bg: rgba(224, 162, 58, 0.10);
     --so-thr-warn-line: rgba(224, 162, 58, 0.45);
+    /* 报错红字（2026-11-25）：--so-danger 没设时读这个（主题 / 新皮肤设了 --so-danger 照旧优先）。旧写法退到 ST 的常量
+       --crimson70a = rgba(100,0,0,.7)，深色底上 ≈1:1 看不见。往正文色兑一半：深色底上变浅、浅色底上变深，三档都 ≥4.5:1
+       （settings-v2-conn-direct.test.mjs 按这里的取值算）。皮肤只改 --SmartThemeBodyColor，这里自动跟着走。 */
+    --so-danger-ink: color-mix(in srgb, #e03e3e 50%, var(--SmartThemeBodyColor, #e6e6e6));
 
     position: fixed;
     top: 70px;
@@ -150,8 +330,8 @@
    :focus-visible 只在键盘聚焦时出现，鼠标点击不会留下边框。 */
 .so-iconbtn:focus-visible { outline: 2px solid var(--so-accent); outline-offset: -2px; opacity: 1; }
 #so-send:focus-visible { outline-color: var(--so-on-accent, #fff); }
-#so-clear-btn:hover { color: var(--so-danger, var(--crimson70a, #e08585)); }
-.so-iconbtn.so-generating { color: var(--so-danger, var(--crimson70a, #e0685f)); opacity: 1; }
+#so-clear-btn:hover { color: var(--so-danger, var(--so-danger-ink, #e08585)); }
+.so-iconbtn.so-generating { color: var(--so-danger, var(--so-danger-ink, #e0685f)); opacity: 1; }
 
 /* ---------- 标题栏「⋯」工具下拉（剧情概要 / 调试 / 设置 收进一处） ---------- */
 .so-tools-wrap { position: relative; flex: 0 0 auto; display: flex; align-items: center; }
@@ -387,9 +567,11 @@
 .so-iconbtn.so-busy > i { animation: so-spin 0.8s linear infinite; }
 @keyframes so-spin { to { transform: rotate(360deg); } }
 
-.so-hint-error { color: var(--so-danger, var(--crimson70a, #e07c7c)); opacity: 0.95; }
+.so-hint-error { color: var(--so-danger, var(--so-danger-ink, #e07c7c)); opacity: 0.95; }
 
 .so-hint { font-size: 0.78em; opacity: 0.55; line-height: 1.4; }
+/* 同一特异度、.so-hint 在后 → 报错提示原先被淡成 0.55。报错不淡。 */
+.so-hint.so-hint-error { opacity: 0.95; }
 /* 手动校正高上下文告警：比普通 hint 更醒目的 subtle amber（弱模型高上下文认不准目标楼层，用户反馈） */
 .so-fixm-warn { color: var(--so-warn, color-mix(in srgb, #e0a23a 72%, var(--SmartThemeBodyColor, #e6e6e6))); opacity: 0.9; }
 /* 近抄警示（Tier 0 ①，1.25.0）：校正结果里稿子几乎没改时的琥珀提示（比普通 hint 更醒目，出现在应用条上方） */
@@ -543,6 +725,8 @@
 #so-settings.so-set-v2 .so-fold > summary:hover { opacity: 1; }
 #so-settings.so-set-v2 .so-fold > summary:focus-visible { outline: 2px solid var(--so-accent); outline-offset: -2px; opacity: 1; }
 #so-settings.so-set-v2 .so-fold-n { margin-left: auto; color: var(--so-accent); font-size: 0.95em; white-space: nowrap; }
+/* 直连两项（经酒馆服务器转发 / 地址原样使用）2026-11-25 起紧跟「模型」那一行：与上面的报错行隔开一点。显示 / 隐藏仍由内联 display 管。 */
+#so-settings.so-set-v2 #so-direct-fields > [data-so-conn-only="direct"] { margin-top: 6px; }
 #so-settings.so-set-v2 .so-fold-body {
     display: flex;
     flex-direction: column;
@@ -759,7 +943,7 @@
 }
 @keyframes so-blink { 50% { opacity: 0; } }
 
-.so-content.so-error { color: var(--so-danger, var(--crimson70a, #e07c7c)); }
+.so-content.so-error { color: var(--so-danger, var(--so-danger-ink, #e07c7c)); }
 
 /* Replies rendered as HTML (markdown / regex widgets) need normal flow, not the
    pre-wrap used for plain text, or block elements get stray gaps. */
@@ -871,7 +1055,7 @@
 .so-msg:hover .so-msg-btn { opacity: 0.62; }
 .so-msg-btn:hover { opacity: 1 !important; background-color: rgba(var(--so-ink), 0.09); }
 .so-msg-btn:active { transform: scale(0.9); }
-.so-del-btn:hover { color: var(--so-danger, var(--crimson70a, #e07c7c)); }
+.so-del-btn:hover { color: var(--so-danger, var(--so-danger-ink, #e07c7c)); }
 .so-copy-btn.so-copied { color: var(--so-accent); opacity: 1 !important; }
 
 /* inline edit-in-place box on a user message */
@@ -907,6 +1091,7 @@
     --so-accent: var(--SmartThemeQuoteColor, #8ab4f8);
     --so-ink: 255, 255, 255;
     --so-field: var(--black30a, rgba(0, 0, 0, 0.3));  /* 输入框底色：同 #so-window（跟随主题档逐值不变；固定皮肤见文件末尾） */
+    --so-danger-ink: color-mix(in srgb, #e03e3e 50%, var(--SmartThemeBodyColor, #e6e6e6));   /* 报错红字，取值同 #so-window */
     width: min(420px, calc(100vw - 24px));
     max-height: calc(100dvh - 24px);
     overflow-y: auto;
@@ -946,7 +1131,7 @@
 }
 .so-local-choices:not(.so-local-choices-stack) .so-local-btn { text-align: center; }
 .so-local-btn:hover { background: rgba(var(--so-ink), 0.1); }
-.so-local-danger { color: var(--so-danger, var(--crimson70a, #e07c7c)); border-color: color-mix(in srgb, var(--so-danger, var(--crimson70a, #e07c7c)) 55%, transparent); }
+.so-local-danger { color: var(--so-danger, var(--so-danger-ink, #e07c7c)); border-color: color-mix(in srgb, var(--so-danger, var(--so-danger-ink, #e07c7c)) 55%, transparent); }
 .so-local-primary { color: var(--SmartThemeBlurTintColor, #16171a); background: var(--so-accent); border-color: var(--so-accent); font-weight: 600; }
 .so-local-primary:hover { background: var(--so-accent); filter: brightness(1.08); }
 
@@ -979,7 +1164,7 @@
 .so-chat-file-meta { font-size: 0.82em; opacity: 0.65; margin-top: 2px; }
 .so-chat-file-btns { display: flex; gap: 6px; flex: 0 0 auto; flex-wrap: wrap; justify-content: flex-end; }
 .so-chat-file-btns .so-local-btn { padding: 5px 10px; text-align: center; }
-.so-chat-files-status { min-height: 1em; font-size: 0.86em; color: var(--so-danger, var(--crimson70a, #e07c7c)); }
+.so-chat-files-status { min-height: 1em; font-size: 0.86em; color: var(--so-danger, var(--so-danger-ink, #e07c7c)); }
 .so-chat-files-status:empty { display: none; }
 /* TBW spec B · B1/B2：「保留最近楼层」/「楼层浏览器」对话框（样稿 B-07 / B-08）。 */
 .so-local-dialog.so-local-browser { width: min(560px, calc(100vw - 24px)); }
@@ -1055,7 +1240,7 @@ details.so-regex-fold { margin: 4px 0 8px; padding: 2px 8px; border-left: 2px so
 details.so-regex-fold > summary { cursor: pointer; opacity: 0.7; font-size: 0.9em; }
 /* 展开后的原文用正文字体（样稿 B-14），不是 <pre> 默认的等宽体。 */
 details.so-regex-fold > pre { white-space: pre-wrap; font-family: inherit; margin: 6px 0 2px; font-size: 0.9em; opacity: 0.8; background: transparent; }
-.so-regex-status { display: block; margin-top: 4px; font-size: 11px; opacity: 0.7; color: var(--so-danger, var(--crimson70a, #e07c7c)); }
+.so-regex-status { display: block; margin-top: 4px; font-size: 11px; opacity: 0.7; color: var(--so-danger, var(--so-danger-ink, #e07c7c)); }
 /* 页面居中对话框挂在 <body> 下：#so-settings 的表单样式够不着，这里给一份最小的。 */
 .so-local-dialog .so-check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .so-local-dialog .so-field { display: flex; flex-direction: column; gap: 4px; }
@@ -1112,7 +1297,7 @@ body.so-skin-light :is(.so-knowledge-dialog, .so-big-summary-dialog) .so-local-d
 .so-kb-ed-checks { display: flex; gap: 6px 16px; flex-wrap: wrap; }
 .so-kb-ed-btns { display: flex; gap: 8px; justify-content: flex-end; }
 .so-kb-ed-btns .so-local-btn { text-align: center; }
-.so-kb-ed-err, .so-kb-status { font-size: 0.86em; white-space: pre-wrap; color: var(--so-danger, var(--crimson70a, #e07c7c)); }
+.so-kb-ed-err, .so-kb-status { font-size: 0.86em; white-space: pre-wrap; color: var(--so-danger, var(--so-danger-ink, #e07c7c)); }
 .so-kb-ed-err:empty, .so-kb-status:empty { display: none; }
 .so-kb-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .so-kb-count { font-size: 0.86em; opacity: 0.75; }
@@ -1165,7 +1350,7 @@ body.so-skin-light :is(.so-knowledge-dialog, .so-big-summary-dialog) .so-local-d
 .so-bigsum-bar > span { display: block; width: 0; height: 100%; background: var(--so-accent); transition: width 0.3s ease; }
 .so-bigsum-status { font-size: 0.86em; white-space: pre-wrap; }
 .so-bigsum-status:empty { display: none; }
-.so-bigsum-status.so-bigsum-error { color: var(--so-danger, var(--crimson70a, #e07c7c)); }
+.so-bigsum-status.so-bigsum-error { color: var(--so-danger, var(--so-danger-ink, #e07c7c)); }
 .so-local-dialog textarea.so-memory-text { min-height: 14em; resize: vertical; font: inherit; line-height: 1.55; }
 .so-bigsum-replace { display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 10px; border: 1px solid var(--so-accent); }
 .so-bigsum-replace-q { font-weight: 600; }
@@ -2420,6 +2605,7 @@ body.so-skin-light :is(.so-knowledge-dialog, .so-big-summary-dialog) .so-local-d
     --so-ink: 255, 255, 255;
     --so-field: var(--black30a, rgba(0, 0, 0, 0.3));
     --so-scrim: rgba(8, 9, 12, 0.84);
+    --so-danger-ink: color-mix(in srgb, #e03e3e 50%, var(--SmartThemeBodyColor, #e6e6e6));   /* 报错红字，取值同 #so-window */
 
     position: fixed;
     top: 64px;
@@ -2538,6 +2724,7 @@ body.so-skin-light :is(.so-knowledge-dialog, .so-big-summary-dialog) .so-local-d
     --so-ink: 255, 255, 255;
     --so-field: var(--black30a, rgba(0, 0, 0, 0.3));
     --so-scrim: rgba(8, 9, 12, 0.84);
+    --so-danger-ink: color-mix(in srgb, #e03e3e 50%, var(--SmartThemeBodyColor, #e6e6e6));   /* 报错红字，取值同 #so-window */
     position: fixed;
     top: 80px;
     left: 12px;
@@ -3826,6 +4013,10 @@ body.so-skin-light :is(.so-knowledge-dialog, .so-big-summary-dialog) .so-local-d
     top: -12px;
     right: -12px;
     display: grid;
+    /* 一格 = 整个按钮（2026-11-26 水晶 UI 修补，Prince 截图 11 / 12）：按钮里那个「✕」字（字号 0）会自己排进第二行，两行平分高度，
+       画出来的两道杠就落在上半格——各个样子的 ✕ 都偏上（水晶的菱形转了 45° 看着偏右上）。 */
+    grid-template: minmax(0, 1fr) / minmax(0, 1fr);
+    grid-auto-rows: 0;
     place-items: center;
     box-sizing: border-box;
     width: 36px;
@@ -3932,6 +4123,236 @@ body.so-skin-light :is(.so-knowledge-dialog, .so-big-summary-dialog) .so-local-d
 @keyframes so-wy-mbump { 40% { transform: scale(1.07); } }
 /* /MOTION (lane M) */
 
+/* 💬 微谕 外观（ENABLE_THR_WEIYU_LOOKS，looks Task 3，2026-11-24；外框还原轮 KF 2026-11-24；spec 2026-11-22-phone-looks-design.md §4.1 / §4.2 / §14.12）：
+   手机的 host 带 data-wy-look（块的 soWyApplyLook 写；手机样子 = 没有这个属性，上面的手机外框一条不变）。设备样子 = 没有手机窗：
+   卡片不画底色 / 边 / 圆角 / 影子，遮罩是一片深色背景（水晶 = 深夜，卷轴 = 暗墙）；那件东西的轮廓由手机里每一页自己画（宝石的切面 +
+   发光的边、宝石下面单独的符文环；挂轴的两根轴 + 挂绳 + 锦裱 + 纸，下面单独一张书案）——外框只剩三样手机零件的「设备形」：
+   ✕ = 水晶：右上角一枚发光的菱形晶片；卷轴：上轴右端一方小印（逃生口：总在、≥ 32 px、自己的底色和字色）。
+   大小计数器 / 「正在写…」+ 停止 = 水晶：刻在宝石顶边上的一块小读数；卷轴：上轴左端挂下来的一张小纸签。
+   顶部一行不占地方（绝对定位、只有它的几样东西接点按），手机从卡片顶端开始。各一套 token、不分深浅（设备只有一套配色，§9）。
+   窄屏两块（@media 600 / @container 360）逐条相同（单测钉）。 */
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) {
+    --so-wy-scrim: radial-gradient(70% 52% at 50% 44%, #1D1A46 0%, #0D0B1E 62%, #07060F 100%);
+    --so-wy-x-bg: #2A2358;
+    --so-wy-x-ink: #ECEAFF;
+    --so-wy-x-shadow: 0 0 0 1.5px #8FF0FF, 0 0 12px rgba(143, 240, 255, 0.6);
+    --so-wy-strip-ink: #ECEAFF;
+    --so-wy-banner: rgba(28, 24, 56, 0.97);
+    --so-wy-banner-ink: #ECEAFF;
+    --so-wy-banner-shadow: 0 0 0 1px rgba(143, 240, 255, 0.45), 0 14px 30px rgba(0, 0, 0, 0.55);
+    --so-wy-cr-glow: rgba(120, 110, 255, 0.22);
+    --so-wy-cr-pill: #120F26;
+    --so-wy-cr-pill-ink: #ECEAFF;
+    --so-wy-cr-pill-edge: rgba(143, 240, 255, 0.7);
+    --so-wy-cr-pill-stop: #FF8A96;
+    --so-wy-cr-pill-warn: #F0C27A;
+}
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-card {
+    width: calc(100% - 8px);
+    height: calc(100% - 22px);
+    max-width: min(calc(100% - 8px), 460px);
+    max-height: 925px;
+    margin: 16px 4px 6px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    --wy-screen-radius: 0;
+}
+/* the halo behind the gem (only light on the night — the gem itself is drawn by the page) */
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-card::before {
+    content: "";
+    display: block;
+    position: absolute;
+    z-index: -1;
+    top: 4%;
+    right: 6%;
+    bottom: 24%;
+    left: 6%;
+    width: auto;
+    height: auto;
+    border-radius: 50%;
+    background: radial-gradient(closest-side, var(--so-wy-cr-glow), transparent);
+    box-shadow: none;
+    pointer-events: none;
+}
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-card .so-thr-weiyu-head::after,
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-card .so-thr-weiyu-head::after,
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-card::before { content: none; display: none; }
+/* the top row takes no room: the readout sits ON the gem's top edge (centre), the ✕ in the empty corner beside the top-right facet */
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-card .so-thr-weiyu-head {
+    position: absolute;
+    z-index: 7;
+    top: -16px;
+    right: 0;
+    left: 0;
+    height: 24px;
+    min-height: 24px;
+    padding: 0;
+    gap: 0;
+    justify-content: center;
+    border: 0;
+    border-radius: 0;
+    background-color: transparent;
+    background-image: none;
+    color: var(--so-wy-strip-ink);
+    pointer-events: none;
+}
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-card .so-thr-weiyu-head > * { pointer-events: auto; }
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-x {
+    top: 5px;
+    right: 6px;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    border-radius: 4px;
+    background: var(--so-wy-x-bg);
+    color: var(--so-wy-x-ink);
+    box-shadow: var(--so-wy-x-shadow);
+    transform: rotate(45deg);
+}
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-x::before { transform: none; }
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-x::after { transform: rotate(90deg); }
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-wait { top: 18px; }
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) {
+    --so-wy-scrim: radial-gradient(80% 60% at 50% 38%, #2C221A 0%, #17120E 66%, #0E0B09 100%);
+    --so-wy-x-bg: #A8321F;
+    --so-wy-x-ink: #FFF4E2;
+    --so-wy-x-shadow: inset 0 0 0 2px #A8321F, inset 0 0 0 3px #FFF4E2, 0 2px 4px rgba(0, 0, 0, 0.5);
+    --so-wy-strip-ink: #F4EBD3;
+    --so-wy-banner: rgba(250, 243, 226, 0.98);
+    --so-wy-banner-ink: #2B2420;
+    --so-wy-banner-shadow: 0 0 0 1px rgba(90, 58, 34, 0.45), 0 10px 22px rgba(0, 0, 0, 0.3);
+    --so-wy-sc-pill: #FAF3E2;
+    --so-wy-sc-pill-ink: #2B2420;
+    --so-wy-sc-pill-edge: rgba(90, 58, 34, 0.55);
+    --so-wy-sc-pill-stop: #A8321F;
+    --so-wy-sc-pill-warn: #8A5300;
+}
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-card {
+    width: calc(100% - 8px);
+    height: calc(100% - 12px);
+    max-width: min(calc(100% - 8px), 460px);
+    max-height: 925px;
+    margin: 6px 4px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    --wy-screen-radius: 0;
+}
+/* the top row takes no room: the paper tag (status / counter) hangs from the top roller's left end, the ✕ is a small seal on its right end */
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-card .so-thr-weiyu-head {
+    position: absolute;
+    z-index: 7;
+    top: 8px;
+    right: 0;
+    left: 0;
+    height: 24px;
+    min-height: 24px;
+    padding: 0 0 0 24px;
+    gap: 0;
+    justify-content: flex-start;
+    border: 0;
+    border-radius: 0;
+    background-color: transparent;
+    background-image: none;
+    color: var(--so-wy-strip-ink);
+    pointer-events: none;
+}
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-card .so-thr-weiyu-head > * { pointer-events: auto; }
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-x {
+    top: 2px;
+    right: 18px;
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    border-radius: 4px;
+    background: var(--so-wy-x-bg);
+    color: var(--so-wy-x-ink);
+    box-shadow: var(--so-wy-x-shadow);
+    transform: rotate(-4deg);
+}
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-wait { top: 60px; }
+/* 没有灵动岛（设备没有手机机身）：空闲的黑药丸整颗不画、不画镜头；「● 正在写…」+ ■ 停止、大小计数器照旧在（都是要用的按钮 / 状态），
+   换成设备自己的小东西（水晶 = 刻在顶边上的读数，卷轴 = 一张纸签）。不声明 --so-wy-island（它在 theme-tokens.md 里是「不设」）。 */
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-status:empty,
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-status:empty { display: none; }
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-status::after,
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-meter::after,
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-status::after,
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-meter::after { display: none; }
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-status,
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-stop,
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-meter { height: 32px; min-height: 32px; line-height: 32px; border-radius: 2px; background: var(--so-wy-cr-pill); box-shadow: 0 0 0 1px var(--so-wy-cr-pill-edge), 0 0 10px var(--so-wy-cr-glow); font-size: 11.5px; letter-spacing: 1px; }
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-status { color: var(--so-wy-cr-pill-ink); }
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-status,
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-stop,
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-meter { height: 32px; min-height: 32px; line-height: 32px; border-radius: 1px; background: var(--so-wy-sc-pill); box-shadow: 0 0 0 1px var(--so-wy-sc-pill-edge), 1px 2px 0 var(--so-wy-sc-pill-edge); font-size: 11.5px; }
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-status { color: var(--so-wy-sc-pill-ink); }
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-stop { color: var(--so-wy-cr-pill-stop); }
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-meter { color: var(--so-wy-cr-pill-ink); }
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-meter[data-lv="amber"] { color: var(--so-wy-cr-pill-warn); }
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-meter[data-lv="red"] { color: var(--so-wy-cr-pill-stop); }
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-stop { color: var(--so-wy-sc-pill-stop); }
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-meter { color: var(--so-wy-sc-pill-ink); }
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-meter[data-lv="amber"] { color: var(--so-wy-sc-pill-warn); }
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-meter[data-lv="red"] { color: var(--so-wy-sc-pill-stop); }
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-meter,
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-meter { min-width: 0; padding: 0 10px; }
+/* the scroll's tag hangs on a string from the roller */
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-meter { transform: rotate(-3deg); transform-origin: 50% -10px; }
+/* 不再有框（最后一轮修补 第 7 项，2026-11-24）：真酒馆里设备外面还有一个深色圆角框——那是神谕窗口 #so-window 自己（边框 / 圆角 / 底色 /
+   影子 / 毛玻璃），手机的遮罩铺满窗口，框的边就是窗口的边。设备样子、手机开着（或正在收起）时：窗口这几样一样不画；窗口自己的顶栏 /
+   设置 / 各模式条 / 聊天 / 底栏 / 缩放角藏起来（本来就被手机盖着、点不到）；遮罩挪到 view::before，四边 28px 淡到透明（--so-wy-mask），
+   轮廓只剩宝石 / 卷轴自己。✕ 和读数不动（照旧从顶上定位）；点遮罩照旧关手机。手机样子一条都不匹配（没有 data-wy-look）。
+   补（N-2）：窗口的背景图层（#so-local-background）、IF 长度条（#so-thr-meter）、⋯ 里的调试提示词 / 剧情概要面板（#so-debug / #so-summary）
+   也会从淡边里透出来，一并藏起。各种弹卡（自带遮罩、可能叠在手机上面）不藏；插件自己挂到窗口上的东西也不藏（不认识它们）。
+   导入主题时 so-guard 层会把顶栏 / 设置重新钉成可见——那里另有一条同条件的藏起规则（见 @layer so-guard 末尾，N-1）。 */
+#so-window:has(> #so-thr-weiyu-view:is(.open, .so-wy-leaving) #so-thr-weiyu-host[data-wy-look]) {
+    border-color: transparent;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    backdrop-filter: none;
+}
+#so-window:has(> #so-thr-weiyu-view:is(.open, .so-wy-leaving) #so-thr-weiyu-host[data-wy-look]) > :is(#so-local-background, #so-header, #so-settings, #so-diag-bar, #so-fix-bar, #so-bld-bar, #so-thr-bar, #so-lb-bar, #so-adv-bar, #so-plan-bar, #so-messages, #so-thr-meter, #so-footer, #so-debug, #so-summary, #so-resize-grip) { visibility: hidden; }
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look]) { --so-wy-mask: #000; background: none; }
+#so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look])::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: var(--so-wy-scrim);
+    -webkit-mask-image: linear-gradient(to right, transparent, var(--so-wy-mask) 28px, var(--so-wy-mask) calc(100% - 28px), transparent), linear-gradient(to bottom, transparent, var(--so-wy-mask) 28px, var(--so-wy-mask) calc(100% - 28px), transparent);
+    -webkit-mask-composite: source-in;
+    mask-image: linear-gradient(to right, transparent, var(--so-wy-mask) 28px, var(--so-wy-mask) calc(100% - 28px), transparent), linear-gradient(to bottom, transparent, var(--so-wy-mask) 28px, var(--so-wy-mask) calc(100% - 28px), transparent);
+    mask-composite: intersect;
+}
+/* 窄屏（手机宽 / 窄面板）：设备占满遮罩；✕ 和读数的位置照旧（都在设备自己的角上）。两块逐条相同。 */
+@media (max-width: 600px) {
+    #so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-card { width: 100%; height: calc(100% - 16px); max-width: 100%; max-height: 100%; margin: 14px 0 2px; padding: 0; }
+    #so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-card .so-thr-weiyu-head { top: -16px; }
+    #so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-x { top: 3px; right: 4px; width: 32px; height: 32px; min-width: 32px; min-height: 32px; background: var(--so-wy-x-bg); color: var(--so-wy-x-ink); box-shadow: var(--so-wy-x-shadow); }
+    #so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-card { width: 100%; height: 100%; max-width: 100%; max-height: 100%; margin: 0; padding: 0; }
+    #so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-card .so-thr-weiyu-head { top: 8px; }
+    #so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-x { top: 2px; right: 16px; width: 32px; height: 32px; min-width: 32px; min-height: 32px; background: var(--so-wy-x-bg); color: var(--so-wy-x-ink); box-shadow: var(--so-wy-x-shadow); }
+}
+@container so-wy-view (max-width: 360px) {
+    #so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-card { width: 100%; height: calc(100% - 16px); max-width: 100%; max-height: 100%; margin: 14px 0 2px; padding: 0; }
+    #so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-card .so-thr-weiyu-head { top: -16px; }
+    #so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="crystal"]) #so-thr-weiyu-x { top: 3px; right: 4px; width: 32px; height: 32px; min-width: 32px; min-height: 32px; background: var(--so-wy-x-bg); color: var(--so-wy-x-ink); box-shadow: var(--so-wy-x-shadow); }
+    #so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-card { width: 100%; height: 100%; max-width: 100%; max-height: 100%; margin: 0; padding: 0; }
+    #so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-card .so-thr-weiyu-head { top: 8px; }
+    #so-thr-weiyu-view:has(#so-thr-weiyu-host[data-wy-look="scroll"]) #so-thr-weiyu-x { top: 2px; right: 16px; width: 32px; height: 32px; min-width: 32px; min-height: 32px; background: var(--so-wy-x-bg); color: var(--so-wy-x-ink); box-shadow: var(--so-wy-x-shadow); }
+}
+/* /外观 */
+
 /* ==================== 更新提醒（ENABLE_UPDATE_CHECK，1.38.0） ==================== */
 /* 红点：有新版时挂 ⋯ / ⚙ / 设置「更新」组标题。position:relative 只在亮点时上桩，平时零布局影响。 */
 #so-window.so-upd-on #so-tools-btn,
@@ -3983,7 +4404,9 @@ body.so-skin-light :is(.so-knowledge-dialog, .so-big-summary-dialog) .so-local-d
    注意：#so-chatbar-button 与 ✂️ 快捷按钮住在酒馆自己的 UI 里，【有意】不在这三个根之下。 */
 body.so-skin-dark #so-window,
 body.so-skin-dark #so-plan-float,
-body.so-skin-dark #so-live {
+body.so-skin-dark #so-live,
+body.so-skin-dark #so-wyq-float,
+body.so-skin-dark #so-wy-callcard {
     --SmartThemeBodyColor: #e6e6e6;
     --SmartThemeBlurTintColor: #16171a;
     --SmartThemeBorderColor: rgba(255, 255, 255, 0.12);
@@ -4010,7 +4433,9 @@ body.so-skin-dark #so-live {
 
 body.so-skin-light #so-window,
 body.so-skin-light #so-plan-float,
-body.so-skin-light #so-live {
+body.so-skin-light #so-live,
+body.so-skin-light #so-wyq-float,
+body.so-skin-light #so-wy-callcard {
     --SmartThemeBodyColor: #1f2430;
     --SmartThemeBlurTintColor: #f7f8fa;
     --SmartThemeBorderColor: rgba(0, 0, 0, 0.14);
@@ -5201,6 +5626,20 @@ body.so-skin-background #so-live {
     /* 💬 微谕 device frame (redesign slice 1): the phone overlay covers the header ✕ — its own ✕ badge is the way out. Values = the
        frame rules' (visible, clickable, opaque). Inert while the phone is closed (the overlay is display:none). */
     body.so-theme-on #so-thr-weiyu-x { visibility: visible !important; pointer-events: auto !important; opacity: 1 !important; }
+    /* 💬 微谕 device look (cosmetic follow-up N-1): while a crystal / scroll phone is open or closing it covers the window and its ✕ is the
+       way out, so the window's own header and settings are hidden (unlayered rule in the 「不再有框」 block). The pins above would re-show
+       them through the 28 px faded top edge — this rule, same layer, later and with more ids, hides both subtrees again under exactly that
+       condition. It never matches the phone look (no data-wy-look) or a closed phone, so every close path restores the pins.
+       The condition's :is(.open, .so-wy-leaving) and :is(#so-header, #so-settings) are spelled out one selector each — no comma inside
+       parentheses, because css-tokens' guard-scope test splits this layer's selectors on every comma. */
+    body.so-theme-on #so-window:has(> #so-thr-weiyu-view.open #so-thr-weiyu-host[data-wy-look]) > #so-header,
+    body.so-theme-on #so-window:has(> #so-thr-weiyu-view.open #so-thr-weiyu-host[data-wy-look]) > #so-header *,
+    body.so-theme-on #so-window:has(> #so-thr-weiyu-view.open #so-thr-weiyu-host[data-wy-look]) > #so-settings,
+    body.so-theme-on #so-window:has(> #so-thr-weiyu-view.open #so-thr-weiyu-host[data-wy-look]) > #so-settings *,
+    body.so-theme-on #so-window:has(> #so-thr-weiyu-view.so-wy-leaving #so-thr-weiyu-host[data-wy-look]) > #so-header,
+    body.so-theme-on #so-window:has(> #so-thr-weiyu-view.so-wy-leaving #so-thr-weiyu-host[data-wy-look]) > #so-header *,
+    body.so-theme-on #so-window:has(> #so-thr-weiyu-view.so-wy-leaving #so-thr-weiyu-host[data-wy-look]) > #so-settings,
+    body.so-theme-on #so-window:has(> #so-thr-weiyu-view.so-wy-leaving #so-thr-weiyu-host[data-wy-look]) > #so-settings * { visibility: hidden !important; }
 }
 
 /* so-skin: 蓝玻璃 / 配合背景 + the shared layout layer under body.so-theme-on — [TBW-C so-skin filled] by spec C Task 7.
@@ -5315,6 +5754,9 @@ body.so-skin-background #so-live {
    只救「看不见 / 读不了」的那几处（底板 + 白字按钮 / 徽章）；其余约 70 处淡色点缀失效只是少了一层底色，不管。
    #so-cur-card / #so-autowarn-card / #so-fixwarn-card 本来就是「实心 background-color + color-mix background-image」拆开写，天然安全。 */
 @supports not (color: color-mix(in srgb, red 50%, blue)) {
+    /* 报错红字（2026-11-25）：--so-danger-ink 是 color-mix → 旧内核在计算值阶段整条失效。钉算好的字面色（= 新内核在深色 / 浅色皮肤上算出的值；跟随主题档用深色那个）。 */
+    #so-window, #so-plan-float, #so-live, .so-local-dialog { --so-danger-ink: #e39292; }
+    body.so-skin-light #so-window, body.so-skin-light #so-plan-float, body.so-skin-light #so-live, body.so-skin-light .so-local-dialog { --so-danger-ink: #803137; }
     /* 派生强调色 → 各自的原色（原本是 45% 主题强调色 + 55% 这个原色，够认得出模式即可） */
     #so-window, #so-plan-float, #so-live {
         --so-diag-accent: #d9534f;

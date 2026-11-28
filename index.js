@@ -2083,7 +2083,7 @@ const ENABLE_CUSTOM_PERSONAS = true;
 // —— 更新提醒（1.38.0）——
 // SO_VERSION 是代码内唯一版本号，必须与 manifest.json 的 version 完全一致——update-check.test.mjs
 // 有失配即红的漂移钉（发版清单：两处一起 bump）。
-const SO_VERSION = '2.2.0';
+const SO_VERSION = '2.4.0';
 // 更新提醒总开关。false → 设置面板不渲染「更新」组、开窗不检查、红点绘制器与一键更新 no-op、
 // 绑定/回填跳过——字节级零行为变化。运行期另有 opt-out 设置 updAutoCheck（默认开）。
 const ENABLE_UPDATE_CHECK = true;
@@ -2227,6 +2227,40 @@ const ENABLE_THR_WEIYU_ADD = true;
 // on since 2026-11-21: gm-add passed + re-check GA4 PASS (story-prose-only request) + browser smoke。
 // false = 与之前逐字节相同：没有那一项、env 里没有 find、deps 里没有 findSource、'find' 请求一律 {error: 'kind'}。
 const ENABLE_THR_WEIYU_FIND = true;
+// 💬 微谕 · 一键进手机（玩家请求；owner 2026-11-22「two opt in option」）：两个各自独立、默认都关的全局设置（开关在手机「我」页的「微谕 设置」里，2026-11-26 从 ⚙ 外观 → 窗口与按钮挪来）——
+// weiyuQuickBar = 酒馆输入栏里 🌙 旁边一个手机图标（与 🌙 同样的注入 / 重挂）；weiyuQuickFloat = 屏幕上一个可拖动的圆形悬浮按钮（位置存
+// weiyuQuickFloatLeft / Top）。点一下 = 窗口没开就开 → 走模式自己的切换进小剧场（中断确认照常）→ 点场景行里那个 微谕 入口（与设置里「打开微谕 ›」
+// 同一条路 soThrWeiyuViaEntry）；窗口开着且手机正显示着 = 关窗。只经 soWyQuickOn() 读；同时受 ENABLE_THR_WEIYU（∧ ENABLE_THEATER）与
+// ENABLE_SETTINGS_V2（旧设置面板的构建 = 整个功能都不在，与当初一样）管。false = 与之前逐字节相同：手机里没有两行开关（env 不给 quick）、defaults 不加键、不建任何按钮、不挂任何监听。
+const ENABLE_THR_WEIYU_QUICK = true;
+// 💬 微谕 升级（spec docs/superpowers/specs/2026-11-22-phone-upgrades-design.md；plan docs/superpowers/plans/2026-11-22-phone-upgrades.md）：六枚各自独立的开关，
+// 都同时受 ENABLE_THR_WEIYU 管；每枚只经自己的 soThrWeiyu<X>On() 读，它守的每一行 join 代码都是一行 `if (soThrWeiyu<X>On()) …`。
+// 表情包（贴纸面板、骰子里的表情包、聊天里的表情包一行）。false = 与之前逐字节相同：env 里没有 stickers、deps 里没有 stk。
+const ENABLE_THR_WEIYU_STICKERS = true;
+// 表情回应（长按一条消息贴一个表情；零调用）。false = 与之前逐字节相同：env / deps 里都没有 react。
+const ENABLE_THR_WEIYU_REACT = true;
+// 来电（她打给他：响铃、接 / 拒、语音留言、页面上的来电卡）；建在通话现场之上，所以也要 ENABLE_THR_WEIYU_CALLSCENE 开着。
+// false = 与之前逐字节相同：env / deps 里都没有 incall。
+const ENABLE_THR_WEIYU_INCALL = true;
+// 声音（铃声、提示音；浏览器级设置 weiyuSound，默认关）。false = 与之前逐字节相同：env 里没有 sound、defaults 不加 weiyuSound。
+const ENABLE_THR_WEIYU_SOUND = true;
+// 跟着剧情变的状态 / 签名；建在剧情同步之上，所以也要 ENABLE_THR_WEIYU_SYNC 开着。false = 与之前逐字节相同：env / deps 里都没有 status。
+const ENABLE_THR_WEIYU_STATUS = true;
+// 回复的几个版本（重新回复后左右翻看；零调用）。false = 与之前逐字节相同：env / deps 里都没有 versions。
+const ENABLE_THR_WEIYU_VERSIONS = true;
+// 💬 微谕 外观（水晶 / 卷轴；spec docs/superpowers/specs/2026-11-22-phone-looks-design.md；plan docs/superpowers/plans/2026-11-23-phone-looks.md）：
+// 手机按世界用语（或「我」页的「外观」）换成传讯水晶 / 传音卷轴的样子；只改界面，不改任何请求。同时受 ENABLE_THR_WEIYU 管；只经 soThrWeiyuLooksOn() 读，
+// 它守的每一行 join 代码都是一行 `if (soThrWeiyuLooksOn()) …`。false = 与之前逐字节相同：env 里没有 looks、没有 close。
+const ENABLE_THR_WEIYU_LOOKS = true;
+// 💬 微谕「我不进群」（spec docs/superpowers/specs/2026-11-24-phone-hosted-group-design.md；plan docs/superpowers/plans/2026-11-24-phone-peek-group.md）：
+// 关掉 = 发起群聊没有「我不进群」。开着 = 那一页多一个开关：建一个只有所选角色、没有玩家的群，建好自动「让他们接着聊」一次；不加任何模型读得到的新字。
+// 同时受 ENABLE_THR_WEIYU 管；只经 soThrWeiyuPeekGroupOn() 读，它守的 join 代码只有一行 `if (soThrWeiyuPeekGroupOn()) …`。false = 与之前逐字节相同：env 里没有 peekGroup。
+const ENABLE_THR_WEIYU_PEEKGROUP = true;
+// 💬 微谕「立即跟上剧情」（玩家穆秋的报告 2026-11-27；brief .superpowers/sdd/2026-11-27-weiyu-catchup/brief.md）：聊天列表「+」里多一项，一次同步盖住
+// 手机还没跟上的每一条故事回复（1 楼 = 今天的同步请求逐字节；≥ 2 楼 = 冻结的多楼同步 + 分隔线；不加任何模型读得到的新字）；自动同步被跳过 / 失败时
+// 手机上留一条「这次…没跟上，点一下手动更新」。建在「每几次回复更新一次」之上（∧ ENABLE_THR_WEIYU_SYNC_EVERY）。只经 soThrWeiyuCatchupOn() 读，
+// 它守的 join 代码都是一行 `if (soThrWeiyuCatchupOn()) …`。false = 与之前逐字节相同：env 里没有 catchup、手机上从不记「没跟上」。
+const ENABLE_THR_WEIYU_CATCHUP = true;
 // 🎬 小剧场 · 自动重试次数可调（owner 2026-11-16）：小剧场的一次生成（平行线 / 场景首轮 / 「更多」/ 自动场景 / 微谕）没拿到能用的回复——
 // 空的、被内容过滤拦下、半路断了——时自动再试几次：设置 theaterAutoRetries（0–3，默认 1 = 之前的行为），小剧场设置组里一个下拉。
 // 同时受 ENABLE_THEATER 管。false = 没有那个下拉、恒按 1 次、窗口与行为与之前逐字节相同。
@@ -2299,6 +2333,51 @@ const ENABLE_STOP_KEEP = true;
 // 发给模型的字一个不变。只管这六个精选组装器（soVarDetached）；跟酒馆实时走 / 用 ST 当前预设（ST 自己拼、异步）不经这里，照旧。
 // false = 与之前逐字节相同的行为（宏照旧写主聊天 / 全局变量；tests/unit/preset-var-detach-off.test.mjs）。
 const ENABLE_PRESET_VAR_DETACH = true;
+// 🧩 与「数据库」（AlbusKen/shujuku 的 naiv 版）共处（2026-11-22，owner 同意；调查报告 .superpowers/sdd/2026-11-22-shujuku-naiv/REPORT.md）。
+// 数据库给第三方留了两个「这不是主聊天的请求，别拦」的记号，神谕在自己发出的请求上都打上：① 神谕交给 GENERATE_AFTER_DATA 的那个对象上一个
+// 不可枚举的 _acu_bypass_vector_wait_gate = true（naiv1.3.8 起它的「向量召回还没完」闸据此放行、也不动主聊天的召回租约）；② 神谕自己
+// fetch ST 后端生成地址时 init 上一个可枚举的 Symbol.for('acu.internal-generation-fetch') = true（零层拦截器据此原样放行）。
+// 只管神谕自己发出的那一发（普通聊天 / 参谋 / 各模式的「跟酒馆实时走」、小剧场的预设路）；ST 自己代发的路（连接配置文件 / 经后端转发）不加。
+// 请求体一个字节不变。读点：soThrRunPresetPath（generateData）+ soThrPresetSend（fetch 的 init）。false = 两个记号都不加，与之前逐字节相同。
+const ENABLE_ACU_COMPAT = true;
+// 两个记号的拼写与数据库源码逐字相同（plot-send-event-gate.ts · host-generation-interceptor.ts）；值必须正好是 true。
+const ACU_FETCH_MARK = Symbol.for('acu.internal-generation-fetch');
+const ACU_AFTER_DATA_BYPASS = '_acu_bypass_vector_wait_gate';
+// 🧩 别家扩展中断了神谕的请求 = 说清楚（2026-11-22，owner 同意）：以前任何 AbortError 都当成「玩家按了停止」（显示「(已停止)」/
+// 「已取消：这一条没有发出」、没有重试）。现在只有神谕自己的中断器被掐了才算停止；错误像中断（AbortError，或数据库拦截器的
+// ACU_HOST_GENERATION_INTERCEPTED）而神谕自己的中断器一个都没掐 = 别家拦的 → 一个错误值，各处照自己的出错样子显示（带重试），
+// 说一句是别的扩展拦的 + 它自己的原话（装了数据库再多一句）。玩家停止 / 换聊天 / 让路 / 排队与拒发的结局 / 超时都不变。
+// 读点：soIsForeignAbort（引擎两条路 + generateReply）+ soForeignRetryOn。false = 与之前逐字节相同的行为与文字。
+const ENABLE_FOREIGN_ABORT_NOTE = true;
+// 数据库拦截器的错误码（host-generation-interceptor.ts HostGenerationInterceptedError_ACU.code）。
+const ACU_INTERCEPT_CODE = 'ACU_HOST_GENERATION_INTERCEPTED';
+// 🧩 上面那种「别家拦的」发生在请求发出之前 → 小剧场 / 实时那台引擎原样重拼重发一次（同一条路、同一份请求；自己的一次性额度，不占让路的
+// THEATER_PREEMPT_MAX、也不占小剧场的自动重试次数）。数据库 naiv1.3.7 的闸在报错那一下已经清掉了残留的租约，第二次就过得去。
+// 第二次又被拦 / 已经发出之后才被打断 = 直接说上面那句。玩家停止之后、发出之后、换一条路都绝不重试。只在 ENABLE_FOREIGN_ABORT_NOTE 开着时有意义
+// （soForeignRetryOn）。false = 不重试（直接说那句）。
+const ENABLE_FOREIGN_ABORT_RETRY = true;
+// ⏹ 停止 = 立刻放开（2026-11-22，owner 同意复审方案 A；报告 .superpowers/sdd/2026-11-22-stuck-stop/REPORT.md）：经典连接路（直连 / 经酒馆后端转发 /
+// 连接配置文件——普通聊天、各个不走实时的模式、回复后自动步骤、弧线、锻造 / 精简、总结……）以前按停止只是通知连接停下、再接着等它；底下那层不理
+// 这个通知（包了 fetch 又丢掉中断信号的脚本、永远不回的中转）= 窗口一直「生成中」。现在：每一发都经 soConnRun 同自己的中断器赛跑（soStopFreeRace），
+// 中断器一掐就立刻以神谕自己的中断错误收场（soStopFreeAbortError，记进 soOwnAbortErrs，绝不被认成别家中断）；迟到的结果 / 错误一律丢掉。
+// 五个流式读取器（+ 三个非流式）在中断之后不再画字、不写 soLastFinishReason / 用量，流「正常结束」（TauriTavern 停流的样子）也当作停下（soStopFreeHit）。
+// 谁掐谁不变（换模式照旧不掐锻造 / 精简）；实时 / 小剧场引擎本来就自己赛跑，不经这里。false = 与之前逐字节相同的行为。
+const ENABLE_STOP_FREE = true;
+// 🔑 跟酒馆实时走 = 酒馆拼完请求之后，再把神谕连接的字段写一遍（2026-11-22，owner 同意报告方案 A；.superpowers/sdd/2026-11-22-live-key/REPORT.md）：
+// 实时路 / 小剧场的预设路用酒馆自己的 createGenerationParameters 拼请求。TauriTavern 2.1.1 起它不照抄 custom_include_headers /
+// custom_include_body / custom_exclude_body，而是换成它按来源另存的「附加参数」（通常是空的），还从酒馆设置抄 custom_api_format 和 secret_id
+// → 直连的密钥（就在 custom_include_headers 里）丢了，中转回 invalid API key。现在拼完（预设脚本的 CHAT_COMPLETION_SETTINGS_READY 之前）：
+// 直连 = 地址 / 请求头 / 包括 / 排除主体参数写回神谕的值，请求里有 custom_api_format 就改成 'openai_compat'，删掉 secret_id；连接配置文件 =
+// 附加参数写回（custom 源）或删掉（别的源，原版酒馆本来就不带）。原版 SillyTavern 照抄这些字段 → 写回的是同一个值，请求体逐字节不变。
+// 读点：soThrPresetConn（两条分支挂 reassert）+ soLiveConnReassert（soThrPresetBody 里应用）。false = 与之前逐字节相同的请求体。
+const ENABLE_LIVE_CONN_REASSERT = true;
+// ✨ 重画安全 + 清空校正记录（2026-11-23，Xin 报障：一个聊天里一点 ✨ 整页卡死，删扩展也没用；调查 .superpowers/sdd/xin-fixer-freeze-2026-11-23.md）：
+// 侧聊房间从聊天元数据重画时（loadConvoForChat / 加载更多 / soRepaintEntry），玩家当时看到的就是纯文本的回复照纯文本画，绝不再交给酒馆的
+// messageFormatting（全部显示正则）/ Markdown / 神谕正则：✨ 停下留下的、没解析成校正稿的原样回复（写入时记 soPlain = 正文指纹，旧记录按
+// soStopped / <FixedReply / <fix_think 认），以及任何房间里超过 SO_REDRAW_PLAIN_MAX_CHARS 字的回复。设置 → 窗口与按钮多一行「清空本聊天的校正记录」：
+// 不用进 ✨ 就能删掉这个聊天的 ✨ 记录（storyOracle_convo_fix + __f* 及它们的「不发送」设置）。读点：soRedrawPlain / soWithPlainFields /
+// generateReply 的写入标记 / 两处重画 / 设置行。false = 与之前逐字节相同。
+const ENABLE_ROOM_REDRAW_SAFE = true;
 // 远端版本号来源（按序尝试，首个可解析者胜）：GitHub Raw 在中国大陆常被墙 → jsDelivr CDN 兜底
 // （其缓存可滞后 ~12h，红点可能晚亮，可接受）。只 GET 公开文件，不发送任何用户数据。
 // bust = 是否加时间戳绕缓存（Raw 要绕；jsDelivr 缓存本身就是它的意义，不绕）。
@@ -5343,6 +5422,9 @@ function soThrOnChatChanged() {
     if (soThrWeiyuSyncOn()) soThrWeiyuOnChatLoad();   // 💬 微谕：分支 / 检查点里回复不在的活增量照「删」处理，挪过楼号的跟着挪（零调用）
     if (soThrWeiyuWordsOn()) soThrWeiyuWordsPinHere(false);   // 💬 微谕 · 世界用语：第一次看到一部已开机、卡还没定过的手机 → 定为现代（不受同步旗管）
     if (soThrWeiyuTellOn()) soThrWeiyuNoteSync();   // 💬 微谕：这个聊天的主线知情那一格（没有手机 / 没勾 = 清空或根本不碰）
+    if (soThrWeiyuStickersOn()) soThrWeiyuStk.release();   // 💬 微谕 · 表情包：图片 URL 属于上一个聊天的手机；还在下载的那张落地后不交出去
+    if (soThrWeiyuIncallOn()) soThrWeiyuRingCheck();   // 💬 微谕 · 来电：在响的那一通属于上一个聊天 → 停铃、拆卡（同一个聊天重新载入 = 照响，卡和铃声一起留着）
+    if (soThrWeiyuSoundOn()) { if (!soThrWeiyuRingS.cur) soThrWeiyuSound.ring(false); }   // 💬 微谕 · 声音：来电检查之后——没有一通还在响，就停掉铃声（终审 M-1）
     if (!win) return;
     // 复审 §4.5：换了聊天，查看层里那个场景属于上一个聊天——关掉（不然它的「更多」只会撞上「这个场景已经不在了」）。
     if (soThrSceneView) soThrSceneClose();
@@ -6097,10 +6179,40 @@ function soThrModule(name, loader) {
     if (soThrMods && Object.hasOwn(soThrMods, name)) return Promise.resolve(soThrMods[name]);
     return loader();
 }
+// 🧩 ENABLE_FOREIGN_ABORT_NOTE：神谕自己造出来的中断错误（下面这个函数）一律记下——「别家中断」的判定据此认出「这一个是我们自己的」。旗关 = 从不记。
+const soOwnAbortErrs = new WeakSet();
 function soThrAbortError() {
     const e = new Error(THEATER_ABORT_MESSAGE);
     e.name = 'AbortError';
+    if (ENABLE_FOREIGN_ABORT_NOTE) soOwnAbortErrs.add(e);
     return e;
+}
+// 🧩 别家中断：错误像「中断」（name AbortError，或数据库拦截器的 ACU_HOST_GENERATION_INTERCEPTED），可它不是神谕自己造的、
+// 传进来的神谕自己的中断信号（这一趟 / 这一次拼装 / 侧聊回复的中断器）也一个都没掐 = 别的扩展拦下 / 打断的。旗关 = 恒 false（= 今天）。
+// 只在手里真有自己的中断信号时才可能说「别家」：一个信号都没给、或给的是空的 = 不认得自己的中断器 → false（= 今天）。
+function soIsForeignAbort(err, ...signals) {
+    if (!ENABLE_FOREIGN_ABORT_NOTE || err == null || typeof err !== 'object' || soOwnAbortErrs.has(err)) return false;
+    if (!signals.length || signals.some((s) => !s || typeof s !== 'object')) return false;
+    if (!isUserAbort(err) && err.code !== ACU_INTERCEPT_CODE) return false;
+    return !signals.some((s) => !!(s && s.aborted));
+}
+// 请求发出之前被别家拦下 → 引擎原样重拼一次（只在说明那枚旗也开着时）。
+function soForeignRetryOn() { return ENABLE_FOREIGN_ABORT_RETRY && ENABLE_FOREIGN_ABORT_NOTE; }
+// 别家中断时给玩家的那一句：unsent = 还没发出去就被拦下（Prince 亲选 2026-11-22，候选 3）；cut = 发出之后被打断（DRAFT，同形）；
+// db = 装了「数据库」（window.AutoCardUpdaterAPI 在，同 ENABLE_DB_BRIDGE 的认法）时补的一句（Prince 亲选 2026-11-22）。
+const FOREIGN_ABORT_COPY = Object.freeze({
+    unsent: '没发出去：别的扩展取消了这一条',
+    cut: '中途断了：别的扩展打断了这一条',
+    db: '装了「数据库」的话，等主聊天这一轮结束再试一次。',
+});
+// → 一句纯文字（各显示处照自己的规矩转义）。原因 = 那个扩展自己的原话（errChainMessage：带 cause 链），去掉句末标点放进全角括号；没有原因 = 不加括号。
+// sent = 请求已经交出去了；数据库拦截器的错误码 = 它在 fetch 那一层就拦下了，照样算「没发出去」。
+function soForeignAbortText(err, sent) {
+    const why = String(errChainMessage(err) || '').trim().replace(/[。.!！?？\s]+$/u, '');
+    const unsent = sent !== true || !!(err && typeof err === 'object' && err.code === ACU_INTERCEPT_CODE);
+    let t = (unsent ? FOREIGN_ABORT_COPY.unsent : FOREIGN_ABORT_COPY.cut) + (why ? '（' + why + '）' : '');
+    if (dbBridgeDbPresent()) t += '。' + FOREIGN_ABORT_COPY.db;
+    return t;
 }
 // 同步中断：先掐请求，再立刻还原（删本趟登记 → 还主线槽 → 还 max_tokens），并清 soThrRun——主聊天自己的监听（贴合注入 /
 // 数据库联动）此刻起照常工作。没在跑 = no-op。
@@ -7222,6 +7334,11 @@ async function soTheaterGenerate(opts) {
         if (controller.signal.aborted) return out(Object.assign({ text: partial, aborted: true }, extra));
         return out(Object.assign({ text: typeof g.text === 'string' ? g.text : '' }, extra));
     } catch (e) {
+        // 🧩 ENABLE_FOREIGN_ABORT_NOTE：别的扩展拦下 / 打断了（这一趟的中断器没被掐）= 错误值（旧路一趟就是一趟，不重试）。
+        if (soIsForeignAbort(e, controller.signal)) {
+            console.warn('[Story Oracle] 这一发被别的扩展拦下 / 打断了', e);
+            return out({ text: partial, error: soForeignAbortText(e, run.connSent === true), foreignAbort: true });
+        }
         if (controller.signal.aborted || isUserAbort(e)) return out({ text: partial, aborted: true });
         // 🔌 预设路的请求已经发出（connSent）且用的是小剧场那一行选的连接 → 报错前面加上「小剧场用的连接「…」失败：」（神谕路的错从 soCallModel 来时已带）。
         if (path === 'preset' && run.connSent && conn && conn.mc) e = soConnTag(conn.mc, e);
@@ -7449,8 +7566,21 @@ async function soThrGenerateQueued(o) {
             } catch (e) {
                 if (att.preempted && !controller.signal.aborted) {
                     // 让路：同一趟重排队；第 THEATER_PREEMPT_MAX 次也被让掉 = 放弃（一个请求都没发）。
-                    if (run.attempts >= THEATER_PREEMPT_MAX) return out({ aborted: true, ended: 'retries', sent: false });
+                    // 🧩 别家中断的那一次重拼不算让路的次数（run.foreignRetried 只在 soForeignRetryOn 时置真；旗关 = 今天这一句）。
+                    if (run.attempts - (run.foreignRetried === true ? 1 : 0) >= THEATER_PREEMPT_MAX) return out({ aborted: true, ended: 'retries', sent: false });
                     continue;
+                }
+                // 🧩 ENABLE_FOREIGN_ABORT_NOTE：像中断、可这一趟与这一次拼装的中断器都没被掐 = 别的扩展拦的（数据库的「向量召回还没完」闸 / 零层拦截器）。
+                // 还没发出 + 还没重拼过 → 同一趟原样重排一次（ENABLE_FOREIGN_ABORT_RETRY；同一条路、同一份请求，不是退回别的路）；否则 = 错误值（带原话）。
+                if (soIsForeignAbort(e, controller.signal, att.controller.signal)) {
+                    if (soForeignRetryOn() && run.sent === false && run.foreignRetried !== true) {
+                        run.foreignRetried = true;
+                        console.info('[Story Oracle] 这一发在发出之前被别的扩展拦下了，自动重拼一次：', errChainMessage(e));
+                        run.phase = 'queued';
+                        continue;
+                    }
+                    console.warn('[Story Oracle] 这一发被别的扩展拦下 / 打断了', e);
+                    return out({ text: partial, error: soForeignAbortText(e, run.sent), sent: run.sent, foreignAbort: true });
                 }
                 if (controller.signal.aborted || isUserAbort(e)) return out({ text: partial, aborted: true, ended: endedOf(), sent: run.sent });
                 // 🔌 预设路：这个 attempt 的请求已经发出（att.connSent）且用的是小剧场那一行选的连接 → 报错加前缀（神谕路的错从 soCallModel 来时已带）。
@@ -7845,6 +7975,8 @@ async function soThrRunPresetPath(o, ctx, mods, run, undo, guard, emitDelta, tra
     if (trip) trip.prepared(prompt);
     if (att) tr('prepared');
     const generateData = { prompt };
+    // 🧩 ENABLE_ACU_COMPAT：给数据库（naiv1.3.8 起）的「别拦这一发」记号——不可枚举（不进序列化 / Object.keys / 展开），值正好是 true。
+    if (ENABLE_ACU_COMPAT) Object.defineProperty(generateData, ACU_AFTER_DATA_BYPASS, { value: true, configurable: true });
     if (trip) trip.after = generateData;
     if (es && typeof es.emit === 'function') await guard(es.emit(et.GENERATE_AFTER_DATA || 'generate_after_data', generateData, false));
     if (att) tr('afterData');
@@ -8014,6 +8146,13 @@ function soThrPresetConn(s, ctx, oai, mc = soConn('theater', s || {}, ctx)) {
                 custom_include_headers: fwd.custom_include_headers, custom_include_body: fwd.custom_include_body, custom_exclude_body: fwd.custom_exclude_body,
             }),
             patch: {}, mc,
+            // 🔑 ENABLE_LIVE_CONN_REASSERT：拼完再写一遍（密钥只在这个请求头里；TauriTavern 存的 secret_id 不许跟着走——它的后端找不到那个 id 会直接报错）
+            ...(ENABLE_LIVE_CONN_REASSERT ? { reassert: {
+                set: { custom_url: fwd.custom_url, custom_include_headers: fwd.custom_include_headers,
+                    custom_include_body: fwd.custom_include_body, custom_exclude_body: fwd.custom_exclude_body },
+                ifPresent: { custom_api_format: 'openai_compat' },
+                drop: ['secret_id'],
+            } } : {}),
         };
     }
     if (!mc.profileId) return { error: '请先在设置（齿轮图标）中选择一个连接配置文件。', mc };
@@ -8041,7 +8180,25 @@ function soThrPresetConn(s, ctx, oai, mc = soConn('theater', s || {}, ctx)) {
             custom_include_body: xo.custom_include_body, custom_exclude_body: xo.custom_exclude_body, custom_include_headers: xo.custom_include_headers,
         }),
         patch, mc,
+        // 🔑 ENABLE_LIVE_CONN_REASSERT：custom 源 = 地址 + 附加参数写回神谕的值；别的源 = 三个键删掉（原版酒馆只给 custom 源拼它们，
+        // TauriTavern 却按来源塞进酒馆自己存的那份）。值是 undefined = 删（同原版拼完再清空的结果）。
+        ...(ENABLE_LIVE_CONN_REASSERT ? { reassert: { set: apiMap.source === 'custom'
+            ? { custom_url: url, custom_include_body: xo.custom_include_body, custom_exclude_body: xo.custom_exclude_body, custom_include_headers: xo.custom_include_headers }
+            : { custom_include_body: undefined, custom_exclude_body: undefined, custom_include_headers: undefined } } } : {}),
     };
+}
+// 🔑 ENABLE_LIVE_CONN_REASSERT：r = soThrPresetConn 挂的 reassert = { set, ifPresent, drop }。set 的值写进请求体（undefined / '' = 删掉这个键，
+// 与 soThrPresetBody 清空 THEATER_CONN_BLANK_KEYS 的规则一样）；ifPresent = 请求体里【已经有】这个键才改写（原版酒馆没有 = 不加）；drop = 删掉。
+// 旗关 / 没有 r = 原样不动。→ gd。
+function soLiveConnReassert(gd, r) {
+    if (!ENABLE_LIVE_CONN_REASSERT || !gd || typeof gd !== 'object' || !r || typeof r !== 'object') return gd;
+    for (const [k, v] of Object.entries(r.set || {})) {
+        if (v === undefined || v === '') delete gd[k];
+        else gd[k] = v;
+    }
+    for (const [k, v] of Object.entries(r.ifPresent || {})) if (Object.prototype.hasOwnProperty.call(gd, k)) gd[k] = v;
+    for (const k of (Array.isArray(r.drop) ? r.drop : [])) delete gd[k];
+    return gd;
 }
 // 🔌 引擎结果里的 conn（只加键）：这一趟结束在【选的】连接上（不存在 / 不完整 / 发出去失败）= { modeId, label, issue }；主连接 / 别的原因 = null。
 function soThrConnInfo(mc) {
@@ -8082,6 +8239,7 @@ async function soThrPresetBody(oai, conn, type, messages, ctx, sampling, maxToke
         if (conn.profileId) Object.assign(gd, soVertexAuthFill(conn.profileId, ctx), soVertexRegionFill(conn.profileId, ctx));   // 区域：配置档没存才补酒馆当前的
     }
     Object.assign(gd, conn.patch || {});
+    soLiveConnReassert(gd, conn.reassert);   // 🔑 ENABLE_LIVE_CONN_REASSERT：酒馆拼完再写回神谕连接的字段（旗关 = 什么都不做）
     return { generate_data: gd, stream: !!(built && built.stream) };
 }
 // 后端错误 → 「HTTP 状态 + 服务商给的那句话」（与直连同款；有 JSON 的 error.message / message 就取它）。
@@ -8176,7 +8334,9 @@ async function soThrPresetSend(type, messages, signal, env) {
     // 在此刻的链上再包一层（本页一次）。别家同时经过它会让这次查不出（宁可不重装）。
     const obs0 = (soThrEarlyOn() && soThrFetchObs) ? soThrObserverCalls : -1;
     if (env.own && typeof env.own.sent === 'function') env.own.sent(); if (soThrParallelOn()) soThrOwnFetchArm();   // 🔌 复审 M3：请求真要发出去了（之前的错 = 拼请求的事）；🎬 A2-3：下面这一发是神谕自己的
-    const response = await window.fetch(THEATER_ST_GENERATE_URL, { method: 'POST', body: JSON.stringify(gd), headers, signal });
+    const response = await window.fetch(THEATER_ST_GENERATE_URL, ENABLE_ACU_COMPAT   // 🧩 ENABLE_ACU_COMPAT：init 上数据库零层拦截器认的记号（可枚举：展开拷贝 init 的包装层也带得过去）；请求体不变
+        ? { method: 'POST', body: JSON.stringify(gd), headers, signal, [ACU_FETCH_MARK]: true }
+        : { method: 'POST', body: JSON.stringify(gd), headers, signal });
     if (soThrParallelOn()) soThrOwnResponses.add(response);   // 🎬 A2-3 后备：旁观者认出自己的回包（同一个 Response 对象）
     // 🎬 轮流拼（Task 4 交接）：这一发已经交给网络 → 拼装令牌交回。只有新引擎旗开的一趟带 fetched（旗关 / 旧路没有这个键 = 今天）。
     // fetch 失败（抛错）= 不在这里交：错误一路抛回 soThrGenerateQueued，那个 attempt 的 finally 一定交回。
@@ -15589,8 +15749,8 @@ function soThrRelookRowPaint(sceneId, state) {
 // [WEIYU] model — spliced verbatim into index.js by the join plan; edit HERE, re-splice, never hand-edit the copy.
 //
 // 微谕's phone state is ONE plain JSON object (schema v1, add-only keys). Shapes:
-//   State  { v:1, booted, seq, people:{[pid]:Person}, chats:{[cid]:Chat}, opts:{steal, sync, tell, motion?, menu?, keep?, meterLine?}, deltas:Delta[], alts?:object|null }
-//   Person { id, name, idLine?, sig?, area?, extra?:1, main?:1, gone?:1, remark?, blocked?:1 }   pid 'me' = the player's character
+//   State  { v:1, booted, seq, people:{[pid]:Person}, chats:{[cid]:Chat}, opts:{steal, sync, tell, motion?, menu?, keep?, meterLine?, stickers?, noRing?, look?}, deltas:Delta[], alts?:object|null, stkRecent?:string[] }
+//   Person { id, name, idLine?, sig?, area?, extra?:1, main?:1, gone?:1, remark?, blocked?:1, st?:{v, floor}, sigBy?:'me'|'ai' }   pid 'me' = the player's character
 //            gone = removed from the contacts (删除联系人, only the person): the tombstone {id, name, gone:1, main?} that renders
 //            their old lines (soWyDeletePerson)
 //            remark = the player's 备注 for them (≤ 60; the phone shows it, NO model ever reads it — soWyShownName) · blocked = 拉黑
@@ -15598,13 +15758,14 @@ function soThrRelookRowPaint(sceneId, state) {
 //            origin?: 'story'|'new' · about? = a person added by hand (2026-11-21, soWyAcAdd): 故事里的人 / 故事外的新人 and the 人物说明
 //            (only for the AI — soWyBrief prints them behind args.ac); absent on everyone else
 //   Chat   { id, type:'group'|'dm', name?, kind?, members:pid[], count?, notice?, why?, floor?:number|null,
-//            muted?:1, dissolved?:1, msgs:Msg[], read:mid|null, sum?:{text, through, at, next?}, rank?:number, own?:1, closed?:1, pin?:1 }
+//            muted?:1, dissolved?:1, msgs:Msg[], read:mid|null, sum?:{text, through, at, next?}, rank?:number, own?:1, closed?:1, pin?:1,
+//            vers?:{after, list, cur, full?} }   vers = the latest AI round's other versions (reply versions, soWyVersKeep)
 //            rank = list place at 开机 · own = a group the player made (its 由来 is worded per audience, soWyChatWhy)
 //            closed = a group a removed contact left with fewer than two members: read-only history (soWyChatClosed)
 //            pin = 置顶 (the screen's list only, soWyScreenChats; soWyChatList keeps its order)
 //   Msg    { id, t, u?, v, sec?, dur?, em?, q?:{u, v}, to?, k?, who?, targets?, prev?, added?, b, src, ai?:1, in:0|1, d?,
-//            card?:{k, title, sub?, pid?}, fwd?:{from, lines:{name, v}[]}, refused?:1 }
-//            card / fwd ride on t 'text' ONLY, v = the readable fallback (soWyCardText / soWyFwdText) — an older build keeps the key and
+//            card?:{k, title, sub?, pid?}, fwd?:{from, lines:{name, v}[]}, stk?:{id, name, mood, desc}, refused?:1, re?:{[pid]: emoji} }
+//            card / fwd / stk ride on t 'text' ONLY, v = the readable fallback (soWyCardText / soWyFwdText / soWyStkText) — an older build keeps the key and
 //            shows v as a plain bubble · refused = a blocked person's line in the player's private chat with them (behind 偷看)
 //            phase 2 (2026-11-17): call?:{mode, st, dur?, gist?} (+ to = the callee) · pay?:{amt?, note?, to, mark?} · ans?:{ref, res, note?} —
 //            t 'text' too, one of them per line (soWyCallNorm / soWyPayNorm / soWyAnsNorm) · pend?: n = how many landed requests showed this
@@ -15968,6 +16129,84 @@ function soWyFwdText(fwd) {
     return soWyClip((f.from ? '[转发「' + f.from + '」] ' : '[转发] ') + body, THEATER_WEIYU_FWD_MAX.text);
 }
 
+// ---- the sticker (phone upgrades 2026-11-22, spec docs/superpowers/specs/2026-11-22-phone-upgrades-design.md §5; kill switch
+// ENABLE_THR_WEIYU_STICKERS in the join — these STATE helpers are flag-free so a stored line always reads) ----------------------------------
+// Like the card: {t: 'text', u, v: <readable fallback 「[表情包] 名字」>, stk} — never a new t (an older build keeps the key and shows v).
+//   stk = {id, name, mood, desc}   id = the pack's stable id, a THEATER_WEIYU_WORD_STICKERS id for a word sticker, '' for a word sticker made from text the
+//          model wrote that matches nothing; name ≤ 12 (required), mood ≤ 20, desc ≤ 60 — name + desc are stored so history never
+//          depends on the pack. A hosted sticker also has file / w / h / bytes; those are never stored on a message (soWyStkNorm drops them).
+// Word stickers: drawn by the phone (bold black characters on a plain white square — Prince 2026-11-23, spec §18 AMENDED), no host needed,
+// offered and sent like the others. SIX since 2026-11-23 (收到 · 好的 · 谢谢 · 晚安 · 加油 · 拜拜), each keeping its first id so stored lines
+// still match; the four dropped ones (THEATER_WEIYU_WORD_RETIRED: 6 · ？ · 哈哈哈 · 在吗) are no longer offered, but a line stored with one still
+// reads as a word sticker (the screens draw it as a word tile with its name). Mood / desc FROZEN 2026-11-23 by gm-upgrades (checks P1 / CX: they reach the model in
+// the offer's name list; sha256 pinned in weiyu-prompts-pin.test.mjs, tenth freeze; a byte change = re-run that gm-upgrades check).
+const THEATER_WEIYU_WORD_STICKERS = Object.freeze([
+    Object.freeze({ id: 'w1', name: '收到', mood: '知道了', desc: '大大的「收到」两个字' }),
+    Object.freeze({ id: 'w2', name: '好的', mood: '答应', desc: '大大的「好的」两个字' }),
+    Object.freeze({ id: 'w6', name: '谢谢', mood: '感谢', desc: '大大的「谢谢」两个字' }),
+    Object.freeze({ id: 'w7', name: '晚安', mood: '道晚安', desc: '大大的「晚安」两个字' }),
+    Object.freeze({ id: 'w8', name: '加油', mood: '打气', desc: '大大的「加油」两个字' }),
+    Object.freeze({ id: 'w10', name: '拜拜', mood: '告别', desc: '大大的「拜拜」两个字' }),
+]); // FROZEN (gm-upgrades P1 / CX: mood / desc)
+// The ids of the word stickers dropped 2026-11-23 (w3 6 · w4 ？ · w5 哈哈哈 · w9 在吗): never offered again, never reused for anything else.
+const THEATER_WEIYU_WORD_RETIRED = Object.freeze(['w3', 'w4', 'w5', 'w9']);
+const THEATER_WEIYU_STK_MAX = Object.freeze({ id: 64, name: 12, mood: 20, desc: 60 });
+
+// → {id, name, mood, desc} | null (no name). Every reader of Msg.stk goes through it.
+function soWyStkNorm(stk) {
+    if (!soWyIsObj(stk)) return null;
+    const M = THEATER_WEIYU_STK_MAX;
+    const name = soWyClip(soWyLine1(stk.name), M.name);
+    if (!name) return null;
+    return {
+        id: typeof stk.id === 'string' ? soWyClip(soWyLine1(stk.id), M.id) : '',
+        name,
+        mood: soWyClip(soWyLine1(stk.mood), M.mood),
+        desc: soWyClip(soWyLine1(stk.desc), M.desc),
+    };
+}
+
+// The stickers available now: the hosted list's entries that have a name (as given — a hosted one keeps file / w / h / bytes for the
+// screens), one per name (the first wins), then the word stickers whose name is not taken. `hosted` missing / not a list = word stickers only.
+function soWyStkPool(hosted) {
+    const out = [];
+    const seen = new Set();
+    const add = (x) => {
+        const n = soWyStkNorm(x);
+        if (!n || seen.has(n.name)) return;
+        seen.add(n.name);
+        out.push(x);
+    };
+    if (Array.isArray(hosted)) hosted.forEach(add);
+    THEATER_WEIYU_WORD_STICKERS.forEach(add);
+    return out;
+}
+
+// The readable fallback: 「[表情包] 无语」 ('' for a junk sticker).
+function soWyStkText(stk) {
+    const s = soWyStkNorm(stk);
+    return s ? '[表情包] ' + s.name : '';
+}
+
+// The panel's 最近使用 row (plan Task 16): State.stkRecent = sticker ids, newest first, no repeats, at most THEATER_WEIYU_STK_RECENT — an
+// additive top-level key written only when he sends a sticker that has an id (soWySendKind); absent on a phone that never sent one. Read
+// defensively: anything stored that is not such a list reads as [].
+const THEATER_WEIYU_STK_RECENT = 8;
+function soWyStkRecent(state) {
+    const raw = soWyIsObj(state) && Array.isArray(state.stkRecent) ? state.stkRecent : [];
+    const out = [];
+    for (const x of raw) {
+        if (typeof x !== 'string' || !x || out.includes(x)) continue;
+        out.push(x);
+        if (out.length >= THEATER_WEIYU_STK_RECENT) break;
+    }
+    return out;
+}
+function soWyStkRecentPut(state, id) {
+    if (!soWyIsObj(state) || typeof id !== 'string' || !id) return;
+    state.stkRecent = [id].concat(soWyStkRecent(state).filter((x) => x !== id)).slice(0, THEATER_WEIYU_STK_RECENT);
+}
+
 // A message in readable words, the way a forward copies it and the search shows it: a card / forward its fallback, a voice note / photo /
 // video its words with the kind in front, text / emoji as they are ('' when it has none).
 function soWyMsgPlain(m) {
@@ -15977,6 +16216,8 @@ function soWyMsgPlain(m) {
         if (card) return card;
         const fwd = soWyFwdText(m.fwd);
         if (fwd) return fwd;
+        const stk = soWyStkText(m.stk);
+        if (stk) return stk;
     }
     const v = soWyLine1(m.v);
     if (!v) return '';
@@ -16000,9 +16241,14 @@ const THEATER_WEIYU_CALL_KIND = Object.freeze({ voice: '语音通话', video: '�
 const THEATER_WEIYU_CALL_ST = Object.freeze({ missed: '未接', cancel: '已取消', reject: '已拒绝', done: '已接通' });
 const THEATER_WEIYU_ANS_WORDS = Object.freeze({ taken: '已收款', back: '已退回' });
 const THEATER_WEIYU_EV_MAX = Object.freeze({ gist: 80, amt: 12, note: 60 });
+// Phone upgrades (incoming calls): call.say = her words with a call to the player, model text clipped to this (parse.js, soWyCallNorm).
+// The reader's status 'ring' (〔语音通话〕甲 → 我｜响铃｜她的话, ctx.incall only) is never stored: the resolver lands it as 'missed' (+ say).
+const THEATER_WEIYU_CALL_SAY_MAX = 120;
 
 // The live call scene (2026-11-18) adds, on the SAME call key (additive; a record without them reads exactly as before):
-//   st 'live' (only his own call, while it is connected — never a status a model line can produce) · at = connect time (ms) · turns =
+//   st 'live' (a call while it is connected — his own, or, with the incoming stage, HER call he picked up (u = her, to = 'me', soWyCallAnswer);
+//   never a status a model line can produce) · say = her words on her call to him (phone upgrades; kept on every status but cancel) ·
+//   at = connect time (ms) · turns =
 //   [{u: pid, lines: [{tags?, text}], visual?, at?}] on 'live' and on a 'done' that came from a live call · end = 'me' | 'them' | 'cut' on
 //   such a 'done' · why = her reason on a 'missed' / 'reject' (拒接｜原因).
 function soWyCallNorm(call) {
@@ -16023,6 +16269,12 @@ function soWyCallNorm(call) {
     if (call.st === 'missed' || call.st === 'reject') {
         const why = soWyClip(soWyLine1(call.why), THEATER_WEIYU_CALL_CAP.why);
         if (why) out.why = why;
+    }
+    // phone upgrades (incoming calls, spec §7.1 / §17.6): say = her words that came with a call TO the player (≤ THEATER_WEIYU_CALL_SAY_MAX)
+    // — kept on missed / reject (the voice message) and live / done (an answered call: her first spoken line); never on cancel
+    if (call.st !== 'cancel' && typeof call.say === 'string') {
+        const say = soWyClip(soWyLine1(call.say), THEATER_WEIYU_CALL_SAY_MAX);
+        if (say) out.say = say;
     }
     return out;
 }
@@ -16205,6 +16457,25 @@ function soWyCallSettle(state, keep) {
     return n;
 }
 
+// Phone upgrades (incoming calls, spec §7.2 / §17.7): the record `mid` of chat `cid` as a call he can still pick up — a MISSED call (with or
+// without her words) of a private chat FROM its other member TO the player, not refused (a blocked person's line). → {her: pid, mode,
+// say: string ('' when she left none)} | null. Pure; never throws. The record keeps its true direction when answered (u = her, to = 'me').
+function soWyCallIncoming(state, cid, mid) {
+    try {
+        const chat = soWyChat(state, cid);
+        if (!chat || chat.type !== 'dm' || !Array.isArray(chat.members) || chat.members.length !== 2 || !chat.members.includes(THEATER_WEIYU_ME)) return null;
+        const m = soWyMsg(state, cid, mid);
+        if (!soWyIsObj(m) || m.t !== 'text' || m.refused === 1 || m.to !== THEATER_WEIYU_ME) return null;
+        const her = chat.members.find((p) => p !== THEATER_WEIYU_ME);
+        if (m.u !== her) return null;
+        const call = soWyCallNorm(m.call);
+        if (!call || call.st !== 'missed') return null;
+        return { her, mode: call.mode, say: call.say || '' };
+    } catch (e) {
+        return null;
+    }
+}
+
 // The read caps of a transfer / an answer are the PLAYER's ceilings (40 / 200): a character's is cut to EV_MAX in parse.js first.
 function soWyPayNorm(pay) {
     if (!soWyIsObj(pay) || typeof pay.to !== 'string' || !pay.to || THEATER_WEIYU_UNSAFE_IDS.includes(pay.to)) return null;
@@ -16249,9 +16520,9 @@ function soWyPayAmtKey(amt) {
         .replace(/^[¥￥$]+/, '').replace(/(?:块钱|元|块|人民币|rmb)$/i, '');
 }
 
-// Which event a stored line is: 'call' | 'pay' | 'ans' | '' (only on t 'text'; a card / forward is none of them).
+// Which event a stored line is: 'call' | 'pay' | 'ans' | '' (only on t 'text'; a card / forward / sticker is none of them).
 function soWyEvKind(m) {
-    if (!soWyIsObj(m) || m.t !== 'text') return '';
+    if (!soWyIsObj(m) || m.t !== 'text' || soWyStkNorm(m.stk)) return '';
     if (soWyCallNorm(m.call)) return 'call';
     if (soWyPayNorm(m.pay)) return 'pay';
     if (soWyAnsNorm(m.ans)) return 'ans';
@@ -16271,8 +16542,12 @@ function soWyAddMsg(state, cid, msg, meta) {
     if (card) m.card = card;
     if (fwd) m.fwd = fwd;
     if ((card || fwd) && !m.v.trim()) m.v = card ? soWyCardText(card) : soWyFwdText(fwd);
+    // a sticker (phone upgrades): after card / fwd, before call — one rider per line; an empty v takes 「[表情包] 名字」
+    const stk = m.t === 'text' && !card && !fwd ? soWyStkNorm(src.stk) : null;
+    if (stk) m.stk = stk;
+    if (stk && !m.v.trim()) m.v = soWyStkText(stk);
     // a call / a transfer / an answer (phase 2): one key per line, the same rules as a card
-    const plainText = m.t === 'text' && !card && !fwd;
+    const plainText = m.t === 'text' && !card && !fwd && !stk;
     const call = plainText ? soWyCallNorm(src.call) : null;
     const pay = plainText && !call ? soWyPayNorm(src.pay) : null;
     const ans = plainText && !call && !pay ? soWyAnsNorm(src.ans) : null;
@@ -16284,7 +16559,7 @@ function soWyAddMsg(state, cid, msg, meta) {
         else if (pay) m.v = soWyPayText(pay);
         else if (ans) m.v = soWyAnsText(ans);
     }
-    if (m.t === 'text' && !card && !fwd && !call && !pay && !ans && soWyIsEmojiOnly(m.v)) m.t = 'emoji';
+    if (m.t === 'text' && !card && !fwd && !stk && !call && !pay && !ans && soWyIsEmojiOnly(m.v)) m.t = 'emoji';
     if (src.refused === 1) m.refused = 1;
     const sec = Number(src.sec);
     if (Number.isFinite(sec) && sec > 0) m.sec = Math.floor(sec);
@@ -16298,6 +16573,8 @@ function soWyAddMsg(state, cid, msg, meta) {
     if (typeof mt.d === 'string' && mt.d) m.d = mt.d;
     m.in = soWyIsMine(chat) || mt.wasIn ? 1 : 0;
     chat.msgs.push(m);
+    // reply versions (phone upgrades): anything new in the chat makes the shown version final (only a regenerate's landing keeps them)
+    if (soWyOwn(chat, 'vers')) soWyVersDrop(state, cid);
     return m.id;
 }
 
@@ -16483,10 +16760,10 @@ function soWyAtSpans(state, text) {
 }
 
 // soWyAtOf(state, chat, msg) → {ids: pid[], all: boolean} — the people a line @-s (in text order, once each; when `chat` is given, only
-// its members) and whether it @-s 所有人. A card / forward / refused line addresses nobody (its v is a fallback, not words).
+// its members) and whether it @-s 所有人. A card / forward / sticker / refused line addresses nobody (its v is a fallback, not words).
 function soWyAtOf(state, chat, msg) {
     const out = { ids: [], all: false };
-    if (!soWyIsObj(msg) || msg.refused === 1 || (msg.t === 'text' && (soWyCardNorm(msg.card) || soWyFwdNorm(msg.fwd) || soWyEvKind(msg)))) return out;
+    if (!soWyIsObj(msg) || msg.refused === 1 || (msg.t === 'text' && (soWyCardNorm(msg.card) || soWyFwdNorm(msg.fwd) || soWyStkNorm(msg.stk) || soWyEvKind(msg)))) return out;
     const members = soWyIsObj(chat) && Array.isArray(chat.members) ? chat.members : null;
     for (const x of soWyAtSpans(state, msg.v)) {
         if (!x.at) continue;
@@ -16616,6 +16893,21 @@ function soWyCreateGroup(state, pids, name) {
     return cid;
 }
 
+// 「我不进群」 (peeking group, spec 2026-11-24-phone-hosted-group-design.md §4; the screen offers it only with env.stages.peekGroup): the same
+// picking and ceiling rules as soWyCreateGroup, but a group of the picked people WITHOUT him, stored exactly like a group the story made with
+// no 由来 — no own marker, no why, no create line — so nothing a model reads names him. Two picked people stay a group (the title survives).
+// He is not a member: soWyIsMine false → no send / invite / leave; a member's invite pulls him in (parse.js), his own events are dropped.
+function soWyCreatePeekGroup(state, pids, name) {
+    const picked = [];
+    for (const pid of Array.isArray(pids) ? pids : []) {
+        if (pid !== THEATER_WEIYU_ME && soWyPerson(state, pid) && !picked.includes(pid)) picked.push(pid);
+    }
+    if (picked.length < 2) return null;
+    if (typeof name === 'string' && soWyLen(name) > THEATER_WEIYU_TYPED_MAX.group) return null;   // a TYPED name over his ceiling: refused, never cut
+    const title = typeof name === 'string' && name.trim() ? name.trim() : picked.slice(0, 3).map((pid) => soWyPersonName(state, pid)).join('、');
+    return soWyAddChat(state, { type: 'group', name: title, members: picked, floor: null });
+}
+
 function soWyInvite(state, cid, pids) {
     const chat = soWyChat(state, cid);
     if (!chat || chat.type !== 'group' || chat.dissolved || soWyChatClosed(state, chat) || !soWyIsMine(chat)) return null;
@@ -16690,15 +16982,21 @@ function soWyCanRecall(state, chat, msg) {
 // 'link' | 'contact' | 'music' (位置 / 文件 / 链接 / 名片 / 音乐), title required (one line, ≤ 120), sub optional (≤ 300); a 名片 of someone
 // on the phone passes pid (a living person, the player included) and takes his name as the title, any other 名片 is free text. Stored
 // as {t: 'text', u: 'me', v: soWyCardText(card), card}. Phase 2: {t: 'call', mode: 'voice'|'video'} (his 已取消 call, to = the other
-// member) and {t: 'pay', amt?, note?} (his transfer) — his own private chat only (soWyEvPeer). Stored like soWySendLine (src 'me', read, touched),
+// member) and {t: 'pay', amt?, note?} (his transfer) — his own private chat only (soWyEvPeer). Phone upgrades: {t: 'sticker', stk} (stored
+// {t: 'text', u: 'me', v: soWyStkText(stk), stk}). Stored like soWySendLine (src 'me', read, touched),
 // never parsed. Each typed field over its ceiling (THEATER_WEIYU_TYPED_MAX: words 4000, card 120 / 300, transfer 40 / 200) → null, never cut.
 // → the new id, or null (nothing changed).
 function soWySendKind(state, cid, o) {
     const chat = soWyChat(state, cid);
     const x = soWyIsObj(o) ? o : {};
-    if (!soWyCanSendIn(state, chat) || !['voice', 'photo', 'video', 'nudge', 'card', 'call', 'pay'].includes(x.t)) return null;
+    if (!soWyCanSendIn(state, chat) || !['voice', 'photo', 'video', 'nudge', 'card', 'call', 'pay', 'sticker'].includes(x.t)) return null;
     let msg = { t: x.t, u: THEATER_WEIYU_ME, v: '' };
-    if (x.t === 'call' || x.t === 'pay') {
+    if (x.t === 'sticker') {
+        // phone upgrades: a sticker he picked (the pack or a word sticker) — stored {t: 'text', u: 'me', v: '[表情包] 名字', stk}
+        const stk = soWyStkNorm(x.stk);
+        if (!stk) return null;
+        msg = { t: 'text', u: THEATER_WEIYU_ME, v: soWyStkText(stk), stk };
+    } else if (x.t === 'call' || x.t === 'pay') {
         // phase 2: his call (1C — he rang and hung up: always 已取消) / his transfer, in his private chat only, to the other member. The
         // flag (ENABLE_THR_WEIYU_EVENTS) is checked by soWyCall ('gone') and by the screens (soWyCanCall / soWyCanPay), not here.
         const to = soWyEvPeer(state, chat);
@@ -16742,6 +17040,7 @@ function soWySendKind(state, cid, o) {
     }
     const mid = soWyAddMsg(state, cid, msg, { b: soWyNewId(state, 'b'), src: 'me' });
     if (!mid) return null;
+    if (soWyIsObj(msg.stk)) soWyStkRecentPut(state, msg.stk.id);   // the panel's 最近使用 (an id-less word sticker is not remembered)
     soWyMarkRead(state, cid);
     soWyTouch(state, cid);
     return mid;
@@ -16755,10 +17054,173 @@ function soWyRecallMsg(state, cid, mid) {
     if (i < 0 || !soWyCanRecall(state, chat, chat.msgs[i])) return false;
     const m = chat.msgs[i];
     m.t = 'recall';
-    // a recalled card / forward is a plain recall line (its fallback stays in v for the phone)
-    for (const f of ['q', 'sec', 'em', 'dur', 'card', 'fwd']) delete m[f];
+    // a recalled card / forward / sticker is a plain recall line (its fallback stays in v for the phone); its reactions go with it
+    for (const f of ['q', 'sec', 'em', 'dur', 'card', 'fwd', 'stk', 're']) delete m[f];
     soWyTouch(state, cid);
     return true;
+}
+
+// ---- emoji reactions (phone upgrades 2026-11-22, spec docs/superpowers/specs/2026-11-22-phone-upgrades-design.md §6 / §17.13; kill switch
+// ENABLE_THR_WEIYU_REACT in the join / screens — these STATE helpers are flag-free so a stored reaction always reads) -----------------------
+// Msg.re = {[pid]: emoji}: one per person per message, on a line with a bubble. NOT a message (no unread, no bubble of its own). Written only
+// by soWyReact (the player, and the story sync's react op through soWyApplyOps); a model line never sets or removes the player's.
+
+// The message of a chat by id, or null.
+function soWyMsg(state, cid, mid) {
+    const chat = soWyChat(state, cid);
+    const i = soWyMsgIndex(chat, mid);
+    return i < 0 ? null : chat.msgs[i];
+}
+
+// Can this line take a reaction? A line with a bubble: text / emoji / voice / photo / video by someone (a sticker, a card, a forward and a
+// transfer included) — never a call record or a transfer's answer, a refused line, a grey (sys / nudge / recall) or time line.
+function soWyReactable(m) {
+    if (!soWyIsObj(m) || m.refused === 1 || typeof m.u !== 'string' || !THEATER_WEIYU_SAID.includes(m.t)) return false;
+    if (m.t === 'text' && !soWyStkNorm(m.stk) && !soWyCardNorm(m.card) && !soWyFwdNorm(m.fwd) && (soWyCallNorm(m.call) || soWyAnsNorm(m.ans))) return false;
+    return true;
+}
+
+// ONE pictograph cluster (a skin tone, a variation selector, a ZWJ sequence belong to it), nothing else.
+function soWyOneEmoji(s) {
+    if (typeof s !== 'string' || !soWyIsEmojiOnly(s)) return false;
+    const t = s.trim();
+    if (typeof Intl === 'object' && typeof Intl.Segmenter === 'function') {
+        return Array.from(new Intl.Segmenter(undefined, { granularity: 'grapheme' }).segment(t)).length === 1;
+    }
+    return (t.match(/\p{Extended_Pictographic}/gu) || []).length === 1;
+}
+
+// soWyReact(state, cid, mid, pid, em) → {ok, prev} — em = one pictograph cluster sets / replaces pid's reaction, null removes it (m.re is
+// deleted when empty). prev = what pid had before (null = none). The player's own reaction touches the chat (soWyTouch: a story sync's delta
+// there is no longer reverted). Refused (no chat / message / person, a line that takes none, a bad emoji) → {ok: false, prev: null}, nothing
+// changed. Never throws.
+function soWyReact(state, cid, mid, pid, em) {
+    const no = { ok: false, prev: null };
+    try {
+        const m = soWyMsg(state, cid, mid);
+        if (!m || !soWyReactable(m) || typeof pid !== 'string' || THEATER_WEIYU_UNSAFE_IDS.includes(pid) || !soWyPerson(state, pid)) return no;
+        if (em !== null && !soWyOneEmoji(em)) return no;
+        const prev = soWyIsObj(m.re) && soWyOwn(m.re, pid) && typeof m.re[pid] === 'string' ? m.re[pid] : null;
+        if (em === null) {
+            if (soWyIsObj(m.re)) {
+                delete m.re[pid];
+                if (!Object.keys(m.re).length) delete m.re;
+            }
+        } else {
+            if (!soWyIsObj(m.re)) m.re = {};
+            m.re[pid] = em.trim();
+        }
+        if (pid === THEATER_WEIYU_ME) soWyTouch(state, cid);
+        return { ok: true, prev };
+    } catch (e) {
+        return no;
+    }
+}
+
+// soWyReactList(m) → [{em, pids}] — one group per emoji, in first-seen order (the people in the order they reacted).
+function soWyReactList(m) {
+    const out = [];
+    if (!soWyIsObj(m) || !soWyIsObj(m.re)) return out;
+    for (const pid of Object.keys(m.re)) {
+        const em = m.re[pid];
+        if (typeof em !== 'string' || !em) continue;
+        const g = out.find((x) => x.em === em);
+        if (g) g.pids.push(pid);
+        else out.push({ em, pids: [pid] });
+    }
+    return out;
+}
+
+// ---- status and signature (phone upgrades 2026-11-22, spec §9 / §17.11; kill switch ENABLE_THR_WEIYU_STATUS in the join — these STATE
+// helpers are flag-free so a stored status always reads) ----------------------------------------------------------------------------------
+// Person.st = {v, floor}: what a contact is busy with right now (≤ THEATER_WEIYU_STATUS_MAX code points), set by a story sync at story floor
+// `floor`. It reads as gone once the story is THEATER_WEIYU_STATUS_FLOORS floors past that floor (computed on read, nothing written).
+// Person.sigBy = who wrote Person.sig: 'me' (typed when adding / editing a contact) or 'ai' (a found contact, a sync's 签名 line). Absent on a
+// 开机 contact (the AI wrote it) and on people saved before this release.
+const THEATER_WEIYU_STATUS_MAX = 12;   // DRAFT (spec §9.2)
+const THEATER_WEIYU_STATUS_FLOORS = 6;   // DRAFT (spec §9.2)
+
+// A contact a status / signature may be written for: on the phone, in the contacts (not a background member), not removed, not the player.
+function soWyStatusPerson(state, pid) {
+    if (typeof pid !== 'string' || pid === THEATER_WEIYU_ME || THEATER_WEIYU_UNSAFE_IDS.includes(pid)) return null;
+    const p = soWyPerson(state, pid);
+    return p && p.gone !== 1 && !p.extra ? p : null;
+}
+
+// soWyStatusOf(state, pid, floor) → the status text, '' when there is none, or when floor − st.floor ≥ THEATER_WEIYU_STATUS_FLOORS (floor not
+// a finite number → no backstop). Never throws.
+function soWyStatusOf(state, pid, floor) {
+    try {
+        const p = soWyPerson(state, pid);
+        if (!p || p.gone === 1 || !soWyIsObj(p.st) || typeof p.st.v !== 'string' || !p.st.v.trim()) return '';
+        const now = Number(floor);
+        const at = Number(p.st.floor);
+        if (floor != null && Number.isFinite(now) && Number.isFinite(at) && now - at >= THEATER_WEIYU_STATUS_FLOORS) return '';
+        return p.st.v.trim();
+    } catch (e) {
+        return '';
+    }
+}
+
+// soWySetStatus(state, pid, v, floor) → {ok, prev: {v, floor} | null} — v = the new status (one line, ≤ STATUS_MAX: longer is refused, the
+// reader drops that line) at story floor `floor` (a finite number); null clears it (无). prev = the status before. Refused (not a contact,
+// an empty / long text, no floor) → {ok: false, prev: null}, nothing changed.
+function soWySetStatus(state, pid, v, floor) {
+    const no = { ok: false, prev: null };
+    try {
+        const p = soWyStatusPerson(state, pid);
+        if (!p) return no;
+        const prev = soWyIsObj(p.st) && typeof p.st.v === 'string' ? JSON.parse(JSON.stringify(p.st)) : null;
+        if (v === null) {
+            delete p.st;
+            return { ok: true, prev };
+        }
+        const t = soWyLine1(v);
+        const f = Number(floor);
+        if (typeof v !== 'string' || !t || soWyLen(t) > THEATER_WEIYU_STATUS_MAX || floor == null || !Number.isFinite(f)) return no;
+        p.st = { v: t, floor: f };
+        return { ok: true, prev };
+    } catch (e) {
+        return no;
+    }
+}
+
+// A signature no story sync may change: typed by the player, or a hand-added / found contact saved before this release (the old data cannot
+// tell who wrote it).
+function soWySigLocked(p) {
+    return soWyIsObj(p) && (p.sigBy === 'me' || (p.origin != null && p.sigBy == null));
+}
+
+// soWySetSig(state, pid, v, by: 'me' | 'ai') → {ok, prev: string | null, prevBy: 'me' | 'ai' | null}. 'ai' (a sync's 签名 line): clipped to 80
+// like every model-written signature (soWyAddPerson), refused on a locked signature or an empty text. 'me': refused over the typed ceiling
+// (THEATER_WEIYU_AC_MAX.sig), never cut; '' clears it. Refused → {ok: false, prev: null, prevBy: null}, nothing changed.
+function soWySetSig(state, pid, v, by) {
+    const no = { ok: false, prev: null, prevBy: null };
+    try {
+        const p = soWyStatusPerson(state, pid);
+        if (!p || (by !== 'me' && by !== 'ai') || typeof v !== 'string') return no;
+        const prev = typeof p.sig === 'string' ? p.sig : null;
+        const prevBy = p.sigBy === 'me' || p.sigBy === 'ai' ? p.sigBy : null;
+        if (by === 'ai') {
+            const t = soWyClip(soWyLine1(v), 80);
+            if (!t || soWySigLocked(p)) return no;
+            p.sig = t;
+            p.sigBy = 'ai';
+            return { ok: true, prev, prevBy };
+        }
+        const t = v.trim();
+        if (soWyLen(t) > THEATER_WEIYU_AC_MAX.sig) return no;
+        if (t) {
+            p.sig = t;
+            p.sigBy = 'me';
+        } else {
+            delete p.sig;
+            delete p.sigBy;
+        }
+        return { ok: true, prev, prevBy };
+    } catch (e) {
+        return no;
+    }
 }
 
 function soWySetOpt(state, key, value) {
@@ -16814,6 +17276,47 @@ function soWySetMenuMode(state, value) {
     return true;
 }
 
+// ---- 外观 · the phone's look (looks build 2026-11-24, spec docs/superpowers/specs/2026-11-22-phone-looks-design.md §6 / §13.5 / §14.2;
+// kill switch ENABLE_THR_WEIYU_LOOKS in the join → env.stages.looks; these helpers are flag-free and pure — the join can call them too) ----
+// Three looks: the phone (today's), the communication crystal (魔法奇幻) and the communication scroll (古风仙侠). The look follows the card's
+// world wording (the ready-made set, or the base an own set was made from); the 「我」 page's 外观 row can override it per story:
+// state.opts.look = 'phone' | 'crystal' | 'scroll', absent = 跟随世界用语 (old phones; choosing it again deletes the key). Junk reads as
+// 跟随世界用语 and is kept as stored (soWyKeepExtra), like opts.motion. Nothing a model reads depends on the look.
+const THEATER_WEIYU_LOOKS = Object.freeze(['phone', 'crystal', 'scroll']);
+const THEATER_WEIYU_LOOK_OF_BASE = Object.freeze({ modern: 'phone', magic: 'crystal', xianxia: 'scroll', scifi: 'phone' });
+
+// → 'phone' | 'crystal' | 'scroll' | null (no override, or junk — which is left in place).
+function soWyLookOpt(state) {
+    const v = soWyIsObj(state) && soWyIsObj(state.opts) ? state.opts.look : undefined;
+    return THEATER_WEIYU_LOOKS.includes(v) ? v : null;
+}
+
+// A look stores it; 'follow' (跟随世界用语) deletes the key; anything else is refused (no change). → whether it was taken.
+function soWySetLookOpt(state, value) {
+    if (!soWyIsObj(state) || (value !== 'follow' && !THEATER_WEIYU_LOOKS.includes(value))) return false;
+    if (!soWyIsObj(state.opts)) state.opts = soWyDefaultOpts();
+    if (value === 'follow') delete state.opts.look;
+    else state.opts.look = value;
+    return true;
+}
+
+// The look of a resolved word set (soWyWordsBuild's {id, base, …}): null → the phone; a ready-made set by its id; an own set ('u:…') by
+// the ready-made set it was built from (its base). Anything else → the phone.
+function soWyLookOfSet(set) {
+    if (!soWyIsObj(set)) return 'phone';
+    if (typeof set.id === 'string' && soWyOwn(THEATER_WEIYU_LOOK_OF_BASE, set.id)) return THEATER_WEIYU_LOOK_OF_BASE[set.id];
+    if (typeof set.base === 'string' && soWyOwn(THEATER_WEIYU_LOOK_OF_BASE, set.base)) return THEATER_WEIYU_LOOK_OF_BASE[set.base];
+    return 'phone';
+}
+
+// THE look (the screens and the join both ask this): the stage off → the phone; a started phone with an override → the override; else the
+// set's look (before 开机 there is no override yet — the empty page and 开机 follow the set alone, spec §14.2).
+function soWyLookFor(state, set, on) {
+    if (on !== true) return 'phone';
+    const o = soWyIsObj(state) && state.booted ? soWyLookOpt(state) : null;
+    return o || soWyLookOfSet(set);
+}
+
 // A numeric option (the memory slice, 2026-11-18: opts.keep, opts.meterLine — additive keys, schema stays 1): the stored number clamped to
 // {min, max}; missing / not a finite number → `def`. Never throws.
 function soWyNumOpt(state, key, def, clamp) {
@@ -16861,6 +17364,40 @@ function soWySetSyncEvery(state, n) {
     if (n === 1) delete state.opts.syncEvery;
     else state.opts.syncEvery = n;
     return true;
+}
+
+// ---- 表情包 / 来电不响铃 · two phone switches (phone upgrades 2026-11-22, spec §4.2): opts.stickers and opts.noRing — absent = OFF (a phone
+// that never touches them stores nothing new; soWyDefaultOpts is unchanged), on = the key stored as true, off = the key deleted. Anything
+// else stored reads as OFF and is kept as stored (soWyKeepExtra). The flag gates live in the UI / engine (ENABLE_THR_WEIYU_STICKERS /
+// _INCALL); these are pure and never throw. A setter → true when the stored option changed.
+function soWyBoolOpt(state, key) {
+    return soWyIsObj(state) && soWyIsObj(state.opts) && state.opts[key] === true;
+}
+
+function soWySetBoolOpt(state, key, on) {
+    if (!soWyIsObj(state)) return false;
+    if (!soWyIsObj(state.opts)) state.opts = soWyDefaultOpts();
+    const had = soWyOwn(state.opts, key);
+    const was = state.opts[key];
+    if (on) state.opts[key] = true;
+    else delete state.opts[key];
+    return on ? was !== true : had;
+}
+
+function soWyStickersOn(state) {
+    return soWyBoolOpt(state, 'stickers');
+}
+
+function soWySetStickers(state, on) {
+    return soWySetBoolOpt(state, 'stickers', !!on);
+}
+
+function soWyNoRing(state) {
+    return soWyBoolOpt(state, 'noRing');
+}
+
+function soWySetNoRing(state, on) {
+    return soWySetBoolOpt(state, 'noRing', !!on);
 }
 
 // ---- AI 自动回复 · the AI auto-reply switch (owner 2026-11-20; spec 2026-11-20-weiyu-hold-reply-design.md §5 / §6) -------------------
@@ -16945,10 +17482,10 @@ function soWyReset(state) {
 
 // ---- Task 4: edit, delete with undo, regenerate ranges ---------------------------------------------------------------------
 
-// Grey lines (nudge / sys / time) are delete-only. So are a card / a forward (their words are a fallback over a structure — editing v
-// would split the two) and a refused line (behind 偷看, never delivered).
+// Grey lines (nudge / sys / time) are delete-only. So are a card / a forward / a sticker (their words are a fallback over a structure —
+// editing v would split the two) and a refused line (behind 偷看, never delivered).
 function soWyCanEdit(msg) {
-    if (!msg || msg.refused === 1 || (msg.t === 'text' && (soWyCardNorm(msg.card) || soWyFwdNorm(msg.fwd) || soWyEvKind(msg)))) return false;
+    if (!msg || msg.refused === 1 || (msg.t === 'text' && (soWyCardNorm(msg.card) || soWyFwdNorm(msg.fwd) || soWyStkNorm(msg.stk) || soWyEvKind(msg)))) return false;
     return ['text', 'emoji', 'voice', 'photo', 'video', 'recall'].includes(msg.t);
 }
 
@@ -17058,6 +17595,119 @@ function soWyRegenCut(state, plan) {
     return true;
 }
 
+// ---- reply versions (phone upgrades 2026-11-22, spec §10 / §17.17; kill switch ENABLE_THR_WEIYU_VERSIONS → deps.versions in flow.js) -----
+// Chat.vers = {after: mid | null, list: Msg[][], cur: number, full?: 1}: the alternatives of the chat's LATEST AI round — the lines after
+// message `after` (null = the chat's start) are the shown version; `list` holds the others, each a deep copy of its lines as they were
+// shown. Versions are numbered in the order they were made: version k = list[k] for k < cur, the shown one at cur, list[k − 1] after it
+// (so n = list.length + 1). full = 1 once a re-roll at the ceiling dropped the oldest (the pager's notice). ONLY the regenerate landing writes
+// it; ANY new line landing in the chat drops it (soWyAddMsg → soWyVersDrop): alternatives exist only for the latest round. Never read by a
+// request, the note or soWyPhoneSize (they read chat.msgs); soWySize counts it. An older build keeps the key and shows chat.msgs.
+const THEATER_WEIYU_VERS_MAX = 5;   // DRAFT (spec §10): versions per round, the shown one included
+
+// A round that can have versions: no group event line, no transfer / its answer, no call record (spec §17.17).
+function soWyVersPlain(msgs) {
+    if (!Array.isArray(msgs)) return false;
+    return msgs.every((m) => soWyIsObj(m) && m.t !== 'sys' && !soWyIsObj(m.pay) && !soWyIsObj(m.ans) && !soWyIsObj(m.call));
+}
+
+// Does any stored version of a chat name pid — a line of theirs, to them, about them, quoting them, or their reaction? (soWyDeletePerson)
+function soWyVersHas(vers, pid) {
+    const list = soWyIsObj(vers) && Array.isArray(vers.list) ? vers.list : [];
+    return list.some((v) => Array.isArray(v) && v.some((m) => soWyIsObj(m) && (m.u === pid || m.to === pid || m.who === pid
+        || (soWyIsObj(m.q) && m.q.u === pid) || (soWyIsObj(m.re) && soWyOwn(m.re, pid))
+        || (Array.isArray(m.targets) && m.targets.includes(pid)) || (Array.isArray(m.added) && m.added.includes(pid)))));
+}
+
+function soWyVersDrop(state, cid) {
+    const chat = soWyChat(state, cid);
+    if (!chat || !soWyOwn(chat, 'vers')) return false;
+    delete chat.vers;
+    return true;
+}
+
+// The stored versions of a chat when they still fit it (an object with a list, a cur in range, an anchor that is still there), else null.
+function soWyVersOf(chat) {
+    const v = chat && soWyIsObj(chat.vers) ? chat.vers : null;
+    if (!v || !Array.isArray(v.list) || !v.list.length || !Number.isSafeInteger(v.cur) || v.cur < 0 || v.cur > v.list.length) return null;
+    if (v.after != null && soWyMsgIndex(chat, v.after) < 0) return null;
+    return v;
+}
+
+// soWyVersKeep(state, cid, anchor, cut, landed) → bool — the regenerate landing: `cut` = the lines the regenerate removed (as they were),
+// `landed` = the new lines now in the chat. Kept only when the landed lines are exactly everything after `anchor` (the round ended at the
+// chat's last line) and both ranges are plain: `cut` takes the shown version's place, the landed lines become the newest version (cur). At
+// THEATER_WEIYU_VERS_MAX the oldest goes and vers.full = 1. Not kept → the chat has no versions (a round that cannot have them behaves as
+// today). Never throws.
+function soWyVersKeep(state, cid, anchor, cut, landed) {
+    try {
+        const chat = soWyChat(state, cid);
+        if (!chat) return false;
+        const prev = soWyVersOf(chat);
+        delete chat.vers;
+        if (!Array.isArray(cut) || !cut.length || !Array.isArray(landed) || !landed.length) return false;
+        const a = anchor == null ? -1 : soWyMsgIndex(chat, anchor);
+        if (anchor != null && a < 0) return false;
+        const after = chat.msgs.slice(a + 1);
+        if (after.length !== landed.length || after.some((m, i) => !soWyIsObj(landed[i]) || m.id !== landed[i].id)) return false;
+        if (!soWyVersPlain(cut) || !soWyVersPlain(after)) return false;
+        const copy = JSON.parse(JSON.stringify(cut));
+        let list = [];
+        let full = 0;
+        if (prev && (prev.after == null ? null : prev.after) === (anchor == null ? null : anchor)) {
+            list = prev.list.slice(0, prev.cur).concat([copy], prev.list.slice(prev.cur));
+            full = prev.full === 1 ? 1 : 0;
+        } else list = [copy];
+        while (list.length + 1 > THEATER_WEIYU_VERS_MAX) {
+            list.shift();
+            full = 1;
+        }
+        chat.vers = { after: anchor == null ? null : anchor, list, cur: list.length };
+        if (full) chat.vers.full = 1;
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
+// soWyVersInfo(state, cid) → {cur, n, full} | null (no versions, or they no longer fit the chat).
+function soWyVersInfo(state, cid) {
+    const v = soWyVersOf(soWyChat(state, cid));
+    return v ? { cur: v.cur, n: v.list.length + 1, full: v.full === 1 } : null;
+}
+
+// soWyVersSwap(state, cid, i) → bool — the pager: the shown lines (everything after `after`) go into the list in their place, version i comes
+// back with new ids (soWyAddMsg, its batch / source / reactions kept), cur = i. He was reading the round → the new lines are read too.
+// A player edit: soWyTouch. Refused (no versions, i out of range or the shown one) → false, nothing changed.
+function soWyVersSwap(state, cid, i) {
+    try {
+        const chat = soWyChat(state, cid);
+        const v = soWyVersOf(chat);
+        if (!v || !Number.isSafeInteger(i) || i < 0 || i > v.list.length || i === v.cur) return false;
+        const a = v.after == null ? -1 : soWyMsgIndex(chat, v.after);
+        const shown = chat.msgs.slice(a + 1);
+        const wasRead = soWyReadIndex(chat) > a;
+        const full = [].concat(v.list.slice(0, v.cur), [JSON.parse(JSON.stringify(shown))], v.list.slice(v.cur));
+        const next = full[i];
+        const list = full.filter((_, k) => k !== i);
+        soWyUnapplyMsgs(state, cid, shown.map((m) => m.id));
+        for (const m of Array.isArray(next) ? next : []) {
+            const mid = soWyAddMsg(state, cid, m, { b: m.b, src: m.src, d: m.d });
+            const now = mid ? soWyMsg(state, cid, mid) : null;
+            if (now && soWyIsObj(m.re) && Object.keys(m.re).length) now.re = JSON.parse(JSON.stringify(m.re));
+        }
+        chat.vers = { after: v.after == null ? null : v.after, list, cur: i };
+        if (v.full === 1) chat.vers.full = 1;
+        if (wasRead) {
+            const last = chat.msgs[chat.msgs.length - 1];
+            chat.read = last ? last.id : null;
+        }
+        soWyTouch(state, cid);
+        return true;
+    } catch (e) {
+        return false;
+    }
+}
+
 // ---- 删除聊天 / 删除联系人 (owner's requests 2026-11-16/17; root's rulings): zero calls, PLAYER edits ---------------------------------
 //
 // soWyDeleteChat(state, cid) → {cid, chat} (the undo record) | null — the chat object goes (its history and summary with it); people and
@@ -17138,6 +17788,11 @@ function soWyDropLinesOf(chat, pid) {
         if (!soWyIsObj(m)) continue;
         if (m.u === pid || m.to === pid || m.who === pid) { out.add(m.id); continue; }
         if (soWyIsObj(m.q) && m.q.u === pid) delete m.q;
+        // phone upgrades (final review I-2): their reaction on someone else's line goes too (never a 「?回应了」 in a later request)
+        if (soWyIsObj(m.re) && soWyOwn(m.re, pid)) {
+            delete m.re[pid];
+            if (!Object.keys(m.re).length) delete m.re;
+        }
         const named = (Array.isArray(m.targets) && m.targets.includes(pid)) || (Array.isArray(m.added) && m.added.includes(pid));
         if (m.t !== 'sys' || !named) continue;
         for (const f of ['targets', 'added']) if (Array.isArray(m[f])) m[f] = m[f].filter((x) => x !== pid);
@@ -17166,6 +17821,8 @@ function soWyDeletePerson(state, pid, withLines) {
         if (!soWyIsObj(c)) continue;
         const members = Array.isArray(c.members) ? c.members : [];
         if (all) soWyDropLinesOf(c, pid);
+        // phone upgrades (final review I-2): stored versions that hold any of their lines / reactions are dropped (a swap would bring them back)
+        if (all && soWyOwn(c, 'vers') && soWyVersHas(c.vers, pid)) delete c.vers;
         if (!members.includes(pid)) continue;
         if (c.type === 'dm') {
             if (all) removed.push(cid);
@@ -17203,10 +17860,11 @@ function soWyDeletePerson(state, pid, withLines) {
 // state ABOUT a chat or a person (like 免打扰): no delta is touched — a reverted sync that made the chat / person takes it with them.
 
 // The per-line rule of every forward: a said line (text / emoji / voice / photo / video, cards and forwards included) with words, never
-// recalled, never refused, never a grey / time line, never a call / transfer / answer record. Phase 3 (a character's forward by reference)
-// uses it as is — a member of the source chat saw every line there.
+// recalled, never refused, never a grey / time line, never a call / transfer / answer record, never a sticker (phone upgrades: its words
+// are a fallback over a picture). Phase 3 (a character's forward by reference) uses it as is — a member of the source chat saw every line there.
 function soWyFwdable(m) {
-    return soWyIsObj(m) && m.refused !== 1 && typeof m.u === 'string' && THEATER_WEIYU_SAID.includes(m.t) && !soWyEvKind(m) && !!soWyMsgPlain(m);
+    return soWyIsObj(m) && m.refused !== 1 && typeof m.u === 'string' && THEATER_WEIYU_SAID.includes(m.t) && !soWyEvKind(m) && !soWyStkNorm(m.stk)
+        && !!soWyMsgPlain(m);
 }
 
 // A line the player may forward: soWyFwdable, and he saw it land in a chat he was in (in: 1).
@@ -17417,7 +18075,8 @@ function soWyAddContact(state, pid) {
 //   soWyAcName(state, name, max = AC_MAX.name) → {why: 'empty'|'long'(+m)|'lead'|'chars'|'me'} | {why: 'contact', pid} | {why: 'group', g} |
 //     {ok: true, info?: 'extra'|'gone', pid?, m} — THE name check (the typed form with 40, the find list with 24), in this order.
 //   soWyAcCheck(state, f) → {ok, name, over: {name?, sig?, area?, about?: m}, need}   f = {name, origin, about?, sig?, area?}
-//   soWyAcAdd(state, f) → {pid, cid} | null · soWyAcPromote(state, pid) → bool · soWyAcEdit(state, pid, f) → bool
+//   soWyAcAdd(state, f, o?) → {pid, cid} | null · soWyAcPromote(state, pid) → bool · soWyAcEdit(state, pid, f, o?) → bool
+//     (o = {status: true} with the status stage — the screens' soWyAcSigOpt — marks who wrote the signature, Person.sigBy; absent = no mark)
 const THEATER_WEIYU_AC_MAX = Object.freeze({ name: 40, sig: 200, area: 200, about: 2000 });
 // The characters the reader splits on (names 、，, · fields ｜| · speakers ：: · tags 〔〕[] · records 【】 and line breaks), both widths.
 const THEATER_WEIYU_AC_BAD_RE = /[、，,｜\|：:〔〕\[\]【】\r\n]/;
@@ -17474,7 +18133,9 @@ function soWyAcCheck(state, f) {
 
 // The typed add: a NEW person {id, name, sig?, area?, about?, origin, extra: 1} or the background member of that name (his typed non-empty
 // fields set — the player's words win), then soWyAddContact (extra goes, the private chat with the grey 你们已经是好友了). Nothing on refusal.
-function soWyAcAdd(state, f) {
+// o (optional, trailing): {status: true} (the screens' env.stages.status ← the join's ENABLE_THR_WEIYU_STATUS) → a typed signature is marked
+// sigBy 'me' (soWySigLocked: no story sync changes it); absent → no sigBy key written (the person as before the feature).
+function soWyAcAdd(state, f, o) {
     if (!state || !soWyIsObj(state.people) || !soWyIsObj(state.chats)) return null;
     const chk = soWyAcCheck(state, f);
     if (!chk.ok) return null;
@@ -17490,6 +18151,7 @@ function soWyAcAdd(state, f) {
         pid = soWyNewId(state, 'p');
         state.people[pid] = Object.assign({ id: pid, name: String(f.name).trim() }, typed, { origin: f.origin, extra: 1 });
     }
+    if (typed.sig && soWyIsObj(o) && o.status === true) state.people[pid].sigBy = 'me';   // phone upgrades (spec §17.11): a typed signature no story sync changes
     const cid = soWyAddContact(state, pid);
     return cid ? { pid, cid } : null;
 }
@@ -17509,7 +18171,9 @@ function soWyAcPromote(state, pid) {
 // 编辑资料 of a hand-added / list-added person (origin or about set; a 开机 contact has no edit page → false): the keys present in f among
 // about / sig / area (ends trimmed; empty deletes the key) and origin. Over a ceiling, an unknown origin or 故事外的新人 without a 人物说明 →
 // false, nothing changed. A player edit: live deltas mentioning him are touched.
-function soWyAcEdit(state, pid, f) {
+// o (optional, trailing): {status: true} (as soWyAcAdd) → a changed signature is marked sigBy 'me', a cleared one loses its marker; absent →
+// sigBy is neither written nor removed.
+function soWyAcEdit(state, pid, f, o) {
     const p = soWyPerson(state, pid);
     const x = soWyIsObj(f) ? f : {};
     if (!p || pid === THEATER_WEIYU_ME || p.gone === 1 || p.extra) return false;
@@ -17525,6 +18189,12 @@ function soWyAcEdit(state, pid, f) {
     const origin = soWyOwn(x, 'origin') ? x.origin : p.origin;
     const about = soWyOwn(next, 'about') ? next.about : (typeof p.about === 'string' ? p.about.trim() : '');
     if (origin === 'new' && !about) return false;
+    // phone upgrades (spec §17.11): a signature he changes is his (sigBy 'me'); one he clears takes its marker with it
+    const sigWas = typeof p.sig === 'string' ? p.sig.trim() : '';
+    if (soWyIsObj(o) && o.status === true && soWyOwn(next, 'sig') && next.sig !== sigWas) {
+        if (next.sig) p.sigBy = 'me';
+        else delete p.sigBy;
+    }
     for (const k of Object.keys(next)) {
         if (next[k]) p[k] = next[k];
         else delete p[k];
@@ -17553,7 +18223,7 @@ function soWyAcEdit(state, pid, f) {
 //     'group', g}; else a row {add: 'new'} or, for a background member, {add: 'promote', pid}. Tags in order:
 //     extra (在群里出现过), gone (以前删除过), near {w}. 来自 / 签名 come clipped to the AI caps (80) — what the row shows is what 添加 stores.
 //     Row = {name, sig?, area?, tags: [{k, w?}], add, why?, g?, pid?, ex: {floor, text}}.
-//   soWyAcAddFound(state, row) → pid | null — re-checked against the phone as it is NOW (a contact meanwhile / a group clash / any refusal →
+//   soWyAcAddFound(state, row, o?) → pid | null (o as soWyAcAdd's: sigBy 'ai' only with {status: true}) — re-checked against the phone as it is NOW (a contact meanwhile / a group clash / any refusal →
 //     null, nothing changed). New (a removed name included: a NEW person) → soWyAddPerson (AI caps 24 / 80 / 80; the name itself kept whole,
 //     ≤ 40) + origin 'story', NO chat. Background member → his empty 签名 / 来自 filled from the row, soWyAcPromote (same pid: every group line
 //     stays; NO chat), origin 'story'.
@@ -17663,7 +18333,10 @@ function soWyFindMatch(state, recs, src) {
     return out;
 }
 
-function soWyAcAddFound(state, row) {
+// o (optional, trailing): {status: true} (as soWyAcAdd) → the found person's signature is marked sigBy 'ai' (an AI-written one: a story sync may
+// change it); absent → no sigBy key written (the legacy rule of soWySigLocked then locks it, as for every contact saved before the feature).
+function soWyAcAddFound(state, row, o) {
+    const by = soWyIsObj(o) && o.status === true;
     if (!state || !soWyIsObj(state.people) || !soWyIsObj(row) || typeof row.name !== 'string') return null;
     const r = soWyAcName(state, row.name, THEATER_WEIYU_AC_MAX.name);
     if (!r.ok) return null;
@@ -17673,12 +18346,14 @@ function soWyAcAddFound(state, row) {
     if (r.info === 'extra') {
         if (soWyAddPerson(state, fill) !== r.pid || !soWyAcPromote(state, r.pid)) return null;
         state.people[r.pid].origin = 'story';
+        if (by) state.people[r.pid].sigBy = 'ai';   // phone upgrades (spec §17.11): an AI-written signature — a story sync may change it
         return r.pid;
     }
     const pid = soWyAddPerson(state, fill);
     if (!pid || soWyPerson(state, pid).extra) return null;
     state.people[pid].name = soWyNameKey(row.name);
     state.people[pid].origin = 'story';
+    if (by) state.people[pid].sigBy = 'ai';
     return pid;
 }
 
@@ -18214,7 +18889,26 @@ function soWyNetTag(tag, net) {
 // connected, the fields after it = the gist · 取消 = cancelled · 拒 = rejected · 未接 / 没接 / 无应答 / 无人接 / 没人接 / 忙线 … = missed ·
 // 接通 / 已接听 / 通话中 = connected (no duration). No field = missed (or the tag's own status). Nothing classifies → null (the caller
 // keeps the line as text — never lost).
-function soWyCallStatus(fields, st0) {
+// ring (phone upgrades, optional; true only with the reading option o.incall): 响铃 (正在响铃 / 响铃中) is a status too → {st: 'ring', say?} —
+// say = every field after it re-joined with ｜ (her words, never scanned for status words; clipped to THEATER_WEIYU_CALL_SAY_MAX; the moment's
+// own 〈…〉 placeholder echoed back is no words). Absent = today's reading.
+// Her words as the model wrote them → the words alone (2026-11-23, probe P3: a model kept the moment's 〈〉 around real words). One wrapping
+// pair around the WHOLE field is taken off — 〈…〉, “…”, 「…」, "…", ‘…’ — repeated while one is left; a 〈…〉 that is the moment's placeholder
+// itself (「接通后…开口说的第一句话」, a name or none in it) or nothing but brackets → '' (no words). Inner brackets stay. Never throws.
+function soWyCallSayClean(s) {
+    let t = String(s == null ? '' : s).trim();
+    const pairs = [['〈', '〉'], ['“', '”'], ['「', '」'], ['"', '"'], ['‘', '’']];
+    for (let n = 0; n < 4; n++) {
+        const p = pairs.find(([a, b]) => t.length >= 2 && t.startsWith(a) && t.endsWith(b) && !t.slice(1, -1).includes(a) && !t.slice(1, -1).includes(b));
+        if (!p) break;
+        const inner = t.slice(1, -1).trim();
+        if (p[0] === '〈' && (!inner || /开口说的第一句话/.test(inner))) return '';
+        t = inner;
+    }
+    return /^[〈〉\s]*$/.test(t) ? '' : t;
+}
+
+function soWyCallStatus(fields, st0, ring) {
     const f = (Array.isArray(fields) ? fields : []).map((x) => String(x == null ? '' : x).trim()).filter(Boolean);
     if (!f.length) return { st: st0 || 'missed' };
     const rest = (i) => {
@@ -18223,6 +18917,10 @@ function soWyCallStatus(fields, st0) {
     };
     for (let i = 0; i < f.length; i++) {
         const x = f[i].replace(/\s+/g, '');
+        if (ring === true && /^(?:正在)?响铃中?$/.test(x)) {
+            const say = soWyClip(soWyCallSayClean(f.slice(i + 1).join('｜')), THEATER_WEIYU_CALL_SAY_MAX);
+            return say ? { st: 'ring', say } : { st: 'ring' };
+        }
         const d = /^(?:通话时长|通话|时长)?(\d{1,3})[:：](\d{2})(?:[:：](\d{2}))?$/.exec(x);
         if (d) return Object.assign({ st: 'done', dur: d[1] + ':' + d[2] + (d[3] ? ':' + d[3] : '') }, rest(i));
         if (/取消/.test(x)) return { st: 'cancel' };
@@ -18233,8 +18931,8 @@ function soWyCallStatus(fields, st0) {
     return st0 ? { st: st0 } : null;
 }
 
-// 〔<call word>〕甲 → 乙｜后缀 (after = the text after the bracket).
-function soWyParseCall(line, ck, after) {
+// 〔<call word>〕甲 → 乙｜后缀 (after = the text after the bracket). o (phone upgrades; optional): the reading options — o.incall → 响铃 reads.
+function soWyParseCall(line, ck, after, o) {
     const f = String(after).trim();
     const cut = f.search(/[｜|]/);
     const pair = (cut < 0 ? f : f.slice(0, cut)).trim();
@@ -18244,7 +18942,7 @@ function soWyParseCall(line, ck, after) {
     const to = m ? soWyNameKey(m[2]) : '';
     const named = (n) => !!n && /[\p{L}\p{N}]/u.test(n);
     if (!named(u) || (m && !named(to)) || (!m && /→|->|=>|➝|➡/.test(pair))) return { r: 'drop', why: 'shape', line };
-    const s = soWyCallStatus(fields, ck.st);
+    const s = soWyIsObj(o) && o.incall === true ? soWyCallStatus(fields, ck.st, true) : soWyCallStatus(fields, ck.st);
     if (!s) return { r: 'msg', t: 'text', u, v: line };
     const rec = { r: 'call', u };
     if (to) rec.to = to;
@@ -18549,7 +19247,11 @@ function soWyFwdLines(body, sorted) {
 // net (world words, step 2; optional): the set's tag words count as today's for the KIND only (soWyNetTag) — `raw`, the words as written
 // (`asWritten` / `v`), `alt`, `line` and card titles stay as written. Absent / null = today's path.
 // sorted (optional, trailing): the known names (soWyParseLine's), handed to soWyFwdLines for a forwarded line of a 25–40-character name.
-function soWyParseMsg(line, sp, net, sorted) {
+// o (phone upgrades; optional, trailing): the reading options soWyReadOpt(ctx) makes — o.stk = {offered, pack}: the tag 表情包 is a KNOWN tag
+// and its line a sticker (soWyStkMatch); o.react = true: 〔回应 <one emoji>〕 is a KNOWN tag and its line a reaction record
+// {r: 'react', u, em, frag, line} (frag = the words after it, may be empty; a tag holding no single emoji reads as today). Absent = today's
+// reading, byte for byte.
+function soWyParseMsg(line, sp, net, sorted, o) {
     const drop = (why) => ({ r: 'drop', why, line });
     let rest = sp.rest;
     let tag = null;
@@ -18581,10 +19283,16 @@ function soWyParseMsg(line, sp, net, sorted) {
     // line used to be dropped 'shape' and lost. An unknown tag with no colon (余四海〔拍一拍〕甘小勇) stays a 'shape' drop: what it means is a
     // guess. Without a bracket the colon is required.
     const ev = tag != null && (soWyCallTag(tag) || soWyPayTag(tag) != null || soWyAnsTag(tag));
-    const known = tag != null && (ev || !!soWyCardTag(tag) || soWyFwdTag(tag) != null || THEATER_WEIYU_TAGS.some((x) => tag.startsWith(x[0])));
+    const stkO = soWyIsObj(o) && soWyIsObj(o.stk) ? o.stk : null;
+    const isStk = !!stkO && tag != null && tag.startsWith(THEATER_WEIYU_STK_TAG);
+    const reactEm = soWyIsObj(o) && o.react === true && tag != null && tag.startsWith(THEATER_WEIYU_REACT_TAG) ? tag.slice(THEATER_WEIYU_REACT_TAG.length).trim() : '';
+    const isReact = !!reactEm && soWyOneEmoji(reactEm);
+    const known = tag != null && (ev || isStk || isReact || !!soWyCardTag(tag) || soWyFwdTag(tag) != null || THEATER_WEIYU_TAGS.some((x) => tag.startsWith(x[0])));
     const colon = rest[0] === '：' || rest[0] === ':';
     if (!colon && (tag == null || (!known && rest.trim()))) return drop('shape');
     const v = colon ? rest.slice(1).trim() : rest.trim();
+    // phone upgrades: a reaction needs no words (an empty frag = the newest line by someone else)
+    if (isReact) return { r: 'react', u: sp.name, em: reactEm, frag: v, line };
     const card = tag == null ? null : soWyCardTag(tag);
     const fwdFrom = tag == null ? null : soWyFwdTag(tag);
     // phase 3: a forward needs no words (the reference alone is a card)
@@ -18593,11 +19301,17 @@ function soWyParseMsg(line, sp, net, sorted) {
     if (tag == null) return rec;
     // rule (a): a tag this build cannot read keeps the line, as text with the bracket as written in front
     const asText = () => { rec.v = raw + v; return rec; };
+    if (isStk) {
+        // phone upgrades: 甲〔表情包〕：名字 → the sticker the ladder finds; an empty name → today's reading of the line (rule a)
+        const stk = soWyStkMatch(v, stkO.offered, stkO.pack);
+        return stk ? Object.assign(rec, { v: soWyStkText(stk), stk }) : asText();
+    }
     if (ev) {
         const ck = soWyCallTag(tag);
         if (ck) {
             // the speaker form of a call: a call only when its words are a status; other words stay text (rule a)
-            const s = soWyCallStatus([ck.extra].concat(v ? v.split(/[｜|]/) : []), ck.st);
+            const cf = [ck.extra].concat(v ? v.split(/[｜|]/) : []);
+            const s = soWyIsObj(o) && o.incall === true ? soWyCallStatus(cf, ck.st, true) : soWyCallStatus(cf, ck.st);   // phone upgrades: 响铃 only with o.incall
             return s ? Object.assign({ r: 'call', u: sp.name, mode: ck.mode }, s, { line }) : asText();
         }
         // a transfer / an answer: v = the readable fallback; alt = the rule-(a) text the resolver falls back to (a group, nothing to answer)
@@ -18783,7 +19497,8 @@ function soWyParseRecord(line, kind, rest, sorted) {
 
 // net (world words, step 2; optional): read with the set's tag words for the nudge and the call record only (soWyNetTag) — a set's nudge
 // word only when text follows the bracket (a bare 〔午后〕 stays a time line, addendum W1-2); unread / time lines read `inner` as written.
-function soWyParseLine(line, sorted, net) {
+// o (phone upgrades; optional, trailing): the reading options (soWyParseMsg); absent = today.
+function soWyParseLine(line, sorted, net, o) {
     const rm = /^【([^】]{1,6})】([\s\S]*)$/.exec(line);
     if (rm) {
         if (!['人', '群', '私聊', '聊天', '事件'].includes(rm[1].trim())) return null;
@@ -18796,13 +19511,14 @@ function soWyParseLine(line, sorted, net) {
         if (inner === '拍一拍' || (net && close !== line.length - 1 && soWyNetTag(inner, net) === '拍一拍')) return soWyParseNudge(line, line.slice(close + 1));
         // a call record (phase 2) — a bare 〔语音通话〕 with nothing after it stays a time line, as before
         const ck = close !== line.length - 1 ? soWyCallTag(net ? soWyNetTag(inner, net) : inner) : null;
-        if (ck) return soWyParseCall(line, ck, line.slice(close + 1));
+        if (ck) return o ? soWyParseCall(line, ck, line.slice(close + 1), o) : soWyParseCall(line, ck, line.slice(close + 1));
         if (close !== line.length - 1) return null;
         if (inner.replace(/\s+/g, '') === '以下未读') return { r: 'unread' };
         const n = Array.from(inner).length;
         return n >= 1 && n <= 16 ? { r: 'time', v: inner } : null;
     }
     const sp = soWySpeaker(line, sorted);
+    if (sp && o) return soWyParseMsg(line, sp, net, sorted, o);   // phone upgrades: only with an option; else the calls exactly as before
     if (sp) return net ? soWyParseMsg(line, sp, net, sorted) : soWyParseMsg(line, sp, undefined, sorted);
     if (/^[^\s\p{P}\p{S}]{1,12}\s*[：:〔[]/u.test(line)) return { r: 'drop', why: 'speaker', line };
     return null;
@@ -18810,7 +19526,8 @@ function soWyParseLine(line, sorted, net) {
 
 // net (world words, step 2; optional, trailing): soWyWordsNet(…) of the set the request was written with — the tags of that set are read
 // as their kinds; every stored text stays as written. Absent / null = today's reading, byte for byte (weiyu-words-net-corpus golden).
-function soWyParse(text, names, net) {
+// o (phone upgrades; optional, trailing): soWyReadOpt(ctx) — absent = today's reading.
+function soWyParse(text, names, net, o) {
     const out = { head: false, recs: [], unrec: [], lines: 0 };
     let all;
     try {
@@ -18840,7 +19557,7 @@ function soWyParse(text, names, net) {
     const sorted = soWyNamesSorted((Array.isArray(names) ? names : []).concat(declared));
     for (const line of body) {
         let rec = null;
-        try { rec = net ? soWyParseLine(line, sorted, net) : soWyParseLine(line, sorted); } catch (e) { rec = null; }
+        try { rec = o ? soWyParseLine(line, sorted, net, o) : (net ? soWyParseLine(line, sorted, net) : soWyParseLine(line, sorted)); } catch (e) { rec = null; }
         if (rec) out.recs.push(rec);
         else {
             out.unrec.push(line);
@@ -18949,6 +19666,70 @@ function soWyAllNames(state) {
     return Object.keys(state.people).map((k) => state.people[k]).filter((p) => soWyIsObj(p) && typeof p.name === 'string').map((p) => p.name);
 }
 
+// ---- phone upgrades (2026-11-22, spec docs/superpowers/specs/2026-11-22-phone-upgrades-design.md §5.4 / §6.2): reading options ----------
+// The blocks see no flag: soWyCall puts ctx.stk = {offered, pack} (deps.stk ∧ the 表情包 switch) and ctx.react = true (deps.react) on the
+// judge's and the landing's ctx; soWyReadOpt turns them into the parser's trailing option. Neither → undefined = today's reading.
+function soWyReadOpt(ctx) {
+    if (!soWyIsObj(ctx)) return undefined;
+    const o = {};
+    if (soWyIsObj(ctx.stk)) o.stk = { offered: Array.isArray(ctx.stk.offered) ? ctx.stk.offered : [], pack: Array.isArray(ctx.stk.pack) ? ctx.stk.pack : [] };
+    if (ctx.react === true) o.react = true;
+    if (ctx.incall === true) o.incall = true;   // incoming calls (deps.incall): 〔语音通话〕甲 → 我｜响铃｜她的话 reads as a ring with her words
+    // status and signature (deps.status, a sync only): the form's third part is read (soWySyncFormParse; never handed to soWyParse)
+    if (soWyIsObj(ctx.status)) o.status = { floor: Number.isFinite(Number(ctx.status.floor)) && ctx.status.floor != null ? Number(ctx.status.floor) : null };
+    return Object.keys(o).length ? o : undefined;
+}
+
+// The reaction line's tag word (甲〔回应 😂〕：那一句开头的几个字). It starts with none of THEATER_WEIYU_TAGS' words (回复 is the quote).
+const THEATER_WEIYU_REACT_TAG = '回应';
+// How many recent lines of the chat a reaction may land on (spec §6.2).
+const THEATER_WEIYU_REACT_WINDOW = 20;
+
+// soWyReactTarget(lines: {mid | key, u, text}[] in chat order, frag, reactor) → the index of the line a reaction lands on, or −1. Over the last
+// THEATER_WEIYU_REACT_WINDOW lines not by the reactor; frag and each line normalised by soWyQuoteKey: a line whose words START with frag (≥ 2
+// characters) wins, else one that CONTAINS it; several → the newest. An empty frag → the newest line; a 1-character frag or no match → −1.
+function soWyReactTarget(lines, frag, reactor) {
+    try {
+        const L = Array.isArray(lines) ? lines : [];
+        const win = [];
+        for (let i = 0; i < L.length; i++) if (soWyIsObj(L[i]) && L[i].u !== reactor) win.push(i);
+        const w = win.slice(-THEATER_WEIYU_REACT_WINDOW);
+        if (!w.length) return -1;
+        const f = soWyQuoteKey(soWyLine1(frag));
+        if (!f) return w[w.length - 1];
+        if (Array.from(f).length < 2) return -1;
+        const key = (i) => soWyQuoteKey(soWyLine1(L[i].text));
+        const starts = w.filter((i) => key(i).startsWith(f));
+        if (starts.length) return starts[starts.length - 1];
+        const has = w.filter((i) => key(i).includes(f));
+        return has.length ? has[has.length - 1] : -1;
+    } catch (e) {
+        return -1;
+    }
+}
+
+// The sticker line's tag word (甲〔表情包〕：名字). It starts with none of THEATER_WEIYU_TAGS' words and is no card / call / money / forward tag.
+const THEATER_WEIYU_STK_TAG = '表情包';
+
+// soWyStkMatch(raw, offered, pack) → Sticker {id, name, mood, desc} | null (an empty name). The name as the model wrote it, without wrapping
+// quotes / brackets and a trailing （…）: the exact name among the offered, then in the pack, then the ONE pack sticker whose name contains it
+// or is contained in it (the shorter side ≥ 2 characters); else a word sticker showing those words (id '', name ≤ 12) — never dropped.
+function soWyStkMatch(raw, offered, pack) {
+    const paren = (x) => x.replace(/\s*[（(][^（）()]*[）)]\s*$/, '').trim();
+    const unwrap = (x) => x.replace(/^[「『“"‘'【\[〔《<]+/, '').replace(/[」』”"’'】\]〕》>]+$/, '').trim();
+    const name = paren(unwrap(paren(soWyLine1(raw))));
+    if (!name) return null;
+    const list = (x) => (Array.isArray(x) ? x : []).map(soWyStkNorm).filter(Boolean);
+    const off = list(offered);
+    const all = list(pack);
+    const hit = off.find((x) => x.name === name) || all.find((x) => x.name === name);
+    if (hit) return hit;
+    const len = (x) => Array.from(x).length;
+    const near = all.filter((x) => (x.name.includes(name) && len(name) >= 2) || (name.includes(x.name) && len(x.name) >= 2));
+    if (near.length === 1) return near[0];
+    return { id: '', name: soWyClip(name, THEATER_WEIYU_STK_MAX.name), mood: '', desc: '' };
+}
+
 // A quote's text compared with a line: no white space, no wrapping quotation marks, no closing punctuation.
 function soWyQuoteKey(s) {
     return String(s == null ? '' : s).replace(/\s+/g, '').replace(/^[「『“"‘']+/, '').replace(/[」』”"’'。．.！!？?…~～，,、；;：:]+$/, '');
@@ -18975,7 +19756,7 @@ function soWyRecallTwin(ops, cid, u, v) {
         const o = ops[j];
         if (!soWyIsObj(o) || o.o !== 'msg' || o.chat !== cid || !soWyIsObj(o.msg) || o.msg.t === 'time' || o.msg.u !== u) continue;
         // a card line is not a plain text line (its v is a fallback), whatever its words
-        return o.msg.t === 'text' && !o.msg.q && !o.msg.card && !o.msg.call && !o.msg.pay && !o.msg.ans && soWyQuoteKey(o.msg.v) === k ? j : -1;
+        return o.msg.t === 'text' && !o.msg.q && !o.msg.card && !o.msg.stk && !o.msg.call && !o.msg.pay && !o.msg.ans && soWyQuoteKey(o.msg.v) === k ? j : -1;
     }
     return -1;
 }
@@ -19130,7 +19911,7 @@ function soWyResolveRun(parsed, state, ctx, out) {
         const ch = soWyChat(state, id);
         const stored = ch && Array.isArray(ch.msgs) ? ch.msgs.filter(soWyFwdable).length : 0;
         return stored + ops.filter((o) => o.o === 'msg' && o.chat === id && soWyIsObj(o.msg) && typeof o.msg.u === 'string'
-            && THEATER_WEIYU_SAID.includes(o.msg.t) && !o.msg.call && !o.msg.pay && !o.msg.ans && (soWyIsObj(o.msg.fref) || !!String(o.msg.v || '').trim())).length;
+            && THEATER_WEIYU_SAID.includes(o.msg.t) && !o.msg.call && !o.msg.pay && !o.msg.ans && !o.msg.stk && (soWyIsObj(o.msg.fref) || !!String(o.msg.v || '').trim())).length;
     };
     // freeze slice (probe gm-fwd's self-test): two narrow name fallbacks for the SOURCE of a forward only — groupByName / soWyChatKey (used by
     // every heading) stay exactly as they are.
@@ -19374,6 +20155,8 @@ function soWyResolveRun(parsed, state, ctx, out) {
                     }
                     // a card line is kept as a card (a 名片 naming someone on the phone gets his id); a forward line keeps only its
                     // readable v — forwarded content is never taken from a model (soWyForward makes the only snapshots)
+                    // phone upgrades: a sticker line (read only with ctx.stk) keeps its sticker; v = its readable fallback
+                    if (rec.t === 'text' && soWyIsObj(rec.stk)) msg.stk = Object.assign({}, rec.stk);
                     if (rec.t === 'text' && soWyIsObj(rec.card)) {
                         msg.card = Object.assign({}, rec.card);
                         const cp = rec.card.k === 'contact' ? soWyFindPerson(state, rec.card.title) : null;
@@ -19400,6 +20183,62 @@ function soWyResolveRun(parsed, state, ctx, out) {
                 kept++;
                 return undefined;
             }
+            case 'react': {
+                // phone upgrades (ctx.react only — the parser makes this record only then): a reaction of the speaker on a recent line of the
+                // chat (soWyReactTarget over the stored lines — on a regenerate up to ctx.after — then this batch's earlier lines). Found → one op
+                // {o: 'react', chat, mid | key, u, em} (a line of this batch gets an op key: its id is made when it lands). Not found → the
+                // speaker's ordinary emoji message, never dropped. The player's reaction is his: dropped 'owner-event' (never against the batch).
+                const w = here(rec);
+                if (!w) return undefined;
+                const u = findP(rec.u);
+                if (!u || !w.members.includes(u)) return drop(rec, 'speaker');
+                if (u === ME) return drop(rec, 'owner-event');
+                const lines = [];
+                const ch = soWyChat(state, w.id);
+                if (ch && Array.isArray(ch.msgs)) {
+                    let end = ch.msgs.length - 1;
+                    if (c.after !== undefined && w.id === c.chatId) end = c.after === null ? -1 : soWyMsgIndex(ch, c.after);
+                    for (let j = 0; j <= end; j++) if (soWyReactable(ch.msgs[j])) lines.push({ mid: ch.msgs[j].id, u: ch.msgs[j].u, text: ch.msgs[j].v });
+                }
+                for (const op of ops) if (op.o === 'msg' && op.chat === w.id && soWyReactable(op.msg)) lines.push({ op, u: op.msg.u, text: op.msg.v });
+                const j = soWyReactTarget(lines, rec.frag, u);
+                if (j < 0) {
+                    const msg = { t: 'text', u, v: rec.em };
+                    ops.push({ o: 'msg', chat: w.id, msg });
+                    lastLine.set(w.id, lineOf(msg));
+                    kept++;
+                    return undefined;
+                }
+                const t = lines[j];
+                if (t.op && !(typeof t.op.key === 'string' && t.op.key)) t.op.key = 'M' + (++mk);
+                ops.push(Object.assign({ o: 'react', chat: w.id }, t.op ? { key: t.op.key } : { mid: t.mid }, { u, em: rec.em }));
+                kept++;
+                return undefined;
+            }
+            case 'status':
+            case 'sig': {
+                // phone upgrades (ctx.status only — the sync form's third part makes these records only then): a contact's status / a new
+                // signature. Never the player ('status-owner'), only a contact on the phone or a person of this batch ('status-who'), a status
+                // ≤ THEATER_WEIYU_STATUS_MAX ('status-long'), never over a locked signature ('sig-locked') — none of them counts against the batch.
+                // The status op carries the story floor of this sync (ctx.status.floor, else ctx.floor).
+                if (fixed) return drop(rec, 'off-chat');
+                const pid = findP(rec.name);
+                if (pid === ME) return drop(rec, 'status-owner');
+                const mine = pid ? ops.find((o) => o.o === 'person' && o.key === pid) : null;
+                const p = pid && !mine ? soWyStatusPerson(state, pid) : null;
+                if (!pid || (mine ? mine.extra === 1 : !p)) return drop(rec, 'status-who');
+                if (rec.r === 'status') {
+                    const v = rec.v == null ? null : soWyLine1(rec.v);
+                    if (v !== null && soWyLen(v) > THEATER_WEIYU_STATUS_MAX) return drop(rec, 'status-long');
+                    const fl = soWyIsObj(c.status) && c.status.floor != null ? c.status.floor : c.floor;
+                    ops.push({ o: 'status', pid, v: v || null, floor: fl != null && Number.isFinite(Number(fl)) ? Number(fl) : null });
+                } else {
+                    if (p && soWySigLocked(p)) return drop(rec, 'sig-locked');
+                    ops.push({ o: 'sig', pid, v: String(rec.v) });
+                }
+                kept++;
+                return undefined;
+            }
             case 'call': {
                 // phase 2: a call record — private chats only ('chat' in a group, like an event in a private chat); the callee is the
                 // chat's other member ('target' when the line names someone else); the player's own call written by a model is his act
@@ -19418,6 +20257,12 @@ function soWyResolveRun(parsed, state, ctx, out) {
                     if (typeof rec.gist === 'string' && rec.gist) call.gist = rec.gist;
                 }
                 if (other === ME && mode !== 'boot' && (rec.st === 'done' || rec.st === 'reject')) call = { mode: rec.mode, st: 'missed' };
+                // phone upgrades (incoming calls; rec.st 'ring' comes only from the ctx.incall reading): a ring is stored as the missed call it
+                // is on disk (ringing is a state of the open page only) — her words (say) kept only on a call TO the player
+                if (rec.st === 'ring') {
+                    call = { mode: rec.mode, st: 'missed' };
+                    if (other === ME && typeof rec.say === 'string' && rec.say) call.say = rec.say;
+                }
                 if (!soWyCallNorm(call)) return drop(rec, 'shape');
                 ops.push({ o: 'msg', chat: w.id, msg: { t: 'text', u, to: other, v: soWyCallText(call), call } });
                 lastLine.set(w.id, null);
@@ -19482,9 +20327,12 @@ function soWyResolveRun(parsed, state, ctx, out) {
     const events = ops.filter((o) => o.o === 'event').length;
     const made = ops.filter((o) => o.o === 'chat').length;
     out.stats = { msgs, events, chats: made };
+    // phone upgrades: a reaction, a status and a signature are content (a reply that is only one is a valid batch); none → today's count
+    const reacts = ops.filter((o) => o.o === 'react' || o.o === 'status' || o.o === 'sig').length;
     const offN = out.dropped.filter((d) => d.why === 'off-chat').length;
-    const bad = out.dropped.filter((d) => d.why !== 'off-chat' && d.why !== 'owner-event' && d.why !== 'dup-pay' && d.why !== 'self-shot' && !THEATER_WEIYU_FWD_MISS.includes(d.why)).length;
-    const content = msgs + events + made;
+    const bad = out.dropped.filter((d) => d.why !== 'off-chat' && d.why !== 'owner-event' && d.why !== 'dup-pay' && d.why !== 'self-shot' && !THEATER_WEIYU_FWD_MISS.includes(d.why)
+        && !THEATER_WEIYU_STATUS_MISS.includes(d.why)).length;
+    const content = msgs + events + made + reacts;
     let why = '';
     if (content === 0 && offN > 0 && bad === 0) why = 'off-chat';
     else if (content === 0) why = 'unparsed';
@@ -19500,15 +20348,25 @@ function soWyJudge(text, finish, state, ctx, names) {
     const t = typeof text === 'string' ? text : '';
     if (!t.trim()) return { ok: false, why: 'empty' };
     // ctx.net (world words, step 2): the net of the set the request was written with (soWyResolve ignores the key)
-    const r = soWyResolve(soWyIsObj(ctx) && ctx.net ? soWyParse(t, Array.isArray(names) ? names : soWyAllNames(state), ctx.net) : soWyParse(t, Array.isArray(names) ? names : soWyAllNames(state)), state, ctx);
+    // phone upgrades: the reading options (ctx.stk / ctx.react → soWyReadOpt); none → undefined = today's reading
+    const ro = soWyReadOpt(ctx);
+    const nn = Array.isArray(names) ? names : soWyAllNames(state);
+    const net = soWyIsObj(ctx) && ctx.net ? ctx.net : undefined;
+    const r = soWyResolve(ro ? soWyParse(t, nn, net, ro) : (net ? soWyParse(t, nn, net) : soWyParse(t, nn)), state, ctx);
     return { ok: r.ok, why: r.ok ? '' : r.why };
 }
 
 // Applies ops from a SUCCESSFUL soWyResolve. One batch id for the call (made when meta.b is absent). meta.at !== undefined → the
 // lines go right after message `at` of the chat that holds it (null = the start of each chat), keeping their order; otherwise to the
 // end. An unread op sets `read` to the line before it. Keys ('P1' / 'C1') map to the ids made here.
+// Phone upgrades: a react op {o: 'react', chat, mid | key, u, em} (exactly one of mid — a stored message — or key — a message of this
+// batch) sets u's reaction (never the player's; u a member of the chat); res.undo lists what each new op replaced ({o: 'react', cid, mid,
+// pid, set, prev}; status / sig items come with those ops), and a chat that only got a reaction joins res.chats.
+// A status op {o: 'status', pid, v: string | null, floor} (soWySetStatus) and a sig op {o: 'sig', pid, v} (soWySetSig 'ai') change a contact
+// (pid a stored id or a person key of this batch) and push {o: 'status', pid, set, prev} / {o: 'sig', pid, set, prev, prevBy} when the value
+// changed; they touch no chat.
 function soWyApplyOps(state, ops, meta) {
-    const res = { added: 0, mids: [], chats: [], newChats: [], newPeople: [] };
+    const res = { added: 0, mids: [], chats: [], newChats: [], newPeople: [], undo: [] };
     if (!state || !soWyIsObj(state.people) || !soWyIsObj(state.chats) || !Array.isArray(ops)) return res;
     const mt = soWyIsObj(meta) ? meta : {};
     const m = { b: typeof mt.b === 'string' && mt.b ? mt.b : soWyNewId(state, 'b'), src: String(mt.src == null ? '' : mt.src) };
@@ -19603,6 +20461,34 @@ function soWyApplyOps(state, ops, meta) {
                 if (Array.isArray(e.targets)) ev.targets = e.targets.map(id);
                 if (e.v != null) ev.v = e.v;
                 landed(cid, soWyApplyEvent(state, cid, ev, m));
+            } else if (op.o === 'react') {
+                const hasMid = typeof op.mid === 'string' && !!op.mid;
+                const hasKey = typeof op.key === 'string' && !!op.key;
+                if (hasMid === hasKey) continue;
+                const cid = id(op.chat);
+                const mid = hasKey ? (keys.has(op.key) ? keys.get(op.key) : null) : op.mid;
+                const u = id(op.u);
+                const chat = soWyChat(state, cid);
+                if (!mid || !chat || u === THEATER_WEIYU_ME || !Array.isArray(chat.members) || !chat.members.includes(u)) continue;
+                const r = soWyReact(state, cid, mid, u, op.em);
+                if (!r.ok || op.em === null) continue;
+                res.undo.push({ o: 'react', cid, mid, pid: u, set: soWyMsg(state, cid, mid).re[u], prev: r.prev });
+                if (!res.chats.includes(cid)) res.chats.push(cid);
+            } else if (op.o === 'status') {
+                // phone upgrades (spec §9): a contact's status (v null = 无 clears it) at story floor op.floor; no chat, no line
+                const pid = id(op.pid);
+                const r = soWySetStatus(state, pid, op.v === null ? null : op.v, op.floor);
+                if (!r.ok) continue;
+                const p = soWyPerson(state, pid);
+                const set = soWyIsObj(p.st) ? JSON.parse(JSON.stringify(p.st)) : null;
+                if (JSON.stringify(set) !== JSON.stringify(r.prev)) res.undo.push({ o: 'status', pid, set, prev: r.prev });
+            } else if (op.o === 'sig') {
+                // phone upgrades (spec §9): a model-written signature — clipped to 80, never over a locked one (soWySetSig 'ai')
+                const pid = id(op.pid);
+                const r = soWySetSig(state, pid, op.v, 'ai');
+                if (!r.ok) continue;
+                const set = soWyPerson(state, pid).sig;
+                if (set !== r.prev || r.prevBy !== 'ai') res.undo.push({ o: 'sig', pid, set, prev: r.prev, prevBy: r.prevBy });
             } else if (op.o === 'unread') {
                 const cid = id(op.chat);
                 const chat = soWyChat(state, cid);
@@ -19785,13 +20671,53 @@ function soWyFormField(s) {
 
 const soWyFormIsSlot = (s) => THEATER_WEIYU_FORM_SLOTS.includes(soWyFormField(s));
 
+// ---- status and signature (phone upgrades 2026-11-22, spec §9.1 / §17.18; map-request §5.3): the form's THIRD part, read ONLY with the
+// reading option o.status (soWyReadOpt ← ctx.status ← deps.status in a sync). Without it every function below reads as today.
+//   === 人的变化 === (also 第三部分 / 第3部分, with or without 人的变化; 【人的变化】 alone) · lines 状态｜名字｜正在做的事 · 状态｜名字｜无 ·
+//   签名｜名字｜新的个性签名 · a "none" line (无 / 没有 / 这一楼没有人的变化 …). soWyFormPerson reads one line; the resolver (case 'status' /
+//   'sig') checks it against the phone. Its per-line refusals THEATER_WEIYU_STATUS_MISS never count against the batch.
+const THEATER_WEIYU_FORM_HEAD_UP_RE = /^\s*(?:#{1,6}\s*)?(?:\*\*)?\s*[=＝]{2,}\s*(?:第[三3]部分\s*[·・:：\-—_\s]*(?:人的变化)?|人的变化)\s*[=＝]{2,}\s*(?:\*\*)?\s*$/;
+// the third part's placeholders (a separate list: THEATER_WEIYU_FORM_SLOTS is asserted equal to the frozen form's slots). FROZEN 2026-11-23 by gm-upgrades with the
+// form (check P5; sha256 pinned in weiyu-prompts-pin.test.mjs, tenth freeze; a byte change = re-run that gm-upgrades check).
+const THEATER_WEIYU_FORM_SLOTS_UP = ['〈名字〉', '〈此刻正在做的事，八个字以内〉', '〈新的个性签名〉'];
+// per-line refusals of the third part: names the player · not a contact on the phone · a status over THEATER_WEIYU_STATUS_MAX · a locked signature
+const THEATER_WEIYU_STATUS_MISS = ['status-owner', 'status-who', 'status-long', 'sig-locked'];
+
 // 'changes' | 'msgs' for a section header line, else ''. Also 【群变化】 / 【消息】 alone on the line.
-function soWyFormSection(line) {
+// up === true (the third part is on): also 'people' for its header; absent = today's reading.
+function soWyFormSection(line, up) {
     const t = String(line == null ? '' : line).trim();
     const m = THEATER_WEIYU_FORM_HEAD_RE.exec(t);
     if (m) return THEATER_WEIYU_FORM_SECS[m[1]] || '';
     const b = /^【\s*([^】]{1,6}?)\s*】$/.exec(t);
+    if (up === true && (THEATER_WEIYU_FORM_HEAD_UP_RE.test(t) || (b && b[1] === '人的变化'))) return 'people';
     return b && Object.prototype.hasOwnProperty.call(THEATER_WEIYU_FORM_SECS, b[1]) ? THEATER_WEIYU_FORM_SECS[b[1]] : '';
+}
+
+// The third part's "nothing changed" line: 无 / 没有 / 没有人的变化 / 人的变化：无 / 第三部分：无 / 这一楼没有人的变化 / 这几楼… (punctuation ignored).
+function soWyFormIsNoneUp(line) {
+    const t = String(line == null ? '' : line).replace(/[\s。．.、，,：:！!（）()【】〔〕「」]/g, '').replace(/^第[三3]部分/, '').replace(/^人的?变化/, '');
+    return /^(?:无|没有|暂无|none)(?:任何)?(?:人的?)?(?:变化|变动)?$/i.test(t) || /^这[一几]楼(?:没有|无)(?:任何)?人的?(?:变化|变动)$/.test(t);
+}
+
+// One third-part line → {ok: true, k: 'status' | 'sig', name, v: string | null} (v null = 状态｜名字｜无) | {ok: false, why: 'shape' | 'slot'}
+// | null (not a 状态 / 签名 line at all). The name and the text are taken as written (the resolver checks them against the phone); a signature
+// of 无 / nothing reads as no change ({ok: true, k: 'sig', v: null}).
+function soWyFormPerson(line, sorted) {
+    const t = String(line == null ? '' : line).trim();
+    const f = soWyFields(t);
+    const w = soWyFormField(f[0]).replace(/^【\s*|\s*】$/g, '');
+    const k = w === '状态' ? 'status' : (w === '签名' || w === '个性签名' ? 'sig' : '');
+    if (!k) return null;
+    if (f.length < 3) return { ok: false, why: 'shape' };
+    const slots = THEATER_WEIYU_FORM_SLOTS_UP.map(soWyFormField);
+    const name = soWyFormField(f[1]);
+    const v = f.slice(2).join('｜').trim();
+    if (!name) return { ok: false, why: 'shape' };
+    if (slots.includes(name) || slots.includes(soWyFormField(v))) return { ok: false, why: 'slot' };
+    const none = !v || soWyFormIsNoneUp(v);
+    if (k === 'status' && !v) return { ok: false, why: 'shape' };
+    return { ok: true, k, name, v: none ? null : v };
 }
 
 // The "nothing changed" line: 无 / 没有 / 无变化 / 没有群变化 / 群变化：无 … (punctuation and brackets ignored).
@@ -19911,28 +20837,34 @@ function soWyFormChange(line, sorted, strict) {
 
 
 // Cuts the text into its sections → {pre, s1, s2} (line indexes) + the marks found. A repeated header switches back to its section.
-function soWyFormCut(clean, out) {
+// up === true (the third part, phone upgrades): its header opens a third bucket s3 (and a 「第三部分：无」 / 「人的变化：无」 line written
+// without a header opens it and belongs to it); out.heads.people is set. Absent → today's cut, byte for byte.
+function soWyFormCut(clean, out, up) {
     const pre = [];
     const s1 = [];
     const s2 = [];
-    const first = { changes: -1, msgs: -1 };
+    const s3 = [];
+    const first = { changes: -1, msgs: -1, people: -1 };
     let cur = 'pre';
     for (let i = 0; i < clean.length; i++) {
         const l = clean[i];
         if (cur === 'post') { if (l) out.after++; continue; }
         if (soWyIsMark(l, THEATER_WEIYU_HEAD)) { out.start = true; continue; }
         if (soWyIsMark(l, THEATER_WEIYU_END)) { out.end = true; cur = 'post'; continue; }
-        const s = soWyFormSection(l);
+        const s = up === true ? soWyFormSection(l, true) : soWyFormSection(l);
         if (s) { if (first[s] < 0) first[s] = i; cur = s; continue; }
         if (!l) continue;
+        if (up === true && /^(?:第[三3]部分|人的?变化)\s*[:：]/.test(l) && soWyFormIsNoneUp(l)) { if (first.people < 0) first.people = i; cur = 'people'; }
         if (cur === 'pre') pre.push(i);
         else if (cur === 'changes') s1.push(i);
+        else if (cur === 'people') s3.push(i);
         else s2.push(i);
     }
     out.heads.changes = first.changes >= 0;
     out.heads.msgs = first.msgs >= 0;
+    if (up === true) out.heads.people = first.people >= 0;
     out.msgsFirst = first.changes >= 0 && first.msgs >= 0 && first.msgs < first.changes;
-    return { pre, s1, s2 };
+    return up === true ? { pre, s1, s2, s3 } : { pre, s1, s2 };
 }
 
 function soWySyncFormParse(text, names, opts) {
@@ -19946,12 +20878,22 @@ function soWySyncFormParse(text, names, opts) {
         const clean = raw.map(soWyLineClean);
         // opts.net (world words, step 2): handed to both soWyParse calls (the tagged fallback and section 2)
         const net = soWyIsObj(opts) && opts.net ? opts.net : null;
-        if (!clean.some((l) => soWyFormSection(l))) {
-            out.parsed = net ? soWyParse(text, names, net) : soWyParse(text, names);
+        // opts.read (phone upgrades): the reading options soWyReadOpt(ctx) made, handed to both soWyParse calls; absent = today
+        const ro0 = soWyIsObj(opts) && soWyIsObj(opts.read) ? opts.read : undefined;
+        // status and signature (ro0.status, phone upgrades): the third part is read here; the message parser never sees that option
+        const up = !!ro0 && soWyIsObj(ro0.status);
+        let ro = ro0;
+        if (up) {
+            ro = Object.assign({}, ro0);
+            delete ro.status;
+            if (!Object.keys(ro).length) ro = undefined;
+        }
+        if (!clean.some((l) => (up ? soWyFormSection(l, true) : soWyFormSection(l)))) {
+            out.parsed = ro ? soWyParse(text, names, net, ro) : (net ? soWyParse(text, names, net) : soWyParse(text, names));
             return out;
         }
         out.form = true;
-        const cut = soWyFormCut(clean, out);
+        const cut = up ? soWyFormCut(clean, out, true) : soWyFormCut(clean, out);
         const s1 = cut.s1.slice();
         // no 群变化 header: change lines written before 「=== 消息 ===」 are still section 1; any other text there is prose
         if (!out.heads.changes) {
@@ -19992,10 +20934,12 @@ function soWySyncFormParse(text, names, opts) {
             entries.push({ at: i, sec: 1, line, c: { ok: false, why: 'shape', k: '', group: '' } });
         }
         // section 2: a change line without a 【事件】 prefix names its group, so it is a change; the rest is soWyParse's
+        // (the third part on: a 状态｜… / 签名｜… line written there belongs to the third part)
         const s2keep = [];
+        const s3 = up ? cut.s3.slice() : [];
         for (const i of s2idx.concat(cut.s2)) {
             const c = soWyFormChange(clean[i], sorted0, true);
-            if (c) { entries.push({ at: i, sec: 2, line: raw[i].trim(), c }); out.s2changes++; } else s2keep.push(i);
+            if (c) { entries.push({ at: i, sec: 2, line: raw[i].trim(), c }); out.s2changes++; } else if (up && soWyFormPerson(clean[i], sorted0)) s3.push(i); else s2keep.push(i);
         }
         entries.sort((a, b) => a.at - b.at);
         if (out.none && entries.some((e) => e.c.ok)) out.mixedNone = true;
@@ -20042,7 +20986,8 @@ function soWySyncFormParse(text, names, opts) {
         out.cut = recs.length;
         recs.push({ r: 'head', line: '=== 消息 ===' });
         s2keep.sort((a, b) => a - b);
-        const p2 = net ? soWyParse(s2keep.map((i) => raw[i]).join('\n'), sorted, net) : soWyParse(s2keep.map((i) => raw[i]).join('\n'), sorted);
+        const s2text = s2keep.map((i) => raw[i]).join('\n');
+        const p2 = ro ? soWyParse(s2text, sorted, net, ro) : (net ? soWyParse(s2text, sorted, net) : soWyParse(s2text, sorted));
         // a section-2 【事件】 repeating a section-1 change (same kind, same group by its heading, same actor) is that change again
         const taken = entries.filter((e) => e.c.ok && e.c.k !== 'create').map((e) => [e.c.k, soWyChatKey(e.c.group), e.c.rec.who || '']);
         let headName = '';
@@ -20064,7 +21009,23 @@ function soWySyncFormParse(text, names, opts) {
         out.cut2 = recs.length;
         recs.push({ r: 'head', line: '=== 完 ===' });
         for (const [e, ci] of late) put(e, ci);
-        out.parsed = { head: true, recs, unrec: unrec.concat(p2.unrec), lines: s1.length + p2.lines };
+        // the third part (phone upgrades): one record per 状态 / 签名 line, LAST (they touch no chat); a "none" line or a signature of 无
+        // lands nothing; a line of another shape is unrecognised (like a section-1 line of no known shape)
+        if (up) {
+            out.people = [];
+            s3.sort((a, b) => a - b);
+            for (const i of s3) {
+                const l = clean[i];
+                const line = raw[i].trim();
+                if (soWyFormIsNoneUp(l)) { out.none3 = true; continue; }
+                const pr = soWyFormPerson(l, sorted0);
+                out.people.push({ line, ok: !!(pr && pr.ok), why: pr && !pr.ok ? pr.why : (pr ? '' : 'shape'), k: pr && pr.ok ? pr.k : '' });
+                if (!pr || !pr.ok) { unrec.push(line); continue; }
+                if (pr.k === 'sig' && pr.v === null) continue;
+                recs.push({ r: pr.k, name: pr.name, v: pr.v, line });
+            }
+        }
+        out.parsed = { head: true, recs, unrec: unrec.concat(p2.unrec), lines: s1.length + p2.lines + s3.length };
         return out;
     } catch (e) {
         out.parsed = { head: false, recs: [], unrec: [], lines: 0 };
@@ -20143,9 +21104,10 @@ function soWySyncFormResolve(form, state, ctx) {
         out.stats = { msgs: kept.filter(isMsg).length, events: kept.filter((o) => o.o === 'event').length, chats: kept.filter((o) => o.o === 'chat').length };
         // soWyResolve's outcome rule, recounted with one drop per change line (and the repeats left out)
         const offN = dropped.filter((d) => d.why === 'off-chat').length;
-        const bad = dropped.filter((d) => !['off-chat', 'owner-event', 'form-dup', 'dup-pay', 'self-shot'].concat(THEATER_WEIYU_FWD_MISS).includes(d.why)).length;
+        const bad = dropped.filter((d) => !['off-chat', 'owner-event', 'form-dup', 'dup-pay', 'self-shot'].concat(THEATER_WEIYU_FWD_MISS, THEATER_WEIYU_STATUS_MISS).includes(d.why)).length;
         const unrec = Array.isArray(parsed.unrec) ? parsed.unrec.length : 0;
-        const content = out.stats.msgs + out.stats.events + out.stats.chats;
+        // phone upgrades: reactions, statuses and signatures count
+        const content = out.stats.msgs + out.stats.events + out.stats.chats + kept.filter((o) => o.o === 'react' || o.o === 'status' || o.o === 'sig').length;
         let why = '';
         if (content === 0 && offN > 0 && bad === 0) why = 'off-chat';
         else if (content === 0) why = 'unparsed';
@@ -20159,7 +21121,10 @@ function soWySyncFormResolve(form, state, ctx) {
 function soWySyncFormRead(text, state, ctx, opts) {
     const names = soWyIsObj(opts) && Array.isArray(opts.names) ? opts.names : soWyAllNames(state);
     // ctx.net (world words, step 2): handed to the parse as opts.net on a COPY (the caller's opts untouched); soWySyncFormResolve ignores it
-    const form = soWySyncFormParse(text, names, soWyIsObj(ctx) && ctx.net ? Object.assign({}, soWyIsObj(opts) ? opts : {}, { net: ctx.net }) : opts);
+    // phone upgrades: the reading options (soWyReadOpt) ride the same way, as opts.read on a copy; none → the opts as given
+    const ro = soWyReadOpt(ctx);
+    const o1 = soWyIsObj(ctx) && ctx.net ? Object.assign({}, soWyIsObj(opts) ? opts : {}, { net: ctx.net }) : opts;
+    const form = soWySyncFormParse(text, names, ro ? Object.assign({}, soWyIsObj(o1) ? o1 : {}, { read: ro }) : o1);
     return { form, rr: soWySyncFormResolve(form, state, ctx) };
 }
 
@@ -20313,7 +21278,10 @@ function soWyFindRead(text) {
 //
 // Stage 2 (spec §5): each story sync is an undoable delta tied to the main floor + swipe it came from.
 //   Delta { id, floor, swipes: number[], key, chats: cid[], mids: {[cid]: mid[]}, newChats: cid[], newPeople: pid[], ops: Op[],
-//           touched: 0|1, final: 0|1 }                 in state.deltas (cids are code-made, so `mids` may be keyed by them)
+//           touched: 0|1, final: 0|1, undo?: UndoItem[] }  in state.deltas (cids are code-made, so `mids` may be keyed by them)
+//   UndoItem (phone upgrades) = {o: 'react', cid, mid, pid, set, prev} | {o: 'status', pid, set, prev} | {o: 'sig', pid, set, prev, prevBy}:
+//   what an op of the delta replaced (soWyApplyOps res.undo); present only when the delta has such ops. A revert walks it newest first and
+//   puts `prev` back only while the current value is still `set` (the player or a later delta may have changed it since).
 //   state.alts = { floor, bySwipe: {[swipe]: {ops, key}} } | null — alternatives exist only for the latest main floor.
 // "touched" is set by soWyTouch (model): the player sent / edited / deleted / regenerated / held-to-load in a chat the delta changed.
 // A touched or final delta is never reverted. soWyDeltaPlan is pure; soWyDeltaRun executes everything but `sync`, which it hands
@@ -20345,6 +21313,8 @@ function soWyDeltaApply(state, ops, src) {
         chats, mids, newChats: res.newChats.slice(), newPeople: res.newPeople.slice(),
         ops: JSON.parse(JSON.stringify(Array.isArray(ops) ? ops : [])), touched: 0, final: 0,
     };
+    // phone upgrades: what the new ops replaced (reactions, statuses, signatures) — only when there is something (a plain delta is today's)
+    if (Array.isArray(res.undo) && res.undo.length) d.undo = JSON.parse(JSON.stringify(res.undo));
     // sync every N (src.n, only from the join's ENABLE_THR_WEIYU_SYNC_EVERY path): the story floors this one sync covered, kept only when ≥ 2
     if (Number.isSafeInteger(s.n) && s.n >= 2) d.n = s.n;
     state.deltas.push(d);
@@ -20364,10 +21334,47 @@ function soWyPersonUsed(state, pid) {
     return false;
 }
 
+// Phone upgrades: one undo item put back — only while the current value is the one the delta set. Never throws.
+function soWyDeltaUndoOne(state, u) {
+    try {
+        if (!soWyIsObj(u)) return;
+        const same = (a, b) => JSON.stringify(a == null ? null : a) === JSON.stringify(b == null ? null : b);
+        if (u.o === 'react') {
+            const m = soWyMsg(state, u.cid, u.mid);
+            if (!m) return;   // the message is gone (a line the delta added goes with its reactions)
+            const cur = soWyIsObj(m.re) && typeof m.re[u.pid] === 'string' ? m.re[u.pid] : null;
+            if (!same(cur, u.set)) return;
+            if (u.prev == null) {
+                if (soWyIsObj(m.re)) {
+                    delete m.re[u.pid];
+                    if (!Object.keys(m.re).length) delete m.re;
+                }
+            } else {
+                if (!soWyIsObj(m.re)) m.re = {};
+                m.re[u.pid] = u.prev;
+            }
+            return;
+        }
+        if (u.o !== 'status' && u.o !== 'sig') return;
+        const p = soWyPerson(state, u.pid);
+        if (!p) return;
+        const f = u.o === 'status' ? 'st' : 'sig';
+        if (!same(p[f], u.set)) return;
+        if (u.prev == null) delete p[f];
+        else p[f] = JSON.parse(JSON.stringify(u.prev));
+        if (u.o === 'sig') {
+            if (u.prevBy == null) delete p.sigBy;
+            else p.sigBy = u.prevBy;
+        }
+    } catch (e) { /* a broken item restores nothing */ }
+}
+
 function soWyDeltaRevert(state, id, stash) {
     try {
         const d = soWyDeltaFind(state, id);
         if (!d || d.final || d.touched || !soWyIsObj(state.chats)) return false;
+        // phone upgrades: the values the delta replaced, newest first (before its messages / people go)
+        if (Array.isArray(d.undo)) for (const u of d.undo.slice().reverse()) soWyDeltaUndoOne(state, u);
         const lists = soWyIsObj(d.mids) ? d.mids : {};
         const cids = Object.keys(lists).concat(Array.isArray(d.chats) ? d.chats : []).filter((cid, i, a) => a.indexOf(cid) === i);
         const fresh = Array.isArray(d.newChats) ? d.newChats : [];
@@ -20398,9 +21405,13 @@ function soWyDeltaRevert(state, id, stash) {
 
 // The stashed ops as they can still land now: a message / event whose speaker is no longer a member of that chat, or anything for
 // a chat that is gone or dissolved, is skipped. Re-resolves nothing.
+// Phone upgrades: a react op is kept while its target is there (a stored message of the chat, or a message op of this batch kept above,
+// by its key) and its reactor is a member; a status / sig op while its person is on the phone (or is a person op of this batch).
 function soWyDeltaReplayable(state, ops) {
     const members = new Map();
     const dead = new Set();
+    const msgKeys = new Set();
+    const personKeys = new Set();
     const mem = (ref) => {
         if (members.has(ref)) return members.get(ref);
         const c = soWyChat(state, ref);
@@ -20417,14 +21428,30 @@ function soWyDeltaReplayable(state, ops) {
             out.push(op);
             continue;
         }
-        if (op.o === 'person' || op.o === 'unread') { out.push(op); continue; }
-        if (op.o !== 'msg' && op.o !== 'event') continue;
+        if (op.o === 'person' || op.o === 'unread') {
+            if (op.o === 'person' && typeof op.key === 'string') personKeys.add(op.key);
+            out.push(op);
+            continue;
+        }
+        if (op.o === 'status' || op.o === 'sig') {
+            const p = soWyPerson(state, op.pid);
+            if ((p && p.gone !== 1) || personKeys.has(op.pid)) out.push(op);
+            continue;
+        }
+        if (op.o !== 'msg' && op.o !== 'event' && op.o !== 'react') continue;
         const m = mem(op.chat);
         if (!m || dead.has(op.chat)) continue;
         if (op.o === 'msg') {
             const msg = soWyIsObj(op.msg) ? op.msg : {};
             if (msg.t !== 'time' && !m.includes(msg.u)) continue;
+            if (typeof op.key === 'string' && op.key) msgKeys.add(op.key);
             out.push(op);
+            continue;
+        }
+        if (op.o === 'react') {
+            const byKey = typeof op.key === 'string' && !!op.key;
+            const there = byKey ? msgKeys.has(op.key) : !!soWyMsg(state, op.chat, op.mid);
+            if (there && m.includes(op.u)) out.push(op);
             continue;
         }
         const ev = soWyIsObj(op.ev) ? op.ev : {};
@@ -20669,6 +21696,14 @@ const THEATER_WEIYU_NOTE_EVENT = Object.freeze({
 // them: soWyNoteSize renders the note): `苏晚：（笑）喂？` · `江野：在东门` · a video's picture `（画面：她在厨房）` before her words.
 const THEATER_WEIYU_NOTE_CALL = Object.freeze({ said: '{u}：{tags}{v}', tag: '（{t}）', pic: '（画面：{v}）' });
 
+// FROZEN 2026-11-23 by gm-upgrades (Task 21, the controller's freeze list — the main-story note is read by the story model, not by the phone's checks; sha256 pinned in weiyu-prompts-pin.test.mjs, tenth freeze; a byte change = re-run that gm-upgrades check;
+// written 2026-11-22, spec docs/superpowers/specs/2026-11-22-phone-upgrades-design.md §5.4 / §7.4 / §17.9) — a FIFTH label table
+// (the others untouched): a sticker 「{u}〔表情包〕：无语（面无表情，头顶一排省略号）」 (no desc → no brackets part) and a voice message's
+// words after a call record 「（留言：…）」. {kind} = 表情包 / 留言 with no word set; under one, the set's word for 照片 / 语音 (soWyNoteTables
+// .upKind) — so no modern label reaches the story.
+const THEATER_WEIYU_NOTE_UP = Object.freeze({ sticker: '{u}〔{kind}〕：{name}（{desc}）', say: '（{kind}：{v}）' });
+const THEATER_WEIYU_NOTE_UP_KIND = Object.freeze({ sticker: '表情包', say: '留言' });
+
 // ST macros cannot execute from text the player or the AI wrote: {{ / }} and the <USER>-style aliases become full-width.
 function soWyNeutral(s) {
     return String(s == null ? '' : s)
@@ -20759,12 +21794,22 @@ function soWyNoteMsg(state, m, L, T) {
             const lines = fwd.lines.map((l) => (l.name ? soWyTpl(C.line, { name: soWyFlat(l.name), v: soWyFlat(l.v) }) : soWyFlat(l.v))).join(C.join);
             return soWyTpl(C.fwd, { u: nm(m.u), from: soWyFlat(fwd.from), lines });
         }
+        // phone upgrades: a sticker (THEATER_WEIYU_NOTE_UP, frozen); tables from an older caller without U → the frozen-table text line
+        const stk = soWyStkNorm(m.stk);
+        if (stk && soWyIsObj(TT.U) && soWyIsObj(TT.upKind)) {
+            const tpl = stk.desc ? TT.U.sticker : TT.U.sticker.split('（{desc}）').join('');
+            return soWyTpl(tpl, { u: nm(m.u), kind: TT.upKind.sticker, name: soWyFlat(stk.name), desc: soWyFlat(stk.desc) });
+        }
         // phase 2: a call, a transfer, an answer (THEATER_WEIYU_NOTE_EVENT, DRAFT)
         const E = TT.E;
         const call = soWyCallNorm(m.call);
         if (call) {
             const st = call.st !== 'done' && call.st !== 'live' ? E[call.st] : (call.dur ? soWyTpl(E.dur, { dur: call.dur }) : E.done) + (call.gist ? soWyTpl(E.gist, { gist: soWyFlat(call.gist) }) : '');
-            return soWyTpl(E.call, { u: nm(m.u), to: typeof m.to === 'string' ? nm(m.to) : L.nobody, mode: TT.call[call.mode], st });
+            const line = soWyTpl(E.call, { u: nm(m.u), to: typeof m.to === 'string' ? nm(m.to) : L.nobody, mode: TT.call[call.mode], st });
+            // phone upgrades (incoming calls): her words on a missed / declined call 「（留言：…）」 — the set's word for 语音 under a word set
+            // (THEATER_WEIYU_NOTE_UP.say, .upKind.say); tables from an older caller without U, or no words → the line as today
+            const say = (call.st === 'missed' || call.st === 'reject') && call.say && soWyIsObj(TT.U) && soWyIsObj(TT.upKind) ? soWyTpl(TT.U.say, { kind: TT.upKind.say, v: soWyFlat(call.say) }) : '';
+            return line + say;
         }
         const pay = soWyPayNorm(m.pay);
         if (pay) {
@@ -21173,6 +22218,10 @@ const THEATER_WEIYU_WORDS_STAGE = Object.freeze({ note: 1, phone: 2 });
 // word 画面 would make a call reply ambiguous
 const THEATER_WEIYU_WORDS_RESERVED_EXTRA = Object.freeze(['转账', '转帐', '拍一拍', '转发', '聊天记录', '转发聊天记录', '合并转发', '以下未读',
     '未接', '拒接', '挂断', '画面']);
+// phone upgrades (2026-11-22, spec §17.9): the sticker tag, the reaction tag and the incoming call's status word. A set may not use them
+// (soWyWordCheck: 'taken' / 'prefix'); they stay OUT of soWyWordsReserved(), whose list is the naming request's banned line (its bytes do not
+// move) — a model's word equal to one of them is refused by the check like any other clash.
+const THEATER_WEIYU_WORDS_RESERVED_UP = Object.freeze(['表情包', '回应', '响铃']);
 // Never inside a term: white space, brackets / bars / colons / quotes / braces / angle brackets / = / $ / \ / list commas, emoji, control,
 // format (U+200F …) and private-use characters; step 2 (W1-4): also the call form's slot brackets 〈〉 and 《》（）() — a device word reaches
 // the call form's 〈…〉 slots through the device-built grammar.
@@ -21204,12 +22253,14 @@ const THEATER_WEIYU_WORD_SETS = Object.freeze({
             fwdTail: '里的往来', recallLine: '收回了一句话', groupShort: '{group}', photoMw: '幅' }),
         ready: Object.freeze({ note: true, phone: true }),
     }),
+    // 2026-11-24 (looks build Task 16, spec 2026-11-22-phone-looks-design.md §8): the device became a scroll — device / deviceMw / link /
+    // grammar.ringing re-pinned on purpose; gm-words round rn (PREREG-RN.md) re-checks it before release.
     xianxia: Object.freeze({
         name: '古风仙侠',
-        terms: Object.freeze({ device: '传音玉简', deviceMw: '枚', group: '传音阵', dm: '密音', voice: '留音', photo: '留影', video: '流影',
+        terms: Object.freeze({ device: '传音卷轴', deviceMw: '卷', group: '传音阵', dm: '密音', voice: '留音', photo: '留影', video: '流影',
             voiceCall: '千里传音', videoCall: '水镜传影', pay: '转送灵石', nudge: '隔空轻叩', recall: '收回', loc: '方位', file: '文书',
-            link: '玉简拓本', contact: '名帖', music: '曲谱' }),
-        grammar: Object.freeze({ via: '借{device}', lens: '{device}', ringing: '{device}还在震动时', screenAt: '{device}里', holder: '{device}',
+            link: '抄本', contact: '名帖', music: '曲谱' }),
+        grammar: Object.freeze({ via: '借{device}', lens: '{device}', ringing: '{device}还在发光时', screenAt: '{device}里', holder: '{device}',
             capture: '摄下', capturer: '摄下它的人', selfie: '照见自己', callVerb: '发起', callTo: '向「{name}」发起',
             callEither: '发起{voiceCall}或{videoCall}', typeVerb: '写', typedChat: '写字传书', nudgeAct: '隔空轻叩一下', payNoun: '送来的灵石',
             stMissed: '没有回音', stCancel: '没等回音就收了', stReject: '被拒了', stDone: '接上了', stDur: '传音', fwdVerb: '转述',
@@ -21252,7 +22303,7 @@ function soWyWordCheck(id, word, terms) {
     const today = THEATER_WEIYU_WORD_SETS.modern.terms;
     if (soWyOwn(today, id) && w === today[id]) return null;
     if (id === 'deviceMw') return null;
-    const reserved = soWyWordsReserved();
+    const reserved = soWyWordsReserved().concat(THEATER_WEIYU_WORDS_RESERVED_UP);
     if (reserved.includes(w)) return { why: 'taken', w };
     const tag = THEATER_WEIYU_WORDS_TAGKEYS.includes(id);
     if (tag) {
@@ -21641,7 +22692,9 @@ function soWyOverlay(at, text, words) {
     let out = String(text == null ? '' : text);
     const rows = typeof THEATER_WEIYU_WORD_OVERLAY_PHONE !== 'undefined' ? THEATER_WEIYU_WORD_OVERLAY.concat(THEATER_WEIYU_WORD_OVERLAY_PHONE) : THEATER_WEIYU_WORD_OVERLAY;
     // sync every N (2026-11-21): the multi-floor sync variant's own row, after the phone rows (its `at` matches nothing else)
-    for (const r of typeof THEATER_WEIYU_WORD_OVERLAY_SYNC_MULTI !== 'undefined' ? rows.concat(THEATER_WEIYU_WORD_OVERLAY_SYNC_MULTI) : rows) {
+    const rows2 = typeof THEATER_WEIYU_WORD_OVERLAY_SYNC_MULTI !== 'undefined' ? rows.concat(THEATER_WEIYU_WORD_OVERLAY_SYNC_MULTI) : rows;
+    // phone upgrades (2026-11-22): the new texts' own rows, last (their `at`s match nothing else)
+    for (const r of typeof THEATER_WEIYU_WORD_OVERLAY_UP !== 'undefined' ? rows2.concat(THEATER_WEIYU_WORD_OVERLAY_UP) : rows2) {
         if (r.at !== at || r.stage !== words.stage) continue;
         const filled = soWyOverlayFill(r.put, words);
         if (filled !== null) out = out.split(r.find).join(filled);
@@ -21653,7 +22706,7 @@ function soWyNoteTables(words) {
     if (!soWyIsObj(words)) {
         return { head: THEATER_WEIYU_NOTE_HEAD, line: THEATER_WEIYU_NOTE_LINE, L: THEATER_WEIYU_NOTE_LABELS, C: THEATER_WEIYU_NOTE_CARD,
             E: THEATER_WEIYU_NOTE_EVENT, call: THEATER_WEIYU_CALL_KIND, cards: THEATER_WEIYU_CARD_WORDS, recallMe: THEATER_WEIYU_RECALL_ME,
-            ownWhy: THEATER_WEIYU_OWN_WHY.model, callT: THEATER_WEIYU_NOTE_CALL };
+            ownWhy: THEATER_WEIYU_OWN_WHY.model, callT: THEATER_WEIYU_NOTE_CALL, U: THEATER_WEIYU_NOTE_UP, upKind: THEATER_WEIYU_NOTE_UP_KIND };
     }
     const tab = (name, obj) => {
         const o = {};
@@ -21671,6 +22724,12 @@ function soWyNoteTables(words) {
         recallMe: soWyOverlay('THEATER_WEIYU_RECALL_ME', THEATER_WEIYU_RECALL_ME, words),
         ownWhy: soWyOverlay('THEATER_WEIYU_OWN_WHY.model', THEATER_WEIYU_OWN_WHY.model, words),
         callT: tab('THEATER_WEIYU_NOTE_CALL', THEATER_WEIYU_NOTE_CALL),
+        // phone upgrades: the sticker row borrows the set's word for 照片, the voice message its word for 语音 (empty / refused → today's word)
+        U: tab('THEATER_WEIYU_NOTE_UP', THEATER_WEIYU_NOTE_UP),
+        upKind: {
+            sticker: soWyIsObj(words.terms) && soWyWordsSafe(words.terms.photo) ? soWyWordsSafe(words.terms.photo) : THEATER_WEIYU_NOTE_UP_KIND.sticker,
+            say: soWyIsObj(words.terms) && soWyWordsSafe(words.terms.voice) ? soWyWordsSafe(words.terms.voice) : THEATER_WEIYU_NOTE_UP_KIND.say,
+        },
     };
 }
 
@@ -21977,6 +23036,14 @@ function soWyChatRef(state, chat) {
 function soWyLogLine(state, m, o) {
     if (!soWyIsObj(m) || m.refused === 1) return null;
     const nm = (pid) => soWyFlat(soWyPersonName(state, pid));
+    // phone upgrades: a reacted line carries 「（江野、林小满回应了😂）」 per emoji after it (THEATER_WEIYU_LOG_REACT); none → today's line
+    const reacts = soWyReactList(m);
+    if (reacts.length) {
+        const bare = Object.assign({}, m);
+        delete bare.re;
+        const line = soWyLogLine(state, bare, o);
+        return line ? line + reacts.map((g) => THEATER_WEIYU_LOG_REACT.split('{names}').join(g.pids.map(nm).join('、')).split('{em}').join(g.em)).join('') : line;
+    }
     if (m.t === 'text') {
         const card = soWyCardNorm(m.card);
         if (card) return nm(m.u) + '〔' + THEATER_WEIYU_CARD_WORDS[card.k] + '〕：' + soWyField(card.title) + (card.sub ? '｜' + soWyField(card.sub) : '');
@@ -21986,13 +23053,20 @@ function soWyLogLine(state, m, o) {
             const from = soWyTagSafe(fwd.from).replace(/[「」]/g, '');
             return nm(m.u) + '〔转发 「' + from + '」〕：' + fwd.lines.map((l) => (l.name ? fx(l.name) + '：' : '') + fx(l.v)).join('／');
         }
+        // phone upgrades: a sticker 「名字〔表情包〕：无语（面无表情，头顶一排省略号）」 (no desc → no brackets part) — the shape the parser reads
+        // back with ctx.stk; the same under every word set (a format token). A state without stk prints as today.
+        const stk = soWyStkNorm(m.stk);
+        if (stk) return nm(m.u) + '〔表情包〕：' + soWyFlat(stk.name) + (stk.desc ? '（' + soWyFlat(stk.desc) + '）' : '');
         // phase 2 (2026-11-17): a call record `〔语音通话〕甲 → 乙｜未接` (｜已取消 · ｜已拒绝 · ｜12:07｜一句话 · ｜已接通); a transfer
         // `甲〔转账 200〕：附言` (no amount → 〔转账〕, no 附言 → no colon); an answer `乙〔收款〕：一句话` / `乙〔退回〕` — the shapes the parser
         // reads back. A transfer names no recipient: it lives in a private chat, so it is the other member.
         const call = soWyCallNorm(m.call);
         if (call) {
             const st = call.st === 'done' || call.st === 'live' ? (call.dur || THEATER_WEIYU_CALL_ST.done) + (call.gist ? '｜' + soWyField(call.gist) : '') : THEATER_WEIYU_CALL_ST[call.st];
-            const rec = '〔' + THEATER_WEIYU_CALL_KIND[call.mode] + '〕' + nm(m.u) + (typeof m.to === 'string' && m.to ? ' → ' + nm(m.to) : '') + '｜' + st;
+            const rec0 = '〔' + THEATER_WEIYU_CALL_KIND[call.mode] + '〕' + nm(m.u) + (typeof m.to === 'string' && m.to ? ' → ' + nm(m.to) : '') + '｜' + st;
+            // phone upgrades (incoming calls): her words on a missed / declined call to the player 「…｜已拒绝（留言：…）」 (THEATER_WEIYU_LOG_SAY);
+            // a record without them prints as today; an answered call prints its transcript (her first line = say)
+            const rec = (call.st === 'missed' || call.st === 'reject') && call.say ? rec0 + THEATER_WEIYU_LOG_SAY.split('{v}').join(soWyFlat(call.say)) : rec0;
             const said = Array.isArray(call.turns) ? soWyCallSaid(state, call, 'log') : [];
             if (!said.length) return rec;
             const cn = soWyIsObj(o) && Number.isFinite(o.callLines) && o.callLines >= 0 ? Math.floor(o.callLines) : THEATER_WEIYU_CALL_CAP.logOther;
@@ -22110,12 +23184,41 @@ function soWyFindPrompt(state, words) {
     return { system: THEATER_WEIYU_P_FIND, user };
 }
 
+// ---- status and signature (phone upgrades 2026-11-22, spec §9.3): the 【人】 row's status segment -------------------------------------------
+// With o.status = {floor} (args.status ← deps.status ← the join's ENABLE_THR_WEIYU_STATUS; floor = the story floor now, null = no backstop)
+// a contact's row gains 「｜此刻：…」 (what the person is doing right now) right after the signature segment, only while soWyStatusOf is
+// non-empty. FROZEN 2026-11-23 by gm-upgrades (check P6; sha256 pinned in weiyu-prompts-pin.test.mjs, tenth freeze; a byte change = re-run that gm-upgrades check). Was 「状态：」 before the pre-confirmation round — probe P6 showed the row's word did not
+// say what the field is (gm-upgrades/PREREG.md Log).
+const THEATER_WEIYU_BRIEF_STATUS = '此刻：{v}';   // FROZEN (gm-upgrades P6)
+
+// args.status → {floor} | null: an object {floor} (soWyCall), or true (a rig / test: no backstop). Anything else → null = today's request.
+function soWyStatusArg(a) {
+    if (!soWyIsObj(a)) return null;
+    if (a.status === true) return { floor: null };
+    if (!soWyIsObj(a.status)) return null;
+    const f = Number(a.status.floor);
+    return { floor: a.status.floor != null && Number.isFinite(f) ? f : null };
+}
+
+// The brief's trailing option from the args: {ac?: true, status?: {floor}} or undefined (neither = today's rows, byte for byte).
+function soWyBriefOpt(a) {
+    const ac = soWyIsObj(a) && a.ac === true;
+    const st = soWyStatusArg(a);
+    if (!ac && !st) return undefined;
+    const o = {};
+    if (ac) o.ac = true;
+    if (st) o.status = st;
+    return o;
+}
+
 // words (optional): the phone-stage set (soWyPhoneWords) — only the owner row changes (row 7); every 【人】【群】【私聊】 row as today.
-// o (optional, trailing): {ac: true} → the 【人】 rows of hand-added people carry their marker / 人物说明 (above); anything else = today's rows.
+// o (optional, trailing): {ac: true} → the 【人】 rows of hand-added people carry their marker / 人物说明 (above); {status: {floor}} → a
+// contact's current status (above); anything else = today's rows.
 function soWyBrief(state, words, o) {
     try {
         if (!soWyIsObj(state) || !soWyIsObj(state.people) || !soWyIsObj(state.chats)) return '';
         const ac = soWyIsObj(o) && o.ac === true ? soWyAcWords() : null;
+        const stAt = soWyIsObj(o) && soWyIsObj(o.status) ? o.status : null;
         const meName = soWyFlat(soWyPersonName(state, THEATER_WEIYU_ME));
         const out = [soWyWordsAt('THEATER_WEIYU_OWNER_LINE', THEATER_WEIYU_OWNER_LINE, soWyPhoneWords(words)).split('{me}').join(meName)];
         for (const pid of Object.keys(state.people)) {
@@ -22123,6 +23226,10 @@ function soWyBrief(state, words, o) {
             if (!p || pid === THEATER_WEIYU_ME || p.extra || p.gone === 1) continue;   // gone = removed from the contacts
             let line = '【人】' + soWyField(p.name);
             if (typeof p.sig === 'string' && p.sig.trim()) line += '｜签名：' + soWyField(p.sig);
+            if (stAt) {
+                const sv = soWyStatusOf(state, pid, stAt.floor);
+                if (sv) line += '｜' + THEATER_WEIYU_BRIEF_STATUS.split('{v}').join(soWyField(sv));
+            }
             if (typeof p.area === 'string' && p.area.trim()) line += '｜简介：' + soWyField(p.area);
             if (ac && p.origin === 'new') line += '｜' + ac.mark;
             if (ac && typeof p.about === 'string' && p.about.trim()) line += '｜' + ac.about.split('{v}').join(soWyField(p.about));
@@ -22641,19 +23748,80 @@ const THEATER_WEIYU_P_SYNC_MULTI = Object.freeze({
 // it. flow.js hands it to deps.generate as req.divider = {at, text} (text = this, with the request's world words). Pinned with the variant.
 const THEATER_WEIYU_SYNC_DIVIDER = '—— 以上的剧情，手机已经跟上；以下的剧情，手机还没跟上 ——';
 
+// ---- status and signature (phone upgrades 2026-11-22, spec §9.1 / §17.18; map-request §5.3): the sync with a THIRD part -----------------------
+// Used ONLY with args.status (← deps.status ← the join's ENABLE_THR_WEIYU_STATUS); without it every text above goes out exactly as frozen.
+// FROZEN 2026-11-23 by gm-upgrades (check P5; sha256 pinned in weiyu-prompts-pin.test.mjs, tenth freeze; a byte change = re-run that gm-upgrades check). Built from the frozen texts so their lines stay byte for byte:
+//   P_SYNC_UP       = P_SYNC's lines 1 and 3 verbatim; line 2 says 分三部分 (… 再是这一楼里人的变化); then the people's situations; then the
+//                     「三部分怎么写」 hand-over. Line 2 keeps 「这一楼在手机上带来的变化」, so the world-words row of THEATER_WEIYU_P_SYNC applies.
+//   P_SYNC_MULTI_UP = the N ≥ 2 leads (line 1 of each verbatim; line 2 says 分三部分) and the 这一楼 → 这几楼 swaps: the frozen group pair + a
+//                     pair for the third part's rule line. The leads keep 「在手机上带来的变化」 / 「手机还没跟上」 / 「手机都还没跟上」 (the
+//                     THEATER_WEIYU_P_SYNC_MULTI rows apply).
+//   P_SYNC_FORM_UP  = the frozen form + the 「=== 人的变化 ===」 section right before 「=== 完 ===」, its rule line after the other parts' rules
+//                     (before the start rule), and the last line saying 三部分.
+const THEATER_WEIYU_P_SYNC_UP = (() => {
+    const L = THEATER_WEIYU_P_SYNC.split('\n');
+    return [
+        L[0],
+        '这份回复只写这一楼在手机上带来的变化，分三部分：先是群的变化，再是被这一楼牵动的聊天里的新消息，再是这一楼里人的变化。',
+        L[2],
+        '人的变化有两种：这一楼写到有人正忙着一件事、顾不上看消息（打斗、睡着、赶路、闭关），是他此刻的状态；有人经历了大事，改了个性签名。',
+        '三部分怎么写，见这份请求的最后。',
+    ].join('\n');
+})();
+const THEATER_WEIYU_P_SYNC_MULTI_UP = Object.freeze({
+    lead: Object.freeze([
+        THEATER_WEIYU_P_SYNC_MULTI.lead[0],
+        '这份回复只写线以下的剧情在手机上带来的变化，分三部分：先是群的变化，再是被牵动的聊天里的新消息，再是线以下的剧情里人的变化。',
+    ]),
+    leadAll: Object.freeze([
+        THEATER_WEIYU_P_SYNC_MULTI.leadAll[0],
+        '这份回复只写这些剧情在手机上带来的变化，分三部分：先是群的变化，再是被牵动的聊天里的新消息，再是这些剧情里人的变化。',
+    ]),
+    none: Object.freeze([THEATER_WEIYU_P_SYNC_MULTI.none, Object.freeze(['这一楼没有人的变化', '这几楼没有人的变化'])]),
+});
+// FROZEN 2026-11-23 by gm-upgrades (check P5; written 2026-11-22 before any call, review A m-1) — the people's situations for an N ≥ 2 sync: P_SYNC_UP's sentence names 「这一楼」,
+// the frozen multi-floor leads never do. Same sentence, its floor words in the leads' own terms: lead (the divider) 「线以下的剧情里写到」,
+// leadAll 「这些剧情里写到」 (2026-11-23 [tuning] P5: 「写到」 ties a status to what the story text shows); the rest byte for byte. soWySyncLead puts it in place of P_SYNC_UP's line 4 when n ≥ 2.
+const THEATER_WEIYU_P_SYNC_MULTI_UP_WHO = (() => {
+    const s = THEATER_WEIYU_P_SYNC_UP.split('\n')[3];
+    return Object.freeze({ lead: s.split('这一楼写到有人正忙着').join('线以下的剧情里写到有人正忙着'), leadAll: s.split('这一楼写到有人正忙着').join('这些剧情里写到有人正忙着') });
+})();
+const THEATER_WEIYU_P_SYNC_FORM_UP = (() => {
+    const L = THEATER_WEIYU_P_SYNC_FORM.split('\n');
+    const end = L.indexOf('=== 完 ===');
+    const start = L.findIndex((l) => l.startsWith('回复必须以'));
+    return L.slice(0, end).concat([
+        '=== 人的变化 ===',
+        '状态｜〈名字〉｜〈此刻正在做的事，八个字以内〉',
+        '状态｜〈名字〉｜无',
+        '签名｜〈名字〉｜〈新的个性签名〉',
+    ], L.slice(end, start), [
+        '第三部分一行一个变化，只用上面三种行；这一楼没有人的变化，第三部分就只写一行：无',
+    ], L.slice(start, -1), [
+        '检查三部分和「=== 完 ===」是否都已输出，再决定是否结束输出。',
+    ]).join('\n');
+})();
+
 // The sync lead for n floors: n ≥ 2 → the variant (divided: the divider lead, else the whole-history lead; + P_SYNC's lines 3–4);
-// otherwise THEATER_WEIYU_P_SYNC itself.
-function soWySyncLead(n, divided) {
-    if (!(Number.isSafeInteger(n) && n >= 2)) return THEATER_WEIYU_P_SYNC;
-    const M = THEATER_WEIYU_P_SYNC_MULTI;
-    return (divided === true ? M.lead : M.leadAll).concat(THEATER_WEIYU_P_SYNC.split('\n').slice(2)).join('\n');
+// otherwise THEATER_WEIYU_P_SYNC itself. up === true (args.status, phone upgrades) → the three-part twins (P_SYNC_UP lines 3–5 after the
+// N ≥ 2 lead); absent = today's bytes.
+function soWySyncLead(n, divided, up) {
+    const lead = up === true ? THEATER_WEIYU_P_SYNC_UP : THEATER_WEIYU_P_SYNC;
+    if (!(Number.isSafeInteger(n) && n >= 2)) return lead;
+    const M = up === true ? THEATER_WEIYU_P_SYNC_MULTI_UP : THEATER_WEIYU_P_SYNC_MULTI;
+    const rest = lead.split('\n').slice(2);
+    if (up === true) rest[1] = divided === true ? THEATER_WEIYU_P_SYNC_MULTI_UP_WHO.lead : THEATER_WEIYU_P_SYNC_MULTI_UP_WHO.leadAll;   // the N ≥ 2 situations (frozen, gm-upgrades P5)
+    return (divided === true ? M.lead : M.leadAll).concat(rest).join('\n');
 }
 
 // The sync form for n floors: n ≥ 2 → P_SYNC_FORM with its one-floor phrase swapped; otherwise THEATER_WEIYU_P_SYNC_FORM itself.
-function soWySyncForm(n) {
-    if (!(Number.isSafeInteger(n) && n >= 2)) return THEATER_WEIYU_P_SYNC_FORM;
-    const [one, many] = THEATER_WEIYU_P_SYNC_MULTI.none;
-    return THEATER_WEIYU_P_SYNC_FORM.split(one).join(many);
+// up === true → P_SYNC_FORM_UP with both one-floor phrases swapped (P_SYNC_MULTI_UP.none); absent = today's bytes.
+function soWySyncForm(n, up) {
+    const form = up === true ? THEATER_WEIYU_P_SYNC_FORM_UP : THEATER_WEIYU_P_SYNC_FORM;
+    if (!(Number.isSafeInteger(n) && n >= 2)) return form;
+    let out = form;
+    for (const [one, many] of up === true ? THEATER_WEIYU_P_SYNC_MULTI_UP.none : [THEATER_WEIYU_P_SYNC_MULTI.none]) out = out.split(one).join(many);
+    return out;
 }
 
 // DRAFT 2026-11-16 (pending the owner's eye) — the dice paragraph: soWyCall rolls 0 / 1 / 2 kinds per request (flow.js
@@ -22731,9 +23899,41 @@ const THEATER_WEIYU_PEND_BLOCK_HOLD = '写法：{name}顶多一两句带过，�
 // Not for group (proven as is in W-reply-v2 / W-sync-v2…v4), sync (many chats by nature; it ends with P_SYNC_FORM), boot / sum. FROZEN 2026-11-15 (W-reply-v5:
 // off-chat 0 / 8; the composition accepted by Prince; sha256 pinned).
 const THEATER_WEIYU_P_TARGET = '这份回复的每一行都属于「{chat}」这个聊天，其他聊天这一次保持原样。';
+// FROZEN 2026-11-23 by gm-upgrades (check P6, its [tuning]; sha256 pinned in weiyu-prompts-pin.test.mjs, tenth freeze; a byte change = re-run that gm-upgrades check) — one more line right after P_TARGET, only when the target is the player's private chat and
+// its other member has a live status (args.status → soWyStatusOf): what kind of reply this can be. {name} = that member, {v} = the status.
+// Absent status (and every request without args.status) → no line, the request byte for byte as before.
+const THEATER_WEIYU_P_TARGET_STATUS = '「{name}」此刻：{v}。这一次「{name}」的回复，可以是刚醒过来、或从手头的事里抽空回的，来得慢，话也短。';
 
 // FROZEN 2026-11-15 (sha256 pinned in weiyu-prompts-pin.test.mjs; a byte change = re-run its probe)
 const THEATER_WEIYU_P_STEAL_ON ='回复里可以有几条「{me}」自己发的消息，口吻像他平时，只占这批消息的少数；要他拿主意的回答（答应、拒绝、约定）留给玩家来发。';
+
+// ---- phone upgrades (2026-11-22, spec docs/superpowers/specs/2026-11-22-phone-upgrades-design.md §5.4) — FROZEN 2026-11-23 by gm-upgrades
+// (checks P1 / P2 / P3 / CX; sha256 pinned in weiyu-prompts-pin.test.mjs, tenth freeze; a byte change = re-run that gm-upgrades check). The sticker offer's moment (the dice kind 'sticker', soWyCall's extra draw) joins the paragraph like the event moments;
+// the list line (名字（心情）, joined by 、) follows the paragraph as its own line. Both stay modern under every word set (a format token and a
+// 「（写成 …）」 tail are never replaced in the phone's requests).
+const THEATER_WEIYU_DICE_STK_MOMENT = '有人发一张表情包——一张图比打字更到位的时候（写成 甲〔表情包〕：名字，名字从下面选）'; // FROZEN (gm-upgrades P1)
+const THEATER_WEIYU_DICE_STK_LIST = '可选的表情包：{list}'; // FROZEN (gm-upgrades P1)
+// The emoji kind's moment when reactions are on (deps.react → args.react): the pinned THEATER_WEIYU_DICE_MOMENTS.emoji stays as it is.
+const THEATER_WEIYU_DICE_EMOJI_REACT = '有人只回一个表情——一张脸就说得清的反应；也可以把表情贴在前面某一句上（写成 甲〔回应 😂〕：别人说过的那一句开头的几个字）'; // FROZEN (gm-upgrades P2; 2026-11-23 pre-confirmation: 「那一句」 → 「别人说过的那一句」)
+// The log's suffix on a reacted line, one group per emoji (names joined by 、), always when the message has reactions — the same under
+// every word set. A phone without reactions prints as today.
+const THEATER_WEIYU_LOG_REACT = '（{names}回应了{em}）'; // FROZEN (gm-upgrades P6)
+// Incoming calls (spec §7.1; deps.incall → args.callIn, only when the call kind was rolled): the event kind `call`'s moment = the pinned
+// THEATER_WEIYU_DICE_EV_MOMENTS.call with one shape for a call TO the player inserted before its closing ）; {me} = the owner's name, filled
+// for this constant only. Read with the pinned moment's `at` string, so its set wording (the overlay row) still applies; the tail stays modern.
+const THEATER_WEIYU_DICE_EV_CALL_IN = '有人打语音或视频通话——事情急，或想听听声音（写成 〔视频通话〕甲 → 乙｜未接，接通了把未接写成 3:12｜说了什么；甲有话想现在就对「{me}」说出口，打给「{me}」的写成 〔语音通话〕甲 → {me}｜响铃｜〈接通后甲开口说的第一句话〉，这一行就是这个聊天的最后一行（接不接由「{me}」定））'; // FROZEN (gm-upgrades P3, ON by Prince's override; its [tuning]: when a call to him belongs, the ring line ends the chat)
+
+// The dice paragraph's options from a request's args (soWyPromptBuild): x.stk = {names} (args.stk, a sticker offered) · x.react (args.react) ·
+// x.callIn = {me} (args.callIn === true; me = the request's owner name, the 2nd argument). Nothing → undefined, and soWyDiceText is called
+// exactly as before.
+function soWyDiceX(a, me) {
+    if (!soWyIsObj(a)) return undefined;
+    const x = {};
+    if (soWyIsObj(a.stk) && Array.isArray(a.stk.names)) x.stk = { names: a.stk.names };
+    if (a.react === true) x.react = true;
+    if (a.callIn === true) x.callIn = { me: typeof me === 'string' && me ? me : '我' };
+    return Object.keys(x).length ? x : undefined;
+}
 
 // The owner's name as the prompts write it ('我' when the state has none).
 function soWyPromptMe(state) {
@@ -22764,7 +23964,9 @@ function soWyPromptKind(kind, plan) {
 // sync tail (who and in which chat), send / more / regen → the one-chat tail; boot (2026-11-18) → the sync tail; group / sum → empty always. Unknown kinds are
 // skipped, a repeat counts once; the order is the roll's. words (optional, trailing; world wording step 2): the phone-stage set — each
 // moment's prose through its overlay rows (rows 8–14; the 「（写成 …）」 tails, HEAD / JOIN / TAIL and the other moments as today).
-function soWyDiceText(kind, kinds, words) {
+// x (phone upgrades; optional, 4th): {stk?: {names: Sticker[]}, react?: true, callIn?: {me}} — x.stk gives the kind 'sticker' its moment
+// (THEATER_WEIYU_DICE_STK_MOMENT) and appends the list line right after the paragraph. Absent = today's output, byte for byte.
+function soWyDiceText(kind, kinds, words, x) {
     try {
         const w = soWyPhoneWords(words);
         // 开机 (owner 2026-11-18, "allow it"): the sync tail — many chats, who and in which chat (the frozen texts, untouched)
@@ -22774,12 +23976,20 @@ function soWyDiceText(kind, kinds, words) {
         const list = [];
         // phase 2: an event kind's moment comes from THEATER_WEIYU_DICE_EV_MOMENTS (frozen); the live kinds read the pinned table as before
         // phase 3: `fwd` from THEATER_WEIYU_DICE_EV_MOMENTS_P3 (frozen after probe gm-fwd)
-        const moment = (k) => (soWyOwn(THEATER_WEIYU_DICE_MOMENTS, k) ? soWyWordsAt('THEATER_WEIYU_DICE_MOMENTS.' + k, THEATER_WEIYU_DICE_MOMENTS[k], w)
+        const moment0 = (k) => (soWyOwn(THEATER_WEIYU_DICE_MOMENTS, k) ? soWyWordsAt('THEATER_WEIYU_DICE_MOMENTS.' + k, THEATER_WEIYU_DICE_MOMENTS[k], w)
             : (soWyOwn(THEATER_WEIYU_DICE_EV_MOMENTS, k) ? soWyWordsAt('THEATER_WEIYU_DICE_EV_MOMENTS.' + k, THEATER_WEIYU_DICE_EV_MOMENTS[k], w)
                 : (soWyOwn(THEATER_WEIYU_DICE_EV_MOMENTS_P3, k) ? soWyWordsAt('THEATER_WEIYU_DICE_EV_MOMENTS_P3.' + k, THEATER_WEIYU_DICE_EV_MOMENTS_P3[k], w) : '')));
+        const xo = soWyIsObj(x) ? x : {};
+        const names = soWyIsObj(xo.stk) && Array.isArray(xo.stk.names) ? xo.stk.names.map(soWyStkNorm).filter(Boolean) : [];
+        const callMe = soWyIsObj(xo.callIn) && typeof xo.callIn.me === 'string' && xo.callIn.me ? soWyFlat(xo.callIn.me) : '';
+        const moment = (k) => (k === 'sticker' ? (names.length ? THEATER_WEIYU_DICE_STK_MOMENT : '')
+            : (k === 'emoji' && xo.react === true ? THEATER_WEIYU_DICE_EMOJI_REACT
+                : (k === 'call' && callMe ? soWyWordsAt('THEATER_WEIYU_DICE_EV_MOMENTS.call', THEATER_WEIYU_DICE_EV_CALL_IN, w).split('{me}').join(callMe) : moment0(k))));
         for (const k of kinds) if (typeof k === 'string' && moment(k) && !list.includes(k)) list.push(k);
         if (!list.length) return '';
-        return THEATER_WEIYU_DICE_HEAD + '可以' + list.map(moment).join(THEATER_WEIYU_DICE_JOIN) + tail;
+        const para = THEATER_WEIYU_DICE_HEAD + '可以' + list.map(moment).join(THEATER_WEIYU_DICE_JOIN) + tail;
+        if (!list.includes('sticker')) return para;
+        return para + '\n' + THEATER_WEIYU_DICE_STK_LIST.split('{list}').join(names.map((n) => (n.mood ? n.name + '（' + n.mood + '）' : n.name)).join('、'));
     } catch (e) {
         return '';
     }
@@ -22914,7 +24124,8 @@ function soWyPromptBuild(kind, state, a) {
     // before {me} / {chat} and every name, log, summary and notice are filled in by the code below. 总结 included (root's ruling A6).
     const words = soWyPhoneWords(a.words);
     // adding contacts by hand (deps.ac → args.ac): the 【人】 rows of hand-added people carry their marker / 人物说明; not true = the brief as before
-    const ac = a.ac === true ? { ac: true } : undefined;
+    // phone upgrades: args.status ({floor}, deps.status) → the rows carry a contact's current status (soWyBriefOpt); neither → undefined
+    const ac = soWyBriefOpt(a);
     const plan = kind === 'regen' ? soWyRegenPlan(state, a.cid, a.mid) : null;
     const own = soWyPromptKind(kind, plan);
     if (!own) return { system: '', user: '' };
@@ -22923,7 +24134,9 @@ function soWyPromptBuild(kind, state, a) {
     // the frozen lead and form, byte for byte
     const multi = kind === 'sync' && Number.isSafeInteger(a.n) && a.n >= 2 ? a.n : 0;
     const ownAt = kind === 'boot' ? 'THEATER_WEIYU_P_BOOT' : (kind === 'sync' ? (multi ? 'THEATER_WEIYU_P_SYNC_MULTI' : 'THEATER_WEIYU_P_SYNC') : '');
-    const ownText = multi ? soWySyncLead(multi, Number.isSafeInteger(a.at)) : own;
+    // status and signature (args.status, phone upgrades): a sync names a THIRD part (soWySyncLead / soWySyncForm's up); absent → the frozen bytes
+    const up3 = kind === 'sync' && !!soWyStatusArg(a);
+    const ownText = up3 ? soWySyncLead(multi, Number.isSafeInteger(a.at), true) : (multi ? soWySyncLead(multi, Number.isSafeInteger(a.at)) : own);
     const parts = words ? [soWyWordsAt('THEATER_WEIYU_P_COMMON', THEATER_WEIYU_P_COMMON, words), THEATER_WEIYU_P_FORMAT, ownAt ? soWyWordsAt(ownAt, ownText, words) : ownText]
         : [THEATER_WEIYU_P_COMMON, THEATER_WEIYU_P_FORMAT, ownText];
     const bound = kind === 'send' || kind === 'more' || kind === 'group' || kind === 'regen';
@@ -22960,20 +24173,31 @@ function soWyPromptBuild(kind, state, a) {
         user = [soWyBrief(state, words, ac), soWyOthers(state, a.cid), log].filter(Boolean).join('\n\n');
     }
     // the dice (args.kinds, rolled once per call by soWyCall): [] / missing = no paragraph = the request byte for byte without it
-    const dice = soWyDiceText(kind, a.kinds, words);
+    // phone upgrades: the paragraph's options (args.stk …, soWyDiceX); none → the call exactly as before
+    const dx = soWyDiceX(a, me);
+    const dice = dx ? soWyDiceText(kind, a.kinds, words, dx) : soWyDiceText(kind, a.kinds, words);
     // phase 2: the pending-state block (args.pending, soWyPendingText — built by soWyCall, or by a rig): sync — right before the dice;
     // send / more / regen — right after the log (follow-up (d), below). sync / send / more / regen only. Missing / '' = byte for byte without it.
     const pend = typeof a.pending === 'string' && (kind === 'sync' || kind === 'send' || kind === 'more' || kind === 'regen') ? a.pending : '';
     if (kind === 'sync') {
         // round 3 "the form": the heading hand-over · the sync 防抢话 block (抢话 off) · the dice · the strict form, LAST
         const heads = [THEATER_WEIYU_P_SYNC_HEADS_INTRO].concat(soWySyncHeads(state), [THEATER_WEIYU_P_SYNC_HEADS_NEW]).join('\n');
-        user = [user, heads.split('{me}').join(me), offBlock, pend, dice, soWySyncForm(multi).split('{me}').join(me)].filter(Boolean).join('\n\n');
+        user = [user, heads.split('{me}').join(me), offBlock, pend, dice, (up3 ? soWySyncForm(multi, true) : soWySyncForm(multi)).split('{me}').join(me)].filter(Boolean).join('\n\n');
         return { system, user };
     }
     // round 5: send / more / regen close the request by naming the target chat (after the 抢话-off block when 抢话 is off); the
     // dice paragraph, when rolled, follows it
     const ref = kind === 'send' || kind === 'more' || kind === 'regen' ? soWyChatRef(state, chat) : '';
-    const target = ref ? THEATER_WEIYU_P_TARGET.split('{chat}').join(ref) : '';
+    // phone upgrades (args.status; frozen, gm-upgrades P6): the player's private chat whose other member has a live status → THEATER_WEIYU_P_TARGET_STATUS
+    // after the target line; none → the target line alone, as before
+    let busy = '';
+    const stT = ref ? soWyStatusArg(a) : null;
+    if (stT && chat && chat.type === 'dm' && Array.isArray(chat.members) && chat.members.length === 2 && chat.members.includes(THEATER_WEIYU_ME)) {
+        const her = chat.members.find((p) => p !== THEATER_WEIYU_ME);
+        const sv = soWyStatusOf(state, her, stT.floor);
+        if (sv) busy = THEATER_WEIYU_P_TARGET_STATUS.split('{name}').join(soWyField(soWyPersonName(state, her))).split('{v}').join(soWyField(sv));
+    }
+    const target = ref ? THEATER_WEIYU_P_TARGET.split('{chat}').join(ref) + (busy ? '\n' + busy : '') : '';
     // follow-up (d), probe gm-events AMEND-2 "V1" (root 2026-11-17): the pending block right after the chat log, BEFORE the 抢话-off block —
     // the request then ends exactly as one with nothing pending (DeepSeek wrote lines as the player with the block at the very end)
     user = [user, pend, offBlock, target, dice].filter(Boolean).join('\n\n');
@@ -23021,6 +24245,18 @@ const THEATER_WEIYU_CALL_STEP = { ring: '正在响铃', live: '已接通' };
 // DRAFT 2026-11-18 (root's ruling on what later requests see; not model-probed): a video turn's picture in a LATER log is its own line in
 // （） — a bare 「画面：…」 there would read as a speaker named 画面 in the 名字：话 log format; in the live request it stays the probe's 画面：….
 const THEATER_WEIYU_CALL_PIC = '（画面：{v}）';
+// ---- phone upgrades (2026-11-22, spec §7.3 / §17.7 / §17.8): HER call to the player, answered — FROZEN 2026-11-23 by gm-upgrades
+// (check P4; sha256 pinned in weiyu-prompts-pin.test.mjs, tenth freeze; a byte change = re-run that gm-upgrades check). The record keeps its true direction (u = her, to = 'me'); its START (no words of hers stored) and every TURN read:
+//   system = CALL_LEAD_IN (the frozen CALL_LEAD stays HIS call's lead) · the head = the frozen CALL_HEAD with the names swapped
+//   (〔语音通话〕她 → 我｜已接通 — he has picked up, so never 正在响铃) · the form = CALL_FORM_IN[mode] = the frozen CALL_FORM[mode] minus its
+//   「电话还在响时不接…」 line (she is the caller: no decline lines in this direction), LAST.
+const THEATER_WEIYU_CALL_LEAD_IN = '这一次是「{name}」打给「{me}」的{mode}，「{me}」刚接起来，不是打字聊天。'; // FROZEN (gm-upgrades P4)
+const THEATER_WEIYU_CALL_FORM_IN = { // FROZEN (gm-upgrades P4)
+    voice: '这份回复照下面的样子写，〈〉连同里面的字换成实际内容：\n{name}：（〈语气或听得到的声音，六个字以内，可省〉）〈说出口的话〉\n话 1–4 行，口语，不带表情符号、图片和打字的习惯；（）不必每行都有。\n通话由「{me}」来挂；「{name}」只有此刻非走不可，才在最后一行写：挂断\n回复里没有「{me}」的话。',
+    video: '这份回复照下面的样子写，〈〉连同里面的字换成实际内容：\n画面：〈「{me}」屏幕上此刻看到的；手机在「{name}」自己手里或架着〉\n{name}：（〈几个字的语气或听得到的声音，可省〉）〈说出口的话〉\n话 1–4 行，口语，不带表情符号、图片和打字的习惯；（）不必每行都有。\n通话由「{me}」来挂；「{name}」只有此刻非走不可，才在最后一行写：挂断\n回复里没有「{me}」的话。',
+};
+// A voice message's words after a missed / declined record in the phone's own log (spec §7.4 / §17.9: the same under every word set). FROZEN (gm-upgrades P6)
+const THEATER_WEIYU_LOG_SAY = '（留言：{v}）';
 
 // ---- world words, step 2: the phone's own requests (ENABLE_THR_WEIYU_WORDS_PHONE; spec 2026-11-18-world-wording-design.md §2.2 S1–S15 / §3.1;
 // plan 2026-11-18-world-wording-2 C3 / C4) ----------------------------------------------------------------------------------------------
@@ -23066,6 +24302,14 @@ const THEATER_WEIYU_WORD_OVERLAY_SYNC_MULTI = Object.freeze([
     ['THEATER_WEIYU_P_SYNC_MULTI', '手机都还没跟上', '{w:device}都还没跟上', false, true],
     ['THEATER_WEIYU_SYNC_DIVIDER', '手机已经跟上', '{w:device}已经跟上', false, true],
     ['THEATER_WEIYU_SYNC_DIVIDER', '手机还没跟上', '{w:device}还没跟上', false, true],
+].map(([at, find, put, dir, fid]) => Object.freeze({ at, find, put, n: 1, stage: 2, dir, fid })));
+
+// FROZEN 2026-11-23 by gm-upgrades (check P4; sha256 pinned in weiyu-prompts-pin.test.mjs, tenth freeze; a byte change = re-run that gm-upgrades check; written 2026-11-22, spec §17.8): the overlay rows of the upgrades' NEW texts — a table of its own, so no pinned table changes;
+// note.js soWyOverlay reads it after the others (its `at`s are only ever the new constants'). Built from the word sets' EXISTING grammar
+// (no new grammar key): THEATER_WEIYU_CALL_LEAD_IN's callee is the player, so soWyCallPrompt hands this row the set's callTo phrase with its
+// callee slot pointed at {me} (「向「{name}」发起」 → 「向「{me}」发起」); with the 现代 words the row gives back today's phrase (fid).
+const THEATER_WEIYU_WORD_OVERLAY_UP = Object.freeze([
+    ['THEATER_WEIYU_CALL_LEAD_IN', '打给「{me}」的{mode}，「{me}」刚接起来，不是打字聊天', '{w:callTo}的{mode}，「{me}」刚接起来，不是{w:typedChat}', false, true],
 ].map(([at, find, put, dir, fid]) => Object.freeze({ at, find, put, n: 1, stage: 2, dir, fid })));
 
 // A call's transcript as lines: her spoken lines with their tags in （）, his lines, a VIDEO turn's picture before her words (how 'live' =
@@ -23151,13 +24395,26 @@ function soWyCallPrompt(state, a) {
     let mode = a.mode;
     let her = '';
     let turns = null;
-    if (typeof a.mid === 'string' && a.mid) {
+    // phone upgrades (incoming calls): HER call to the player — the incoming START (args.answer, her missed record picked up with no words of
+    // hers: soWyCallAnswer) or a TURN of a live call whose caller is not the player; her = the chat's other member. Absent = today's request.
+    let incoming = false;
+    if (typeof a.mid === 'string' && a.mid && a.answer === true) {
+        const inc = soWyCallIncoming(state, a.cid, a.mid);
+        if (!inc) return none;
+        mode = inc.mode;
+        her = inc.her;
+        turns = [];
+        incoming = true;
+        view = soWyClone(state);
+        view.chats[a.cid].msgs.splice(soWyMsgIndex(chat, a.mid), 1);
+    } else if (typeof a.mid === 'string' && a.mid) {
         const i = soWyCallLiveIdx(chat, a.mid);
         if (i < 0) return none;
         const m = chat.msgs[i];
         const call = soWyCallNorm(m.call);
         mode = call.mode;
-        her = typeof m.to === 'string' ? m.to : '';
+        incoming = m.u !== THEATER_WEIYU_ME;
+        her = incoming ? (Array.isArray(chat.members) ? chat.members.find((p) => p !== THEATER_WEIYU_ME) || '' : '') : (typeof m.to === 'string' ? m.to : '');
         turns = call.turns;
         view = soWyClone(state);
         view.chats[a.cid].msgs.splice(i, 1);
@@ -23167,7 +24424,11 @@ function soWyCallPrompt(state, a) {
     }
     if (!her || !soWyPerson(view, her)) return none;
     const vals = { me: soWyPromptMe(view), name: soWyFlat(soWyPersonName(view, her)), mode: THEATER_WEIYU_CALL_KIND[mode] };
-    const head = soWyTpl(THEATER_WEIYU_CALL_HEAD, Object.assign({ st: turns ? THEATER_WEIYU_CALL_STEP.live : THEATER_WEIYU_CALL_STEP.ring }, vals));
+    // her call: the frozen head with the names swapped (〔语音通话〕她 → 我｜已接通), the incoming lead and form (frozen constants above)
+    const head = soWyTpl(THEATER_WEIYU_CALL_HEAD, Object.assign({ st: turns ? THEATER_WEIYU_CALL_STEP.live : THEATER_WEIYU_CALL_STEP.ring },
+        incoming ? Object.assign({}, vals, { me: vals.name, name: vals.me }) : vals));
+    const LEAD = incoming ? THEATER_WEIYU_CALL_LEAD_IN : THEATER_WEIYU_CALL_LEAD;
+    const FORM = incoming ? THEATER_WEIYU_CALL_FORM_IN : THEATER_WEIYU_CALL_FORM;
     const said = turns ? soWyCallSaid(view, { mode, st: 'live', turns: turns.slice(-THEATER_WEIYU_CALL_CAP.turns) }, 'live') : [];
     // the memory slice (args.mem, root's ruling 2026-11-18): her chats through the membership windows ("ever a member"), the private chat's
     // last soWyMemKeepOpt lines; the call paragraph and the form are unchanged. Not true → the probe gm-callscene shape, byte for byte.
@@ -23175,19 +24436,23 @@ function soWyCallPrompt(state, a) {
     // 「电话还在响时」 / video picture slot (16–18) overlaid as templates. The {mode} split: the LEAD alone takes the set's call word; CALL_HEAD
     // (〔语音通话〕…, a record the reader reads) and CALL_FORM keep THEATER_WEIYU_CALL_KIND.
     const words = soWyPhoneWords(a.words);
-    const ac = a.ac === true ? { ac: true } : undefined;   // adding contacts by hand: the 【人】 rows' marker / 人物说明 (not true = as before)
+    const ac = soWyBriefOpt(a);   // + phone upgrades' args.status (soWyBriefOpt) · adding contacts by hand: the 【人】 rows' marker / 人物说明 (not true = as before)
     const ctx = a.mem === true
         ? [soWyBriefMem(view, a.cid, [her], words, ac), soWyOthersMem(view, a.cid, [her]), soWyLogMem(view, a.cid, { keep: soWyMemKeepOpt(view) })]
         : [soWyBriefFor(view, [her], words, ac), soWyOthersFor(view, a.cid, [her], Infinity), soWyLog(view, a.cid)];
     if (!words) {
-        const user = ctx.concat([[head].concat(said).join('\n'), soWyTpl(THEATER_WEIYU_CALL_FORM[mode], vals)]).filter(Boolean).join('\n\n');
-        return { system: soWyTpl(THEATER_WEIYU_CALL_LEAD, vals), user };
+        const user = ctx.concat([[head].concat(said).join('\n'), soWyTpl(FORM[mode], vals)]).filter(Boolean).join('\n\n');
+        return { system: soWyTpl(LEAD, vals), user };
     }
     const callWord = soWyIsObj(words.terms) ? soWyWordsSafe(words.terms[mode === 'video' ? 'videoCall' : 'voiceCall']) : '';
     const lead = Object.assign({}, vals, { mode: callWord || THEATER_WEIYU_CALL_KIND[mode] });
-    const form = soWyTpl(soWyWordsAt('THEATER_WEIYU_CALL_FORM.' + mode, THEATER_WEIYU_CALL_FORM[mode], words), vals);
+    const form = soWyTpl(soWyWordsAt('THEATER_WEIYU_CALL_FORM.' + mode, FORM[mode], words), vals);
     const user = ctx.concat([[head].concat(said).join('\n'), form]).filter(Boolean).join('\n\n');
-    return { system: soWyTpl(soWyWordsAt('THEATER_WEIYU_CALL_LEAD', THEATER_WEIYU_CALL_LEAD, words), lead), user };
+    if (!incoming) return { system: soWyTpl(soWyWordsAt('THEATER_WEIYU_CALL_LEAD', THEATER_WEIYU_CALL_LEAD, words), lead), user };
+    // her call (THEATER_WEIYU_WORD_OVERLAY_UP): the set's callTo phrase with its callee slot pointed at the player
+    const g = soWyIsObj(words.grammar) ? words.grammar : {};
+    const wIn = Object.assign({}, words, { grammar: Object.assign({}, g, typeof g.callTo === 'string' ? { callTo: g.callTo.split('{name}').join('{me}') } : {}) });
+    return { system: soWyTpl(soWyWordsAt('THEATER_WEIYU_CALL_LEAD_IN', THEATER_WEIYU_CALL_LEAD_IN, wIn), lead), user };
 }
 
 // ---- world words: the naming request (ENABLE_THR_WEIYU_WORDS_AI; DRAFT until gm-words step 1b) ----------------------------------------------
@@ -23451,6 +24716,44 @@ function soWyRollEvents(kind, ctx, rnd) {
     }
 }
 
+// ---- the sticker offer (phone upgrades 2026-11-22, spec docs/superpowers/specs/2026-11-22-phone-upgrades-design.md §4.4 / §5.4) --------
+// DRAFT numbers (tuned by play, not a wording). With deps.stk (ENABLE_THR_WEIYU_STICKERS) AND the phone's 表情包 switch (soWyStickersOn) AND a
+// non-empty pool, soWyCall makes ONE more draw after the live roll and the event draw, inside the same "no pending block" rule: x ≥ 1 − p
+// offers a sticker — a random n of the pool, named in the request (args.stk) and read back (ctx.stk). A HIGH value fires it, so a
+// constant-low source (the suites' "no dice") never does; without the key / the switch the draw is never made (the stream is today's).
+// At most two kinds: the live roll's first, then the event kind, then the sticker.
+// p = 0.07 (was 0.15 in 2.3.0): Prince 2026-11-24 asked for fewer stickers — roughly half the old rate. The model posts a sticker
+// almost only when offered (the probes: none in the no-offer replies), so p is the lever; n and the prompt words are unchanged.
+const THEATER_WEIYU_DICE_STK = { p: 0.07, n: 24 };
+
+// soWyRollSticker(kind, rnd) → boolean: one random, only for sync / send / more / regen (开机 / group / 总结 never ask the source).
+function soWyRollSticker(kind, rnd) {
+    try {
+        if (kind !== 'sync' && kind !== 'send' && kind !== 'more' && kind !== 'regen') return false;
+        const r = typeof rnd === 'function' ? rnd : Math.random;
+        return Number(r()) >= 1 - Number(THEATER_WEIYU_DICE_STK.p);
+    } catch (e) {
+        return false;
+    }
+}
+
+// soWyStkSample(pool, n, rnd) → a random min(n, pool.length) of pool, no repeats, in the order drawn (one random each; the pool untouched).
+function soWyStkSample(pool, n, rnd) {
+    try {
+        const left = Array.isArray(pool) ? pool.slice() : [];
+        const r = typeof rnd === 'function' ? rnd : Math.random;
+        const k = Math.min(Math.max(0, Math.floor(Number(n)) || 0), left.length);
+        const out = [];
+        for (let i = 0; i < k; i++) {
+            const j = Math.min(left.length - 1, Math.floor(Number(r()) * left.length));
+            out.push(left.splice(j < 0 ? 0 : j, 1)[0]);
+        }
+        return out;
+    } catch (e) {
+        return [];
+    }
+}
+
 // soWyFwdOffer(state, chat) → bool (pure; never throws): can a character forward here? `chat` = the target of a send / more / regen — a
 // character member of it (never the player, never a removed contact) is also in ANOTHER live chat with ≥ THEATER_WEIYU_DICE_EV_FWD.lines
 // forwardable lines (soWyFwdable); null = a sync — any live chat has such a member. Otherwise `fwd` is weighted 0 for this roll.
@@ -23569,6 +24872,9 @@ async function soWyCall(kind, args, deps) {
     if (kind === 'words') return soWyWordsCall(args, deps);   // 「✨ 让 AI 按这个世界起名」 (world wording 1b): its own branch at the end, the same slot
     if (kind === 'put') return soWyPutCall(args, deps);   // the AI auto-reply switch OFF (2026-11-20): his item stored, zero calls (below; deps.autoReply only)
     if (kind === 'find') return soWyFindCall(args, deps);   // 从故事里找人 (2026-11-21): a DRAFT-only request, its own branch at the end (deps.findSource only)
+    // phone upgrades (incoming calls): the screens' 接听 / 拒绝 of her ringing call (deps.incall only — both refuse 'kind' without it)
+    if (kind === 'answer') return soWyCallAnswer(args, deps);
+    if (kind === 'decline') return soWyCallDecline(args, deps);
     let mine = null;
     try {
         const a = soWyIsObj(args) ? args : {};
@@ -23595,6 +24901,8 @@ async function soWyCall(kind, args, deps) {
         } else if (kind === 'send') {
             // phase 2: his call / transfer is offered only with ENABLE_THR_WEIYU_EVENTS on (deps.events) — refused before any call otherwise
             if (soWyIsObj(a.msg) && (a.msg.t === 'call' || a.msg.t === 'pay') && d.events !== true) return gone;
+            // phone upgrades: a sticker needs the phone's sticker service (deps.stk = ENABLE_THR_WEIYU_STICKERS) — refused before any call otherwise
+            if (soWyIsObj(a.msg) && a.msg.t === 'sticker' && !soWyIsObj(d.stk)) return gone;
             if (!soWySendPut(soWyClone(state), a)) return gone;
         } else if (kind === 'more' || kind === 'group') {
             const c = soWyChat(state, a.cid);
@@ -23633,6 +24941,9 @@ async function soWyCall(kind, args, deps) {
         const multiSync = kind === 'sync' && Number.isSafeInteger(a.n) && a.n >= 2;
         if (kind === 'regen') ctx.after = plan.anchor; // the line the new ones land after (the quote rule's "line above")
         if (net && kind !== 'sum') ctx.net = net;   // world words: the judge, the sync form and the landing read with the set's net
+        // status and signature (deps.status = ENABLE_THR_WEIYU_STATUS): a sync's judge and landing read the form's third part; its status ops
+        // carry the synced story floor (args.floor, else deps.floor()). Absent → today's reading
+        if (d.status === true && kind === 'sync') ctx.status = { floor: Number.isFinite(a.floor) ? a.floor : soWyFloorNow(d) };
         const names = () => (typeof d.names === 'function' ? d.names() : undefined);
         const env0 = () => {
             const st = d.getState();
@@ -23677,13 +24988,50 @@ async function soWyCall(kind, args, deps) {
                 : soWyRollEvents(kind, Object.assign({}, dc, { fwd: kind === 'sync' ? soWyFwdOffer(held, null) : (dc.chat ? soWyFwdOffer(held, dc.chat) : false) }), rnd);
             if (e.length) kinds = kinds.slice(0, 1).concat(e);
         }
+        // phone upgrades — the sticker offer (deps.stk = ENABLE_THR_WEIYU_STICKERS, read ONCE here, ∧ the phone's 表情包 switch ∧ a non-empty
+        // pool). ctx.stk = {offered, pack} makes the judge and the landing read a sticker line (also when nothing was offered); the draw
+        // comes after the live roll and the event draw, inside the same !pend rule. Absent → no draw, no ctx.stk, the args as before.
+        let stkArg = null;
+        if (soWyIsObj(d.stk) && typeof d.stk.pool === 'function' && (kind === 'sync' || oneChat || kind === 'group') && soWyStickersOn(held)) {
+            let pool = [];
+            try { pool = d.stk.pool(); } catch (e) { pool = []; }
+            pool = Array.isArray(pool) ? pool.filter((x) => soWyStkNorm(x)) : [];
+            if (pool.length) {
+                ctx.stk = { offered: [], pack: pool };
+                if (!pend && soWyRollSticker(kind, rnd)) {
+                    let offered = soWyStkSample(pool, THEATER_WEIYU_DICE_STK.n, rnd);
+                    if (kinds.length < 2) kinds = kinds.concat('sticker');
+                    else offered = null;
+                    if (offered && offered.length) {
+                        ctx.stk.offered = offered;
+                        stkArg = { names: offered };
+                    }
+                }
+            }
+        }
         // the memory slice (deps.mem = ENABLE_THR_WEIYU_MEMORY): args.mem tells soWyPrompt to read the …Mem views; anything but true → the args as before
         const mem = d.mem === true;
         // adding contacts by hand (deps.ac = ENABLE_THR_WEIYU_ADD): args.ac → the 【人】 rows of hand-added people carry their marker / 人物说明
         const ac = d.ac === true;
         // world words: args.words = the set read above (only when there is one); none → the args exactly as before
-        const pa = words ? Object.assign({}, a, kinds.length ? { kinds } : {}, pend ? { pending: pend.text } : {}, mem ? { mem: true } : {}, ac ? { ac: true } : {}, { words })
+        const pa0 = words ? Object.assign({}, a, kinds.length ? { kinds } : {}, pend ? { pending: pend.text } : {}, mem ? { mem: true } : {}, ac ? { ac: true } : {}, { words })
             : kinds.length || pend || mem || ac ? Object.assign({}, a, kinds.length ? { kinds } : {}, pend ? { pending: pend.text } : {}, mem ? { mem: true } : {}, ac ? { ac: true } : {}) : a;
+        // phone upgrades: args.stk = {names} only when a sticker was offered; reactions (deps.react = ENABLE_THR_WEIYU_REACT): ctx.react always
+        // (the judge and the landing read 〔回应 😂〕 lines), args.react only when the emoji kind was rolled (its moment is the reaction variant)
+        // — nothing new → pa0 exactly
+        const react = d.react === true;
+        if (react && kind !== 'sum' && kind !== 'boot') ctx.react = true;
+        const reactArg = react && kind !== 'boot' && kinds.includes('emoji');
+        // incoming calls (deps.incall = ENABLE_THR_WEIYU_INCALL): ctx.incall always (the judge and the landing read 〔语音通话〕甲 → 我｜响铃｜她的话),
+        // args.callIn only when the call kind was rolled (its moment is THEATER_WEIYU_DICE_EV_CALL_IN); never at 开机 / 总结
+        const incall = d.incall === true;
+        if (incall && kind !== 'sum' && kind !== 'boot') ctx.incall = true;
+        const callInArg = incall && kind !== 'boot' && kinds.includes('call');
+        // status and signature (deps.status = ENABLE_THR_WEIYU_STATUS): args.status = {floor} (the story floor now) → the brief's rows carry a
+        // contact's current status; every request that prints the brief (never 开机 / 总结). Absent → pa as before
+        const statusArg = d.status === true && kind !== 'boot' && kind !== 'sum' ? { floor: soWyFloorNow(d) } : null;
+        const pa = stkArg || reactArg || callInArg || statusArg
+            ? Object.assign({}, pa0, stkArg ? { stk: stkArg } : {}, reactArg ? { react: true } : {}, callInArg ? { callIn: true } : {}, statusArg ? { status: statusArg } : {}) : pa0;
         const pr = d.prompt(kind, kind === 'boot' ? soWyBootPromptState(held, env().meName) : held, pa);
         const req = {
             kind, system: String(pr && pr.system != null ? pr.system : ''), user: String(pr && pr.user != null ? pr.user : ''),
@@ -23739,18 +25087,29 @@ async function soWyCall(kind, args, deps) {
             d.commit(c, 'sum');
             return { ok: true, kind, at, added: n, dropped: 0 };
         }
+        // reply versions (deps.versions = ENABLE_THR_WEIYU_VERSIONS): the regenerate's cut lines as they are now, and the round's versions so
+        // far (the landing's soWyAddMsg drops them) — handed to soWyVersKeep after the landing. Absent → nothing read, nothing kept
+        let vCut = null;
+        let vPrev;
         if (kind !== 'sync') {
             const chat = soWyChat(c, a.cid);
             if (!chat || chat.dissolved || soWyChatClosed(c, chat)) return gone;
+            if (kind === 'regen' && d.versions === true) {
+                vCut = plan.drop.map((id) => soWyMsg(c, a.cid, id)).filter(Boolean).map((m) => JSON.parse(JSON.stringify(m)));
+                vPrev = soWyOwn(chat, 'vers') ? chat.vers : undefined;
+            }
             if (kind === 'regen' && !soWyRegenCut(c, plan)) return gone;
         }
         const n = names();
+        // incoming calls (deps.incall): the ids before landing, so a landed missed call TO the player can ring (res.rings); none → no key
+        const seen = incall && (kind === 'sync' || oneChat) ? soWyMsgKeys(c) : null;
         // a story sync is read as the form (parse.js soWySyncFormRead — a reply with no section header falls back to the tagged
         // format there); every other kind as before. World words: the sync form reads ctx.net itself; the others parse with the net
         const rr = kind === 'sync'
             ? soWySyncFormRead(text, c, ctx, Array.isArray(n) ? { names: n } : undefined).rr
-            : net ? soWyResolve(soWyParse(text, Array.isArray(n) ? n : soWyAllNames(c), net), c, ctx)
-                : soWyResolve(soWyParse(text, Array.isArray(n) ? n : soWyAllNames(c)), c, ctx);
+            : soWyReadOpt(ctx) ? soWyResolve(soWyParse(text, Array.isArray(n) ? n : soWyAllNames(c), net, soWyReadOpt(ctx)), c, ctx)   // phone upgrades
+                : net ? soWyResolve(soWyParse(text, Array.isArray(n) ? n : soWyAllNames(c), net), c, ctx)
+                    : soWyResolve(soWyParse(text, Array.isArray(n) ? n : soWyAllNames(c)), c, ctx);
         if (!rr.ok) return { failed: true, why: rr.why, cause: cause() };
         let added = 0;
         let delta = '';
@@ -23760,18 +25119,29 @@ async function soWyCall(kind, args, deps) {
             const every = Number.isSafeInteger(a.n);
             const dd = soWyDeltaApply(c, rr.ops, every ? { floor: a.floor, swipe: a.swipe, key: a.key, n: a.n } : { floor: a.floor, swipe: a.swipe, key: a.key });
             if (every && typeof soWySyncWaitDone === 'function') soWySyncWaitDone(c, a.floor);
+            // 「没跟上」 (state.syncMiss = {floor}, written only by the join's ENABLE_THR_WEIYU_CATCHUP path): a sync that landed on its floor or
+            // later followed it — the key goes; a newer miss (its floor after this one) stays. Absent → nothing here (today's landing)
+            if (soWyOwn(c, 'syncMiss') && !(soWyIsObj(c.syncMiss) && Number(c.syncMiss.floor) > Number(a.floor))) delete c.syncMiss;
             added = dd && dd.added ? dd.added : 0;
             delta = dd && dd.id ? dd.id : '';
         } else {
             const meta = { src: 'ai' };
             if (kind === 'regen') meta.at = plan.anchor;
-            added = soWyApplyOps(c, rr.ops, meta).added;
+            const ap = soWyApplyOps(c, rr.ops, meta);
+            added = ap.added;
+            if (vCut) {
+                const vc = soWyChat(c, a.cid);
+                if (vc && vPrev !== undefined) vc.vers = vPrev;
+                soWyVersKeep(c, a.cid, plan.anchor, vCut, ap.mids.map((id) => soWyMsg(c, a.cid, id)).filter(Boolean));
+            }
             soWyTouch(c, a.cid);
         }
         if (pend) soWyPendingShown(c, pend.items);
+        const rings = seen ? soWyCallRings(c, seen) : [];
         d.commit(c, kind);
         const res = { ok: true, kind, at, added, dropped: rr.dropped.length };
         if (delta) res.delta = delta;
+        if (rings.length) res.rings = rings;
         return res;
     } catch (e) {
         return { error: soWyErrText(e) };
@@ -23802,6 +25172,7 @@ async function soWyPutCall(args, deps) {
         const state = d.getState();
         if (!state || !state.booted) return gone;
         if (soWyIsObj(a.msg) && (a.msg.t === 'call' || a.msg.t === 'pay') && d.events !== true) return gone;
+        if (soWyIsObj(a.msg) && a.msg.t === 'sticker' && !soWyIsObj(d.stk)) return gone;   // phone upgrades: as for a send (above)
         if (wy_callBox.cur) {
             const lv = soWyCallLive(state, d.chatKey());
             if (lv && lv.cid === cid) return { failed: true, why: 'call' };
@@ -23894,11 +25265,21 @@ async function soWyCallScene(args, deps) {
         };
         const chat = soWyChat(state, cid);
         const live = soWyCallLive(state, key);
-        const turn = typeof a.mid === 'string' && a.mid !== '';
+        // phone upgrades (incoming calls): answer = HER missed call picked up with no words of hers stored (soWyCallAnswer) — the incoming START:
+        // one request that fills the existing record in place; deps.incall only
+        const answer = a.answer === true && typeof a.mid === 'string' && a.mid !== '';
+        const turn = !answer && typeof a.mid === 'string' && a.mid !== '';
         let mode = '';
         let her = '';
         let said = '';
-        if (!turn) {
+        if (answer) {
+            if (d.incall !== true) return gone;
+            const inc = soWyCallIncoming(state, cid, a.mid);
+            if (!inc || soWyEvPeer(state, chat) !== inc.her) return gone;
+            if (live) return { failed: true, why: 'call' };
+            mode = inc.mode;
+            her = inc.her;
+        } else if (!turn) {
             if (!soWyOwn(THEATER_WEIYU_CALL_KIND, a.mode) || !soWyCanCall(state, chat, true)) return gone;
             if (live) return { failed: true, why: 'call' };
             mode = a.mode;
@@ -23908,7 +25289,8 @@ async function soWyCallScene(args, deps) {
             const m = chat.msgs[soWyCallLiveIdx(chat, a.mid)];
             const call = soWyCallNorm(m.call);
             mode = call.mode;
-            her = m.to;
+            // phone upgrades: her call (u = her, answered) — her = the chat's other member; his own call as before
+            her = m.u !== THEATER_WEIYU_ME ? (chat.members.find((p) => p !== THEATER_WEIYU_ME) || '') : m.to;
             if (a.again === true) {
                 const t = call.turns[call.turns.length - 1];
                 if (!t || t.u !== THEATER_WEIYU_ME) return gone;
@@ -23957,11 +25339,14 @@ async function soWyCallScene(args, deps) {
                 ev.reads.push({ raw, ok: r.ok, lines: r.lines.length, drop: Object.assign({}, r.drop), strict: r.strict });
                 if (ev.reads.length > 6) ev.reads.shift();   // the first reply, its retries, a cutOff probe or two
             }
-            return r.ok && (!turn || r.pickup) ? r : null;
+            return r.ok && (!(turn || answer) || r.pickup) ? r : null;   // her call: no decline lines in this direction
         };
         // adding contacts by hand: deps.ac → args.ac (the 【人】 rows' marker / 人物说明); absent = the args as before
-        const pr = words ? d.prompt('call', held, Object.assign(turn ? { cid, mid: a.mid } : { cid, mode }, d.mem === true ? { mem: true } : {}, d.ac === true ? { ac: true } : {}, { words }))
-            : d.prompt('call', held, Object.assign(turn ? { cid, mid: a.mid } : { cid, mode }, d.mem === true ? { mem: true } : {}, d.ac === true ? { ac: true } : {}));
+        const pa0 = turn ? { cid, mid: a.mid } : answer ? { cid, mid: a.mid, answer: true } : { cid, mode };
+        // status and signature (deps.status): args.status = {floor} → her row in the brief carries her current status; absent = as before
+        const stA = d.status === true ? { status: { floor: soWyFloorNow(d) } } : {};
+        const pr = words ? d.prompt('call', held, Object.assign(pa0, d.mem === true ? { mem: true } : {}, d.ac === true ? { ac: true } : {}, stA, { words }))
+            : d.prompt('call', held, Object.assign(pa0, d.mem === true ? { mem: true } : {}, d.ac === true ? { ac: true } : {}, stA));
         const req = { kind: 'call', system: String(pr && pr.system != null ? pr.system : ''), user: String(pr && pr.user != null ? pr.user : ''),
             maxTokens: THEATER_WEIYU_CALL_TOK };
         const ctl = {
@@ -23976,7 +25361,7 @@ async function soWyCallScene(args, deps) {
         // the ringing race (memory slice, owed from the call scene): a START he hung up on (soWyCallCancel) ends as the 已取消 record whatever
         // landed — a pick-up, a decline, an unreadable reply or an error — exactly as when the abort reached the engine in time
         if (r.aborted || (!turn && mine.cancel === true)) {
-            if (turn) return { aborted: true };
+            if (turn || answer) return { aborted: true };   // her call stopped while she was about to speak: the record stays the missed call
             // he hung up while it rang: the existing 已取消 record, no reaction request (the pending block carries it later)
             const st = d.getState();
             if (!st || !st.booted) return { aborted: true };
@@ -23998,6 +25383,29 @@ async function soWyCallScene(args, deps) {
         const hers = { u: her, lines: got.lines };
         if (got.visual) hers.visual = got.visual;
         hers.at = now;
+        if (answer) {
+            // her call: the SAME record becomes her live call (direction kept: u = her, to = 'me'), her first turn = this reply
+            const ch = soWyChat(c, cid);
+            const inc = soWyCallIncoming(c, cid, a.mid);
+            if (!inc || inc.her !== her || soWyEvPeer(c, ch) !== her) return gone;
+            if (soWyCallLive(c, key)) return { failed: true, why: 'call' };
+            soWyCallSettle(c, null);
+            const m = soWyMsg(c, cid, a.mid);
+            m.call = { mode, st: 'live', at: now, turns: [hers] };
+            m.v = soWyCallText(m.call);
+            soWyMarkRead(c, cid);
+            soWyTouch(c, cid);
+            const res = { ok: true, kind: 'call', at: cid, mid: a.mid, st: 'live', turn: soWyClone(hers) };
+            if (got.hangup) {
+                soWyCallClose(m, now, 'them');
+                res.st = 'done';
+                res.ended = 'them';
+            } else {
+                wy_callBox.cur = { key, cid, mid: a.mid };   // before the commit: the join's read keeps it live
+            }
+            d.commit(c, 'call');
+            return res;
+        }
         if (!turn) {
             const ch = soWyChat(c, cid);
             if (!soWyCanCall(c, ch, true) || soWyEvPeer(c, ch) !== her) return gone;
@@ -24046,6 +25454,113 @@ async function soWyCallScene(args, deps) {
         return { error: soWyErrText(e) };
     } finally {
         if (mine && wy_flightBox.cur === mine) wy_flightBox.cur = null;
+    }
+}
+
+// ---- phone upgrades (2026-11-22, spec docs/superpowers/specs/2026-11-22-phone-upgrades-design.md §7 + §17.7): incoming calls -------------
+// Kill switch ENABLE_THR_WEIYU_INCALL in the join → deps.incall (=== true). "Ringing" is a state of the open page only; on disk her call is the
+// missed record (u = her, to = 'me', call {mode, st: 'missed', say?}) the resolver landed — so a reload mid-ring leaves a missed call.
+//   rings: soWyCall's sync / send / more / regen result gains rings: [{cid, mid, mode}] (soWyCallRings) only with deps.incall and only when the
+//     batch landed such a record that soWyCallIncoming accepts from a contact he can call (soWyEvPeer: a live private chat, not blocked, not
+//     gone). 开机 / 总结 / group never. The join decides whether it actually rings (noRing switch, the open chat, no live call …).
+//   soWyCallAnswer({cid, mid}, deps) → Promise: with her words (say) — NO request: the record becomes her live call in place (direction kept),
+//     her words its first turn, registered in wy_callBox BEFORE the commit (the join's soWyCallSettle would close it otherwise), soWyMarkRead,
+//     soWyTouch (so the sync delta that brought it is never reverted) → {ok, kind: 'call', at: cid, mid, st: 'live', turn: 0}. Without say —
+//     ONE request, the incoming START (soWyCallScene with answer: true): her reply fills the same record → START's result shape. Refused:
+//     no deps.incall → {error: 'kind'} · busy → {busy, at, kind} · not (or no longer) an incoming call / a contact he cannot call → {failed,
+//     why: 'gone'} · a live call on this page → {failed, why: 'call'}.
+//   soWyCallDecline({cid, mid}, deps) → st 'reject' ("declined by him"), say kept (her voice message), soWyTouch; zero calls, no slot needed
+//     → {ok, kind: 'call', at: cid, mid, st: 'reject'} | {error: 'kind'} | {failed, why: 'gone'}.
+
+// Status and signature (phone upgrades, spec §9): the story floor now (deps.floor()), a finite number or null; a throwing floor() → null.
+function soWyFloorNow(d) {
+    try {
+        const f = soWyIsObj(d) && typeof d.floor === 'function' ? d.floor() : null;
+        return f != null && Number.isFinite(Number(f)) ? Number(f) : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+// "cid\nmid" of every stored message (soWyCall's landing compares before / after).
+function soWyMsgKeys(state) {
+    const out = new Set();
+    for (const cid of soWyIsObj(state) && soWyIsObj(state.chats) ? Object.keys(state.chats) : []) {
+        const chat = state.chats[cid];
+        for (const m of soWyIsObj(chat) && Array.isArray(chat.msgs) ? chat.msgs : []) if (soWyIsObj(m)) out.add(cid + '\n' + m.id);
+    }
+    return out;
+}
+
+// The landed incoming calls: messages not in `seen` that soWyCallIncoming accepts, from a contact he can call; chat list order.
+function soWyCallRings(state, seen) {
+    const out = [];
+    for (const cid of soWyChatList(state)) {
+        const chat = soWyChat(state, cid);
+        if (!chat || !Array.isArray(chat.msgs)) continue;
+        for (const m of chat.msgs) {
+            if (!soWyIsObj(m) || seen.has(cid + '\n' + m.id)) continue;
+            const inc = soWyCallIncoming(state, cid, m.id);
+            if (inc && soWyEvPeer(state, chat) === inc.her) out.push({ cid, mid: m.id, mode: inc.mode });
+        }
+    }
+    return out;
+}
+
+async function soWyCallAnswer(args, deps) {
+    try {
+        const a = soWyIsObj(args) ? args : {};
+        if (!soWyIsObj(deps)) return { error: 'deps' };
+        const d = deps;
+        if (d.incall !== true) return { error: 'kind' };
+        const gone = { failed: true, why: 'gone' };
+        const cid = String(a.cid == null ? '' : a.cid);
+        const mid = typeof a.mid === 'string' ? a.mid : '';
+        if (wy_flightBox.cur) return { busy: true, at: wy_flightBox.cur.at, kind: wy_flightBox.cur.kind };
+        const state = d.getState();
+        if (!state || !state.booted) return gone;
+        const inc = soWyCallIncoming(state, cid, mid);
+        if (!inc || soWyEvPeer(state, soWyChat(state, cid)) !== inc.her) return gone;
+        const key = String(d.chatKey());
+        if (soWyCallLive(state, key)) return { failed: true, why: 'call' };
+        if (!inc.say) return await soWyCallScene({ cid, mid, answer: true }, d);
+        const n = typeof d.now === 'function' ? Number(d.now()) : Date.now();
+        const now = Number.isFinite(n) ? n : Date.now();
+        const c = soWyClone(state);
+        soWyCallSettle(c, null);   // a live call this page no longer runs (left by a reload) = ended
+        const m = soWyMsg(c, cid, mid);
+        m.call = { mode: inc.mode, st: 'live', at: now, turns: [{ u: inc.her, lines: [{ text: inc.say }], at: now }], say: inc.say };
+        m.v = soWyCallText(m.call);
+        wy_callBox.cur = { key, cid, mid };   // before the commit: the join's read keeps it live
+        soWyMarkRead(c, cid);
+        soWyTouch(c, cid);
+        d.commit(c, 'call');
+        return { ok: true, kind: 'call', at: cid, mid, st: 'live', turn: 0 };
+    } catch (e) {
+        return { error: soWyErrText(e) };
+    }
+}
+
+function soWyCallDecline(args, deps) {
+    try {
+        const a = soWyIsObj(args) ? args : {};
+        if (!soWyIsObj(deps)) return { error: 'deps' };
+        const d = deps;
+        if (d.incall !== true) return { error: 'kind' };
+        const gone = { failed: true, why: 'gone' };
+        const cid = String(a.cid == null ? '' : a.cid);
+        const mid = typeof a.mid === 'string' ? a.mid : '';
+        const state = d.getState();
+        if (!state || !state.booted || !soWyCallIncoming(state, cid, mid)) return gone;
+        const c = soWyClone(state);
+        const m = soWyMsg(c, cid, mid);
+        m.call = Object.assign(soWyCallNorm(m.call), { st: 'reject' });   // say (her voice message) kept
+        m.v = soWyCallText(m.call);
+        soWyTouch(c, cid);
+        d.commit(c, 'call');
+        return { ok: true, kind: 'call', at: cid, mid, st: 'reject' };
+    } catch (e) {
+        return { error: soWyErrText(e) };
     }
 }
 
@@ -24234,19 +25749,37 @@ async function soWyFindCall(args, deps) {
 // [WEIYU] icons — GENERATED by tests/unit/_weiyu/dev/build.mjs from the weiyu-assets SVGs; never hand-edit, re-run the build.
 const THEATER_WEIYU_ICONS = {
     'back': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 5L7.5 12L14.5 19"/></svg>',
+    'book': '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="3" width="19" height="26" rx="1.5" fill="currentColor" fill-opacity=".14"/><path d="M10.5 3V29" stroke-opacity=".7"/><path d="M7 6.5H10.5M7 11.5H10.5M7 16.5H10.5M7 21.5H10.5M7 26.5H10.5" stroke-width="1.1"/><rect x="15" y="6" width="6.5" height="13" rx=".6" fill="currentColor" fill-opacity=".25" stroke-width="1"/></svg>',
+    'brush': '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M5 28L10 21.8L16 26L22 21.8L27 28" stroke-width="1.7"/><path d="M4 19.2H19.5" stroke-width="2.8"/><path d="M20 19.2H23" stroke-width="3.6" stroke-linecap="butt" stroke-opacity=".7"/><path d="M23 17.1C26.2 17.3 29 18.3 30.5 19.2C29 20.1 26.2 21.1 23 21.3Z" fill="currentColor" stroke-width="1"/></svg>',
     'call': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8.4 4.5H6.3A1.8 1.8 0 0 0 4.5 6.4C4.9 13.5 10.5 19.1 17.6 19.5A1.8 1.8 0 0 0 19.5 17.7V15.6L15.8 14L13.9 15.9C11.4 14.7 9.3 12.6 8.1 10.1L10 8.2Z"/></svg>',
     'check': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12L9.5 17L19.5 7"/></svg>',
     'chevron-right': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 5L16.5 12L9.5 19"/></svg>',
     'close': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 5.5L18.5 18.5M18.5 5.5L5.5 18.5"/></svg>',
     'contact': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="10.5" r="2"/><path d="M5.9 16A3.3 3.3 0 0 1 12.1 16"/><path d="M14.5 10H18"/><path d="M14.5 13.5H17"/></svg>',
     'copy': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="7" width="12" height="14" rx="2.5"/><path d="M15 7V5.5A2.5 2.5 0 0 0 12.5 3H6.5A2.5 2.5 0 0 0 4 5.5V14.5A2.5 2.5 0 0 0 6.5 17H8"/></svg>',
+    'cr-call': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 7.5l3 4.5-3 4.5-3-4.5z" fill="currentColor" fill-opacity=".3"/><path d="M16.8 8.5a5 5 0 0 1 0 7M19.6 6a8.6 8.6 0 0 1 0 12M7.2 8.5a5 5 0 0 0 0 7M4.4 6a8.6 8.6 0 0 0 0 12"/></svg>',
+    'cr-contact': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l3.2 4.2L12 11 8.8 6.7z" fill="currentColor" fill-opacity=".2"/><path d="M4.5 21.5L7 15.5L12 13.5L17 15.5L19.5 21.5Z" fill="currentColor" fill-opacity=".2"/><path d="M12 13.5v8" stroke-width="1" stroke-opacity=".5"/></svg>',
+    'cr-file': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 2.5h8l3.5 3.5v15.5H6.5z" fill="currentColor" fill-opacity=".2"/><path d="M14.5 2.5V6H18" stroke-opacity=".55"/><path d="M9.5 10h5M9.5 13.5h3.2M14.5 12.4v2.2M9.5 17h5" stroke-width="1.3"/></svg>',
+    'cr-link': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 14l3 3.5-3 3.5-3-3.5zM18.5 3l3 3.5-3 3.5-3-3.5z" fill="currentColor" fill-opacity=".2"/><path d="M8.2 15.3L15.8 8.7"/><path d="M7.6 12.6L13.1 7.8M10.9 16.2L16.4 11.4" stroke-width="1" stroke-opacity=".45"/><path d="M12 9.8l0.66 1.54 1.54 0.66-1.54 0.66-0.66 1.54-0.66-1.54-1.54-0.66 1.54-0.66z" fill="currentColor" stroke="none"/></svg>',
+    'cr-location': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.5L6 10.5L12 2.5L18 10.5Z" fill="currentColor" fill-opacity=".2"/><path d="M12 7l0.9 2.1 2.1 0.9-2.1 0.9-0.9 2.1-0.9-2.1-2.1-0.9 2.1-0.9z" fill="currentColor" stroke="none"/><path d="M8 21.5h8" stroke-opacity=".55"/></svg>',
+    'cr-music': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3.5C4 8 4.6 14.8 9 18.5h6c4.4-3.7 5-10.5 2-15"/><path d="M5.3 6.5h13.4"/><path d="M10 6.5v12M12 6.5v12M14 6.5v12" stroke-width="1" stroke-opacity=".55"/><path d="M12 18.5v3M9 21.5h6"/></svg>',
+    'cr-record': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5.5V3.5h10.5l2 2v11h-2" stroke-width="1.3" stroke-opacity=".55"/><path d="M4 7.5h11.5l2 2v12H4z" fill="currentColor" fill-opacity=".2"/><path d="M7 12h7.5M7 15h7.5M7 18h4.5" stroke-width="1.3"/></svg>',
+    'cr-transfer': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3L19.8 7.5V16.5L12 21L4.2 16.5V7.5Z" fill="currentColor" fill-opacity=".15"/><path d="M12 7.5l3.5 4.5-3.5 4.5-3.5-4.5z" fill="currentColor" fill-opacity=".45"/></svg>',
+    'cr-transfer-back': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3L19.8 7.5V16.5L12 21L4.2 16.5V7.5Z" fill="currentColor" fill-opacity=".15"/><path d="M9 9.5h4.5a3 3 0 0 1 0 6H9.5M11.2 7.3L9 9.5l2.2 2.2" stroke-width="1.7"/></svg>',
+    'cr-transfer-taken': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3L19.8 7.5V16.5L12 21L4.2 16.5V7.5Z" fill="currentColor" fill-opacity=".15"/><path d="M8.2 12.3l2.6 2.7 5-5.4" stroke-width="1.8"/></svg>',
+    'cr-video': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10" r="6.5" fill="currentColor" fill-opacity=".2"/><path d="M8.7 9A3.6 3.6 0 0 1 11 6.6" stroke-opacity=".7"/><path d="M9.6 21.5l.9-5h3l.9 5M8 21.5h8"/><path d="M19 2.1l0.72 1.68 1.68 0.72-1.68 0.72-0.72 1.68-0.72-1.68-1.68-0.72 1.68-0.72z" fill="currentColor" stroke="none"/></svg>',
+    'cr-voice': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9.5l2.5 2.5L5 14.5 2.5 12z" fill="currentColor" fill-opacity=".35"/><path d="M11 9.5v5M14.5 6.5v11M18 8.5v7M21.5 10.5v3"/></svg>',
+    'crystal-gem': '<svg viewBox="0 0 200 360" preserveAspectRatio="none" fill="currentColor" stroke="none"><defs><linearGradient id="kcg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".17"/><stop offset=".14" stop-color="currentColor" stop-opacity=".07"/><stop offset=".8" stop-color="currentColor" stop-opacity=".04"/><stop offset="1" stop-color="currentColor" stop-opacity=".15"/></linearGradient><linearGradient id="kcs" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="currentColor" stop-opacity=".1"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></linearGradient></defs><path d="M44 4H156L196 44V296L112 356H88L4 296V44Z" fill="url(#kcg)"/><path d="M8 60L46 46L22 170L8 196Z" fill="url(#kcs)"/><g fill="none" stroke="currentColor" vector-effect="non-scaling-stroke" stroke-linejoin="round"><path d="M44 4H156L196 44V296L112 356H88L4 296V44Z" stroke-width="7" stroke-opacity=".12"/><path d="M44 4H156L196 44V296L112 356H88L4 296V44Z" stroke-width="1.5" stroke-opacity=".9"/><path d="M4 44H196M4 296H196" stroke-width="1" stroke-opacity=".4"/><path d="M44 4L72 44L100 4L128 44L156 4" stroke-width="1" stroke-opacity=".35"/><path d="M72 44L88 356M128 44L112 356" stroke-width="1" stroke-opacity=".07"/><path d="M4 296L60 296L88 356M196 296L140 296L112 356M60 296L100 330L140 296M100 330V356" stroke-width="1" stroke-opacity=".28"/><path d="M22 44V296M178 44V296" stroke-width="1" stroke-opacity=".1"/><path d="M4 250V44L44 4H120" stroke-width="2.4" stroke-linecap="round"/></g><path d="M44 1.5L45.5 5.5L49.5 7L45.5 8.5L44 12.5L42.5 8.5L38.5 7L42.5 5.5Z"/></svg>',
     'delete': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 6.5H20.5M9 6.5V3.5H15V6.5M5.5 6.5L6.25 19Q6.4 21 8.25 21H15.75Q17.6 21 17.75 19L18.5 6.5M10 10.5V17M14 10.5V17"/></svg>',
     'edit': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15.5L15.5 4A2.5 2.5 0 0 1 19 7.5L7.5 19L3 20ZM13.5 6L17 9.5"/></svg>',
     'emoji': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M7.5 14.5C9.5 18 14.5 18 16.5 14.5M8.5 8.5V10M15.5 8.5V10"/></svg>',
     'file': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7.5A2.5 2.5 0 0 0 5 5.5V18.5A2.5 2.5 0 0 0 7.5 21H16.5A2.5 2.5 0 0 0 19 18.5V8Z"/><path d="M14 3V8H19"/><path d="M8.5 13H15.5"/><path d="M8.5 16.5H13"/></svg>',
     'forward': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5L19.5 9.5L15 14"/><path d="M19.5 9.5H9.5A5 5 0 0 0 9.5 19.5H14"/></svg>',
+    'gem-frame': '<svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-linejoin="round"><defs><linearGradient id="kgf" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".6"/><stop offset="1" stop-color="currentColor" stop-opacity=".2"/></linearGradient></defs><path d="M12 1H28L39 12V28L28 39H12L1 28V12ZM13.45 4.5H26.55L35.5 13.45V26.55L26.55 35.5H13.45L4.5 26.55V13.45Z" fill="url(#kgf)" fill-rule="evenodd" stroke="none"/><path d="M12 1H28L39 12V28L28 39H12L1 28V12Z" stroke-width="1.2" stroke-opacity=".85"/><path d="M13.45 4.5H26.55L35.5 13.45V26.55L26.55 35.5H13.45L4.5 26.55V13.45Z" stroke-width=".8" stroke-opacity=".55"/><path d="M12 1L13.45 4.5M28 1L26.55 4.5M39 12L35.5 13.45M39 28L35.5 26.55M28 39L26.55 35.5M12 39L13.45 35.5M1 28L4.5 26.55M1 12L4.5 13.45" stroke-width=".7" stroke-opacity=".5"/><path d="M1 27V12L12 1H27" stroke-width="1.6" stroke-linecap="round"/></svg>',
     'group-add': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="7" r="3"/><path d="M2.5 20V18C2.5 12.5 13.5 12.5 13.5 18V20M14 4.5A3 3 0 0 1 14 10M18.5 12.5V19.5M15 16H22"/></svg>',
+    'hangup-stone': '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><defs><linearGradient id="khs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".34"/><stop offset="1" stop-color="currentColor" stop-opacity=".12"/></linearGradient></defs><path d="M9 3H23L29.5 11L28 25L20 29.5H12L4 25L2.5 11Z" fill="url(#khs)" stroke-opacity=".85"/><path d="M2.5 11L9 7.5H23L29.5 11" stroke-width="1" stroke-opacity=".45"/><path d="M4.5 22.5L3.8 13" stroke-width="1.2" stroke-opacity=".9"/><path d="M8.5 17.8c4.4-3.6 10.6-3.6 15 0l-1.3 2.8-3.4-.9-.4-2.2c-1.7-.5-3.4-.5-5 0l-.4 2.2-3.4.9z" fill="currentColor" stroke-width="1"/></svg>',
     'image': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8" cy="9" r="1.5"/><path d="M3 16L8 12L12 16L16 11L21 16"/></svg>',
+    'inkstone': '<svg viewBox="0 0 32 32" fill="currentColor" stroke="none"><path d="M9 3H23A4 4 0 0 1 27 7V26A4 4 0 0 1 23 30H9A4 4 0 0 1 5 26V7A4 4 0 0 1 9 3ZM10.5 6A2.5 2.5 0 0 0 8 8.5V24.5A2.5 2.5 0 0 0 10.5 27H21.5A2.5 2.5 0 0 0 24 24.5V8.5A2.5 2.5 0 0 0 21.5 6Z" fill-rule="evenodd" fill-opacity=".9"/><rect x="8" y="6" width="16" height="21" rx="2.5" fill-opacity=".35"/><ellipse cx="16" cy="11" rx="5.5" ry="3" fill-opacity=".95"/><path d="M10 15.5Q16 13 22 15.5" fill="none" stroke="currentColor" stroke-width="1" stroke-opacity=".6" stroke-linecap="round"/></svg>',
     'keyboard': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M7.5 9.5H7.51M10.5 9.5H10.51M13.5 9.5H13.51M16.5 9.5H16.51M7.5 12.5H7.51M10.5 12.5H10.51M13.5 12.5H13.51M16.5 12.5H16.51M9 15.5H15"/></svg>',
     'link': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14A4 4 0 0 0 15.66 14L18.66 11A4 4 0 0 0 13 5.34L11.5 6.8"/><path d="M14 10A4 4 0 0 0 8.34 10L5.34 13A4 4 0 0 0 11 18.66L12.5 17.2"/></svg>',
     'location': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21C12 21 5.5 15.4 5.5 10A6.5 6.5 0 0 1 18.5 10C18.5 15.4 12 21 12 21Z"/><circle cx="12" cy="10" r="2.5"/></svg>',
@@ -24257,17 +25790,51 @@ const THEATER_WEIYU_ICONS = {
     'mute': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20A3.3 3.3 0 0 0 15 20M5 8.5V12L3 17H14M10 3.3A6.5 6.5 0 0 1 19 9V12L21 17H19M3 3L21 21"/></svg>',
     'nudge': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12.5V6.5A1.5 1.5 0 0 1 11 6.5V11.5"/><path d="M11 11V5A1.5 1.5 0 0 1 14 5V11"/><path d="M14 11V6.5A1.5 1.5 0 0 1 17 6.5V14.5A6.5 6.5 0 0 1 10.5 21H10A5 5 0 0 1 5.6 18.4L3.9 15.3A1.4 1.4 0 0 1 6.2 13.8L8 16V12.5"/></svg>',
     'observer': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12C7 3 17 3 22 12C17 21 7 21 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>',
+    'paper-seal': '<svg viewBox="0 0 60 120" preserveAspectRatio="none" fill="currentColor" stroke="none"><path d="M10 2L15 4L20 1.5L25 3.5L30 1L35 3.5L40 1.5L45 4L50 2V118L45 116L40 118.5L35 116.5L30 119L25 116.5L20 118.5L15 116L10 118ZM13 9H13.8V111H13ZM46.2 9H47V111H46.2Z" fill-rule="evenodd" fill-opacity=".88"/></svg>',
     'person-add': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20C2.5 14.5 15.5 14.5 15.5 20"/><path d="M19 8V14M16 11H22"/></svg>',
     'person-find': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20C2.5 15.6 7.6 13.9 11.5 14.7"/><circle cx="16.5" cy="16" r="3.2"/><path d="M18.8 18.3L21.5 21"/></svg>',
+    'pin-mark': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3.5h6l-1.2 5.2 3.7 3.8H6.5l3.7-3.8z" fill="currentColor" fill-opacity=".2"/><path d="M12 12.5v8"/></svg>',
     'play': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path fill="currentColor" stroke="none" d="M7 4.7Q7 3.6 8 4.2L20 11.1Q21.5 12 20 12.9L8 19.8Q7 20.4 7 19.3Z"/></svg>',
     'plus-circle': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12H16M12 8V16"/></svg>',
     'power': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3V11M6.25 5.75A8.5 8.5 0 1 0 17.75 5.75"/></svg>',
     'recall': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5L4.5 9.5L9 14"/><path d="M4.5 9.5H14.5A5 5 0 0 1 14.5 19.5H10"/></svg>',
     'regenerate': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 9A8 8 0 0 1 18.5 6.5L20.5 9M20.5 4V9H15.5M19.5 15A8 8 0 0 1 5.5 17.5L3.5 15M3.5 20V15H8.5"/></svg>',
+    'roll': '<svg viewBox="0 0 320 56" preserveAspectRatio="none" fill="currentColor" stroke="none"><defs><linearGradient id="kol" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".6"/><stop offset=".28" stop-color="currentColor" stop-opacity=".5"/><stop offset=".6" stop-color="currentColor" stop-opacity=".85"/><stop offset="1" stop-color="currentColor" stop-opacity=".7"/></linearGradient></defs><rect x="18" y="7" width="284" height="42" rx="4" fill="url(#kol)"/><rect x="4" y="12" width="16" height="32" rx="5"/><rect x="300" y="12" width="16" height="32" rx="5"/><g fill="none" stroke="currentColor" vector-effect="non-scaling-stroke" stroke-linecap="round"><path d="M34 8V48M286 8V48" stroke-width="1.2" stroke-opacity=".55"/><path d="M22 15.5H298" stroke-width=".8" stroke-opacity=".3"/><path d="M22 46H298" stroke-width="1" stroke-opacity=".4"/></g></svg>',
+    'roller': '<svg viewBox="0 0 320 24" preserveAspectRatio="none" fill="currentColor" stroke="none"><defs><linearGradient id="kro" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".6"/><stop offset=".3" stop-color="currentColor" stop-opacity=".42"/><stop offset=".75" stop-color="currentColor" stop-opacity=".95"/><stop offset="1" stop-color="currentColor" stop-opacity=".8"/></linearGradient></defs><rect x="12" y="7" width="296" height="10" rx="3" fill="url(#kro)"/><rect x="1" y="3.5" width="12" height="17" rx="3.5"/><rect x="307" y="3.5" width="12" height="17" rx="3.5"/><rect x="11" y="5.5" width="5" height="13" rx="1.2" fill-opacity=".75"/><rect x="304" y="5.5" width="5" height="13" rx="1.2" fill-opacity=".75"/><path d="M24 10.5H150M170 13.5H296M60 12H120" fill="none" stroke="currentColor" vector-effect="non-scaling-stroke" stroke-width=".6" stroke-opacity=".3" stroke-linecap="round"/></svg>',
+    'rune-ring': '<svg viewBox="0 0 320 80" preserveAspectRatio="none" fill="currentColor" stroke="none"><defs><linearGradient id="krr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".05"/><stop offset=".5" stop-color="currentColor" stop-opacity=".1"/><stop offset="1" stop-color="currentColor" stop-opacity=".26"/></linearGradient></defs><path d="M4 40a156 36 0 1 0 312 0a156 36 0 1 0-312 0ZM38 40a122 22 0 1 0 244 0a122 22 0 1 0-244 0Z" fill="url(#krr)" fill-rule="evenodd"/><g fill="none" stroke="currentColor" vector-effect="non-scaling-stroke" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="160" cy="40" rx="156" ry="36" stroke-width="1.5" stroke-opacity=".85"/><ellipse cx="160" cy="40" rx="150" ry="33" stroke-width=".8" stroke-opacity=".25"/><ellipse cx="160" cy="40" rx="122" ry="22" stroke-width="1" stroke-opacity=".55"/><path d="M22.7 33.4v4.2M21.3 34.8l1.4 -1.4 1.4 1.4M34.8 24.7l2.8 4.2M37.6 24.7l-2.8 4.2M61.7 17.4l1.8 2.1-1.8 2.1-1.8-2.1ZM95.8 12.1v4.2M95.8 12.1l2.1 1.4-2.1 1.4M136.9 9.3v4.2M139.7 9.3v4.2M136.9 10.7l2.8 1.4M181.7 9.3v4.2M180.3 10.7l1.4 -1.4 1.4 1.4M221.7 12.1l2.8 4.2M224.5 12.1l-2.8 4.2M258.3 17.4l1.8 2.1-1.8 2.1-1.8-2.1ZM282.8 24.7v4.2M282.8 24.7l2.1 1.4-2.1 1.4M295.9 33.4v4.2M298.7 33.4v4.2M295.9 34.8l2.8 1.4" stroke-width="1" stroke-opacity=".4"/><path d="M297.3 41.5v6M295.3 43.5l2 -2 2 2M281.8 50.2l4 6M285.8 50.2l-4 6M258.3 57.5l2.5 3-2.5 3-2.5-3ZM221.6 62.8v6M221.6 62.8l3 2-3 2M179.7 65.6v6M183.7 65.6v6M179.7 67.6l4 2M138.3 65.6v6M136.3 67.6l2 -2 2 2M94.9 62.8l4 6M98.9 62.8l-4 6M61.7 57.5l2.5 3-2.5 3-2.5-3ZM34.7 50.2v6M34.7 50.2l3 2-3 2M20.7 41.5v6M24.7 41.5v6M20.7 43.5l4 2" stroke-width="1.3" stroke-opacity=".9"/></g></svg>',
+    'rune-stone': '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><defs><linearGradient id="krs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".34"/><stop offset="1" stop-color="currentColor" stop-opacity=".12"/></linearGradient></defs><path d="M9 3H23L29.5 11L28 25L20 29.5H12L4 25L2.5 11Z" fill="url(#krs)" stroke-opacity=".85"/><path d="M2.5 11L9 7.5H23L29.5 11" stroke-width="1" stroke-opacity=".45"/><path d="M4.5 22.5L3.8 13" stroke-width="1.2" stroke-opacity=".9"/></svg>',
+    'rune-unread': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linejoin="round"><defs><radialGradient id="kru"><stop offset="0" stop-color="currentColor" stop-opacity=".5"/><stop offset=".6" stop-color="currentColor" stop-opacity=".22"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></radialGradient></defs><circle cx="12" cy="12" r="12" fill="url(#kru)" stroke="none"/><path d="M12 1.5L22.5 12L12 22.5L1.5 12Z" fill="currentColor" fill-opacity=".3" stroke-width="1.3"/><path d="M12 4.5L19.5 12L12 19.5L4.5 12Z" stroke-width=".7" stroke-opacity=".5"/><path d="M12 1.5V3.5M22.5 12H20.5M12 22.5V20.5M1.5 12H3.5" stroke-width="1" stroke-linecap="round"/></svg>',
+    'sc-call': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4.5h8v16.5l-4-1.5-4 1.5z" fill="currentColor" fill-opacity=".12" stroke-width="1.6"/><path d="M3.5 3.5h11" stroke-width="2.2"/><path d="M9 7.5v3c0 1.5-1.8 1.5-1.8 3s1.8 1.5 1.8 3" stroke-width="1.6"/><path d="M16.6 9.5c1.2 1.4 1.2 3.6 0 5M19.4 7.5c2.2 2.6 2.2 6.4 0 9" stroke-width="1.7"/></svg>',
+    'sc-contact': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="1.2" fill="currentColor" fill-opacity=".12" stroke-width="1.8"/><path d="M12 5.5Q10.7 6.94 12 9.6Q13.3 6.94 12 5.5ZM12 10.8Q10.8 12.06 12 14.4Q13.2 12.06 12 10.8Z" fill="currentColor" stroke="none"/><rect x="10" y="16.3" width="4" height="3.2" rx=".4" fill="currentColor" stroke="none"/></svg>',
+    'sc-file': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4.4" y="3" width="3.6" height="18" rx="1.3" fill="currentColor" fill-opacity=".15" stroke-width="1.4"/><rect x="10.2" y="3" width="3.6" height="18" rx="1.3" fill="currentColor" fill-opacity=".15" stroke-width="1.4"/><rect x="16" y="3" width="3.6" height="18" rx="1.3" fill="currentColor" fill-opacity=".15" stroke-width="1.4"/><path d="M2.5 8.3q9.5-1.2 19 0M2.5 16.3q9.5-1.2 19 0" stroke-width="1.7"/></svg>',
+    'sc-link': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c-2-3-4-4.5-6-4.5a4.5 4.5 0 0 0 0 9c2 0 4-1.5 6-4.5s4-4.5 6-4.5a4.5 4.5 0 0 1 0 9c-2 0-4-1.5-6-4.5z" stroke-width="2.1"/><circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none"/></svg>',
+    'sc-location': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 21.5V3" stroke-width="2.2"/><path d="M7.6 4.2c3.4-1.6 6.4 1.6 11.4 0v7.6c-5 1.6-8-1.6-11.4 0z" fill="currentColor" fill-opacity=".2" stroke-width="1.7"/><path d="M3 21.6Q7.38 20.3 15.5 21.6Q7.38 22.9 3 21.6Z" fill="currentColor" stroke="none"/></svg>',
+    'sc-music': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5.27 21.27L21.27 5.27L18.73 2.73L2.73 18.73Z" fill="currentColor" fill-opacity=".15" stroke-width="1.5"/><circle cx="8.6" cy="15.4" r="1" fill="currentColor" stroke="none"/><circle cx="11.1" cy="12.9" r="1" fill="currentColor" stroke="none"/><circle cx="13.6" cy="10.4" r="1" fill="currentColor" stroke="none"/><circle cx="17.4" cy="6.6" r="1.1" fill="currentColor" stroke="none"/><path d="M3.4 19.9l-1.4 2.6M4.3 20.6l-.4 2.9" stroke-width="1.2"/></svg>',
+    'sc-record': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4.8V2.5h12.5v15.8h-2.3" stroke-width="1.4" stroke-opacity=".6"/><rect x="3.5" y="5.5" width="14.5" height="16" rx=".8" fill="currentColor" fill-opacity=".12" stroke-width="1.8"/><path d="M14.3 8.3Q13.2 11.52 14.3 17.5Q15.4 11.52 14.3 8.3ZM10.75 8.3Q9.65 11.91 10.75 18.6Q11.85 11.91 10.75 8.3ZM7.2 8.3Q6.1 10.47 7.2 14.5Q8.3 10.47 7.2 8.3Z" fill="currentColor" stroke="none"/></svg>',
+    'sc-transfer': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" fill="currentColor" fill-opacity=".12"/><rect x="9.5" y="9.5" width="5" height="5" rx=".5" stroke-width="1.6"/></svg>',
+    'sc-transfer-back': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" fill="currentColor" fill-opacity=".12"/><path d="M9 9.5h4.5a3 3 0 0 1 0 6H9.5M11.2 7.3L9 9.5l2.2 2.2" stroke-width="2"/></svg>',
+    'sc-transfer-taken': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" fill="currentColor" fill-opacity=".12"/><path d="M6.9 12.3c1 .4 2.2 1.6 3.3 3 1.8-3 4.2-5.6 7.3-7.6-2.3 2.6-4.5 5.6-6.4 9.2-.5.5-1.1.5-1.5 0-.8-1.6-1.8-3-2.7-4.6z" fill="currentColor" stroke="none"/></svg>',
+    'sc-video': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="9.5" r="7" fill="currentColor" fill-opacity=".12"/><path d="M7.6 9.6Q8 5.2 12 4.6Q9.2 6.2 7.6 9.6Z" fill="currentColor" stroke="none"/><path d="M9 21.3l2-4.8M15 21.3l-2-4.8" stroke-width="1.8"/><path d="M5.5 21.4Q10.05 20.2 18.5 21.4Q10.05 22.6 5.5 21.4Z" fill="currentColor" stroke="none"/></svg>',
+    'sc-voice': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.2" cy="12" r="1.9" fill="currentColor" stroke="none"/><path d="M9 7.8Q13.4 12 9 16.2Q11 12 9 7.8ZM12.5 5Q19 12 12.5 19Q15.6 12 12.5 5ZM16.5 2.8Q24 12 16.5 21.2Q20.4 12 16.5 2.8Z" fill="currentColor" stroke="none"/></svg>',
+    'seal': '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-linejoin="round"><rect x="3" y="3" width="26" height="26" rx="4.5" fill="currentColor" fill-opacity=".12" stroke-width="2"/><rect x="6.5" y="6.5" width="19" height="19" rx="2" stroke-width=".9" stroke-opacity=".55"/><path d="M27.5 9.5V12M20 29.2H17.5" stroke-width="1.2" stroke-opacity=".5" stroke-linecap="round"/></svg>',
+    'seal-mount': '<svg viewBox="0 0 40 40" fill="currentColor" stroke="none"><path d="M6 1H34A5 5 0 0 1 39 6V34A5 5 0 0 1 34 39H6A5 5 0 0 1 1 34V6A5 5 0 0 1 6 1ZM6 3H34A3 3 0 0 1 37 6V34A3 3 0 0 1 34 37H6A3 3 0 0 1 3 34V6A3 3 0 0 1 6 3ZM6.3 3.8H33.7A2.5 2.5 0 0 1 36.2 6.3V33.7A2.5 2.5 0 0 1 33.7 36.2H6.3A2.5 2.5 0 0 1 3.8 33.7V6.3A2.5 2.5 0 0 1 6.3 3.8ZM7.5 5.5H32.5A2 2 0 0 1 34.5 7.5V32.5A2 2 0 0 1 32.5 34.5H7.5A2 2 0 0 1 5.5 32.5V7.5A2 2 0 0 1 7.5 5.5Z" fill-rule="evenodd" fill-opacity=".92"/></svg>',
     'search': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.25 15.25L20.5 20.5"/></svg>',
     'send': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4L21 12L3 20L6.5 12Z M6.5 12H14"/></svg>',
+    'sigil-0': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l2.2 7.3 7.3 2.2-7.3 2.2L12 21.5l-2.2-7.3L2.5 12l7.3-2.2z" fill="currentColor" fill-opacity=".2"/></svg>',
+    'sigil-1': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3.5A9 9 0 1 0 15 20.5A10 10 0 0 1 15 3.5z" fill="currentColor" fill-opacity=".2"/><circle cx="18.6" cy="12" r="1.3" fill="currentColor" stroke="none"/></svg>',
+    'sigil-10': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="16.5" cy="7.5" r="3.4" fill="currentColor" fill-opacity=".3"/><path d="M14 10L4 20M12.3 7.6L6.5 10.8M16.4 11.7l-3.2 5.8"/></svg>',
+    'sigil-11': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 12.5c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 17.5c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/></svg>',
+    'sigil-2': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17.5l5.5-9 3.5 5 3-4 6 8z" fill="currentColor" fill-opacity=".2"/><path d="M3 21h18"/></svg>',
+    'sigil-3': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.8c1.3 3.3 5 5.2 5 10a5 5 0 0 1-10 0c0-2.4 1.2-3.9 2.5-5 .2 1.6.9 2.6 1.8 3C11 8.4 11 5.6 12 2.8z" fill="currentColor" fill-opacity=".2"/><path d="M12 14c1 1 1.6 1.9 1.6 2.9a1.6 1.6 0 0 1-3.2 0c0-1 .6-1.9 1.6-2.9z" fill="currentColor" stroke="none"/></svg>',
+    'sigil-4': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l8 9.5-8 9.5-8-9.5z"/><circle cx="12" cy="12" r="3" fill="currentColor" fill-opacity=".55"/></svg>',
+    'sigil-5': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l2.6 4.5-2.6 4.5L9.4 7zM6.5 12.5l2.6 4.5-2.6 4.5L3.9 17zM17.5 12.5l2.6 4.5-2.6 4.5-2.6-4.5z" fill="currentColor" fill-opacity=".2"/></svg>',
+    'sigil-6': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21V3M12 12.5L5.5 5M12 12.5L18.5 5M8.5 21h7"/></svg>',
+    'sigil-7': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4" fill="currentColor" fill-opacity=".2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M5.3 18.7l2.1-2.1M16.6 7.4l2.1-2.1"/></svg>',
+    'sigil-8': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5l16 14V5L4 19z" fill="currentColor" fill-opacity=".2"/></svg>',
+    'sigil-9': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5.2" fill="currentColor" fill-opacity=".2"/><path d="M2.3 15.9A10.5 3.4 -22 0 0 21.7 8.1M16.5 7.2A10.5 3.4 -22 0 1 21.7 8.1M2.3 15.9A10.5 3.4 -22 0 1 5.4 11.6"/></svg>',
     'splash': '<svg viewBox="0 0 390 780" ><defs><radialGradient id="splash-glow"><stop stop-color="#A8E9BA" stop-opacity=".28"/><stop offset="1" stop-color="#A8E9BA" stop-opacity="0"/></radialGradient></defs><g id="background"><path fill="#F6F8F6" d="M0 0H390V780H0Z"/></g><g id="glow"><circle cx="195" cy="390" r="190" fill="url(#splash-glow)"/></g><g id="ring" fill="none" stroke="#C1D9C8" stroke-width="1"><circle cx="195" cy="390" r="138"/><circle cx="195" cy="390" r="159" opacity=".35"/></g><g id="contacts" fill="#F6F8F6" stroke="#C1D9C8" stroke-width="1.5"><g id="contact-1" transform="translate(195 252)"><rect x="-14" y="-14" width="28" height="28" rx="8"/><path d="M-5 1H5M0-4V6" stroke-linecap="round"/></g><g id="contact-2" transform="translate(333 390)"><rect x="-14" y="-14" width="28" height="28" rx="8"/><path d="M-5 1H5M0-4V6" stroke-linecap="round"/></g><g id="contact-3" transform="translate(195 528)"><rect x="-14" y="-14" width="28" height="28" rx="8"/><path d="M-5 1H5M0-4V6" stroke-linecap="round"/></g><g id="contact-4" transform="translate(57 390)"><rect x="-14" y="-14" width="28" height="28" rx="8"/><path d="M-5 1H5M0-4V6" stroke-linecap="round"/></g></g><g id="logo" transform="translate(147 342)"><svg width="96" height="96" viewBox="0 0 1024 1024" ><defs><linearGradient id="splash-tile-green" x1="120" y1="0" x2="900" y2="1024" gradientUnits="userSpaceOnUse"><stop stop-color="#48CE82"/><stop offset="1" stop-color="#15965B"/></linearGradient></defs><rect width="1024" height="1024" rx="232" fill="url(#splash-tile-green)"/><g fill="#FFFFFF"><path fill-rule="evenodd" d="M344 248H680C772 248 832 310 832 402V532C832 624 772 686 680 686H454L294 790L316 684C240 674 192 616 192 532V402C192 310 252 248 344 248ZM570 342C484 312 394 372 394 458C394 549 486 611 570 576C514 565 476 518 476 460C476 405 514 357 570 342Z"/></g></svg></g></svg>',
     'splash-dark': '<svg viewBox="0 0 390 780" ><defs><radialGradient id="splash-glow"><stop stop-color="#46C889" stop-opacity=".28"/><stop offset="1" stop-color="#46C889" stop-opacity="0"/></radialGradient></defs><g id="background"><path fill="#121614" d="M0 0H390V780H0Z"/></g><g id="glow"><circle cx="195" cy="390" r="190" fill="url(#splash-glow)"/></g><g id="ring" fill="none" stroke="#365648" stroke-width="1"><circle cx="195" cy="390" r="138"/><circle cx="195" cy="390" r="159" opacity=".35"/></g><g id="contacts" fill="#121614" stroke="#365648" stroke-width="1.5"><g id="contact-1" transform="translate(195 252)"><rect x="-14" y="-14" width="28" height="28" rx="8"/><path d="M-5 1H5M0-4V6" stroke-linecap="round"/></g><g id="contact-2" transform="translate(333 390)"><rect x="-14" y="-14" width="28" height="28" rx="8"/><path d="M-5 1H5M0-4V6" stroke-linecap="round"/></g><g id="contact-3" transform="translate(195 528)"><rect x="-14" y="-14" width="28" height="28" rx="8"/><path d="M-5 1H5M0-4V6" stroke-linecap="round"/></g><g id="contact-4" transform="translate(57 390)"><rect x="-14" y="-14" width="28" height="28" rx="8"/><path d="M-5 1H5M0-4V6" stroke-linecap="round"/></g></g><g id="logo" transform="translate(147 342)"><svg width="96" height="96" viewBox="0 0 1024 1024" ><defs><linearGradient id="splash-tile-green" x1="120" y1="0" x2="900" y2="1024" gradientUnits="userSpaceOnUse"><stop stop-color="#48CE82"/><stop offset="1" stop-color="#15965B"/></linearGradient></defs><rect width="1024" height="1024" rx="232" fill="url(#splash-tile-green)"/><g fill="#FFFFFF"><path fill-rule="evenodd" d="M344 248H680C772 248 832 310 832 402V532C832 624 772 686 680 686H454L294 790L316 684C240 674 192 616 192 532V402C192 310 252 248 344 248ZM570 342C484 312 394 372 394 458C394 549 486 611 570 576C514 565 476 518 476 460C476 405 514 357 570 342Z"/></g></svg></g></svg>',
+    'stain': '<svg viewBox="0 0 120 32" preserveAspectRatio="none" fill="currentColor" stroke="none"><defs><radialGradient id="kst"><stop offset="0" stop-color="currentColor" stop-opacity=".05"/><stop offset=".7" stop-color="currentColor" stop-opacity=".09"/><stop offset=".93" stop-color="currentColor" stop-opacity=".2"/><stop offset="1" stop-color="currentColor" stop-opacity="0"/></radialGradient></defs><path d="M7 17C5 10 19 5 38 6S76 2 94 6S117 13 113 19S97 28 73 27S27 30 13 26S8 21 7 17Z" fill="url(#kst)"/><path d="M9 17C8 11 20 7.5 38 8.3S75 4.5 93 8.5S114 14 110.5 19S96 26 73 25S28 28 14 24.5S9.5 20.5 9 17Z" fill="none" stroke="currentColor" vector-effect="non-scaling-stroke" stroke-width=".8" stroke-opacity=".14"/></svg>',
     'summarise': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4H14M3 8H14M3 12H10M19 4V14M16 11L19 14L22 11"/><rect x="3" y="18" width="18" height="3" rx="1.5" fill="currentColor" stroke="none"/></svg>',
     'tab-chats': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4.5H17A4 4 0 0 1 21 8.5V13.5A4 4 0 0 1 17 17.5H10L4.5 21L5.25 17.1A4 4 0 0 1 3 13.5V8.5A4 4 0 0 1 7 4.5Z"/><path d="M7.5 9.5H16.5M7.5 13H13"/></svg>',
     'tab-chats-active': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path fill="currentColor" stroke="none" fill-rule="evenodd" d="M7 4.5H17A4 4 0 0 1 21 8.5V13.5A4 4 0 0 1 17 17.5H10L4.5 21L5.25 17.1A4 4 0 0 1 3 13.5V8.5A4 4 0 0 1 7 4.5ZM7.5 8.75A.75.75 0 0 0 7.5 10.25H16.5A.75.75 0 0 0 16.5 8.75ZM7.5 12.25A.75.75 0 0 0 7.5 13.75H13A.75.75 0 0 0 13 12.25Z"/></svg>',
@@ -24275,6 +25842,8 @@ const THEATER_WEIYU_ICONS = {
     'tab-contacts-active': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path fill="currentColor" stroke="none" fill-rule="evenodd" d="M6.5 3H16.5Q19 3 19 5.5V18.5Q19 21 16.5 21H6.5Q4 21 4 18.5V5.5Q4 3 6.5 3ZM9.25 9A2.25 2.25 0 1 0 13.75 9A2.25 2.25 0 1 0 9.25 9ZM7.5 16.5H15.5C15.5 12.5 7.5 12.5 7.5 16.5Z"/><path d="M19 8H21M19 12H21M19 16H21M2.5 7H5M2.5 17H5"/></svg>',
     'tab-me': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7.5" r="3.5"/><path d="M4.5 20V18.5C4.5 12.5 19.5 12.5 19.5 18.5V20Z"/></svg>',
     'tab-me-active': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><g fill="currentColor" stroke="none"><circle cx="12" cy="7.5" r="3.5"/><path d="M4.5 20V18.5C4.5 12.5 19.5 12.5 19.5 18.5V20Z"/></g></svg>',
+    'tablet': '<svg viewBox="0 0 32 32" fill="currentColor" stroke="none"><path d="M8 7Q16 1.5 24 7V28.5A1.5 1.5 0 0 1 22.5 30H9.5A1.5 1.5 0 0 1 8 28.5ZM10.4 8.5Q16 4.7 21.6 8.5V27.6H10.4ZM11.8 9.4Q16 6.5 20.2 9.4V26.2H11.8Z" fill-rule="evenodd" fill-opacity=".95"/></svg>',
+    'talisman': '<svg viewBox="0 0 120 280" preserveAspectRatio="none" fill="currentColor" stroke="none"><defs><linearGradient id="kta" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="currentColor" stop-opacity=".6"/><stop offset=".35" stop-color="currentColor" stop-opacity=".4"/><stop offset="1" stop-color="currentColor" stop-opacity=".95"/></linearGradient></defs><path d="M16 13H104V272L60 268L16 272Z" fill-opacity=".13"/><rect x="8" y="4" width="104" height="10" rx="3" fill="url(#kta)"/><rect x="0" y="1.5" width="10" height="15" rx="3"/><rect x="110" y="1.5" width="10" height="15" rx="3"/><g fill="none" stroke="currentColor" vector-effect="non-scaling-stroke" stroke-linejoin="round"><path d="M16 14V272L60 268L104 272V14" stroke-width="1.2" stroke-opacity=".75"/><path d="M23 22H97V260L60 256.5L23 260Z" stroke-width="1" stroke-opacity=".45"/><path d="M23 46H97" stroke-width="1" stroke-opacity=".35"/></g></svg>',
     'token-meter': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M7 16V13M12 16V10M17 16V7"/></svg>',
     'transfer': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.25"/><path d="M7.5 10H16.5L13.5 7"/><path d="M16.5 14H7.5L10.5 17"/></svg>',
     'video': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="12.5" height="12" rx="2.5"/><path d="M15.5 10.2L21 7V17L15.5 13.8"/></svg>',
@@ -24282,10 +25851,15 @@ const THEATER_WEIYU_ICONS = {
     'voice-input': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.6 10.4A2 2 0 0 1 8.6 13.6"/><path d="M11 8.4A5 5 0 0 1 11 15.6"/><path d="M13.4 6.6A7.6 7.6 0 0 1 13.4 17.4"/></svg>',
     'warning': '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.5Q12 .5 13.7 3.5L22 18.5Q23.2 21 20.5 21H3.5Q.8 21 2 18.5ZM12 8V13"/><circle cx="12" cy="17" r="1" fill="currentColor" stroke="none"/></svg>',
 };
+// painted pictures (weiyu-assets/looks/pic-*.webp, as WebP data URIs; soWyLkPic draws them as <img>)
+const THEATER_WEIYU_PICS = {
+    'sc-desk-book': 'data:image/webp;base64,UklGRl4PAABXRUJQVlA4WAoAAAAwAAAAXwAAXwAASUNDUMgBAAAAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADZBTFBIgQQAAAGgLQCQIUmqiMyqxtiztm3bPNu2bdu2bdu+W9veW3PcPVUZ+TDKrIoPiIgJcMx7hy4tL1v7xZx7iuNxVyCAwywULSCtiajih2devOPkyX3a5CRirhQIADzgcb6un4hUkD6w5b8P7zpr6rCe7UryMuOuFIgIECFwP6QGGku1Ffu2rZ3zw/uPXzqtS3FepicFIiLUG7qcHdo0EZFStXs2rFnw4U3Hzxjat3fn4qTnSiEQEQHCgsN8Y40kIr+qfNe2rRv/ee+JB2699szZk2ZMHtg8O+lhGORlgb1Gk1JKBX7aT5Vt+O/rC4rQHsTeplA1teZpD6xh9rIo0aIYWnOnpnSUt/R3bUHOGooUzWkpbPX3dbT9lxKWsFsQMZ0ainbEkSpqdFXMjnc/RU0v72wn8aOOfPCsnZwd0aN1VnBiwMDnNsB9l6KnrrFSUqGjXz3dBk7xGdjY1Ya8LIge/ZdjAbwPiIGHXQsYX8aAOlZYEM336ej7o8BC7CNiYH+eYx57VWoGP45bECf4DNB5rgUcl2agepKwII/xGdjWHS14D1D0aF4WWEj8phn4MeaYhzYHOHjKsyDOUwyoU6U58D4hBqraCwulu3T06UcPzOGESgbUbdKCvCpgoPZE4RgH7zNiYN9wNIeJ9Rxs7QDm5OAazeDqfHOQ/JEYoC88c9h3r2ZQXSgc42JiJQfpDmBhdDkH6zIc8+4ZPgdvxy3E39AM0hWuhewNHPjHSHMwvJaDijHCGMj7FQf7eqG53CXEAG1vCcaw+3bNwfykY1wcVs3C3Z4xkPcqDtQkaQxjPxAHZXnCmGi7XTNIi2JozLtbsfCGC6agYCFxEFwjHWOlq1hIHS2YKxuExnDIfs3hrmIwJo/yOaDfPXOxRzWH6l5pLn8TDyeiYxqnByz4ncGY+xyxsDPLMV4wX7O4OGlu0C4evoibO8Xn4VHP3OuKheA0aW4JsVAzGM0t46GiFZi7S3FA25KO+aG7WHjbs1A4j4WLXQvuQ8RA0EtawE4VDOxOCgtO7Noyihr9G0MbmDxm/v6KlK8oQu97YMMBWTJw8sm3vPJdmdZEFAX1rLTjOIAopJtxC9Gqb7elVARuFE4IAdzuVerZnJ4n3vTs54t3ppSi8AQnhsKB1r8Haud0Id1YIq/r4fe9/8O8NTvLU4EisuaPx1CIiwOta1dIpy6gjGcVteo54/yH3/lhzcG0IiILqdYhOSatdfoNqMdxoC6ikG68uN/sWz+fu+VgjU+G1sQgFJC3iGhTSUMNAyAK6WUWdR5z7GWPvPvn5vKaQFHj6G0ZkuxVRPNdxziAkK4Xz2o9bNL5j3+9dPOOA1W1ioi0Th+BTijFqTWadrcw1zAACjereef+k0645vmv5qzfn/ow2wmlnLSVtE5fA9bqAgAgCuF6GYW9xuSJMIA4ZJvSWvvLE6FoGABRCIQweBO2VWmttSrvD2EKMU6cV7mEtNaUPh1Zkldu+7dS1w0eEyyJUevf81N1yr6VLEG8x/NbVlBNjf/+k4IlB0SLkbfM+enAR73zkQsAVlA4IOYIAABQJACdASpgAGAAPmEmkEWkIiGVyxaYQAYEswBkR/uFA+k84utP67eYTYdjmSD1Z+YB/nOiD4znq5eh79nOAg/qnqW/t31q3+B84677PuPhf5GvYkoYlfgTl74AOr91fe7uu8/Y/UA/lX+C9CTRJ9Kb9z9wvYl/VVwCxxtNk9vFOKFv7Vg42QqVBCNiI3HyfY0E0WM6L0s6LBdXbKcZbqOYdukH/4njc8fo4nmMJTjgaSzDy/x3liQO0bElf9afDd3mvoD+ZSrRmNB5dn5ZsUJ7CZ/vgZgH55U1Jv18VL766iR/Osod87Cpy2MUEoZGMHWPDDqTe0norFPoT0Q6kAzL6x/ff6Tsegsc3Hy8llIx2I7M+Q+ktUwNmY0nj79cet5E7YLhphnaIb4XAAD+/qU6l/wG0hTa5lzxAY/P8H4m8dCD9xxFXRPnkm+wbpUK3nQ/zKW5nunuiHcXLlLBZ9JWMgM4f9dd8VFw8vi3+tJIVhHYvlvEvY/fS8/fnlR8fJkuTGZuMH/S7v29QH6Gs46ilnCsXgFI3VI2KuJGVClMcBJDHrjqvt8EmNsKWv8AshLT7dBUUv1Iyb0LVLM0jqLhvmRQG5fzxFDrzebMIO9Ip8OofPG1Tnri/ORn3ePKT7TqAnPB1bm9LrY170YZBYdA7LNyiNwlpchsHpXevnG47HTCUx4R4TGKcJmnvX7jroLJYbcsOErKeAwp+SlQ+ncAMNNCCN7OMpPkuMepy+kmlI9W8b+9Btvc2pz1SoUpsxrQLXPCqrzswZkUHsyCi+FMXsQ11qFnP4swVMVFA+Bs9HNMj8IAVqP86maf9+Kdb9ByDRsL/JvLxw7RY+NiWY49j31C/QX+R7KQpK5KvB++JIvyw7SnRPGzpz74fkmjFcEuFQ1SfE8HalBat3vc/ln8UscLELCdRrTwAIG5b6s7ohaTnDOpvtfFiLkR3UWdE2Q3MtZM5ry70c5wvEdWat+m3+Q0pKqP6dllO5xNoBVmvuv5kgvKZNkcEFkRSfzex4UzL1tcAEr52MagIyLkVEyafp5EMpxF7aNcMLeO2KsSYE/mYBZ+5oesgBisMM5FDgwXZeVmiLADS2JSUi7i4XhTYeMC4ue8fDTl0yub3bmbuuEueEtUxT5js1qWh7cWnoVgb5fidWJ75B/mHSPn0hSTzL2UigU5Y9aLLOkFVqO56tB5nSv3W+sz7/ClZStaAuVE4eTzQWB4pcfTgrCNYRLLufvcohAdALqRVopNlIQa/mTee2h7jpv0tKE78+wrcgRKVIuelHC37uYnP/3de4n5jkC8/5jU9FYWZ/AAl/k6PDfcJphHISrBpVxdP5sOVkR8seMmrYmxAZ5CEQ1ibUB8UaZin3i5/cqYZUs16gCXjc8iiBF2EBvT6xFW20hrlfammF8NE2CAFbMPaYROZ/83OYtHdcKEpjWDD5kuUIeIegHmSQCh44476DDmDZ+SHoxzVoaa0Rq2xC7QCUySwd85V4YV2L0Z1wfqtbojQ2qTb32EfMhihyQ5MGQ/DTYs70W/t0EsU+AJTq79uAyatMabhM5X0QQQD4F4vrx4TBATqgWxLWL2JUh/QP9OqwKsAKgtwQqjuoD2a5IFK9Oxxr5Py1aFKomltJKiT8DLvyX59aMSww3f5QRpLI+ePzuUqkHo7n4+KJtit4hBAV4Kc++yBt+qlfMW8XI4D7mDslDNPusmg+i170Oqi+rra/vre3wLyf4zRrHtH0us+rypvM7kJSi89C4UyF6wzAhkgoos4Z1CbsuG61pYPdMEi588fccGRM5Fak2h3z9vyvdXwhsxWOmZpEubgwqkLb2lS+HWkpqwdoApIvsQ4eWrVsNxM4aUnvx6708RVqxxF2+QNiuoKpbAozSlkv3/E9W0+OtGC5JeN3l2L8bZVG61ccF7/BMfHGJRXPYySQtY6CUQ44QVr6eyh+ZWdp4vHRZyVLKyE2gYepYkra74N6CTM+K0h58OnGfj5gi+9ZrNnXOin/T8QwHoKQ8ZzpPpRuy7V5sHhicTk6h7kPSZuFuHZypjyHdNX1UfYgUk00vZxDhytU4BJM9nrcGkdd5djTxJw1xZr8tV0sROAe+dLrqLr0ERBrrnbLs1/b3+liHh76vlmiwACVYDkWBV4SGJDYptOppWeE5gMWyeUz8Bofe7c63faOA2M59/lKXMeqcgH4s5hu0mpBCy6jrHSdJKxxPDy46Vdl+j5/gZqiktaF/M7bqc4RslHsryqvIXFvdGjJkx78eT6VeCLGCoNfVwNmoe5MpyoBeB7miNCZjQ/3cXpB3RDpzU13kr9tg/+ILaUZTFHu69wT8m4Flmd3OANr/Wme2u8q5ZuPBODeMQTxewoeGdMfB5D5Kr9iYHLv9XmfZqfDQVkgq3s4VPXzeveKZQeD+LEsjI/tRzvw/gIL1gyMwROMrT7auht9i/FHfuWNxjo7v8eO6hstBz0YXgqESCS0+3bVJ9mK8x6FDpwGMuxogGaudB74Ohmpq6no8wWSciBJ72XSU0/3ZJKRZcFUkglh6UfrFXIf68+UhnvPPm1VupvVxDXHsHOvg9eIc3fiHPD7DHdGOqWjM9sitPg82TR+3/9dKx6UYLcVf8ccHp0CkorWl43Xv19EFOrEjarvGjdQ9cQlFd//g1/qO8vPW2vwZ6v7bZRQ5IBAhi0rx6W6RBoKbg294nsSU05zTrBZ5ujoNq5f2lzJPASkHwsLJgHFaARPx+OnGXUrSibJcXcAJFH78kdvIqhxGkiVv8UYbP7K0NTkZ+tA0+FlfTb27tASsC+VVGTZXba7y12XwZIYzFL71/BHA/zSQvnZB0NrstpBDHk+FgZpaDypC5GVbOqit64nGKAte0x70iwrJp9nx9Lf9jg8X7gaXNpXmINT1+2oGsd81On8/B/gANaz8SrYO7+UaICI2kbL9w7m18oDjZyi83qLmDLOZzUzwE57TPWKkTQd2ip/2Ev5ZqYgGWic4UhozuQ+6413Bd4EZkuFeiuIpwre0j82mOD+UkZ4EIvtyvHyDhyAAA',
+    'sc-desk-letter': 'data:image/webp;base64,UklGRtIPAABXRUJQVlA4WAoAAAAwAAAAnwAARwAASUNDUMgBAAAAAAHIAAAAAAQwAABtbnRyUkdCIFhZWiAH4AABAAEAAAAAAABhY3NwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAQAA9tYAAQAAAADTLQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAlkZXNjAAAA8AAAACRyWFlaAAABFAAAABRnWFlaAAABKAAAABRiWFlaAAABPAAAABR3dHB0AAABUAAAABRyVFJDAAABZAAAAChnVFJDAAABZAAAAChiVFJDAAABZAAAAChjcHJ0AAABjAAAADxtbHVjAAAAAAAAAAEAAAAMZW5VUwAAAAgAAAAcAHMAUgBHAEJYWVogAAAAAAAAb6IAADj1AAADkFhZWiAAAAAAAABimQAAt4UAABjaWFlaIAAAAAAAACSgAAAPhAAAts9YWVogAAAAAAAA9tYAAQAAAADTLXBhcmEAAAAAAAQAAAACZmYAAPKnAAANWQAAE9AAAApbAAAAAAAAAABtbHVjAAAAAAAAAAEAAAAMZW5VUwAAACAAAAAcAEcAbwBvAGcAbABlACAASQBuAGMALgAgADIAMAAxADZBTFBIxQMAAAGgRmubIUmKyDLGtm3btm3btu2ZtW17t23btu3uysz4FlWZkd21cc78i4gJQC/x8dg73wXHON4ZhdmEmxVEwCoJnK9mEO2jWpDIf96KPa6LIJkEtWaNSQLIDTCyhdoVZJNHmCmmWuRB5YD/A05TX/C7QPO2vcO9r3uXk+wftpvqgymRiofKvpnuVYNVEja+HrQsopKts2smBxFsl41VrmkulTy7xr0HkuMMik3jqYRr7NkMQRrZphTnAFRfIHv+FGS+r9RyoCrMtmvucvwV0kfRiTDYNQc5iSpldol0SmbbtdfkeCFFG0UDZeGHJS31GrWKU6k1Wn3jVh06tenYqV0zs17d8NQjguQ8VGavSAsA6jKDPJ3/cg8Ii8mp5AFEAFJXke35YvvIJrjhqLvs8BBAJlmoiCkNGmJdtsPF2Z3NOp2xZd/ZOy7dffHWW6+/+vTGwQlNbOlaDZi0bNnEngaEEDZ0nbB0/YbNG3efvvNuSBkB2WSTIsehwYoCb7HwvCASsE3EuoC3Lx8+eu/ryGpeEAkRhZokL+/4WkEkVoH2MyVaFDYcuxqsUuARYYLSTvT6lAITigupce8DIz6kNqCaFbw0tL4EVqxsRWm6yAywjI7aA9jxCZ3lPEPEUTH4AUMKLWmsFlkCNlJQhQJTvk9hK7BlulaWKYExagbK2ioyBtknxxwJrPkFlrGNMEeSWZouFZiTHyBtNzDoUUn6ZBb5VdJxwiJVBgnNU4BJF0k4S9jkbVumZGDTTL2NBcCo/DRrKjdWgRfWNhBmSWr0nxZJwKzCWIQQvk3YBe4ihFoVAsPmNENoHzDtz1r0LduQF1wC20DlwCzGgWvBrON8n3Vih1oYJ4J7RtjGBTVzZpuPEDK+TVjmHEKIO8azS/UwhBAyRDNEZXIKL4W8zv0H7RSVqLPYP5L8h0uaCMBHPF7cwmBcVCXB1Yiscu+Ktkh6akUtz9eU5bq9eWXH1F5NdLr24/a+HlnO1wtSV54T8dcfjp6pJVUWQkOszvry5JT+s07/kF1Ry/O8paYk8cvjPTBCuEnPHmZkfWYG+Q8pe6hHNjUXi6xZ3mut6zxs0qRB7Y1IurrT5E0nb99/+Oje5xEVxFpN3Kcvvo8r4/8jVuX4vn9+9ciOBg5jjDUteo1dsvPs7Xs3zhzcsGLZ+pOP3v/wtRt7FvQxIOuGTkPHT5owdkArNaLZfMcnvoHfn+yBkUTc/qRDam7I3VEqpCRGCCGsbzFk9f7D+zeNaW3EmDM06zZy5rxxvVs20iL5GKOGq9Fy6CU5AFZQOCAWCgAAcCsAnQEqoABIAD5hKpBFJCKhk9qvXEAGBKAMo0Iczf1/Lh/6+xPxf6T1mcs960f2O9S3nWejj/Ab6J6FfSt/3T/sftH7SGa19mX+Q8L/HF8MlyU0eNvgX8XlL9wR7Z/TP9rxwf0Gun0APFL0MPVvsK/r11mfSG/Zl1TmIyh2L0NfktBfblCrv8iYgnkshZ07gtLYr4SBJXLHVCZVAJLNK2wmijNhM0lsZ78cxr6PDIyiWbRKa4s5i5P1SU7qM3nW2zftynVIcovZvdOtssF26I1hO3yvepN8KxbJKppgCav6Gf+FtgelAB3/4MGJAvcnzivAs+dVQ3xEhVFWgUxwWEIUNxEvZWpsP6fsb86ieIM7kJF27wQDxyaMWqtjwQyxLzmHLvUc6jJHZh3afAJqMuwswdYpKGU2vgxIHWxNjjWQG7eod49wcMFQ+lKNYxf7v67l2Y3m+SDfu5zyhbZE0bAEkoQA/v7QIVr3sULJtrKsR48+o1p0fDuYsjgUoygrygkaY2vzRKtxFlsdDb8z1+crwRbjNxRQ0VMCok+OvAR8xD163RrlNefuV++yewW74aRZZUlHHoPekJXCl4bI/dKup1A39QUgEd6sd8xlP8pSJw0g/gg5JnJnq7X2crmfEFgZS12aKG2CaQXhg92ClZeEAEQUqKNgLHuvx//MSrGkwAAQ/3lp+/94mEWXXgdTLHI+d3fxAA0PrXsO/d9Uegg5GeWMj/5qZw98r9tQjR9uGm1JH18IQH9ygpcnAvJ/U6RkKNZmlZs+d5fiHi0aJ70fGFlXG7SR95bNPI1ioL18QB8OGu310U/D3uIkpNDoJMXSgwCi1LTC0hXK1uaMCQnU7f8QBLih+IUw6ceu7pzab2U1K+A/VQXrvZCEy+zX3kk5mLUrawJjRxXDlufERnKT6VLn3WYc+Y+dKoQtvvY5HyoggtwDcSk+9ExsoWMWxq/0ZE0fVpQI9UQL58K8sSn/oUXpqT9vJH1RBYbcgeQmGn6X7zD+vN3UrelaBrMhK9n6uyq+zwuivlLpddAmMC8dmE+uQZ/FQ9ff94R86titBxTDhiWVONrhwcYi50T6dhAkd7G5mVOe3t58VJKWHS5pMxoCIkFNspkX8bd5d4DZGKBzNHu4Fk+svHQgLyipYO4OTt4FiINES3eL7ZCzKirbigaUSkyEhGspy08Pj4xVMb/56rdbb8+yj5fhEw7zHZ26DiBwiTQAfzlhYhY/whmRXvFcmrLLFPSPc/RjI4xXK8atpIFdOippwhYuY0E3c7IrYGSpvm/QgX1fys1u/YMiW7M92ISFxNvjHAcUqw9m8QOS5oBHRwT9xFwgafarEWRSvyDBr3EkShIc0RitzxUE82IBlp94p251XeS4ziFCJm63a0SmRBnzc9ew7WRHMQ2RraSgK7S/NvXUWGLEa1dUV9eYbFe7P89gasi5d1EeM6ort7t17pjM7jWTQcQOc6hG29stDrYzw+P2/VspCII/59ifkn80yDNIHzJZiXTNOnXkv7TwuNbiCO2euMS9jKWEQH2rphAb2thOO5iUcEnwFAB6HtknMZxEKAtRR1KiUZSpXO11YoA7BdTet9ugCBm0sV8B3xHVQXtB3WUBHQ7xb+dPdsTzKwKPw6vEhzC5VMiSA8yjWbKzVhGMQ1zeAnxpmFK7w5g9muIqaWIzQo7BmDA9cj3AC4Ap49jItWD0KSzqCdCX/e0BIKPsih2zuQXdKd/j5jPAK07I/73qRYlC1NxfomPBY08+8XeK5nQnE7mEgiznVoGBTSTnOVEVOXBlqCSfmOyvfdEJq+OubUyrfyb5seWEXPJXUCU6zYOk38p/QIb0DKEQjGJ0F3QgBVlSVdAAABgAwRY9ZELHhNnJ1Rga16Jz3J6/Q0zTFXh4WMnDV+HOqRA5RlUlS1E+1XjrM6Y6p7km3a73To/TG4b7kyznMmgHzVMRPvGa6lsaqAN0ILtm5J9s5vTATjbo2AjCb2t+tDipBo8wqsFrthewrIGexDiCe5ZDIV55PNJxWtIZa2ruUYIuGmqLvGuC1saXgkfQCKRGZTKbsjqP47MS42TJn+ZdPFafpsS/03IKOeBXdI1R1LCBR/suSvBk47e+iu+0g0YBC/v6MxEbeaG6K1fn72TGGEaRbSCS+FUVnVbHH/1mo1eBVaOMLm/k5eIXepOAHEuOEscTPHxn+AXyeaYzT9ReYEytN/hYNQFJ3RDzQxVW25tjsCHu8s+Uv/HaDou4eHDc7YnrxsTFCbGHw3KGe0q87kQfYzSwxzPI7A2wjZqcwWqdLmDXxaLiJrWiTsu8oO/VCXAf2UIext06+nRhDcjpKCfz31gqS5J5VE6EzmFajbA5SjFBDYZM07iRDW0YxOfvUuevl+6PaX39nTaFhZC+xyEMxGeB5MNjTSZoyqAEI7C45m10apyH5EYdOIWcC6YldBAwgeATJmPfN2FCXAp8lVLCv6G/H8sTF9zVNX7qqtBBioOjHQgWfq49AI+TarhvsAkGaSS/epsRa0VSquvXYpA4Usk+1Fc/o2icXXJGjjmx8wCqaUAu6aOLbn2JHlxZAe0T+1m8TNTi9JsQlNkAAFWheVb5oh4WXFuYlVOpP3/tqwRGSmxzsX3xYcDD/ltkgnpA4nd4I4FyYCDGmu2Sz6lwxTVIjX7+OroQY2BX/b9z9v/ili3cTuJ7VH+eescsQxLGNW/8ed6xvIxZkjftfjOZlf1TB4y4Cm9N0q5S34zxCz8WGI97l7Ngp2BUe2sBNzV8b/M7Vmd1aDg6uIfsHQHT/3d350PAWKPc+bralW1O5s7j5N+UI84RmoOysB1axK9jpx/+fnNuHCVv+Ewip7vN2kX5CAm9BREN+3YR3p/aVVf4FlURoa0mQLV238V/8BZS9EJF2RibEVwWYl34H5S535gl7ncFPVjhmdFdu0NaAf+l5eQEOvJ9INVzP6UFqiHdGTxgsIlyhTIq3lGKjUZ0CUlha6CyuMl6JtkgG+lrP0PSJniAtgFZ5c7k4t+yJJ17py+JfbaWlP79MWyqIuBekTO8n1ebzgXTEn1ZoxLiALEb0PRJ1sIn8pJiLbEtliOUhjMfwAPmLBiphlWa/+VNyNVmTkFwz4IFHMGO5B2pWikbawIRvS0Am0yoQGFE2vjSt9O12C6B7H/cBU31UZeQ9MxP2ejabwGG9unSAZdlzJqXZtknw++PcS1mMDCoOIRjOhSzsQv79yIhkRKAXEb3Bs2P+RmKHL0Fq+hZACv+cjRJUTkjsN/QGKcYVqIpqdYLrTvnpLvXYmHDKXbAK3kwVbTjWbEmCbKDX7ROyoyZyCaZSdBylvWkKzhgQUYWJD/SMycqy+PSvuI7rSwukBTmko4/19yy3vDbK33cPbI6nxRrPtWlx+n/JRA25Fglq0CUUNDBooa3Re/csE7Dc7S63W9ffCaQzQAAAAA=',
+};
 /* <</WEIYU:icons>> */
 /* <<WEIYU:css>> */
 // [WEIYU] css — GENERATED by tests/unit/_weiyu/dev/build.mjs from tests/unit/_weiyu/weiyu.css; never hand-edit, re-run the build.
-const THEATER_WEIYU_CSS = "/* 微谕 · the phone — lives in an OPEN SHADOW ROOT (soWyMount); shipped as the generated block css.js (THEATER_WEIYU_CSS).\n   Locked look: SO's themes cannot reach a shadow tree by selector; what crosses the boundary (inherited properties, custom\n   properties) is cut on :host — `all: initial !important` + every --wy-* token `!important` on :host (inside the shadow tree an\n   !important :host declaration beats the outer document's). Token discipline: a colour literal appears ONLY as the value of a\n   --wy-* declaration in the two token rules; light and dark differ only by tokens. Order: reset → light tokens → dark tokens →\n   components → @keyframes → @media (prefers-reduced-motion: reduce) (fallback) → the .wy[data-wy-motion=\"off\"] zeroing rule LAST.\n   No position: fixed, no vh, no url(), no @import. */\n\n:host {\n    all: initial !important;\n    display: block !important;\n    position: relative !important;\n    box-sizing: border-box !important;\n    width: 100% !important;\n    height: 100% !important;\n    min-width: 0 !important;\n    min-height: 0 !important;\n    overflow: hidden !important;\n    font-family: system-ui, -apple-system, \"Segoe UI\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif !important;\n    font-size: 15px !important;\n    font-style: normal !important;\n    font-weight: 400 !important;\n    line-height: 1.45 !important;\n    letter-spacing: normal !important;\n    word-spacing: normal !important;\n    text-align: left !important;\n    text-transform: none !important;\n    text-shadow: none !important;\n    color: var(--wy-ink) !important;\n    -webkit-text-fill-color: currentColor !important;\n    -webkit-tap-highlight-color: transparent !important;\n}\n\n:host {\n    --wy-tile-a: #48CE82 !important;\n    --wy-tile-b: #15965B !important;\n    --wy-own: #A6E78F !important;\n    --wy-own-ink: #14251B !important;\n    --wy-accent: #167848 !important;\n    --wy-chat-bg: #EDEDED !important;\n    --wy-bubble: #FFFFFF !important;\n    --wy-panel: #FFFFFF !important;\n    --wy-line: #E3E3E3 !important;\n    --wy-sub: #6B6B6B !important;\n    --wy-ink: #191919 !important;\n    --wy-alert: #E5484D !important;\n    --wy-warn: #B26A00 !important;\n    --wy-warn-ink: #8A5300 !important;\n    --wy-on-fill: #FFFFFF !important;\n    --wy-scrim: rgba(0,0,0,.45) !important;\n    --wy-shadow: rgba(0,0,0,.18) !important;\n    --wy-hover: rgba(0,0,0,.05) !important;\n    --wy-quote: rgba(0,0,0,.05) !important;\n    --wy-frame: #2A332D !important;\n    --wy-so-ink: #f4f5f7 !important;\n    --wy-so-bg: rgba(17,19,24,.84) !important;\n    --wy-mos: #DCDCDC !important;\n    --wy-tag: rgba(0,0,0,.05) !important;\n    --wy-av-hi: rgba(255,255,255,.24) !important;\n    --wy-av-lo: rgba(0,0,0,.14) !important;\n    --wy-av-edge: rgba(255,255,255,.09) !important;\n    --wy-av-ts: rgba(0,0,0,.16) !important;\n    --wy-boot-bg: #FAFCFA !important;\n    --wy-pin-bg: #F5F5F5 !important;\n    --wy-hl: rgba(22,120,72,.13) !important;\n    --wy-card-line: #EDEDED !important;\n    --wy-pay: #B05E10 !important;\n    --wy-pay-done: #F3C89A !important;\n    --wy-pay-ink: #FFFFFF !important;\n    --wy-pay-line: rgba(255,255,255,.34) !important;\n    --wy-pay-done-ink: #5C2D04 !important;\n    --wy-pay-done-sub: #6E3A0E !important;\n    --wy-pay-done-ic: #9A6634 !important;\n    --wy-pay-done-line: rgba(110,58,14,.22) !important;\n    --wy-callscr-bg: #1F2421 !important;\n    --wy-callscr-sub: rgba(255,255,255,.72) !important;\n    --wy-cs-cam: #0C0F0D !important;\n    --wy-cs-soft: rgba(255,255,255,.1) !important;\n    --wy-cs-tag: rgba(255,255,255,.16) !important;\n    --wy-cs-dim: rgba(255,255,255,.52) !important;\n    --wy-cs-fade: rgba(0,0,0,.55) !important;\n    --wy-hue-0: #E0765A !important;\n    --wy-hue-1: #3D9970 !important;\n    --wy-hue-2: #4A88CF !important;\n    --wy-hue-3: #9268C9 !important;\n    --wy-hue-4: #D2802E !important;\n    --wy-hue-5: #2A9E98 !important;\n    --wy-hue-6: #C25478 !important;\n    --wy-hue-7: #6683B5 !important;\n    --wy-hue-8: #7F8F35 !important;\n    --wy-hue-9: #AE6A3A !important;\n    --wy-hue-10: #5A72E0 !important;\n    --wy-hue-11: #748595 !important;\n}\n\n:host([data-wy-theme=\"dark\"]) {\n    --wy-tile-a: #48CE82 !important;\n    --wy-tile-b: #15965B !important;\n    --wy-own: #58BC87 !important;\n    --wy-own-ink: #14251B !important;\n    --wy-accent: #69D69B !important;\n    --wy-chat-bg: #111111 !important;\n    --wy-bubble: #2C2C2C !important;\n    --wy-panel: #191919 !important;\n    --wy-line: #2C2C2C !important;\n    --wy-sub: #8A8A8A !important;\n    --wy-ink: #D9D9D9 !important;\n    --wy-alert: #F2555A !important;\n    --wy-warn: #E8A33D !important;\n    --wy-warn-ink: #E8A33D !important;\n    --wy-on-fill: #FFFFFF !important;\n    --wy-scrim: rgba(0,0,0,.6) !important;\n    --wy-shadow: rgba(0,0,0,.5) !important;\n    --wy-hover: rgba(255,255,255,.06) !important;\n    --wy-quote: rgba(255,255,255,.07) !important;\n    --wy-frame: #0B0E0C !important;\n    --wy-so-ink: #f4f5f7 !important;\n    --wy-so-bg: rgba(17,19,24,.84) !important;\n    --wy-mos: #2E2E2E !important;\n    --wy-tag: rgba(255,255,255,.07) !important;\n    --wy-av-hi: rgba(255,255,255,.24) !important;\n    --wy-av-lo: rgba(0,0,0,.14) !important;\n    --wy-av-edge: rgba(255,255,255,.09) !important;\n    --wy-av-ts: rgba(0,0,0,.16) !important;\n    --wy-boot-bg: #1B211E !important;\n    --wy-pin-bg: #232323 !important;\n    --wy-hl: rgba(105,214,155,.15) !important;\n    --wy-card-line: #3A3A3A !important;\n    --wy-pay: #C46F1F !important;\n    --wy-pay-done: #8A5A2C !important;\n    --wy-pay-ink: #FFFFFF !important;\n    --wy-pay-line: rgba(255,255,255,.28) !important;\n    --wy-pay-done-ink: #FFFFFF !important;\n    --wy-pay-done-sub: #FFFFFF !important;\n    --wy-pay-done-ic: #FFFFFF !important;\n    --wy-pay-done-line: rgba(255,255,255,.28) !important;\n    --wy-callscr-bg: #161A18 !important;\n    --wy-callscr-sub: rgba(255,255,255,.72) !important;\n    --wy-cs-cam: #0C0F0D !important;\n    --wy-cs-soft: rgba(255,255,255,.1) !important;\n    --wy-cs-tag: rgba(255,255,255,.16) !important;\n    --wy-cs-dim: rgba(255,255,255,.52) !important;\n    --wy-cs-fade: rgba(0,0,0,.55) !important;\n    --wy-hue-0: #E0765A !important;\n    --wy-hue-1: #3D9970 !important;\n    --wy-hue-2: #4A88CF !important;\n    --wy-hue-3: #9268C9 !important;\n    --wy-hue-4: #D2802E !important;\n    --wy-hue-5: #2A9E98 !important;\n    --wy-hue-6: #C25478 !important;\n    --wy-hue-7: #6683B5 !important;\n    --wy-hue-8: #7F8F35 !important;\n    --wy-hue-9: #AE6A3A !important;\n    --wy-hue-10: #5A72E0 !important;\n    --wy-hue-11: #748595 !important;\n}\n\n/* ---- base: the phone column ------------------------------------------------------------------------------------------- */\n.wy {\n    position: relative;\n    box-sizing: border-box;\n    display: flex;\n    flex-direction: column;\n    width: 100%;\n    max-width: 420px;\n    height: 100%;\n    max-height: 860px;\n    min-height: 0;\n    margin: 0 auto;\n    overflow: hidden;\n    /* the screen's corners: set from OUTSIDE by the frame (the device, style.css) — a custom property is the one thing that crosses\n       the shadow boundary; absent = 0 (today's square screen). Deliberately not a :host token. */\n    border-radius: var(--wy-screen-radius, 0);\n    /* the top bar's height (refined list 52 px): ONE value read by the bar and by the condensing bar's scroller padding (integration) */\n    --wy-top-h: 52px;\n    background: var(--wy-panel);\n    color: var(--wy-ink);\n    user-select: none;\n    -webkit-user-select: none;\n}\n.wy *, .wy *::before, .wy *::after { box-sizing: border-box; }\n.wy svg { display: block; flex: none; }\n.wy button { font: inherit; color: inherit; background: none; border: 0; margin: 0; padding: 0; cursor: pointer; }\n.wy button:disabled { cursor: default; }\n.wy textarea, .wy input { font: inherit; color: var(--wy-ink); }\n.wy :focus-visible { outline: 2px solid var(--wy-accent); outline-offset: -2px; }\n.wy-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin; }\n\n/* ---- SO's own controls inside the phone: the dark pill of THEATER_GUARD_PILL, both themes ----------------------------- */\n/* `.wy .wy-so` (0,2,0) beats the `.wy button` reset (0,1,1) on SO's own buttons (the hold control, menu powers) */\n.wy-so, .wy .wy-so { color: var(--wy-so-ink); -webkit-text-fill-color: var(--wy-so-ink); background: var(--wy-so-bg); border-radius: 999px; }\n\n/* ---- the hold-to-load control (Task 16 ports the behaviour; the locks hold from day one) ------------------------------ */\n[data-wy-hold] {\n    position: relative;\n    display: inline-flex;\n    align-items: center;\n    justify-content: center;\n    min-height: 44px;\n    padding: 0 16px;\n    overflow: hidden;\n    touch-action: pan-y;\n    user-select: none;\n    -webkit-user-select: none;\n    -webkit-touch-callout: none;\n}\n\n/* ---- shell (Task 13): pages, top bar, tab bar, badge, empty / foreign page, the layer, toast, banner, wide frame ------- */\n.wy-page { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; background: var(--wy-panel); color: var(--wy-ink); }\n/* the refined list (redesign D2, mock section 4): a 52 px top bar, title 17 px. A page is no stacking context, so its bar's z-index 2 competes\n   at the phone's root with the motion layers (ghost 1 · dim 2 · sliding page 3) — it stays 2; a list row's unread badge is 1 (below) */\n.wy-top { flex: none; position: relative; z-index: 2; display: grid; grid-template-columns: 76px minmax(0, 1fr) 76px; align-items: center; min-height: var(--wy-top-h); padding: 0 4px; background: var(--wy-panel); }\n.wy-top.wy-line { border-bottom: 1px solid var(--wy-line); }\n.wy-top-l { display: flex; align-items: center; min-width: 0; }\n.wy-top-r { display: flex; align-items: center; justify-content: flex-end; gap: 2px; min-width: 0; }\n.wy-ttl { min-width: 0; text-align: center; font-weight: 600; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n.wy-ttl-n { font-weight: 500; }\n/* `.wy .wy-back` / `.wy .wy-tab` (0,2,0): the `.wy button` reset (0,1,1) ate the back button's side padding and the tab labels' 11 px\n   (they rendered at the phone's 15 px) — the designer's finding 2026-11-16, fixed in redesign slice 1 */\n.wy .wy-back { display: inline-flex; align-items: center; gap: 2px; min-width: 44px; min-height: 44px; padding: 0 6px; }\n.wy-back svg { width: 24px; height: 24px; }\n.wy-back-n { font-size: 15px; }\n.wy-ib { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 10px; }\n.wy-ib svg { width: 24px; height: 24px; }\n.wy-ib:hover { background: var(--wy-hover); }\n/* tab bar (refined list): a hairline on top, labels 10.5 px, icons 26 px, the inactive tabs at 86 % */\n.wy-tabbar { flex: none; display: flex; background: var(--wy-panel); border-top: 0; box-shadow: 0 -0.5px 0 var(--wy-line); padding: 5px 0 7px; }\n.wy .wy-tab { flex: 1 1 0; position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 46px; padding-top: 2px; font-size: 10.5px; color: var(--wy-ink); }\n.wy-tab svg { width: 26px; height: 26px; }\n.wy-tab.wy-on { color: var(--wy-accent); }\n.wy-tab:not(.wy-on) > svg, .wy-tab:not(.wy-on) > .wy-tab-label { opacity: 0.86; }\n.wy-badge { position: absolute; top: -6px; right: -7px; z-index: 2; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--wy-alert); color: var(--wy-on-fill); font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; box-shadow: 0 0 0 1.5px var(--wy-panel); }\n.wy-tab .wy-badge { top: 0; right: calc(50% - 26px); box-shadow: 0 0 0 2px var(--wy-panel); }\n.wy-empty { align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center; }\n.wy-empty-logo svg { width: 96px; height: 96px; }\n.wy-empty-name { font-size: 22px; font-weight: 600; }\n.wy-empty-who { max-width: 280px; margin: 0; color: var(--wy-sub); font-size: 14px; }\n.wy-layer { position: absolute; inset: 0; z-index: 40; pointer-events: none; }\n.wy-layer > * { pointer-events: auto; }\n/* toasts sit just under the top bar (redesign D2): at the bottom they covered the conversation's hold line and the dock */\n.wy-toast { position: absolute; left: 50%; top: 64px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 12px; background: var(--wy-so-bg); color: var(--wy-so-ink); font-size: 14px; animation: wy-fadeup 0.25s ease both; }\n.wy .wy-toast-act { min-height: 32px; color: var(--wy-tile-a); font-weight: 600; }\n/* dock F (2026-11-17): a toast lets presses through (only its action button takes them), and sizes to its text instead of wrapping at\n   half the screen */\n.wy-layer > .wy-toast { width: max-content; pointer-events: none; }\n.wy-layer > .wy-toast .wy-toast-act { pointer-events: auto; }\n.wy-banner { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: var(--wy-bubble); color: var(--wy-ink); box-shadow: 0 8px 24px var(--wy-shadow); cursor: pointer; animation: wy-drop 0.3s ease both; }\n.wy-banner-logo svg { width: 32px; height: 32px; }\n.wy-banner-body { display: flex; flex-direction: column; min-width: 0; }\n.wy-banner-who { font-size: 14px; font-weight: 600; }\n.wy-banner-text { overflow: hidden; color: var(--wy-sub); font-size: 13px; white-space: nowrap; text-overflow: ellipsis; }\n:host([data-wy-wide]) { padding: 16px !important; }\n:host([data-wy-wide]) .wy { border: 10px solid var(--wy-frame); border-radius: 36px; box-shadow: 0 18px 50px var(--wy-shadow); }\n\n/* ---- lists (Task 14): avatars, mosaics, chat rows, contacts, short lists, the + menu --------------------------------- */\n.wy-av { --wy-av-size: 40px; position: relative; display: inline-flex; align-items: center; justify-content: center; flex: none; width: var(--wy-av-size); height: var(--wy-av-size); overflow: hidden; border-radius: 6px; color: var(--wy-on-fill); font-size: calc(var(--wy-av-size) * 0.42); font-weight: 600; line-height: 1; }\n.wy-av img { display: block; width: 100%; height: 100%; object-fit: cover; }\n.wy-av-img { background: var(--wy-line); }\n.wy-hue-0 { background: var(--wy-hue-0); }\n.wy-hue-1 { background: var(--wy-hue-1); }\n.wy-hue-2 { background: var(--wy-hue-2); }\n.wy-hue-3 { background: var(--wy-hue-3); }\n.wy-hue-4 { background: var(--wy-hue-4); }\n.wy-hue-5 { background: var(--wy-hue-5); }\n.wy-hue-6 { background: var(--wy-hue-6); }\n.wy-hue-7 { background: var(--wy-hue-7); }\n.wy-hue-8 { background: var(--wy-hue-8); }\n.wy-hue-9 { background: var(--wy-hue-9); }\n.wy-hue-10 { background: var(--wy-hue-10); }\n.wy-hue-11 { background: var(--wy-hue-11); }\n/* letter avatars that look designed (refined list, redesign D2): a soft top-light gradient, a 1 px inner highlight; two characters\n   (soWyAvLabel) a size down; calmer in the dark theme. Not on mosaic tiles or the start-up orbit (they carry no wy-av-t). */\n.wy-av-t { background-image: linear-gradient(172deg, var(--wy-av-hi), transparent 52%, var(--wy-av-lo)); box-shadow: inset 0 0 0 1px var(--wy-av-edge); font-weight: 500; text-shadow: 0 1px 1px var(--wy-av-ts); }\n.wy-av-two { font-size: calc(var(--wy-av-size) * 0.3); letter-spacing: 0.5px; }\n:host([data-wy-theme=\"dark\"]) .wy-av-t { filter: saturate(0.8) brightness(0.9); }\n/* the familiar mosaic: rows of --wy-t tiles (soWyMosaicEl), the short row first, every row centred, on a neutral tile */\n.wy-mos { --wy-av-size: 48px; display: flex; flex-direction: column; justify-content: center; flex: none; gap: 1.5px; width: var(--wy-av-size); height: var(--wy-av-size); padding: 2.5px; overflow: hidden; border-radius: 6px; background: var(--wy-mos); }\n.wy-mos-r { display: flex; justify-content: center; gap: 1.5px; }\n.wy-mos .wy-av { width: var(--wy-t, 12px); height: var(--wy-t, 12px); border-radius: 2px; font-size: calc(var(--wy-t, 12px) * 0.52); }\n.wy-mos.wy-dis { filter: grayscale(1); opacity: 0.55; }\n.wy-avw { position: relative; flex: none; display: inline-flex; }\n/* unread badges on the avatar's corner, ringed in the row colour; z-index 1 (2026-11-18, the designer's finding, reproduced in the browser):\n   at 2 it tied with the top bar and drew OVER the condensed bar when the list scrolled under it */\n.wy-avw .wy-badge { top: -7px; right: -7px; z-index: 1; box-shadow: 0 0 0 2px var(--wy-panel); }\n.wy-avw .wy-badge.wy-dot { top: -4px; right: -4px; width: 10px; min-width: 10px; height: 10px; padding: 0; }\n/* rows: 72 px, 16 px sides; a hairline divider inset to the text column (16 + 48 + 12 = 76 px), none under the last / pressed row */\n.wy-row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 12px 16px; background: var(--wy-panel); cursor: pointer; }\n.wy-row::after { content: \"\"; position: absolute; left: 76px; right: 0; bottom: 0; height: 1px; background: var(--wy-line); transform: scaleY(0.5); transform-origin: bottom; }\n.wy-row:last-child::after, .wy-row:hover::after, .wy-row:active::after { display: none; }\n.wy-row:hover { background: var(--wy-hover); }\n.wy-row .wy-avw > .wy-av, .wy-row .wy-mos { border-radius: 7px; }\n.wy-grow { flex: 1 1 auto; min-width: 0; }\n.wy-t1, .wy-t2 { display: flex; align-items: center; gap: 6px; min-width: 0; }\n.wy-row .wy-t1 { align-items: flex-start; }\n.wy-t2 { margin-top: 4px; }\n.wy-nm { min-width: 0; overflow: hidden; font-size: 16px; white-space: nowrap; text-overflow: ellipsis; }\n.wy-row .wy-nm { font-size: 16.5px; line-height: 1.3; }\n.wy-tm { flex: none; margin-left: auto; padding-top: 2px; color: var(--wy-sub); font-size: 12px; line-height: 1.3; }\n.wy-pv { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--wy-sub); font-size: 13.5px; white-space: nowrap; text-overflow: ellipsis; }\n.wy-pv .wy-at { color: var(--wy-alert); }\n.wy-mute { flex: none; width: 14px; height: 14px; color: var(--wy-sub); }\n.wy-mute svg { width: 14px; height: 14px; }\n.wy-row.wy-dis .wy-nm, .wy-row.wy-dis .wy-pv { color: var(--wy-sub); opacity: 0.8; }\n/* 窥屏: a quiet tinted tag, no border */\n.wy-obs { flex: none; margin-top: 2px; padding: 0 5px 0 4px; border: 0; border-radius: 4px; background: var(--wy-tag); color: var(--wy-sub); font-size: 10.5px; font-weight: 500; line-height: 17px; white-space: nowrap; }\n.wy-new { flex: none; margin-top: 3px; padding: 0 4px; border-radius: 5px; background: var(--wy-accent); color: var(--wy-on-fill); font-size: 10px; font-weight: 600; line-height: 15px; }\n.wy-prow { position: relative; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 16px; background: var(--wy-panel); cursor: pointer; }\n.wy-prow::after { content: \"\"; position: absolute; left: 68px; right: 0; bottom: 0; height: 1px; background: var(--wy-line); transform: scaleY(0.5); transform-origin: bottom; }\n.wy-prow:hover { background: var(--wy-hover); }\n.wy-prow .wy-nm { flex: 1 1 auto; font-size: 15.5px; }\n.wy-sq { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 40px; height: 40px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); }\n.wy-sq svg { width: 24px; height: 24px; }\n.wy-sq-observed { background: var(--wy-sub); }\n.wy-sub2 { flex: none; color: var(--wy-sub); font-size: 13px; }\n.wy-gap { height: 8px; background: var(--wy-chat-bg); }\n.wy-foot { padding: 16px 14px 24px; color: var(--wy-sub); font-size: 12.5px; text-align: center; }\n/* the 我 page: the note under the two story switches is that group's footer — left-aligned like the switches' descriptions */\n.wy-foot.wy-grpfoot { padding: 6px 16px 10px; line-height: 1.45; text-align: left; }\n.wy-none { padding: 40px 24px; color: var(--wy-sub); font-size: 13px; text-align: center; }\n.wy-pop-wrap { position: absolute; inset: 0; }\n.wy-backdrop { position: absolute; inset: 0; }\n.wy-pop { position: absolute; z-index: 1; min-width: 150px; padding: 4px; border-radius: 10px; background: var(--wy-bubble); color: var(--wy-ink); box-shadow: 0 8px 28px var(--wy-shadow); }\n.wy-pop button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0 12px; border-radius: 8px; font-size: 15px; text-align: left; }\n.wy-pop button:hover { background: var(--wy-hover); }\n.wy-pop button svg { width: 20px; height: 20px; }\n.wy-pop-plus { top: 48px; right: 8px; }\n\n/* ---- the chat screen (Task 15): bubbles with tails, big emoji, voice, frames, grey lines, footers, typing row ----------- */\n.wy-chat { background: var(--wy-chat-bg); }\n.wy-chat .wy-top { background: var(--wy-chat-bg); border-bottom: 1px solid var(--wy-line); }\n.wy-msgs { padding: 6px 0 12px; }\n.wy-m { position: relative; display: flex; align-items: flex-start; gap: 9px; min-width: 0; padding: 7px 12px; }\n.wy-m[data-wy-side=\"me\"] { flex-direction: row-reverse; }\n.wy-m > .wy-av { cursor: pointer; touch-action: manipulation; }\n.wy-av-ghost { background: var(--wy-line); }\n.wy-mb { position: relative; display: flex; flex-direction: column; align-items: flex-start; min-width: 0; max-width: 70%; }\n.wy-m[data-wy-side=\"me\"] .wy-mb { align-items: flex-end; }\n.wy-mn { margin: -2px 0 3px 2px; color: var(--wy-sub); font-size: 12px; }\n.wy-bubble { position: relative; max-width: 100%; padding: 9px 11px; border-radius: 6px; background: var(--wy-bubble); color: var(--wy-ink); font-size: 15px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; user-select: text; -webkit-user-select: text; }\n.wy-bubble::before { content: \"\"; position: absolute; top: 13px; left: -6px; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 6px solid var(--wy-bubble); }\n.wy-m[data-wy-side=\"me\"] .wy-bubble { background: var(--wy-own); color: var(--wy-own-ink); }\n.wy-m[data-wy-side=\"me\"] .wy-bubble::before { left: auto; right: -6px; border-right: 0; border-left: 6px solid var(--wy-own); }\n.wy-bubble .wy-at { color: var(--wy-accent); font-weight: 500; }\n.wy-m[data-wy-side=\"me\"] .wy-bubble .wy-at { color: var(--wy-own-ink); font-weight: 600; }\n.wy-big { position: relative; padding: 0 2px; font-size: 44px; line-height: 1.15; letter-spacing: 2px; overflow-wrap: anywhere; }\n.wy-voice { display: flex; align-items: center; gap: 8px; width: var(--wy-voice-w, 90px); max-width: 100%; height: 40px; cursor: pointer; user-select: none; -webkit-user-select: none; }\n.wy-voice svg { width: 20px; height: 20px; }\n.wy-m[data-wy-side=\"me\"] .wy-voice { flex-direction: row-reverse; }\n.wy-m[data-wy-side=\"me\"] .wy-voice svg { transform: scaleX(-1); }\n.wy-sec { font-size: 14px; }\n.wy-vtext { margin-top: 5px; max-width: 100%; padding: 6px 9px; border-radius: 6px; background: var(--wy-quote); color: var(--wy-ink); font-size: 13.5px; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n.wy-frame { position: relative; display: flex; flex-direction: column; width: 190px; max-width: 100%; overflow: hidden; border-radius: 8px; color: var(--wy-on-fill); }\n/* the picture area keeps the ratio; the description (.wy-cap) is below it in the same tile (2026-11-16: a long one covered ▶ / duration) */\n.wy-pic { position: relative; display: block; flex: none; aspect-ratio: 4 / 3; }\n.wy-video .wy-pic { aspect-ratio: 16 / 10; }\n.wy-em { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -62%); font-size: 40px; line-height: 1; }\n.wy-play { position: absolute; top: 10px; right: 10px; display: inline-flex; padding: 4px; border-radius: 999px; background: var(--wy-scrim); }\n.wy-play svg { width: 18px; height: 18px; }\n.wy-dur { position: absolute; top: 12px; left: 10px; padding: 0 6px; border-radius: 6px; background: var(--wy-scrim); font-size: 11.5px; line-height: 18px; }\n.wy-cap { position: relative; padding: 6px 9px; background: var(--wy-scrim); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-q { max-width: 100%; margin-top: 5px; padding: 4px 8px; border-radius: 4px; background: var(--wy-quote); color: var(--wy-sub); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }\n.wy-line-mid { position: relative; padding: 5px 40px; color: var(--wy-sub); font-size: 12px; line-height: 1.5; text-align: center; overflow-wrap: anywhere; }\n.wy-line-mid.wy-time { padding-top: 12px; font-size: 11.5px; }\n.wy .wy-peek { margin-left: 4px; color: var(--wy-accent); font-size: 11.5px; }\n/* playtest 2026-11-19 A15: hit areas larger than what is drawn (nothing visible moves) — 偷看, the row ⋯, the switches, the 我 card's name */\n.wy .wy-peek { position: relative; }\n.wy .wy-peek::before { content: \"\"; position: absolute; inset: -10px -6px; }\n.wy-peekpill, .wy-note { display: inline-block; max-width: 100%; margin-top: 4px; padding: 3px 10px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-peekpill { display: block; width: fit-content; margin: 4px auto 0; }\n.wy-noteline { display: flex; flex-direction: column; align-items: center; padding: 8px 20px; }\n/* pt8 (owner's playtest 2026-11-18): the cause line — WHY a request failed, one small secondary line; selectable (he copies it into a report) */\n.wy-cause { display: block; max-width: 100%; margin-top: 3px; color: var(--wy-sub); font-size: 11.5px; line-height: 1.45; text-align: center; overflow-wrap: anywhere; }\n.wy-cause, .wy-note-error, .wy-cs-why, .wy-cs-note, .wy-boot-fail-why { user-select: text; -webkit-user-select: text; cursor: text; }\n.wy-dots { display: flex; align-items: center; gap: 4px; height: 38px; padding: 0 13px; }\n.wy-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--wy-sub); animation: wy-dots 1.1s infinite ease-in-out; }\n.wy-dots i:nth-child(2) { animation-delay: 0.15s; }\n.wy-dots i:nth-child(3) { animation-delay: 0.3s; }\n/* the dock (layout F, redesign Lane D slice D1): ONE row [mic ↔ keyboard 40] [field] [+ 40 ↔ 发送 56]; + gives way to 发送 while the field\n   has text (.wy-has-text), both give way to the stop square while this chat's call runs (.wy-running); watching = one slim line */\n.wy-chatfoot { flex: none; display: flex; flex-direction: column; gap: 8px; padding: 8px 10px 9px; border-top: 1px solid var(--wy-line); background: var(--wy-panel); }\n.wy-chatfoot.wy-watch { padding: 4px 12px 6px; }\n.wy-inrow { display: flex; align-items: flex-end; gap: 8px; min-width: 0; }\n.wy-input { flex: 1 1 auto; min-width: 0; min-height: 40px; max-height: 120px; padding: 9px 10px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-bubble); font-size: 15px; line-height: 1.4; resize: none; outline: none; user-select: text; -webkit-user-select: text; }\n/* playtest 2026-11-19 A6: the field grows with its lines up to max-height (a second line no longer scrolls the first one's top out of\n   the one-line box); a browser without field-sizing keeps today's one-line box. One line keeps today's height (the rows=\"1\" box). */\n@supports (field-sizing: content) {\n    .wy-input { field-sizing: content; }\n}\n.wy-input:focus { border-color: var(--wy-accent); }\n.wy-input::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy .wy-dk { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; color: var(--wy-ink); }\n.wy-dk svg { width: 28px; height: 28px; }\n.wy-dk:hover { background: var(--wy-hover); }\n.wy .wy-send { flex: none; min-width: 56px; min-height: 40px; padding: 0 14px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); font-weight: 600; }\n.wy-send:disabled { opacity: 0.45; }\n.wy-inrow:not(.wy-has-text) > .wy-send, .wy-inrow.wy-has-text > .wy-plus, .wy-inrow.wy-running > .wy-send, .wy-inrow.wy-running > .wy-plus { display: none; }\n.wy .wy-stopsq { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 56px; min-height: 40px; border-radius: 6px; background: var(--wy-alert); color: var(--wy-on-fill); }\n.wy-stopsq-i { width: 12px; height: 12px; border-radius: 2px; background: currentColor; }\n.wy-obsbar { display: flex; flex-direction: column; align-items: center; gap: 6px; }\n.wy-obs-t { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 12px; color: var(--wy-sub); font-size: 13px; }\n.wy-obs-t b { font-weight: 500; }\n.wy-disbar { padding: 10px 12px; color: var(--wy-sub); font-size: 13px; text-align: center; }\n.wy-hold { font-size: 14px; }\n/* the hold line: the last element of the conversation, a quiet dashed line centred in the COLUMN — widened under a classic scrollbar by\n   its measured width (--wy-sbw, soWyAfterRender) so the scrollbar does not push it left; the label centred in the box */\n.wy-holdline { display: flex; justify-content: center; margin-right: calc(-1 * var(--wy-sbw, 0px)); padding: 4px 16px 14px; }\n.wy .wy-holdline .wy-hold { width: 100%; max-width: 340px; min-width: 0; min-height: 46px; padding: 0 14px; border: 1.5px dashed var(--wy-line); border-radius: 14px; background: transparent; color: var(--wy-sub); -webkit-text-fill-color: var(--wy-sub); font-size: 13.5px; }\n.wy-holdline .wy-hold-t { text-align: center; }\n.wy-holdline .wy-hold-fill { transform-origin: center; opacity: 0.22; }\n/* the \"+\" sheet (照片 · 视频; a grid of 68 px+ cells — 4 per row at 375 px — with room for more) and the 照片 / 视频 composer */\n.wy-attach { padding-top: 14px; }\n.wy-att-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); gap: 12px 6px; padding: 4px 12px 14px; }\n.wy .wy-att { display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 84px; color: var(--wy-sub); font-size: 12.5px; }\n.wy-att-i { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 14px; background: var(--wy-chat-bg); color: var(--wy-ink); }\n.wy-att-i svg { width: 26px; height: 26px; }\n.wy-att:hover .wy-att-i { background: var(--wy-hover); }\n.wy-sheet.wy-compose { gap: 10px; max-height: calc(100% - 12px); overflow-y: auto; overscroll-behavior: contain; padding: 8px 14px 14px; }\n.wy-cmp-head { position: sticky; top: -8px; z-index: 1; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 44px; margin: -8px -14px 0; padding: 8px 14px 0; background: var(--wy-bubble); }\n.wy .wy-cmp-x { justify-self: start; min-width: 44px; min-height: 40px; padding: 0 4px; color: var(--wy-sub); font-size: 15px; text-align: left; }\n.wy-cmp-t { font-size: 16px; font-weight: 600; }\n.wy .wy-cmp-go { justify-self: end; min-width: 56px; min-height: 40px; padding: 0 14px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); font-weight: 600; }\n.wy .wy-cmp-go:disabled { opacity: 0.45; cursor: default; }\n.wy-cmp-prev { display: flex; justify-content: center; }\n.wy-cmp-prev .wy-frame { width: 144px; }\n.wy-cmp-in { flex: none; width: 100%; min-height: 56px; max-height: 120px; padding: 8px 10px; border: 1px solid var(--wy-line); border-radius: 8px; background: var(--wy-chat-bg); font-size: 15px; line-height: 1.45; resize: none; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-cmp-in:focus { border-color: var(--wy-accent); }\n.wy-cmp-in::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy-cmp-lab { margin-bottom: -4px; color: var(--wy-sub); font-size: 12.5px; }\n.wy-cmp-emo { display: flex; flex-wrap: wrap; gap: 6px; }\n.wy .wy-cmp-e { width: 40px; height: 40px; border-radius: 10px; background: var(--wy-chat-bg); box-shadow: inset 0 0 0 1px var(--wy-line); font-size: 20px; line-height: 1; }\n.wy .wy-cmp-e[aria-checked=\"true\"] { box-shadow: inset 0 0 0 2px var(--wy-accent); }\n.wy .wy-cmp-dur .wy-seg-i { min-height: 40px; }\n\n/* ---- the hold control (Task 16): the fill runs for --wy-hold-ms while held, snaps back on release ---------------------- */\n.wy-hold { min-width: 200px; max-width: 100%; border-radius: 999px; cursor: pointer; }\n.wy-hold-t { position: relative; z-index: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }\n.wy-hold-fill { position: absolute; inset: 0; z-index: 0; border-radius: inherit; background: var(--wy-accent); opacity: 0.5; transform: scaleX(0); transform-origin: left center; pointer-events: none; }\n.wy-hold.holding .wy-hold-fill { transform: scaleX(1); transition: transform var(--wy-hold-ms, 2000ms) linear; }\n\n/* ---- the message menu (Task 17): popover, ⋯ opener, inline editor, quote chip --------------------------------------- */\n.wy-backdrop.wy-clear { background: transparent; }\n.wy-pop-msg { display: flex; flex-direction: column; gap: 4px; min-width: 0; max-width: calc(100% - 16px); padding: 6px; top: 64px; left: 8px; }\n.wy-pop-cap { padding: 0 6px; color: var(--wy-sub); font-size: 11.5px; }\n/* the familiar bubble menu is a grid of icon + label: one row up to five items, two even rows beyond (--wy-mi-cols, soWyMenuCols:\n   6 → 3 + 3, 7 → 4 + 3) — never a lone item on a second row (more functions phase 2, 2026-11-17) */\n.wy-mi-row { display: grid; grid-template-columns: repeat(var(--wy-mi-cols, 5), 56px); gap: 4px; }\n.wy-pop .wy-mi { flex-direction: column; justify-content: center; gap: 3px; width: 56px; min-height: 56px; padding: 6px 0; border-radius: 10px; font-size: 12px; text-align: center; }\n.wy-pop .wy-mi.wy-so { border-radius: 10px; }\n.wy-pop .wy-mi.wy-so:hover { background: var(--wy-so-bg); opacity: 0.9; }\n.wy-pop .wy-mi[aria-disabled=\"true\"] { opacity: 0.45; cursor: default; }\n/* the ⋯ (消息菜单 = 点 ⋯, the default since redesign D2): a 32 px round target on the outer side of every message, ALWAYS in the layout\n   (opacity only — nothing moves when it shows): on hover / keyboard focus of the row, or after a tap on the bubble (.wy-sel, touch).\n   On a grey-line notice it sits in the line's right padding (absolute) so the text stays centred. Hidden = not a target on touch. */\n.wy-mmore { flex: none; align-self: center; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--wy-hover); color: var(--wy-sub); opacity: 0; }\n.wy-mmore svg { width: 18px; height: 18px; }\n.wy-line-mid .wy-mmore { position: absolute; top: 50%; right: 4px; width: 32px; height: 32px; margin-top: -16px; }\n.wy-mmore:focus-visible, .wy-m:focus-within > .wy-mmore, .wy-line-mid:focus-within > .wy-mmore, .wy-sel > .wy-mmore { opacity: 1; }\n@media (hover: hover) {\n    .wy-m:hover > .wy-mmore, .wy-line-mid:hover > .wy-mmore { opacity: 1; }\n    .wy-mmore:hover { color: var(--wy-ink); }\n}\n@media (hover: none) {\n    .wy-mmore { pointer-events: none; }\n    .wy-sel > .wy-mmore, .wy-mmore:focus-visible { pointer-events: auto; }\n}\n.wy-bubble, .wy-big, .wy-frame, .wy-sys-t, .wy-cardmsg, .wy-fwdmsg, .wy-paymsg { -webkit-touch-callout: none; }\n/* 消息菜单 = 长按气泡 (.wy-menu-hold on the chat page): while held the bubble lifts and a tint charges from the finger over the hold\n   (.wy-lp, --wy-lp-ms / --wy-lp-x / --wy-lp-y set by soWyLift); let go early and it settles back. Transform / opacity only, and only\n   with the phone's motion flag on (soWyLift never adds .wy-lp with it off; the menu still opens). Grey-line notices (inline) only open. */\n.wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-bubble, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-big, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-frame, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-cardmsg, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-fwdmsg, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-paymsg { transition: transform 0.2s ease; }\n.wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-bubble::after, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-big::after, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-frame::after, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-cardmsg::after, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-fwdmsg::after, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-paymsg::after { content: \"\"; position: absolute; inset: 0; z-index: 2; border-radius: inherit; background: var(--wy-accent); opacity: 0; transform: scale(0); transform-origin: var(--wy-lp-x, 50%) var(--wy-lp-y, 50%); pointer-events: none; transition: transform 0.15s ease, opacity 0.15s ease; }\n.wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-lp { transform: translateY(-2px) scale(1.035); transition: transform var(--wy-lp-ms, 500ms) cubic-bezier(0.2, 0.8, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-lp::after { opacity: 0.18; transform: scale(1); transition: transform var(--wy-lp-ms, 500ms) cubic-bezier(0.3, 0.2, 0.3, 1), opacity 0.15s ease; }\n.wy-edit { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 0 4px; }\n.wy-edit-in { width: 100%; min-height: 72px; max-height: 200px; padding: 8px 10px; border: 1px solid var(--wy-accent); border-radius: 8px; background: var(--wy-bubble); font-size: 15px; line-height: 1.45; resize: vertical; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-edit-btns { display: flex; justify-content: flex-end; gap: 8px; }\n.wy-edit-btns button { min-height: 36px; padding: 0 14px; border-radius: 6px; font-size: 14px; }\n.wy .wy-edit-no { background: var(--wy-hover); }\n.wy .wy-edit-ok { background: var(--wy-accent); color: var(--wy-on-fill); font-weight: 600; }\n.wy-qchip { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 4px 4px 4px 10px; border-radius: 6px; background: var(--wy-quote); color: var(--wy-sub); font-size: 12.5px; }\n.wy-qchip-t { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }\n.wy-qchip-x { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; }\n.wy-qchip-x svg { width: 16px; height: 16px; }\n\n/* ---- group info, profile, pictures, pick (Task 18) --------------------------------------------------------------------- */\n.wy-info .wy-scroll, .wy-profile .wy-scroll { background: var(--wy-chat-bg); }\n.wy-card { background: var(--wy-panel); }\n.wy-mgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 12px 6px; padding: 16px 12px; }\n.wy-mcell { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; cursor: pointer; }\n.wy-mcell-n { max-width: 100%; overflow: hidden; color: var(--wy-sub); font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }\n.wy-mcell-plus { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border: 1.5px dashed var(--wy-line); border-radius: 6px; color: var(--wy-sub); }\n.wy-mcell-plus svg { width: 24px; height: 24px; }\n.wy-countnote { padding: 10px 16px; background: var(--wy-panel); color: var(--wy-sub); font-size: 12.5px; text-align: center; }\n.wy-kv { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 10px 16px; background: var(--wy-panel); border-bottom: 1px solid var(--wy-line); }\n.wy-kv-top { align-items: flex-start; }\n.wy-k { flex: none; font-size: 15px; }\n/* A13 (2026-11-19): the oracle's ☾ hangs in the row's left padding — 「怎么来的」 starts where every other label starts */\n.wy-k-how .wy-moon { display: inline-block; width: 13px; margin-left: -13px; color: var(--wy-sub); font-size: 12px; text-align: left; }\n.wy-v { flex: 1 1 auto; min-width: 0; color: var(--wy-sub); font-size: 14px; text-align: right; overflow-wrap: anywhere; }\n.wy-kv-top .wy-v { display: flex; flex-direction: column; gap: 4px; }\n.wy-floor { color: var(--wy-accent); font-size: 12.5px; }\n.wy-setrow { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 10px 16px; background: var(--wy-panel); border-bottom: 1px solid var(--wy-line); }\n.wy-setrow-t { display: flex; flex: 1 1 auto; flex-direction: column; gap: 3px; min-width: 0; }\n.wy-setrow-n { font-size: 15px; font-weight: 500; }\n.wy-setrow-d { color: var(--wy-sub); font-size: 12.5px; line-height: 1.45; }\n.wy .wy-switch { position: relative; flex: none; width: 50px; height: 30px; border-radius: 15px; background: var(--wy-line); transition: background 0.2s ease; }\n.wy .wy-switch::after { content: \"\"; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: var(--wy-on-fill); box-shadow: 0 1px 3px var(--wy-shadow); transition: transform 0.2s ease; }\n.wy .wy-switch.wy-on { background: var(--wy-accent); }\n.wy .wy-switch.wy-on::after { transform: translateX(20px); }\n.wy .wy-switch::before { content: \"\"; position: absolute; inset: -7px -4px; border-radius: 22px; }   /* A15: 58 × 44 to the finger */\n/* 动画 (redesign slice 1): the text above, a three-stop control below — a recessed well (the chat background) with a raised thumb (the\n   bubble colour) on the choice, both themes */\n.wy-setrow.wy-setrow-seg { flex-direction: column; align-items: stretch; gap: 10px; }\n.wy-seg { display: flex; gap: 2px; padding: 2px; border-radius: 9px; background: var(--wy-chat-bg); box-shadow: inset 0 0 0 1px var(--wy-line); }\n.wy .wy-seg-i { flex: 1 1 0; min-width: 0; min-height: 32px; padding: 0 8px; border-radius: 7px; color: var(--wy-ink); font-size: 13.5px; text-align: center; white-space: nowrap; transition: background 0.2s ease, color 0.2s ease; }\n.wy .wy-seg-i.wy-on { background: var(--wy-bubble); color: var(--wy-ink); font-weight: 600; box-shadow: 0 1px 3px var(--wy-shadow), inset 0 0 0 1px var(--wy-line); }\n.wy .wy-btnrow { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 52px; padding: 0 16px; background: var(--wy-panel); color: var(--wy-ink); font-size: 15px; font-weight: 500; }\n.wy .wy-btnrow.wy-danger { color: var(--wy-alert); }\n.wy .wy-btnrow.wy-muted-t { color: var(--wy-sub); font-size: 14px; font-weight: 400; }\n.wy-endpad { height: 32px; }\n.wy-pcard { display: flex; align-items: center; gap: 16px; padding: 24px 18px 22px; }\n.wy-pcard .wy-av { border-radius: 8px; cursor: pointer; }\n.wy-pname { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 20px; font-weight: 600; overflow-wrap: anywhere; }\n.wy-meta { margin-top: 4px; color: var(--wy-sub); font-size: 13px; overflow-wrap: anywhere; }\n.wy-sigcard { padding: 13px 16px; }\n.wy-sigcard .wy-k { margin-bottom: 4px; color: var(--wy-sub); font-size: 13px; }\n.wy-sig { font-size: 14.5px; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n.wy-sechead { padding: 14px 16px 6px; color: var(--wy-sub); font-size: 12.5px; }\n.wy-backdrop.wy-dim { background: var(--wy-scrim); }\n.wy-sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; padding: 6px 0 10px; border-radius: 14px 14px 0 0; background: var(--wy-bubble); color: var(--wy-ink); box-shadow: 0 -8px 24px var(--wy-shadow); animation: wy-rise 0.22s ease both; }\n.wy-sheet-t { padding: 10px 16px 8px; color: var(--wy-sub); font-size: 12.5px; text-align: center; }\n.wy .wy-sheet-i { min-height: 50px; padding: 0 16px; border-top: 1px solid var(--wy-line); font-size: 16px; text-align: center; }\n.wy .wy-sheet-c { margin-top: 6px; border-top: 6px solid var(--wy-chat-bg); }\n/* 删除联系人 (2026-11-17): both options are destructive (red); the one that also deletes the lines is set apart (bold) */\n.wy .wy-sheet-i.wy-danger { color: var(--wy-alert); }\n.wy .wy-sheet-i.wy-danger-all { font-weight: 600; }\n.wy .wy-done { min-width: 64px; min-height: 34px; margin-right: 6px; padding: 0 10px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); font-size: 14px; font-weight: 600; white-space: nowrap; }\n.wy .wy-done:disabled { opacity: 0.4; }\n.wy-pickpage .wy-top { grid-template-columns: 76px minmax(0, 1fr) 96px; }\n.wy-pickstrip { flex: none; display: flex; align-items: center; gap: 6px; min-height: 52px; padding: 8px 14px; overflow-x: auto; border-bottom: 1px solid var(--wy-line); }\n.wy-ph { color: var(--wy-sub); font-size: 13px; }\n.wy-gname { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--wy-line); }\n.wy-gname span { flex: none; color: var(--wy-sub); font-size: 13px; }\n.wy-gname input { flex: 1 1 auto; min-width: 0; min-height: 36px; padding: 0 10px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-bubble); outline: none; user-select: text; -webkit-user-select: text; }\n.wy-gname input:focus { border-color: var(--wy-accent); }\n.wy-pick { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 14px; cursor: pointer; }\n.wy-pick:hover { background: var(--wy-hover); }\n.wy-ck { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 1.5px solid var(--wy-line); border-radius: 50%; color: transparent; }\n.wy-ck svg { width: 14px; height: 14px; }\n.wy-pick.wy-on .wy-ck { border-color: var(--wy-accent); background: var(--wy-accent); color: var(--wy-on-fill); }\n.wy-pick.wy-lock { cursor: default; opacity: 0.5; }\n\n/* ---- the 我 tab (Task 19): own card, switches, note link, size, summarise, background, reset; chat background */\n.wy-tabs-me .wy-scroll { background: var(--wy-chat-bg); }\n.wy-mecard { padding-top: 26px; }\n.wy-mecard .wy-grow { cursor: pointer; }\n/* A15: the name block fills the card's height (its lines stay centred where they were), so the tap is not a 29 px strip */\n.wy-mecard .wy-grow { align-self: stretch; display: flex; flex-direction: column; justify-content: center; }\n.wy-chev { flex: none; display: inline-flex; color: var(--wy-sub); }\n.wy-chev svg { width: 18px; height: 18px; }\n.wy-linkrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 2px 16px 10px; background: var(--wy-panel); border-bottom: 1px solid var(--wy-line); }\n.wy .wy-link { min-height: 32px; color: var(--wy-accent); font-size: 13.5px; }\n/* B5 (2026-11-19): the no-reply note as the way to 重新回复 — the phone's link, centred under the conversation like the note it replaces */\n.wy .wy-link.wy-note-retry { display: inline-flex; align-items: center; margin-top: 0; padding: 0 12px; cursor: pointer; }\n.wy-size { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 10px 16px; background: var(--wy-panel); color: var(--wy-sub); font-size: 13px; border-bottom: 1px solid var(--wy-line); }\n.wy-size.wy-lv-amber .wy-size-note { color: var(--wy-warn); font-weight: 600; }\n.wy-size.wy-lv-red .wy-size-note { color: var(--wy-alert); font-weight: 600; }\n.wy-sumrow { display: flex; flex-direction: column; align-items: center; background: var(--wy-panel); }\n.wy .wy-btnrow svg { width: 20px; height: 20px; margin-right: 8px; }\n/* A20: the profile's 音视频通话 sits right under 发消息 — one block, a hairline between the two rows */\n.wy .wy-btnrow.wy-pcall { border-top: 1px solid var(--wy-line); }\n.wy .wy-sum { color: var(--wy-accent); }\n.wy .wy-sum:disabled { color: var(--wy-sub); cursor: default; }\n.wy-sumrow .wy-note { margin: 0 0 10px; }\n.wy-sheet-note { max-height: 80%; }\n/* the memory slice, UI (2026-11-18; owner #44, the designer's mock option ①): the size sheet (soWyMeterSheet) and the 我 page's 「记忆与长度」\n   rows (soWyMemRows). Amber TEXT reads --wy-warn-ink (the light theme's #B26A00 is under 4.5 : 1 on white at these sizes; dark = --wy-warn);\n   bars and fills read --wy-warn. The level never rests on colour alone: ⚠ + the words on red, the bar's fill and the sentence on every level. */\n.wy-msheet { max-height: calc(100% - 12px); overflow-y: auto; overscroll-behavior: contain; }\n.wy-ms-num { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; font-size: 30px; font-weight: 600; line-height: 1.3; font-variant-numeric: tabular-nums; }\n.wy-ms-num.wy-lv-amber { color: var(--wy-warn-ink); }\n.wy-ms-num.wy-lv-red { color: var(--wy-alert); }\n.wy-ms-warn { display: inline-flex; }\n.wy-ms-warn svg { width: 26px; height: 26px; }\n.wy-ms-sub { padding: 0 16px 14px; color: var(--wy-sub); font-size: 12.5px; text-align: center; }\n.wy-ms-bar { position: relative; height: 6px; margin: 0 22px; border-radius: 3px; background: var(--wy-chat-bg); box-shadow: inset 0 0 0 1px var(--wy-line); }\n.wy-ms-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--wy-sub); }\n.wy-ms-bar.wy-lv-amber .wy-ms-fill { background: var(--wy-warn); }\n.wy-ms-bar.wy-lv-red .wy-ms-fill { background: var(--wy-alert); }\n.wy-ms-mark { position: absolute; left: 80%; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--wy-ink); opacity: 0.45; }\n.wy-ms-scale { position: relative; height: 18px; margin: 5px 22px 0; color: var(--wy-sub); font-size: 11px; }\n.wy-ms-scale span { position: absolute; top: 0; white-space: nowrap; }\n.wy-ms-scale .wy-ms-at { left: 80%; transform: translateX(-50%); }\n.wy-ms-why { margin: 10px 22px 6px; font-size: 14px; line-height: 1.6; text-align: center; }\n.wy-ms-after { margin: 0 22px 10px; color: var(--wy-sub); font-size: 12.5px; text-align: center; }\n.wy-ms-after.wy-lv-amber { color: var(--wy-warn-ink); }\n.wy-ms-after.wy-lv-red { color: var(--wy-alert); }\n.wy .wy-sheet-i.wy-ms-go { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; color: var(--wy-accent); font-weight: 600; }\n.wy .wy-sheet-i.wy-ms-go svg { width: 20px; height: 20px; }\n.wy .wy-sheet-i.wy-ms-go:disabled { color: var(--wy-sub); font-weight: 400; cursor: default; }\n.wy-memrow .wy-mem-v { flex: none; display: inline-flex; align-items: center; gap: 4px; color: var(--wy-sub); font-size: 14px; font-variant-numeric: tabular-nums; }\n.wy-memrow .wy-mem-v svg { width: 15px; height: 15px; }\n.wy-memrow .wy-mem-v.wy-lv-amber { color: var(--wy-warn-ink); font-weight: 600; }\n.wy-memrow .wy-mem-v.wy-lv-red { color: var(--wy-alert); font-weight: 600; }\n.wy-memrow::after { left: 16px; }\n.wy .wy-memset .wy-seg-i { padding: 0 4px; font-variant-numeric: tabular-nums; }\n.wy-pre { flex: 1 1 auto; min-height: 0; margin: 0; padding: 10px 16px; overflow: auto; color: var(--wy-ink); font: 12.5px/1.6 ui-monospace, \"Cascadia Mono\", Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n.wy-chat.wy-has-bg { background-color: var(--wy-chat-bg); background-position: center; background-size: cover; background-repeat: no-repeat; }\n.wy-chat.wy-has-bg .wy-top { background: var(--wy-panel); }\n.wy-chat.wy-has-bg .wy-scroll { background: var(--wy-scrim); }\n.wy-chat.wy-has-bg .wy-line-mid .wy-sys-t { display: inline-block; padding: 2px 8px; border-radius: 6px; background: var(--wy-panel); }\n.wy-chat.wy-has-bg .wy-mn { display: inline-block; padding: 0 6px; border-radius: 5px; background: var(--wy-panel); }\n.wy-chat.wy-has-bg .wy-q, .wy-chat.wy-has-bg .wy-vtext { background: var(--wy-panel); }\n\n/* ---- the empty phone, 开机 and the start-up show (Task 20) ------------------------------------------------------------ */\n.wy .wy-bootbtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 168px; min-height: 48px; margin-top: 16px; padding: 0 26px; border-radius: 999px; background: var(--wy-accent); color: var(--wy-on-fill); font-size: 16px; font-weight: 600; box-shadow: 0 6px 18px var(--wy-shadow); }\n.wy .wy-bootbtn:disabled { opacity: 0.5; }\n.wy-bootbtn svg { width: 20px; height: 20px; }\n.wy-boot-cost { max-width: 260px; margin: 0; color: var(--wy-sub); font-size: 12.5px; line-height: 1.5; }\n/* the start-up overlay keeps its own (green-tinted) background — the owner: \"the start-up animation is fine\" (redesign D2 moved the\n   rest of the phone to neutral greys) */\n.wy-boot { position: absolute; inset: 0; z-index: 5; overflow: hidden; background: var(--wy-boot-bg); color: var(--wy-ink); }\n.wy-boot-art { position: absolute; inset: 0; width: 100%; height: 100%; }\n.wy-boot-art #ring { animation: wy-pulse 2.4s ease-in-out infinite; }\n/* #logo carries its own transform=\"translate(…)\" — a CSS transform would replace it, so the logo only fades */\n.wy-boot-art #logo { animation: wy-logo-in 0.6s ease both; }\n.wy-boot-art #contacts { transform-box: view-box; transform-origin: 195px 390px; animation: wy-spin 18s linear infinite; transition: opacity 0.4s ease; }\n.wy-boot:not([data-wy-phase=\"splash\"]) .wy-boot-art #contacts { opacity: 0; }\n.wy-boot-orbit { position: absolute; left: 50%; top: 50%; width: 0; height: 0; animation: wy-spin 18s linear infinite; }\n.wy-boot-contact { position: absolute; left: 0; top: 0; transform: rotate(var(--wy-a, -90deg)) translateY(calc(-1 * var(--wy-orbit-r, 120px))) rotate(calc(-1 * var(--wy-a, -90deg))); transition: transform 0.45s ease; }\n.wy-boot-unspin { position: absolute; left: -32px; top: -23px; display: flex; flex-direction: column; align-items: center; gap: 3px; width: 64px; animation: wy-spin-rev 18s linear infinite; }\n.wy-boot-unspin .wy-av { border-radius: 10px; box-shadow: 0 4px 12px var(--wy-shadow); animation: wy-pop 0.35s ease both; }\n.wy-boot-contact.wy-boot-flown { visibility: hidden; }   /* its copy (.wy-fly) has taken off to the row: never two of one name (landing) */\n.wy-boot-cn { max-width: 64px; overflow: hidden; color: var(--wy-ink); font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }\n.wy-boot-text { position: absolute; left: 16px; right: 16px; bottom: 7%; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }\n.wy-boot-name { font-size: 22px; font-weight: 600; letter-spacing: 2px; }\n.wy-boot-line { color: var(--wy-sub); font-size: 13px; }\n.wy-boot-failed .wy-boot-text, .wy-boot-failed .wy-boot-orbit { display: none; }\n.wy-boot-failed .wy-boot-art #ring, .wy-boot-failed .wy-boot-art #contacts { animation: none; }\n.wy-boot-fail { position: absolute; left: 16px; right: 16px; bottom: 6%; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px; border-radius: 14px; background: var(--wy-bubble); color: var(--wy-ink); box-shadow: 0 8px 24px var(--wy-shadow); text-align: center; animation: wy-drop 0.25s ease both; }\n.wy-boot-fail-t { font-size: 15px; font-weight: 600; }\n.wy-boot-fail-why { color: var(--wy-sub); font-size: 13px; overflow-wrap: anywhere; }\n.wy-boot-fail-btns { display: flex; gap: 10px; margin-top: 4px; }\n.wy .wy-boot-back, .wy .wy-boot-retry { min-width: 96px; min-height: 40px; padding: 0 16px; border-radius: 999px; font-size: 14.5px; }\n.wy .wy-boot-back { background: var(--wy-hover); }\n.wy .wy-boot-retry { background: var(--wy-accent); color: var(--wy-on-fill); font-weight: 600; }\n.wy-boot-out { animation: wy-fade-out 0.55s ease 0.25s both; pointer-events: none; }\n.wy-fly { position: absolute; left: 0; top: 0; z-index: 6; border-radius: 10px; transform-origin: 0 0; pointer-events: none; animation: wy-fly 0.8s cubic-bezier(0.5, 0, 0.2, 1) both; }\n.wy-fly.wy-fly-fade { animation: wy-fly-fade 0.5s ease both; }\n.wy-boot-in .wy-row { animation: wy-row-in 0.4s ease both; animation-delay: calc(var(--wy-i, 0) * 110ms + 120ms); }\n\n/* ---- more functions, phase 1 (slice B, 2026-11-17): cards, the chat record, forward select, the @ picker, pin, remark, block, search ---- */\n/* the card bubble: the same card on both sides (the familiar app keeps cards light on its green side too) — title + sub beside an icon\n   tile (a 名片 / 音乐: the tile leads), a hairline and a small kind label; no tail */\n.wy-cardmsg { position: relative; display: flex; flex-direction: column; width: 232px; max-width: 100%; overflow: hidden; border-radius: 6px; background: var(--wy-bubble); color: var(--wy-ink); }\n.wy-cardmsg[data-wy-act] { cursor: pointer; }\n.wy-card-main { display: flex; align-items: center; gap: 10px; min-height: 66px; padding: 11px 12px 10px; }\n.wy-card-tx { display: flex; flex: 1 1 auto; flex-direction: column; gap: 3px; min-width: 0; }\n/* the card is the only place its title (≤ 40) and line (≤ 60) live: both wrap in full, the card grows taller (owner's playtest 2026-11-18) */\n.wy-card-t { font-size: 15px; line-height: 1.35; overflow-wrap: anywhere; }\n.wy-card-s { color: var(--wy-sub); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-card-i { flex: none; display: inline-flex; }\n.wy-card-contact .wy-card-i, .wy-card-music .wy-card-i { order: -1; }\n.wy-card-ic { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 6px; color: var(--wy-on-fill); }\n.wy-card-ic svg { width: 24px; height: 24px; }\n.wy-card-ic-loc { background: var(--wy-hue-5); }\n.wy-card-ic-file { background: var(--wy-hue-2); }\n.wy-card-ic-link { background: var(--wy-hue-10); }\n.wy-card-ic-music { background: var(--wy-hue-6); }\n.wy-card-ic-contact { background: var(--wy-hue-7); }\n.wy-card-k { margin: 0 12px; padding: 5px 0 6px; border-top: 1px solid var(--wy-card-line); color: var(--wy-sub); font-size: 11.5px; line-height: 1.4; }\n.wy-card-ph { opacity: 0.5; }\n/* the forwarded chat record: 「「来源」的聊天记录」, the first lines, a label; tap = the whole snapshot in a sheet */\n.wy-fwdmsg { position: relative; display: flex; flex-direction: column; width: 232px; max-width: 100%; padding: 10px 12px 0; overflow: hidden; border-radius: 6px; background: var(--wy-bubble); color: var(--wy-ink); cursor: pointer; }\n.wy-fwd-t { font-size: 15px; line-height: 1.35; overflow-wrap: anywhere; }\n.wy-fwd-ls { display: flex; flex-direction: column; gap: 1px; margin-top: 5px; }\n.wy-fwd-l { overflow: hidden; color: var(--wy-sub); font-size: 12.5px; line-height: 1.45; white-space: nowrap; text-overflow: ellipsis; }\n.wy-fwd-k { margin-top: 8px; padding: 5px 0 6px; border-top: 1px solid var(--wy-card-line); color: var(--wy-sub); font-size: 11.5px; line-height: 1.4; }\n.wy-sheet.wy-fwdsheet, .wy-sheet.wy-refsheet { max-height: 80%; }\n.wy-fwd-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px 8px; }\n.wy-fwd-row { display: flex; flex-direction: column; gap: 2px; padding: 9px 0; border-bottom: 1px solid var(--wy-line); }\n.wy-fwd-row:last-child { border-bottom: 0; }\n.wy-fwd-n { color: var(--wy-sub); font-size: 12.5px; }\n.wy-fwd-v { font-size: 14.5px; line-height: 1.5; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n/* a leading unknown bracket tag (〔晚上 8:50〕…) as a quiet small tag before the words */\n.wy-tagq { display: inline-block; margin-right: 6px; padding: 0 5px; border-radius: 4px; background: var(--wy-quote); color: var(--wy-sub); font-size: 11.5px; line-height: 18px; vertical-align: 1px; white-space: nowrap; }\n.wy-m[data-wy-side=\"me\"] .wy-tagq { color: var(--wy-own-ink); }\n/* picking lines to forward: a check circle on the left of every line that can go, the rest dimmed; 取消 top left, the select bar below */\n.wy-fselmode .wy-m, .wy-fselmode .wy-line-mid { padding-left: 48px; }\n.wy-fselmode .wy-m.wy-fok { cursor: pointer; }\n.wy-fselmode .wy-fno { opacity: 0.4; }\n.wy-fck { position: absolute; left: 14px; top: 16px; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 1.5px solid var(--wy-sub); border-radius: 50%; color: transparent; }\n.wy-fck svg { width: 14px; height: 14px; }\n.wy-fon > .wy-fck { border-color: var(--wy-accent); background: var(--wy-accent); color: var(--wy-on-fill); }\n.wy .wy-fsel-x { min-height: 44px; padding: 0 12px; font-size: 15px; }\n.wy-chatfoot.wy-fbar { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px 9px; }\n.wy-fbar-n { min-width: 0; color: var(--wy-sub); font-size: 13px; }\n.wy .wy-fbar-go { flex: none; min-width: 88px; min-height: 40px; padding: 0 16px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); font-weight: 600; }\n.wy .wy-fbar-go:disabled { opacity: 0.45; }\n/* the @ picker: a compact list floating just above the input row (the dock is its anchor) */\n.wy-chatfoot { position: relative; }\n.wy-atpick { position: absolute; left: 10px; right: 10px; bottom: calc(100% + 6px); z-index: 3; display: flex; flex-direction: column; max-height: 216px; overflow-y: auto; overscroll-behavior: contain; padding: 4px; border-radius: 10px; background: var(--wy-bubble); color: var(--wy-ink); box-shadow: 0 8px 28px var(--wy-shadow); }\n.wy .wy-at-i { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 4px 8px; border-radius: 8px; text-align: left; }\n.wy-at-i:hover { background: var(--wy-hover); }\n.wy-at-i .wy-nm { flex: 0 1 auto; font-size: 14.5px; }\n.wy-at-real { flex: none; color: var(--wy-sub); font-size: 12px; }\n.wy-av.wy-at-all { --wy-av-size: 28px; background: var(--wy-accent); font-size: 15px; }\n/* the jump to a line (@ / search): a brief tint */\n.wy-m.wy-hl, .wy-line-mid.wy-hl { background: var(--wy-hl); }\n/* 置顶: pinned rows wear the familiar soft tint; the row menu; with 消息菜单 = 点 ⋯ a hover device shows a ⋯ on the row */\n.wy-row.wy-pin { background: var(--wy-pin-bg); }\n.wy-row.wy-pin:hover { background: var(--wy-hover); }\n/* the ⋯ sits at the right end of the row's LOWER line (playtest 2026-11-18: centred on the row it covered the time — 「周六 2⋯」); while it\n   can show (hover, its keyboard focus) that line gives it room: the preview ellipsizes earlier, the mute icon moves left — the name, the\n   time and the tags of the top line never move and are never covered. Hidden it takes no room (absolute, transparent). */\n.wy-t2-more { position: relative; }\n.wy .wy-rmore { position: absolute; top: 50%; right: -4px; z-index: 1; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; margin-top: -14px; border-radius: 50%; background: var(--wy-bubble); color: var(--wy-sub); box-shadow: 0 1px 4px var(--wy-shadow); opacity: 0; pointer-events: none; }\n.wy-rmore svg { width: 18px; height: 18px; }\n.wy .wy-rmore::before { content: \"\"; position: absolute; inset: -6px; border-radius: 50%; }   /* A15: 40 × 40 to the pointer */\n.wy-rmore:focus-visible { opacity: 1; pointer-events: auto; }\n.wy-t2-more:focus-within { padding-right: 30px; }\n@media (hover: hover) {\n    .wy-row:hover .wy-rmore { opacity: 1; pointer-events: auto; }\n    .wy-row:hover .wy-t2-more { padding-right: 30px; }\n}\n.wy-pop-row { top: 120px; left: 24px; min-width: 132px; }\n.wy .wy-pop .wy-danger { color: var(--wy-alert); }\n/* 备注 (the profile's inline editor), the card composer's fields, 添加到通讯录 */\n.wy-remarkrow .wy-nm { flex: 1 0 auto; }\n/* a long 备注 (up to THEATER_WEIYU_REMARK_MAX) gives way, one line with an ellipsis; the label never does (playtest 2026-11-19 A4) */\n.wy-remarkrow .wy-sub2 { flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }\n.wy-remarkedit { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; background: var(--wy-panel); }\n.wy-remark-in, .wy-cf-in { width: 100%; min-height: 40px; padding: 0 10px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-chat-bg); font-size: 15px; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-remark-in:focus, .wy-cf-in:focus { border-color: var(--wy-accent); }\n.wy-remark-in::placeholder, .wy-cf-in::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy-cardcmp .wy-cmp-prev { padding: 12px; border-radius: 10px; background: var(--wy-chat-bg); }   /* the preview card on the chat's own ground */\n.wy-cf { display: flex; flex-direction: column; gap: 5px; }\n.wy-cf-l { color: var(--wy-sub); font-size: 12.5px; }\n.wy-cf-pick { flex: none; display: flex; flex-direction: column; max-height: 176px; overflow-y: auto; overscroll-behavior: contain; border-radius: 8px; background: var(--wy-chat-bg); }\n.wy-cf-pick .wy-pick { min-height: 46px; padding: 6px 10px; }\n/* the 名片 pick list sits on the chat's ground, where a --wy-line ring (and a hovered row's --wy-hover) swallowed the empty ring (playtest A11) */\n.wy-cf-pick .wy-ck { border-color: var(--wy-sub); }\n.wy .wy-btnrow.wy-primary { color: var(--wy-accent); font-weight: 600; }\n/* 黑名单: the notice that replaces the input row in his private chat with a blocked contact */\n.wy-blockbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 12px; min-height: 40px; padding: 2px 4px; color: var(--wy-sub); font-size: 13px; text-align: center; }\n.wy .wy-unblock { min-height: 34px; padding: 0 14px; border-radius: 6px; background: var(--wy-hover); color: var(--wy-accent); font-size: 14px; font-weight: 600; }\n/* 搜索: the field heading the chat list; the search page's [field][取消]; results with the match in the accent colour */\n.wy-srchbar { padding: 6px 12px 8px; background: var(--wy-panel); }\n.wy .wy-srch { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 36px; border-radius: 8px; background: var(--wy-chat-bg); color: var(--wy-sub); font-size: 14.5px; }\n.wy-srch svg, .wy-srchf svg { width: 17px; height: 17px; }\n.wy-top.wy-srchtop { display: flex; align-items: center; gap: 6px; padding: 0 4px 0 12px; }\n.wy-srchf { display: flex; flex: 1 1 auto; align-items: center; gap: 6px; min-width: 0; min-height: 36px; padding: 0 10px; border-radius: 8px; background: var(--wy-chat-bg); color: var(--wy-sub); }\n.wy-srch-in { flex: 1 1 auto; min-width: 0; height: 34px; padding: 0; border: 0; background: transparent; font-size: 15px; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-srch-in::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy .wy-srch-in:focus-visible { outline: none; }   /* the pill is the field; the caret shows the focus (no second ring inside it) */\n.wy .wy-srch-x { flex: none; min-height: 44px; padding: 0 10px; color: var(--wy-accent); font-size: 15px; }\n.wy-search .wy-scroll { background: var(--wy-chat-bg); }\n.wy-srch-tx { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-width: 0; }\n.wy-srch-tx .wy-nm { flex: none; }\n.wy-srch-sub { overflow: hidden; color: var(--wy-sub); font-size: 13px; white-space: nowrap; text-overflow: ellipsis; }\n.wy-hit { color: var(--wy-accent); font-weight: 600; }\n\n/* ---- more functions, phase 2 (slice B, 2026-11-17): the call bubble, the calling screen, the transfer card / receipt, its sheet + composer ---- */\n/* the call bubble = the ordinary bubble (tail, both colours) holding a handset / camera and the words; on his side the icon follows them */\n.wy-callmsg { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; user-select: none; -webkit-user-select: none; }\n.wy-callmsg svg { flex: none; width: 19px; height: 19px; }\n.wy-m[data-wy-side=\"me\"] .wy-callmsg { flex-direction: row-reverse; }\n.wy-callmsg[data-wy-act] { cursor: pointer; }\n.wy .wy-callpeek { margin: 4px 0 0 2px; }\n.wy-callgist { max-width: 100%; margin-top: 4px; padding: 6px 9px; border-radius: 6px; background: var(--wy-quote); color: var(--wy-ink); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n/* the brief \"calling…\" screen (动画 开 only): their picture and name, 正在等待…, a red hang-up — the familiar call screen in miniature */\n.wy-callscr { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 76px 24px 48px; border-radius: inherit; background: var(--wy-callscr-bg); color: var(--wy-on-fill); }\n.wy-callscr-who { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; max-width: 100%; text-align: center; }\n.wy-callscr-who .wy-av { margin-bottom: 8px; border-radius: 12px; }\n.wy-callscr-nm { max-width: 100%; overflow: hidden; font-size: 22px; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }\n.wy-callscr-st { color: var(--wy-callscr-sub); font-size: 14px; }\n.wy[data-wy-motion=\"on\"] .wy-callscr-st { animation: wy-pulse 1.4s ease-in-out infinite; }\n.wy-callscr-mode { display: inline-flex; align-items: center; gap: 5px; color: var(--wy-callscr-sub); font-size: 12.5px; }\n.wy-callscr-mode svg { width: 15px; height: 15px; }\n.wy .wy-callscr-end { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--wy-on-fill); font-size: 13px; }\n.wy-callscr-x { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: 50%; background: var(--wy-alert); }\n.wy-callscr-x svg { width: 30px; height: 30px; transform: rotate(135deg); }\n/* keyboard focus on a round call-screen button (挂断 / 取消 / 重拨 / 关闭): the phone's ring follows the circle, not the button's box (circle + label) */\n.wy .wy-callscr-end:focus-visible { outline: none; }\n.wy .wy-callscr-end:focus-visible > .wy-callscr-x { outline: 2px solid var(--wy-accent); outline-offset: 3px; }\n/* the live call scene, slice B (2026-11-18): the calling screen is the START request in flight (both 动画 states) and grows into the call\n   panel (.wy-cs-on) — the familiar call screen as a pattern: full screen and dark in BOTH themes (a call screen is dark in the familiar app\n   whichever theme it wears, and a video's \"camera\" is dark), the picture and name with a running timer, her words large, his smaller on the\n   right, the field above the big round red hang-up at the bottom centre. A video call: her camera fills the top (the 画面 text as the scene,\n   no fake photo), his own small preview in a corner. A START that did not get through: 取消 (grey) · 重拨 (green) side by side. */\n.wy-cs { z-index: 6; }\n.wy-cs-why { max-width: 100%; max-height: 10.5em; overflow-y: auto; color: var(--wy-callscr-sub); font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-callscr-foot.wy-cs-two { display: flex; justify-content: center; gap: 56px; }\n.wy-cs-quiet .wy-callscr-x { background: var(--wy-cs-soft); }\n.wy-cs-redial .wy-callscr-x { background: var(--wy-tile-b); }\n.wy-cs-quiet .wy-callscr-x svg, .wy-cs-redial .wy-callscr-x svg { transform: none; }\n.wy-cs.wy-cs-on { align-items: stretch; justify-content: flex-start; padding: 0; }\n.wy-cs-head { flex: none; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 34px 20px 10px; text-align: center; }\n.wy-cs-head .wy-av { border-radius: 12px; }\n.wy-cs-who { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; max-width: 100%; }\n.wy-cs-nm { max-width: 100%; overflow: hidden; font-size: 19px; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }\n.wy-cs-time { color: var(--wy-callscr-sub); font-size: 13.5px; font-variant-numeric: tabular-nums; }\n.wy-cs-log { display: flex; flex-direction: column; gap: 14px; padding: 10px 20px 12px; }\n.wy-cs-turn { display: flex; flex-direction: column; gap: 5px; min-width: 0; }\n.wy-cs-her { align-items: flex-start; }\n.wy-cs-mine { align-items: flex-end; }\n.wy-cs-l { max-width: 100%; font-size: 17px; line-height: 1.5; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n.wy-cs-tag { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 5px; background: var(--wy-cs-tag); color: var(--wy-callscr-sub); font-size: 12px; line-height: 20px; vertical-align: 2px; white-space: nowrap; }\n.wy-cs-snd { color: var(--wy-cs-dim); font-size: 12.5px; font-style: italic; line-height: 1.45; overflow-wrap: anywhere; }\n.wy-cs-act { color: var(--wy-callscr-sub); font-size: 13px; font-style: italic; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-cs-me { max-width: 82%; padding: 6px 10px; border-radius: 10px; background: var(--wy-cs-soft); color: var(--wy-callscr-sub); font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n.wy .wy-cs-redo { min-height: 28px; padding: 0 11px; border-radius: 999px; background: var(--wy-cs-soft); color: var(--wy-callscr-sub); font-size: 12px; }\n.wy .wy-cs-again { align-self: flex-end; min-height: 32px; padding: 0 13px; border-radius: 999px; background: var(--wy-cs-soft); color: var(--wy-on-fill); font-size: 13px; }\n.wy-cs-speaking { display: flex; align-items: center; gap: 2px; color: var(--wy-callscr-sub); font-size: 13px; }\n.wy-cs-speaking .wy-dots { height: 20px; padding: 0 4px; }\n.wy-cs-speaking .wy-dots i { background: var(--wy-callscr-sub); }\n.wy-cs-note { color: var(--wy-callscr-sub); font-size: 12px; overflow-wrap: anywhere; }\n.wy-cs-foot { flex: none; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 8px 16px 24px; }\n.wy-cs-foot > [hidden] { display: none; }\n.wy-cs-inrow { display: flex; align-items: center; gap: 8px; width: 100%; }\n.wy .wy-cs-in { border-color: transparent; background: var(--wy-cs-soft); color: var(--wy-on-fill); }\n.wy .wy-cs-in:focus { border-color: var(--wy-cs-dim); }\n.wy .wy-cs-in::placeholder { color: var(--wy-cs-dim); }\n.wy-cs-ended { padding: 4px 0 0; color: var(--wy-callscr-sub); font-size: 15px; }   /* her hang-up: this line, then 关闭 below it */\n.wy-cs-on .wy-callscr-x { width: 60px; height: 60px; }\n.wy-cs-cam { position: relative; flex: 0 0 46%; min-height: 168px; overflow: hidden; border-radius: inherit; border-bottom-left-radius: 0; border-bottom-right-radius: 0; background: var(--wy-cs-cam); }\n.wy-cs-cam .wy-cs-head { position: absolute; top: 0; left: 0; right: 0; z-index: 1; flex-direction: row; align-items: center; padding: 14px 16px 26px; background: linear-gradient(var(--wy-cs-fade), transparent); text-align: left; }\n.wy-cs-cam .wy-cs-who { align-items: flex-start; }\n.wy-cs-scene { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 60px 24px 24px; }\n.wy-cs-scene-t { max-height: 100%; overflow-y: auto; color: var(--wy-callscr-sub); font-size: 14.5px; font-style: italic; line-height: 1.7; text-align: center; overflow-wrap: anywhere; scrollbar-width: none; }\n.wy-cs-scene-av { opacity: 0.4; }\n.wy-cs-self { position: absolute; right: 12px; bottom: 12px; z-index: 1; display: flex; align-items: center; justify-content: center; width: 64px; height: 88px; border-radius: 10px; background: var(--wy-callscr-bg); box-shadow: 0 2px 12px var(--wy-cs-fade); }\n.wy-cs-self .wy-av { border-radius: 8px; }\n.wy[data-wy-motion=\"on\"] .wy-cs-new { animation: wy-cs-fade 0.45s ease both; }\n/* her reason for declining, under his call record */\n.wy-callwhy { margin-top: 4px; color: var(--wy-sub); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }\n/* the transcript of a finished call: a sheet in the phone's own theme (the same line pieces as the panel, in the sheet's colours) */\n.wy-sheet.wy-calllog { max-height: 80%; }\n.wy-calllog-head { flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 16px 9px; border-bottom: 1px solid var(--wy-line); }\n.wy-calllog-h { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; }\n.wy-calllog-h svg { width: 18px; height: 18px; }\n.wy-calllog-at { color: var(--wy-sub); font-size: 12px; }\n.wy-calllog-list { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; overscroll-behavior: contain; padding: 10px 16px 12px; }\n.wy-calllog-row { display: flex; flex-direction: column; gap: 2px; }\n.wy-calllog-n { color: var(--wy-sub); font-size: 12px; }\n.wy-calllog-v { display: flex; flex-direction: column; gap: 3px; }\n.wy-calllog .wy-cs-l { font-size: 15px; }\n.wy-calllog .wy-cs-tag { background: var(--wy-tag); color: var(--wy-sub); }\n.wy-calllog .wy-cs-snd, .wy-calllog .wy-cs-act { color: var(--wy-sub); }\n.wy-calllog-pic { padding: 6px 10px; border-radius: 6px; background: var(--wy-quote); color: var(--wy-sub); font-size: 13px; font-style: italic; line-height: 1.55; overflow-wrap: anywhere; }\n.wy .wy-calllog-back { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--wy-accent); }\n.wy-calllog-back svg { width: 20px; height: 20px; }\n/* the transfer card (the familiar orange card, the same on both sides, no tail): icon · amount large · 附言 · state, a 「转账」 label under a\n   hairline; closed (已收款 / 已退回 / 已过期) = the paler colour, as the familiar app does (the text stays full white — opacity made it\n   muddy on the dark theme); the receipt (wy-pay-ans) is a closed card */\n.wy-paymsg { position: relative; display: flex; flex-direction: column; width: 232px; max-width: 100%; overflow: hidden; border-radius: 6px; background: var(--wy-pay); color: var(--wy-pay-ink); user-select: none; -webkit-user-select: none; }\n.wy-paymsg[data-wy-act] { cursor: pointer; }\n.wy-pay-closed { background: var(--wy-pay-done); color: var(--wy-pay-done-ink); }\n/* closed card ink (owner's pick \"B\" of the 11-18 transfer mock; light theme: dark brown on pale orange — white on the old pale orange was\n   ≈ 2.1:1; the dark theme's tokens are all white / the old hairline, so it draws exactly as before) */\n.wy-pay-closed .wy-pay-note, .wy-pay-closed .wy-pay-st, .wy-pay-closed .wy-pay-k { color: var(--wy-pay-done-sub); }\n.wy-pay-closed .wy-pay-ic { color: var(--wy-pay-done-ic); }\n.wy-pay-closed .wy-pay-k { border-top-color: var(--wy-pay-done-line); }\n.wy-pay-main { display: flex; align-items: center; gap: 11px; min-height: 66px; padding: 11px 12px 10px; }\n.wy-pay-ic { flex: none; display: inline-flex; }\n.wy-pay-ic svg { width: 34px; height: 34px; }\n.wy-pay-tx { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-width: 0; }\n.wy-pay-amt { font-size: 18px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }\n.wy-pay-note { font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-pay-st { font-size: 12.5px; line-height: 1.4; }\n.wy-pay-k { margin: 0 12px; padding: 5px 0 6px; border-top: 1px solid var(--wy-pay-line); font-size: 11.5px; line-height: 1.4; }\n/* the transfer composer (the card composer's pattern) and the 收款 / 退回 sheet (the familiar 待你收款 page, as a sheet) */\n.wy-paycmp .wy-cmp-prev { padding: 12px; border-radius: 10px; background: var(--wy-chat-bg); }\n.wy-pay-to { display: flex; align-items: center; gap: 10px; min-width: 0; }\n.wy-pay-to .wy-nm { font-size: 15px; }\n.wy-paycaution { color: var(--wy-sub); font-size: 12px; line-height: 1.5; }\n.wy-paysheet-amt { padding: 4px 16px 0; font-size: 30px; font-weight: 600; line-height: 1.3; text-align: center; overflow-wrap: anywhere; }\n.wy-paysheet-note { padding: 2px 16px 0; color: var(--wy-sub); font-size: 14px; text-align: center; overflow-wrap: anywhere; }\n.wy-paysheet-free { padding: 8px 16px 12px; color: var(--wy-sub); font-size: 12px; text-align: center; }\n.wy .wy-sheet-i.wy-pay-take { color: var(--wy-accent); font-weight: 600; }\n\n/* ---- 世界用语 (ENABLE_THR_WEIYU_WORDS): the 我 row, the 开机 link, the editor page (the familiar settings page: grey ground, white\n   groups; chips wrap; fields ≥ 32 px; nothing wider than the phone) ------------------------------------------------------------ */\n.wy .wy-link.wy-words-boot { margin-top: 2px; }\n.wy-words .wy-scroll { display: flex; flex-direction: column; gap: 0; padding-bottom: 16px; background: var(--wy-chat-bg); }\n.wy-words-using { padding: 12px 16px 6px; color: var(--wy-sub); font-size: 12.5px; overflow-wrap: anywhere; }\n.wy-words-chips { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }\n.wy-words-using + .wy-words-chips { padding: 12px 16px; background: var(--wy-panel); border-top: 1px solid var(--wy-line); border-bottom: 1px solid var(--wy-line); }\n.wy .wy-chip { display: inline-flex; align-items: center; min-height: 32px; max-width: 100%; padding: 0 12px; border: 1px solid var(--wy-line); border-radius: 999px; background: var(--wy-bubble); color: var(--wy-ink); font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n.wy .wy-chip.wy-on { border-color: var(--wy-accent); background: var(--wy-hl); color: var(--wy-accent); font-weight: 600; }\n.wy .wy-chip.wy-chip-new { border-style: dashed; color: var(--wy-accent); }\n.wy .wy-chip.wy-chip-new.wy-on { border-style: solid; }\n.wy-words-noteonly { padding: 8px 16px 0; color: var(--wy-warn-ink); font-size: 12.5px; line-height: 1.45; }\n.wy-words-form { display: flex; flex-direction: column; margin-top: 10px; padding: 4px 0; background: var(--wy-panel); border-top: 1px solid var(--wy-line); border-bottom: 1px solid var(--wy-line); }\n.wy-words-f { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 16px; }\n.wy-words-l { flex: none; width: 64px; color: var(--wy-ink); font-size: 14px; }\n.wy-words-l.wy-words-l2 { width: auto; color: var(--wy-sub); }\n.wy-words-in { flex: 1 1 auto; width: 0; min-width: 0; min-height: 36px; padding: 0 10px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-panel); font-size: 15px; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-words-in:focus { border-color: var(--wy-accent); }\n.wy-words-in::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy-words-in.wy-words-mw { flex: none; width: 48px; text-align: center; }\n.wy-words-in.wy-dis { border-color: transparent; background: var(--wy-tag); color: var(--wy-sub); cursor: default; }\n.wy-words-basef { flex-direction: column; align-items: stretch; gap: 6px; }\n.wy-words-basef .wy-words-l { width: auto; }\n.wy-words-slot:empty { display: none; }\n.wy-words-slot { padding: 0 16px 4px 90px; }\n.wy-words-err { color: var(--wy-alert); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n/* A17 (2026-11-19): 「最多 N 个字」 under a field he is typing past — the editor's hint colour, the error line's size */\n.wy-words-max { color: var(--wy-sub); font-size: 12.5px; line-height: 1.4; }\n.wy-words-none { color: var(--wy-sub); font-size: 12.5px; }\n.wy-words-saveasrow { padding: 4px 16px 2px; }\n.wy .wy-words-morebtn { display: flex; align-items: center; gap: 6px; min-height: 40px; margin: 2px 16px 0; color: var(--wy-accent); font-size: 14px; }\n.wy .wy-words-morebtn svg { width: 16px; height: 16px; transition: transform 0.18s ease; }\n.wy .wy-words-morebtn.wy-on svg { transform: rotate(90deg); }\n.wy-words-prevrow { padding: 10px 16px 0; }\n.wy-words-def { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 16px; color: var(--wy-ink); font-size: 14px; cursor: pointer; }\n.wy-words-def input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--wy-accent); }\n.wy-words-hint { padding: 0 16px 8px; color: var(--wy-sub); font-size: 12.5px; line-height: 1.5; }\n.wy-words-btns { display: flex; gap: 10px; padding: 8px 16px 4px; }\n.wy .wy-words-cancel, .wy .wy-words-save { flex: 1 1 0; min-height: 44px; border-radius: 8px; font-size: 15px; font-weight: 500; }\n.wy .wy-words-cancel { background: var(--wy-panel); color: var(--wy-ink); box-shadow: inset 0 0 0 1px var(--wy-line); }\n.wy .wy-words-save { background: var(--wy-accent); color: var(--wy-on-fill); }\n.wy .wy-btnrow.wy-words-del { margin-top: 14px; border-top: 1px solid var(--wy-line); border-bottom: 1px solid var(--wy-line); }\n/* 1b (ENABLE_THR_WEIYU_WORDS_AI): 「✨ 让 AI 按这个世界起名」 under the base picker — one wide outlined action (正在写… greyed, 停止 beside it),\n   two small lines under it; after a landing a tinted check strip with 撤销建议; a dot + 「AI 建议」 / the flag line under each field */\n.wy-words-ai { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 6px 16px 8px; }\n.wy-words-airow { display: flex; align-items: center; gap: 8px; min-width: 0; }\n.wy .wy-words-aibtn { flex: 1 1 auto; min-width: 0; min-height: 40px; padding: 4px 14px; border-radius: 8px; background: var(--wy-hl); color: var(--wy-accent); box-shadow: inset 0 0 0 1px var(--wy-accent); font-size: 14.5px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }\n.wy .wy-words-aibtn:disabled { background: var(--wy-tag); color: var(--wy-sub); box-shadow: none; cursor: default; }\n.wy .wy-words-aistop { flex: none; min-height: 40px; padding: 0 14px; border-radius: 8px; background: var(--wy-panel); color: var(--wy-alert); box-shadow: inset 0 0 0 1px var(--wy-line); font-size: 14px; }\n.wy-words-aicost, .wy-words-nopreset { color: var(--wy-sub); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }\n.wy-words-aistate { color: var(--wy-accent); font-size: 12.5px; line-height: 1.4; }\n.wy-words-aiempty, .wy-words-cause { color: var(--wy-alert); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-words-ainote { color: var(--wy-warn-ink); font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; }\n.wy-words-aicheckrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 10px; min-width: 0; margin-top: 4px; padding: 6px 10px; border-radius: 6px; background: var(--wy-hl); }\n.wy-words-aicheck { min-width: 0; color: var(--wy-ink); font-size: 13px; line-height: 1.4; }\n.wy-words-mark { display: inline-flex; align-items: center; gap: 5px; margin-right: 10px; color: var(--wy-accent); font-size: 12px; line-height: 1.4; }\n.wy-words-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--wy-accent); }\n.wy-words-flag { color: var(--wy-warn-ink); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-words-basef + .wy-words-flag { padding: 0 16px 2px; }\n/* ---- AI auto-reply row (hold reply, 2026-11-20): the owner-approved mock (phone-hold/mock/mock.html) — a slim row just above the input box:\n   [switch · label] …… [AI 现在回复 (n)]; 32 px tall, never wraps (the label ellipsises first); the button reads like his own bubble */\n.wy .wy-ar-sw { position: relative; flex: none; box-sizing: border-box; width: 28px; height: 17px; border-radius: 9px; border: 1.5px solid currentColor; }\n.wy .wy-ar-sw::after { content: \"\"; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: currentColor; }\n.wy .wy-ar-sw.wy-on { background: var(--wy-accent); border-color: var(--wy-accent); }\n.wy .wy-ar-sw.wy-on::after { left: auto; right: 2px; background: var(--wy-on-fill); }\n.wy-ar-row { display: flex; align-items: center; gap: 8px; min-height: 32px; margin: -4px 0 -2px; min-width: 0; }\n.wy .wy-ar-tg { display: inline-flex; align-items: center; gap: 6px; flex: 0 1 auto; min-width: 0; min-height: 32px; padding: 0 8px 0 4px; border-radius: 16px;\n  font-size: 12.5px; font-weight: 500; color: var(--wy-sub); -webkit-text-fill-color: var(--wy-sub); white-space: nowrap; cursor: pointer; }\n.wy .wy-ar-tg > .wy-ar-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; }\n.wy .wy-ar-tg.wy-ar-off { color: var(--wy-warn-ink); -webkit-text-fill-color: var(--wy-warn-ink); font-weight: 600; }\n.wy .wy-ar-go { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: none; margin-left: auto; min-height: 32px; padding: 0 12px 0 14px;\n  border-radius: 16px; background: var(--wy-own); color: var(--wy-own-ink); -webkit-text-fill-color: var(--wy-own-ink); font-size: 13.5px; font-weight: 600;\n  white-space: nowrap; cursor: pointer; box-shadow: 0 1px 2px var(--wy-shadow); }\n.wy .wy-ar-go.wy-ar-busy { opacity: 0.55; cursor: default; }\n.wy-ar-n { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px;\n  background: var(--wy-own-ink); color: var(--wy-own); -webkit-text-fill-color: var(--wy-own); font-size: 11px; font-weight: 700; }\n/* ---- length lines (2026-11-21): the one line a field over its ceiling shows (soWyLenMark — only while over, never on an idle screen), and\n   the photo / video caption kept inside its tile (a 4000-character description scrolls there instead of stretching the tile) ---- */\n.wy-len { flex: none; color: var(--wy-sub); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-pickpage > .wy-len { padding: 6px 14px 0; }\n.wy-cs-foot > .wy-len { align-self: stretch; text-align: center; }\n/* 每几次回复更新一次 (2026-11-21, env.stages.syncEvery only): the number box at the row's right end, and the refusal line under the row */\n.wy-every-in { flex: none; width: 5.5em; min-width: 0; min-height: 36px; padding: 0 8px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-chat-bg); font-size: 15px; text-align: center; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-every-in:focus { border-color: var(--wy-accent); }\n.wy-every > .wy-len { padding: 6px 16px 8px; background: var(--wy-panel); border-bottom: 1px solid var(--wy-line); }\n.wy-cap { max-height: 9em; overflow-y: auto; }\n/* ---- dark skin: the green primary buttons (owner-approved fix 2026-11-21): white on the light dark-skin accent measured 1.8:1 — the dark ink\n   of his own bubble instead (8.9:1), as the add-contact mock's row buttons; the light skin keeps white on its dark green (5.5:1) ---- */\n:host([data-wy-theme=\"dark\"]) .wy .wy-done, :host([data-wy-theme=\"dark\"]) .wy .wy-bootbtn, :host([data-wy-theme=\"dark\"]) .wy .wy-boot-retry,\n:host([data-wy-theme=\"dark\"]) .wy .wy-send, :host([data-wy-theme=\"dark\"]) .wy .wy-cmp-go, :host([data-wy-theme=\"dark\"]) .wy .wy-edit-ok,\n:host([data-wy-theme=\"dark\"]) .wy .wy-fbar-go, :host([data-wy-theme=\"dark\"]) .wy .wy-words-save { color: var(--wy-own-ink); }\n/* ---- dark skin, the same fix for the remaining white-on-green bits (root's extra 2026-11-21, lane ac-b): the 「新」 tag, the 通讯录's green icon\n   tiles (not the grey 窥屏 tile) and the ticked checkboxes measured 1.8:1 — the dark ink instead (8.9:1); the light skin is untouched ---- */\n:host([data-wy-theme=\"dark\"]) .wy .wy-new, :host([data-wy-theme=\"dark\"]) .wy .wy-sq:not(.wy-sq-observed),\n:host([data-wy-theme=\"dark\"]) .wy .wy-pick.wy-on .wy-ck, :host([data-wy-theme=\"dark\"]) .wy .wy-fon > .wy-fck { color: var(--wy-own-ink); }\n/* ---- adding contacts by hand (2026-11-21): the 添加朋友 form / 编辑资料 page and the profile's 人物说明 card — the approved mock's\n   tools/mock-extra.css, tokens only (both skins for free); focus = :focus (the mock drew a class), no maxlength anywhere ---- */\n.wy-ac .wy-scroll { background: var(--wy-chat-bg); }\n.wy-ac-sec { display: flex; flex-direction: column; background: var(--wy-panel); border-top: 1px solid var(--wy-line); border-bottom: 1px solid var(--wy-line); }\n.wy-ac-sechead { padding: 14px 16px 6px; color: var(--wy-sub); font-size: 12.5px; }\n.wy-ac-f { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 12px 16px; }\n.wy-ac-f + .wy-ac-f { border-top: 1px solid var(--wy-line); }\n.wy-ac-lr { display: flex; align-items: center; gap: 6px; min-width: 0; }\n.wy-ac-l { flex: none; color: var(--wy-ink); font-size: 15px; font-weight: 500; }\n.wy-ac-req { flex: none; padding: 0 5px; border-radius: 4px; background: var(--wy-alert); color: var(--wy-on-fill); font-size: 10.5px; font-weight: 600; line-height: 17px; }\n.wy-ac-opt { flex: none; padding: 0 5px; border-radius: 4px; background: var(--wy-tag); color: var(--wy-sub); font-size: 10.5px; font-weight: 500; line-height: 17px; }\n.wy-ac-n { margin-left: auto; color: var(--wy-sub); font-size: 12px; font-variant-numeric: tabular-nums; }\n.wy-ac-n.wy-ac-n-over { color: var(--wy-alert); font-weight: 600; }\n.wy .wy-ac-in, .wy .wy-ac-ta { width: 100%; box-sizing: border-box; min-height: 40px; padding: 0 10px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-chat-bg); color: var(--wy-ink); font-size: 15px; outline: none; user-select: text; -webkit-user-select: text; }\n.wy .wy-ac-ta { display: block; min-height: 84px; max-height: 220px; padding: 8px 10px; line-height: 1.5; resize: none; font-family: inherit; field-sizing: content; }\n.wy-ac-in::placeholder, .wy-ac-ta::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy .wy-ac-in:focus, .wy .wy-ac-ta:focus { border-color: var(--wy-accent); }\n.wy .wy-ac-in.wy-ac-bad { border-color: var(--wy-alert); }\n.wy-ac-ro { min-height: 24px; color: var(--wy-ink); font-size: 15px; line-height: 24px; overflow-wrap: anywhere; }\n.wy-ac-hint { color: var(--wy-sub); font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-ac-err { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; color: var(--wy-alert); font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }\n.wy .wy-ac-err .wy-link { min-height: 28px; font-size: 13px; }\n.wy-ac-seg { margin-top: 2px; }\n.wy .wy-ac-seg .wy-seg-i { min-height: 36px; font-size: 14px; }\n.wy-ac-foot { padding: 12px 16px 24px; color: var(--wy-sub); font-size: 12px; line-height: 1.55; }\n.wy-ac-desc { display: flex; align-items: flex-start; gap: 10px; padding: 13px 12px 13px 16px; background: var(--wy-panel); border-top: 1px solid var(--wy-line); cursor: pointer; }\n.wy-ac-desc-b { flex: 1 1 auto; min-width: 0; }\n.wy-ac-desc .wy-k { margin-bottom: 4px; color: var(--wy-sub); font-size: 13px; }\n.wy-ac-desc-v { font-size: 14.5px; line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere; }\n.wy-ac-chev { flex: none; display: inline-flex; align-items: center; gap: 2px; margin-top: 1px; color: var(--wy-sub); font-size: 13px; }\n.wy-ac-chev svg { width: 16px; height: 16px; }\n/* ---- 从故事里找人 (adding contacts by hand, pass B): the one page — start · running · list · nobody new · failed / stopped — the approved\n   mock's tools/mock-extra.css, tokens only; plus the group-clash reason line (.wy-ac-why), long tags wrap, and 「新」 on a 通讯录 row ---- */\n.wy-ac-intro { display: flex; gap: 12px; align-items: flex-start; padding: 16px; background: var(--wy-panel); border-bottom: 1px solid var(--wy-line); }\n.wy-ac-badge { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 10px; background: var(--wy-hl); color: var(--wy-accent); }\n.wy-ac-badge svg { width: 26px; height: 26px; }\n.wy-ac-intro-t { font-size: 15px; font-weight: 600; }\n.wy-ac-intro-d { margin-top: 3px; color: var(--wy-sub); font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }\n.wy-ac-run { display: flex; flex-direction: column; gap: 6px; padding: 12px 16px 14px; background: var(--wy-panel); border-bottom: 1px solid var(--wy-line); }\n.wy .wy-ac-run .wy-words-aibtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }\n.wy-ac-run .wy-words-aibtn svg { width: 18px; height: 18px; }\n.wy-ac-dots { display: inline-flex; gap: 3px; }\n.wy-ac-dots i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.5; }\n.wy-ac-dots i:nth-child(2) { opacity: 0.75; }\n.wy-ac-dots i:nth-child(3) { opacity: 1; }\n.wy-ac-skel { display: flex; gap: 12px; align-items: center; padding: 14px 16px; background: var(--wy-panel); }\n.wy-ac-skel + .wy-ac-skel { border-top: 1px solid var(--wy-line); }\n.wy-ac-skel-av { flex: none; width: 44px; height: 44px; border-radius: 6px; background: var(--wy-tag); }\n.wy-ac-skel-l { flex: 1 1 auto; display: flex; flex-direction: column; gap: 7px; }\n.wy-ac-skel-l i { display: block; height: 10px; border-radius: 5px; background: var(--wy-tag); }\n.wy-ac-skel-l i:nth-child(1) { width: 34%; height: 13px; }\n.wy-ac-skel-l i:nth-child(2) { width: 72%; }\n.wy-ac-skel-l i:nth-child(3) { width: 58%; }\n.wy-ac-listhead { padding: 14px 16px 6px; color: var(--wy-sub); font-size: 12.5px; }\n.wy-ac-cand { position: relative; display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px 12px 16px; background: var(--wy-panel); }\n.wy-ac-cand + .wy-ac-cand::before { content: \"\"; position: absolute; left: 72px; right: 0; top: 0; height: 1px; background: var(--wy-line); transform: scaleY(0.5); transform-origin: top; }\n.wy-ac-cand > .wy-av { flex: none; border-radius: 6px; }\n.wy-ac-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }\n.wy-ac-nl { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; min-width: 0; }\n.wy-ac-nm { min-width: 0; font-size: 16px; font-weight: 500; overflow-wrap: anywhere; }\n.wy-ac-tag { max-width: 100%; margin-top: 0; white-space: normal; overflow-wrap: anywhere; }\n.wy-ac-tag.wy-ac-tag-warn { background: var(--wy-tag); color: var(--wy-warn-ink); font-weight: 600; }\n.wy-ac-why { color: var(--wy-alert); font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; }\n.wy-ac-from { color: var(--wy-sub); font-size: 12.5px; overflow-wrap: anywhere; }\n.wy-ac-sig { font-size: 13.5px; overflow-wrap: anywhere; }\n.wy-ac-ex { margin-top: 3px; padding: 5px 8px; border-radius: 4px; background: var(--wy-quote); color: var(--wy-sub); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-ac-ex-t { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }\n.wy-ac-ex b { color: var(--wy-ink); font-weight: 500; }\n.wy .wy-ac-add { flex: none; align-self: flex-start; min-width: 56px; min-height: 32px; margin-top: 4px; padding: 0 12px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); font-size: 13.5px; font-weight: 600; white-space: nowrap; }\n/* dark skin: white on the light dark-skin accent reads poorly — the dark ink instead (as the mock drew it, as the primary buttons above) */\n:host([data-wy-theme=\"dark\"]) .wy .wy-ac-add { color: var(--wy-own-ink); }\n.wy .wy-ac-added { flex: none; align-self: flex-start; min-height: 32px; margin-top: 4px; padding: 0 4px; color: var(--wy-sub); font-size: 13.5px; line-height: 32px; white-space: nowrap; }\n.wy-ac-cand.wy-ac-done .wy-ac-ex { opacity: 0.7; }\n.wy-ac-have { padding: 12px 16px; color: var(--wy-sub); font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-ac-more { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 16px 28px; }\n.wy-ac-more .wy-words-aicost { text-align: center; }\n.wy-ac-res { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 30px 24px 18px; text-align: center; }\n.wy-ac-res-ic { display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 50%; background: var(--wy-tag); color: var(--wy-sub); }\n.wy-ac-res-ic svg { width: 28px; height: 28px; }\n.wy-ac-res-t { font-size: 16px; font-weight: 600; }\n.wy-ac-res-t.wy-ac-bad { color: var(--wy-alert); }\n.wy-ac-res-have { max-width: 290px; margin-top: 4px; color: var(--wy-sub); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-ac-res-d { max-width: 290px; color: var(--wy-sub); font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }\n.wy .wy-ac-res .wy-link { margin-top: 2px; }\n.wy-prow .wy-new { margin-top: 0; }\n/* ---- @keyframes ------------------------------------------------------------------------------------------------------ */\n@keyframes wy-fadeup { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }\n@keyframes wy-drop { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }\n@keyframes wy-rise { from { transform: translateY(100%); } to { transform: none; } }\n@keyframes wy-dots { 0%, 80%, 100% { opacity: 0.35; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }\n@keyframes wy-spin { to { transform: rotate(360deg); } }\n@keyframes wy-spin-rev { to { transform: rotate(-360deg); } }\n@keyframes wy-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }\n@keyframes wy-logo-in { from { opacity: 0; } to { opacity: 1; } }\n@keyframes wy-pop { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: none; } }\n@keyframes wy-fade-out { from { opacity: 1; } to { opacity: 0; } }\n@keyframes wy-fly { from { opacity: 1; transform: translate(var(--wy-fx), var(--wy-fy)); } to { opacity: 0.15; transform: translate(var(--wy-tx), var(--wy-ty)) scale(var(--wy-ts)); } }\n@keyframes wy-fly-fade { from { opacity: 1; transform: translate(var(--wy-fx), var(--wy-fy)); } to { opacity: 0; transform: translate(var(--wy-fx), var(--wy-fy)) scale(0.6); } }\n@keyframes wy-row-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }\n@keyframes wy-cs-fade { from { opacity: 0; } to { opacity: 1; } }\n\n/* ====== MOTION (lane M) ====== */\n/* The phone's motion (designer's mock-up 2026-11-16 §3, the MOTION table; JS in ui-core.js under \"MOTION (lane M)\"). Every rule that moves\n   something is scoped .wy[data-wy-motion=\"on\"] — 关 never even matches it, and the zeroing rule below still covers anything left.\n   Only transform / opacity animate. Sits BEFORE the reduced-motion fallback + zeroing rule (they stay the last two rules, pinned).\n   Override of an existing rule (noted): the hold fill's snap-back (.wy-hold-fill has no transition) → a 200 ms drain while on. */\n\n/* Tier 1 · push / back: the page that is leaving stays, absolute and inert (soWyMoKeep); the slide is Web Animations (soWyMoSlide).\n   push: leaving page z 1 < dim 2 < arriving page z 3 (its left edge casts a shadow); back: arriving page < dim 2 < leaving page z 3. */\n.wy > .wy-page.wy-mo-ghost { position: absolute; inset: 0; z-index: 1; pointer-events: none; }\n.wy > .wy-page.wy-mo-ghost.wy-mo-over { z-index: 3; box-shadow: -10px 0 28px var(--wy-shadow); }\n.wy > .wy-page.wy-mo-top { z-index: 3; box-shadow: -10px 0 28px var(--wy-shadow); }\n.wy > .wy-mo-dim { position: absolute; inset: 0; z-index: 2; background: var(--wy-frame); opacity: 0; pointer-events: none; }\n\n/* Tier 1 · the top bar lies over its scroller (content scrolls under it) and condenses after 4 px: translucent + blur + a hairline; the\n   list title shrinks a touch. Padding = the bar's height, --wy-top-h (border-box: its bottom line is inside it; integration 2026-11-17 —\n   was 48 / 49 px, the bar's height before the refined list's 52). */\n.wy[data-wy-motion=\"on\"] .wy-mo-ovl > .wy-top { position: absolute; top: 0; left: 0; right: 0; transition: background-color 0.2s ease, box-shadow 0.2s ease; }\n.wy[data-wy-motion=\"on\"] .wy-mo-ovl > .wy-scroll { padding-top: var(--wy-top-h); scroll-padding-top: var(--wy-top-h); }\n.wy[data-wy-motion=\"on\"] .wy-mo-ovl > .wy-top.wy-mo-cond { box-shadow: 0 0.5px 0 var(--wy-line); }\n/* playtest 2026-11-19 A1: at 76% + 14 px the lines under the bar read through it (an avatar, a bubble's text behind ‹ and the title — it looked\n   like content spilling over the bar); 92% + 24 px keeps the frosted look (a soft tint of what passes under) without legible content */\n@supports (color: color-mix(in srgb, red 50%, blue)) {\n    .wy[data-wy-motion=\"on\"] .wy-mo-ovl > .wy-top.wy-mo-cond { background: color-mix(in srgb, var(--wy-panel) 92%, transparent); -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4); }\n    .wy[data-wy-motion=\"on\"] .wy-chat.wy-mo-ovl:not(.wy-has-bg) > .wy-top.wy-mo-cond { background: color-mix(in srgb, var(--wy-chat-bg) 92%, transparent); }\n}\n.wy[data-wy-motion=\"on\"] .wy-mo-ovl > .wy-top .wy-ttl { transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] .wy-tabs.wy-mo-ovl > .wy-top.wy-mo-cond .wy-ttl { transform: scale(0.94); }\n\n/* Tier 1 · row press on pointer-down (not release): tint 120 ms, the picture dips to .93 */\n.wy[data-wy-motion=\"on\"] .wy-row, .wy[data-wy-motion=\"on\"] .wy-prow { transition: background-color 0.12s ease; }\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-press, .wy[data-wy-motion=\"on\"] .wy-prow.wy-mo-press { background: var(--wy-hover); }\n@supports (color: color-mix(in srgb, red 50%, blue)) {\n    .wy[data-wy-motion=\"on\"] .wy-row.wy-mo-press, .wy[data-wy-motion=\"on\"] .wy-prow.wy-mo-press { background: color-mix(in srgb, var(--wy-ink) 9%, var(--wy-panel)); }\n}\n.wy[data-wy-motion=\"on\"] .wy-row .wy-avw, .wy[data-wy-motion=\"on\"] .wy-prow > .wy-av { transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-press .wy-avw, .wy[data-wy-motion=\"on\"] .wy-prow.wy-mo-press > .wy-av { transform: scale(0.93); }\n\n/* Tier 1 · a line arrives (soWyMoChat marks the new ones): own = rises from its tail with a slight overshoot; incoming = from the top-left */\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new[data-wy-side=\"me\"] > .wy-mb { transform-origin: 100% 100%; animation: wy-mo-own 0.26s cubic-bezier(0.2, 1.15, 0.4, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new:not([data-wy-side=\"me\"]) { transform-origin: 0 0; animation: wy-mo-inc 0.28s cubic-bezier(0.2, 1.1, 0.4, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-line-mid.wy-mo-new { animation: wy-mo-fadein 0.25s ease both; }\n\n/* Tier 1 · the ⊕ menu springs from the ⊕; sheets rise; the dim fades in; a closing one fades out in 140 ms (soWyMoClosePop) */\n.wy[data-wy-motion=\"on\"] .wy-pop-plus { transform-origin: calc(100% - 20px) -6px; animation: wy-mo-spring 0.22s cubic-bezier(0.2, 1.3, 0.4, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-sheet { animation: wy-mo-sheet 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-backdrop.wy-dim { animation: wy-mo-fadein 0.2s ease both; }\n.wy .wy-layer > .wy-mo-gone { position: absolute; inset: 0; pointer-events: none; animation: wy-mo-fadeout 0.14s ease both; }\n\n/* Tier 1 · the hold: pressed .97; the fill charges for --wy-hold-ms (linear, predictable) and DRAINS in 200 ms on an early release\n   (overrides today's snap-back); on completion a pop (.97 → 1.06 → 1) while the full fill fades */\n.wy[data-wy-motion=\"on\"] [data-wy-hold] { transition: transform 0.14s cubic-bezier(0.2, 0.8, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] [data-wy-hold].holding { transform: scale(0.97); }\n.wy[data-wy-motion=\"on\"] [data-wy-hold] .wy-hold-fill { transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] [data-wy-hold].holding .wy-hold-fill { transition: transform var(--wy-hold-ms, 2000ms) linear; }\n.wy[data-wy-motion=\"on\"] [data-wy-hold].wy-mo-fired { animation: wy-mo-hdone 0.42s cubic-bezier(0.2, 1.5, 0.4, 1); }\n.wy[data-wy-motion=\"on\"] [data-wy-hold].wy-mo-fired .wy-hold-fill { animation: wy-mo-hfill 0.42s ease-out; }\n\n/* Tier 1 · the tab bar's tab: nothing here (the content cross-fade and the icon pop are Web Animations, soWyMoTab) */\n\n/* Tier 2 · bubbles settle in when a chat opens (the last 8 items, bottom first) */\n.wy[data-wy-motion=\"on\"] .wy-mo-si { animation: wy-mo-stag 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(var(--wy-mo-i, 0) * 28ms + 80ms); }\n/* Tier 2 · ripple from the press point (a child of the row; rows clip it) */\n.wy[data-wy-motion=\"on\"] .wy-row { overflow: hidden; }\n.wy[data-wy-motion=\"on\"] .wy-mo-rip { position: absolute; z-index: 0; border-radius: 50%; background: var(--wy-accent); opacity: 0.18; transform: scale(0); pointer-events: none; animation: wy-mo-rip 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }\n/* Tier 2 · edge swipe: horizontal moves reach the page (vertical scrolling and pinch stay the browser's) */\n.wy[data-wy-motion=\"on\"] > .wy-page { touch-action: pan-y pinch-zoom; }\n/* Tier 2 · rows reveal once (first time a row scrolls into view; remembered per chat) */\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-pre { opacity: 0; transform: translateY(16px); }\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-rv { transition: opacity 0.32s ease, transform 0.38s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.12s ease; }\n/* Tier 2 · a reply moves its row: the row glows, its preview swaps in, the badge pops (the slide itself is a FLIP, soWyMoRows) */\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-glow::before { content: \"\"; position: absolute; inset: 0; background: var(--wy-accent); opacity: 0; pointer-events: none; animation: wy-mo-glow 0.9s ease; }\n.wy[data-wy-motion=\"on\"] .wy-row .wy-pv.wy-mo-swap { animation: wy-mo-pvswap 0.3s ease both; }\n.wy[data-wy-motion=\"on\"] .wy-badge.wy-mo-pop { animation: wy-mo-bpop 0.34s cubic-bezier(0.2, 1.6, 0.4, 1) both; }\n/* Tier 2 · the tab bar lifts (a soft shadow above it) while there is list under it */\n.wy[data-wy-motion=\"on\"] .wy-tabbar { position: relative; }\n.wy[data-wy-motion=\"on\"] .wy-tabbar::before { content: \"\"; position: absolute; left: 0; right: 0; top: -14px; height: 14px; background: linear-gradient(to top, var(--wy-shadow), transparent); opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }\n.wy[data-wy-motion=\"on\"] .wy-tabbar.wy-mo-lift::before { opacity: 0.7; }\n/* Tier 2 · per kind: a voice bar stretches to its length; its text drops in when opened; a photo / video develops under a paper veil\n   (900 ms, deliberate, non-blocking) while its caption rises; a recall folds a phantom bubble away into the grey line */\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new .wy-voice { transform-origin: 0 50%; animation: wy-mo-vgrow 0.32s cubic-bezier(0.2, 1.1, 0.4, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new[data-wy-side=\"me\"] .wy-voice { transform-origin: 100% 50%; }\n.wy[data-wy-motion=\"on\"] .wy-mo-vt { transform-origin: 50% 0; animation: wy-mo-vt 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new .wy-pic::after { content: \"\"; position: absolute; inset: 0; background: var(--wy-bubble); opacity: 0; pointer-events: none; animation: wy-mo-dev 0.9s cubic-bezier(0.3, 0.6, 0.3, 1); }\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new .wy-em { animation: wy-mo-devem 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new .wy-cap { animation: wy-mo-capup 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) 0.45s both; }\n.wy[data-wy-motion=\"on\"] .wy-line-mid.wy-recall.wy-mo-new { position: relative; animation-delay: 0.16s; }\n.wy[data-wy-motion=\"on\"] .wy-mo-phantom { position: absolute; top: 50%; left: 61px; width: min(46%, 180px); height: 36px; margin-top: -18px; border-radius: 6px; background: var(--wy-bubble); transform-origin: 0 50%; pointer-events: none; animation: wy-mo-fold 0.22s cubic-bezier(0.4, 0, 1, 1) 0.06s both; }\n.wy[data-wy-motion=\"on\"] .wy-mo-phantom.wy-mo-phantom-me { left: auto; right: 61px; background: var(--wy-own); transform-origin: 100% 50%; }\n.wy[data-wy-motion=\"on\"] .wy-mo-folding { position: absolute; left: 0; right: 0; z-index: 0; pointer-events: none; }\n/* Tier 2 · the pressed bubble dips (the menu then rises from it — soWyMoMenu) */\n.wy[data-wy-motion=\"on\"] .wy-bubble, .wy[data-wy-motion=\"on\"] .wy-big, .wy[data-wy-motion=\"on\"] .wy-frame { transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] .wy-mo-lp { transform: scale(0.96); }\n/* Tier 2 · helpers: a scroller that holds a folding copy; a row sliding up over the others */\n.wy[data-wy-motion=\"on\"] .wy-scroll.wy-mo-rel { position: relative; }\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-up { z-index: 2; }\n\n/* Tier 3 · the chat header's picture (24 px, beside the title — the shared element's landing place; soWyMoHeadAv) */\n/* Integration 2026-11-17: the picture IS the list row's 48 px picture at half size (soWyMoHeadAv) — same label, gradient, mosaic rows and\n   corner as the row (7 px), so the flying copy lands on exactly it; the ::after spacer (its width) keeps the title text centred. */\n.wy[data-wy-motion=\"on\"] .wy-ttl.wy-mo-ttl { display: flex; align-items: center; justify-content: center; gap: 7px; }\n.wy[data-wy-motion=\"on\"] .wy-ttl.wy-mo-ttl::after { content: \"\"; flex: none; width: 24px; }\n.wy[data-wy-motion=\"on\"] .wy-mo-tt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }\n.wy-mo-hav { display: inline-flex; flex: none; align-items: flex-start; width: 24px; height: 24px; }\n.wy-mo-hav > * { transform: scale(0.5); transform-origin: 0 0; }\n.wy-mo-hav > .wy-av, .wy-mo-hav > .wy-mos, .wy .wy-layer > .wy-mo-fly.wy-av, .wy .wy-layer > .wy-mo-fly.wy-mos { border-radius: 7px; }\n/* Tier 3 · the flying copies (picture + name) in the layer */\n.wy .wy-layer > .wy-mo-fly { position: absolute; z-index: 61; margin: 0; transform-origin: 0 0; pointer-events: none; }\n/* Tier 3 · power-on: black → a green bloom from the centre (600 ms, deliberate) */\n.wy > .wy-mo-pwr { position: absolute; inset: 0; z-index: 60; background: var(--wy-frame); pointer-events: none; animation: wy-mo-pwr 0.55s cubic-bezier(0.3, 0.6, 0.3, 1) 0.1s both; }\n.wy > .wy-mo-pwr::after { content: \"\"; position: absolute; left: 50%; top: 46%; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; background: radial-gradient(circle, var(--wy-tile-a), transparent 65%); animation: wy-mo-bloom 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }\n\n@keyframes wy-mo-fadein { from { opacity: 0; } }\n@keyframes wy-mo-fadeout { to { opacity: 0; } }\n@keyframes wy-mo-own { from { opacity: 0; transform: translateY(14px) scale(0.9); } }\n@keyframes wy-mo-inc { from { opacity: 0; transform: translateY(8px) scale(0.94); } }\n@keyframes wy-mo-spring { from { opacity: 0; transform: scale(0.6); } }\n@keyframes wy-mo-sheet { from { transform: translateY(100%); } }\n@keyframes wy-mo-hdone { 0% { transform: scale(0.97); } 45% { transform: scale(1.06); } }\n@keyframes wy-mo-hfill { from { transform: scaleX(1); } to { transform: scaleX(1); opacity: 0; } }\n@keyframes wy-mo-stag { from { opacity: 0; transform: translateY(18px); } }\n@keyframes wy-mo-rip { to { transform: scale(1); opacity: 0; } }\n@keyframes wy-mo-glow { 0%, 30% { opacity: 0.16; } to { opacity: 0; } }\n@keyframes wy-mo-pvswap { from { opacity: 0; transform: translateY(5px); } }\n@keyframes wy-mo-bpop { from { transform: scale(0); } }\n@keyframes wy-mo-vgrow { from { opacity: 0.4; transform: scaleX(0.3); } }\n@keyframes wy-mo-vt { from { opacity: 0; transform: translateY(-4px) scaleY(0.9); } }\n@keyframes wy-mo-dev { from { opacity: 1; } to { opacity: 0; } }\n@keyframes wy-mo-devem { from { transform: translate(-50%, -62%) scale(1.25); } }\n@keyframes wy-mo-capup { from { transform: translateY(100%); } }\n@keyframes wy-mo-fold { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(0.55) translateY(-6px); } }\n@keyframes wy-mo-pwr { to { opacity: 0; } }\n@keyframes wy-mo-bloom { from { opacity: 0.8; transform: scale(0.15); } to { opacity: 0; transform: scale(1.8); } }\n/* ====== /MOTION ====== */\n\n/* No motion =the phone's root flag (动画 setting, redesign slice 1): soWyApplyMotion resolves 跟随系统 / 开 / 关 with the system's\n   reduced-motion setting into .wy[data-wy-motion=\"on|off\"]. The media query is only the fallback for a phone with no flag yet. */\n@media (prefers-reduced-motion: reduce) {\n    .wy:not([data-wy-motion]) *, .wy:not([data-wy-motion]) *::before, .wy:not([data-wy-motion]) *::after {\n        animation-duration: 0.001ms !important;\n        animation-delay: 0s !important;\n        animation-iteration-count: 1 !important;\n        transition-duration: 0.001ms !important;\n        transition-delay: 0s !important;\n        scroll-behavior: auto !important;\n    }\n}\n.wy[data-wy-motion=\"off\"] *, .wy[data-wy-motion=\"off\"] *::before, .wy[data-wy-motion=\"off\"] *::after {\n    animation-duration: 0.001ms !important;\n    animation-delay: 0s !important;\n    animation-iteration-count: 1 !important;\n    transition-duration: 0.001ms !important;\n    transition-delay: 0s !important;\n    scroll-behavior: auto !important;\n}\n";
+const THEATER_WEIYU_CSS = "/* 微谕 · the phone — lives in an OPEN SHADOW ROOT (soWyMount); shipped as the generated block css.js (THEATER_WEIYU_CSS).\n   Locked look: SO's themes cannot reach a shadow tree by selector; what crosses the boundary (inherited properties, custom\n   properties) is cut on :host — `all: initial !important` + every --wy-* token `!important` on :host (inside the shadow tree an\n   !important :host declaration beats the outer document's). Token discipline: a colour literal appears ONLY as the value of a\n   --wy-* declaration in the two token rules; light and dark differ only by tokens. Order: reset → light tokens → dark tokens →\n   components → @keyframes → @media (prefers-reduced-motion: reduce) (fallback) → the .wy[data-wy-motion=\"off\"] zeroing rule LAST.\n   No position: fixed, no vh, no url(), no @import. */\n\n:host {\n    all: initial !important;\n    display: block !important;\n    position: relative !important;\n    box-sizing: border-box !important;\n    width: 100% !important;\n    height: 100% !important;\n    min-width: 0 !important;\n    min-height: 0 !important;\n    overflow: hidden !important;\n    font-family: system-ui, -apple-system, \"Segoe UI\", \"PingFang SC\", \"Microsoft YaHei\", sans-serif !important;\n    font-size: 15px !important;\n    font-style: normal !important;\n    font-weight: 400 !important;\n    line-height: 1.45 !important;\n    letter-spacing: normal !important;\n    word-spacing: normal !important;\n    text-align: left !important;\n    text-transform: none !important;\n    text-shadow: none !important;\n    color: var(--wy-ink) !important;\n    -webkit-text-fill-color: currentColor !important;\n    -webkit-tap-highlight-color: transparent !important;\n}\n\n:host {\n    --wy-tile-a: #48CE82 !important;\n    --wy-tile-b: #15965B !important;\n    --wy-own: #A6E78F !important;\n    --wy-own-ink: #14251B !important;\n    --wy-accent: #167848 !important;\n    --wy-chat-bg: #EDEDED !important;\n    --wy-bubble: #FFFFFF !important;\n    --wy-panel: #FFFFFF !important;\n    --wy-line: #E3E3E3 !important;\n    --wy-sub: #6B6B6B !important;\n    --wy-ink: #191919 !important;\n    --wy-alert: #E5484D !important;\n    --wy-warn: #B26A00 !important;\n    --wy-warn-ink: #8A5300 !important;\n    --wy-on-fill: #FFFFFF !important;\n    --wy-scrim: rgba(0,0,0,.45) !important;\n    --wy-shadow: rgba(0,0,0,.18) !important;\n    --wy-hover: rgba(0,0,0,.05) !important;\n    --wy-quote: rgba(0,0,0,.05) !important;\n    --wy-frame: #2A332D !important;\n    --wy-so-ink: #f4f5f7 !important;\n    --wy-so-bg: rgba(17,19,24,.84) !important;\n    --wy-mos: #DCDCDC !important;\n    --wy-tag: rgba(0,0,0,.05) !important;\n    --wy-av-hi: rgba(255,255,255,.24) !important;\n    --wy-av-lo: rgba(0,0,0,.14) !important;\n    --wy-av-edge: rgba(255,255,255,.09) !important;\n    --wy-av-ts: rgba(0,0,0,.16) !important;\n    --wy-boot-bg: #FAFCFA !important;\n    --wy-pin-bg: #F5F5F5 !important;\n    --wy-hl: rgba(22,120,72,.13) !important;\n    --wy-card-line: #EDEDED !important;\n    --wy-pay: #B05E10 !important;\n    --wy-pay-done: #F3C89A !important;\n    --wy-pay-ink: #FFFFFF !important;\n    --wy-pay-line: rgba(255,255,255,.34) !important;\n    --wy-pay-done-ink: #5C2D04 !important;\n    --wy-pay-done-sub: #6E3A0E !important;\n    --wy-pay-done-ic: #9A6634 !important;\n    --wy-pay-done-line: rgba(110,58,14,.22) !important;\n    --wy-callscr-bg: #1F2421 !important;\n    --wy-callscr-sub: rgba(255,255,255,.72) !important;\n    --wy-cs-cam: #0C0F0D !important;\n    --wy-cs-soft: rgba(255,255,255,.1) !important;\n    --wy-cs-tag: rgba(255,255,255,.16) !important;\n    --wy-cs-dim: rgba(255,255,255,.52) !important;\n    --wy-cs-fade: rgba(0,0,0,.55) !important;\n    --wy-hue-0: #E0765A !important;\n    --wy-hue-1: #3D9970 !important;\n    --wy-hue-2: #4A88CF !important;\n    --wy-hue-3: #9268C9 !important;\n    --wy-hue-4: #D2802E !important;\n    --wy-hue-5: #2A9E98 !important;\n    --wy-hue-6: #C25478 !important;\n    --wy-hue-7: #6683B5 !important;\n    --wy-hue-8: #7F8F35 !important;\n    --wy-hue-9: #AE6A3A !important;\n    --wy-hue-10: #5A72E0 !important;\n    --wy-hue-11: #748595 !important;\n    --wy-stk-paper: #FFFFFF !important;\n    --wy-stk-ink: #111111 !important;\n    --wy-stk-edge: #DDDDDD !important;\n    /* 外观 (looks build 2026-11-24): the two device palettes — ONE palette per device (spec §9), so the SAME values in this rule and\n       its light / dark twin; :host([data-wy-look=…]) below maps the phone's own tokens onto them. Crystal = cool glass, light on deep\n       violet; scroll = warm paper, ink, cinnabar. Body text ≥ 4.5 : 1 on its surface (weiyu-lk-palette). */\n    --wy-cr-own: #2E4A78 !important;\n    --wy-cr-own-ink: #EAF8FF !important;\n    --wy-cr-accent: #8FF0FF !important;\n    --wy-cr-on-fill: #10142A !important;\n    --wy-cr-chat-bg: #15122A !important;\n    --wy-cr-bubble: #262150 !important;\n    --wy-cr-panel: #1C1838 !important;\n    --wy-cr-line: #353064 !important;\n    --wy-cr-sub: #ABA6DE !important;\n    --wy-cr-ink: #ECEAFF !important;\n    --wy-cr-alert: #FF8A96 !important;\n    --wy-cr-warn: #F0C27A !important;\n    --wy-cr-warn-ink: #F0C27A !important;\n    --wy-cr-scrim: rgba(5,3,18,.62) !important;\n    --wy-cr-shadow: rgba(0,0,0,.5) !important;\n    --wy-cr-hover: rgba(191,244,255,.07) !important;\n    --wy-cr-quote: rgba(191,244,255,.08) !important;\n    --wy-cr-frame: #0B0918 !important;\n    --wy-cr-mos: #2C2752 !important;\n    --wy-cr-tag: rgba(191,244,255,.09) !important;\n    --wy-cr-boot-bg: #120F26 !important;\n    --wy-cr-pin-bg: #221E46 !important;\n    --wy-cr-hl: rgba(143,240,255,.16) !important;\n    --wy-cr-card-line: #3A3468 !important;\n    --wy-cr-pay: #6F5BD6 !important;\n    --wy-cr-pay-done: #3E3580 !important;\n    --wy-cr-pay-line: rgba(255,255,255,.28) !important;\n    --wy-cr-pay-done-ink: #FFFFFF !important;\n    --wy-cr-pay-done-sub: #E4E0FF !important;\n    --wy-cr-pay-done-ic: #E4E0FF !important;\n    --wy-cr-pay-done-line: rgba(255,255,255,.24) !important;\n    --wy-cr-callscr-bg: #0F0C22 !important;\n    --wy-cr-glow: rgba(143,240,255,.45) !important;\n    --wy-cr-edge: rgba(191,244,255,.38) !important;\n    --wy-cr-mark: #8FF0FF !important;\n    --wy-cr-seal: #2A2358 !important;\n    --wy-cr-seal-ink: #ECEAFF !important;\n    --wy-cr-dim: #CFCBF2 !important;\n    --wy-cr-stain: rgba(191,244,255,.18) !important;\n    --wy-cr-slip: rgba(28,24,56,.92) !important;\n    --wy-cr-desk: #0E0B20 !important;\n    --wy-cr-desk-ink: #ECEAFF !important;\n    --wy-sc-own: #F2DFC2 !important;\n    --wy-sc-own-ink: #5A1A0E !important;\n    --wy-sc-accent: #A8321F !important;\n    --wy-sc-on-fill: #FFF8EC !important;\n    --wy-sc-chat-bg: #F4EBD3 !important;\n    --wy-sc-bubble: #FBF5E6 !important;\n    --wy-sc-panel: #FAF3E2 !important;\n    --wy-sc-line: #DCCCA6 !important;\n    --wy-sc-sub: #66563F !important;\n    --wy-sc-ink: #2B2420 !important;\n    --wy-sc-alert: #B42318 !important;\n    --wy-sc-warn: #8A5300 !important;\n    --wy-sc-warn-ink: #7A4A00 !important;\n    --wy-sc-scrim: rgba(43,36,32,.45) !important;\n    --wy-sc-shadow: rgba(70,48,24,.2) !important;\n    --wy-sc-hover: rgba(43,36,32,.05) !important;\n    --wy-sc-quote: rgba(43,36,32,.06) !important;\n    --wy-sc-frame: #5E4F3D !important;\n    --wy-sc-mos: #E6D6AE !important;\n    --wy-sc-tag: rgba(43,36,32,.06) !important;\n    --wy-sc-boot-bg: #F7EEDB !important;\n    --wy-sc-pin-bg: #EFE4C8 !important;\n    --wy-sc-hl: rgba(168,50,31,.12) !important;\n    --wy-sc-card-line: #E2D3AC !important;\n    --wy-sc-pay: #A8321F !important;\n    --wy-sc-pay-done: #EBC88C !important;\n    --wy-sc-pay-line: rgba(255,255,255,.34) !important;\n    --wy-sc-pay-done-ink: #5C2D04 !important;\n    --wy-sc-pay-done-sub: #6E3A0E !important;\n    --wy-sc-pay-done-ic: #8E5A2A !important;\n    --wy-sc-pay-done-line: rgba(110,58,14,.22) !important;\n    --wy-sc-callscr-bg: #2B2420 !important;\n    --wy-sc-glow: rgba(43,36,32,.18) !important;\n    --wy-sc-edge: #C9B68C !important;\n    --wy-sc-mark: #A8321F !important;\n    --wy-sc-seal: #A8321F !important;\n    --wy-sc-seal-ink: #FFF4E2 !important;\n    --wy-sc-dim: #3E352D !important;\n    --wy-sc-stain: rgba(120,140,150,.18) !important;\n    --wy-sc-slip: #FFF9EC !important;\n    --wy-sc-desk: #4A2F1A !important;\n    --wy-sc-desk-ink: #F4EBD3 !important;\n    --wy-cr-stone: #3B3184 !important;\n    --wy-cr-stone-hi: #8E7CF0 !important;\n    --wy-cr-pool: #07060F !important;\n    --wy-cr-rule: rgba(191,244,255,.16) !important;\n    --wy-cr-desk-warn: #F0C27A !important;\n    --wy-cr-wood: #2A2358 !important;\n    --wy-cr-wood-hi: #6F5BD6 !important;\n    --wy-sc-stone: #3A3431 !important;\n    --wy-sc-stone-hi: #6B625B !important;\n    --wy-sc-pool: #0F0D0C !important;\n    --wy-sc-rule: rgba(168,50,31,.24) !important;\n    --wy-sc-desk-warn: #F0C27A !important;\n    --wy-sc-wood: #7A4E2C !important;\n    --wy-sc-wood-hi: #B07E52 !important;\n    --wy-cr-tal: #2B2170 !important;\n    --wy-cr-go: #3FC6E0 !important;\n    --wy-sc-tal: #EFDDAA !important;\n    --wy-sc-go: #3F6B57 !important;\n    --wy-cr-lit: rgba(255,255,255,.62) !important;\n    --wy-cr-spark: #EFFFFF !important;\n    --wy-cr-facet-a: rgba(191,244,255,.12) !important;\n    --wy-cr-facet-b: rgba(7,6,15,.34) !important;\n    --wy-cr-fibre: rgba(191,244,255,.05) !important;\n    --wy-cr-gold: #C9A45C !important;\n    --wy-cr-lamp: rgba(143,240,255,.2) !important;\n    --wy-cr-seal-hi: #3B3184 !important;\n    --wy-cr-seal-lo: #120F26 !important;\n    --wy-sc-lit: rgba(255,232,196,.7) !important;\n    --wy-sc-spark: #FFF6E6 !important;\n    --wy-sc-facet-a: rgba(255,255,255,.08) !important;\n    --wy-sc-facet-b: rgba(43,36,32,.12) !important;\n    --wy-sc-fibre: rgba(120,88,44,.06) !important;\n    --wy-sc-gold: #C9A45C !important;\n    --wy-sc-lamp: rgba(255,196,120,.30) !important;\n    --wy-sc-seal-hi: #C2452E !important;\n    --wy-sc-seal-lo: #7E2414 !important;\n    --wy-cr-body-a: #1A1446 !important;\n    --wy-cr-body-b: #120D36 !important;\n    --wy-cr-body-c: #0D1638 !important;\n    --wy-cr-tint-a: rgba(110,80,230,.4) !important;\n    --wy-cr-tint-b: rgba(30,140,180,.34) !important;\n    --wy-cr-rim-a: #A99BFF !important;\n    --wy-cr-rim-b: #8FF0FF !important;\n    --wy-cr-cap: #2A2358 !important;\n    --wy-cr-cap-lo: #3B3184 !important;\n    --wy-cr-sheen: rgba(191,244,255,.08) !important;\n    --wy-cr-base: #0B0918 !important;\n    --wy-cr-silk-0: #3A1F36 !important;\n    --wy-cr-silk-1: #14343B !important;\n    --wy-cr-silk-2: #1A2E58 !important;\n    --wy-cr-silk-3: #2C2258 !important;\n    --wy-cr-silk-4: #392B18 !important;\n    --wy-cr-silk-5: #12313A !important;\n    --wy-cr-silk-6: #3E1E37 !important;\n    --wy-cr-silk-7: #202B4F !important;\n    --wy-cr-silk-8: #27301C !important;\n    --wy-cr-silk-9: #372A20 !important;\n    --wy-cr-silk-10: #202A62 !important;\n    --wy-cr-silk-11: #283040 !important;\n    --wy-cr-silk-hi: rgba(191,244,255,.08) !important;\n    --wy-cr-silk-lo: rgba(5,3,18,.4) !important;\n    --wy-sc-body-a: #5A6862 !important;\n    --wy-sc-body-b: #48554F !important;\n    --wy-sc-body-c: #F4EBD3 !important;\n    --wy-sc-tint-a: rgba(168,50,31,.22) !important;\n    --wy-sc-tint-b: rgba(120,85,40,.14) !important;\n    --wy-sc-rim-a: #D59D64 !important;\n    --wy-sc-rim-b: #3C2413 !important;\n    --wy-sc-cap: #F3EEDF !important;\n    --wy-sc-cap-lo: #A39A84 !important;\n    --wy-sc-sheen: rgba(255,255,255,.07) !important;\n    --wy-sc-base: #2F2118 !important;\n    --wy-sc-silk-0: #8A4A3A !important;\n    --wy-sc-silk-1: #4A6B5C !important;\n    --wy-sc-silk-2: #4F5F7A !important;\n    --wy-sc-silk-3: #6A557E !important;\n    --wy-sc-silk-4: #85602F !important;\n    --wy-sc-silk-5: #3F6A68 !important;\n    --wy-sc-silk-6: #7A4A5E !important;\n    --wy-sc-silk-7: #55627E !important;\n    --wy-sc-silk-8: #66653A !important;\n    --wy-sc-silk-9: #7A5236 !important;\n    --wy-sc-silk-10: #4E5888 !important;\n    --wy-sc-silk-11: #5E6B70 !important;\n    --wy-sc-silk-hi: rgba(255,255,255,.24) !important;\n    --wy-sc-silk-lo: rgba(0,0,0,.34) !important;\n}\n\n:host([data-wy-theme=\"dark\"]) {\n    --wy-tile-a: #48CE82 !important;\n    --wy-tile-b: #15965B !important;\n    --wy-own: #58BC87 !important;\n    --wy-own-ink: #14251B !important;\n    --wy-accent: #69D69B !important;\n    --wy-chat-bg: #111111 !important;\n    --wy-bubble: #2C2C2C !important;\n    --wy-panel: #191919 !important;\n    --wy-line: #2C2C2C !important;\n    --wy-sub: #8A8A8A !important;\n    --wy-ink: #D9D9D9 !important;\n    --wy-alert: #F2555A !important;\n    --wy-warn: #E8A33D !important;\n    --wy-warn-ink: #E8A33D !important;\n    --wy-on-fill: #FFFFFF !important;\n    --wy-scrim: rgba(0,0,0,.6) !important;\n    --wy-shadow: rgba(0,0,0,.5) !important;\n    --wy-hover: rgba(255,255,255,.06) !important;\n    --wy-quote: rgba(255,255,255,.07) !important;\n    --wy-frame: #0B0E0C !important;\n    --wy-so-ink: #f4f5f7 !important;\n    --wy-so-bg: rgba(17,19,24,.84) !important;\n    --wy-mos: #2E2E2E !important;\n    --wy-tag: rgba(255,255,255,.07) !important;\n    --wy-av-hi: rgba(255,255,255,.24) !important;\n    --wy-av-lo: rgba(0,0,0,.14) !important;\n    --wy-av-edge: rgba(255,255,255,.09) !important;\n    --wy-av-ts: rgba(0,0,0,.16) !important;\n    --wy-boot-bg: #1B211E !important;\n    --wy-pin-bg: #232323 !important;\n    --wy-hl: rgba(105,214,155,.15) !important;\n    --wy-card-line: #3A3A3A !important;\n    --wy-pay: #C46F1F !important;\n    --wy-pay-done: #8A5A2C !important;\n    --wy-pay-ink: #FFFFFF !important;\n    --wy-pay-line: rgba(255,255,255,.28) !important;\n    --wy-pay-done-ink: #FFFFFF !important;\n    --wy-pay-done-sub: #FFFFFF !important;\n    --wy-pay-done-ic: #FFFFFF !important;\n    --wy-pay-done-line: rgba(255,255,255,.28) !important;\n    --wy-callscr-bg: #161A18 !important;\n    --wy-callscr-sub: rgba(255,255,255,.72) !important;\n    --wy-cs-cam: #0C0F0D !important;\n    --wy-cs-soft: rgba(255,255,255,.1) !important;\n    --wy-cs-tag: rgba(255,255,255,.16) !important;\n    --wy-cs-dim: rgba(255,255,255,.52) !important;\n    --wy-cs-fade: rgba(0,0,0,.55) !important;\n    --wy-hue-0: #E0765A !important;\n    --wy-hue-1: #3D9970 !important;\n    --wy-hue-2: #4A88CF !important;\n    --wy-hue-3: #9268C9 !important;\n    --wy-hue-4: #D2802E !important;\n    --wy-hue-5: #2A9E98 !important;\n    --wy-hue-6: #C25478 !important;\n    --wy-hue-7: #6683B5 !important;\n    --wy-hue-8: #7F8F35 !important;\n    --wy-hue-9: #AE6A3A !important;\n    --wy-hue-10: #5A72E0 !important;\n    --wy-hue-11: #748595 !important;\n    --wy-stk-paper: #FFFFFF !important;\n    --wy-stk-ink: #111111 !important;\n    --wy-stk-edge: #DDDDDD !important;\n    /* 外观 (looks build 2026-11-24): the two device palettes — ONE palette per device (spec §9), so the SAME values in this rule and\n       its light / dark twin; :host([data-wy-look=…]) below maps the phone's own tokens onto them. Crystal = cool glass, light on deep\n       violet; scroll = warm paper, ink, cinnabar. Body text ≥ 4.5 : 1 on its surface (weiyu-lk-palette). */\n    --wy-cr-own: #2E4A78 !important;\n    --wy-cr-own-ink: #EAF8FF !important;\n    --wy-cr-accent: #8FF0FF !important;\n    --wy-cr-on-fill: #10142A !important;\n    --wy-cr-chat-bg: #15122A !important;\n    --wy-cr-bubble: #262150 !important;\n    --wy-cr-panel: #1C1838 !important;\n    --wy-cr-line: #353064 !important;\n    --wy-cr-sub: #ABA6DE !important;\n    --wy-cr-ink: #ECEAFF !important;\n    --wy-cr-alert: #FF8A96 !important;\n    --wy-cr-warn: #F0C27A !important;\n    --wy-cr-warn-ink: #F0C27A !important;\n    --wy-cr-scrim: rgba(5,3,18,.62) !important;\n    --wy-cr-shadow: rgba(0,0,0,.5) !important;\n    --wy-cr-hover: rgba(191,244,255,.07) !important;\n    --wy-cr-quote: rgba(191,244,255,.08) !important;\n    --wy-cr-frame: #0B0918 !important;\n    --wy-cr-mos: #2C2752 !important;\n    --wy-cr-tag: rgba(191,244,255,.09) !important;\n    --wy-cr-boot-bg: #120F26 !important;\n    --wy-cr-pin-bg: #221E46 !important;\n    --wy-cr-hl: rgba(143,240,255,.16) !important;\n    --wy-cr-card-line: #3A3468 !important;\n    --wy-cr-pay: #6F5BD6 !important;\n    --wy-cr-pay-done: #3E3580 !important;\n    --wy-cr-pay-line: rgba(255,255,255,.28) !important;\n    --wy-cr-pay-done-ink: #FFFFFF !important;\n    --wy-cr-pay-done-sub: #E4E0FF !important;\n    --wy-cr-pay-done-ic: #E4E0FF !important;\n    --wy-cr-pay-done-line: rgba(255,255,255,.24) !important;\n    --wy-cr-callscr-bg: #0F0C22 !important;\n    --wy-cr-glow: rgba(143,240,255,.45) !important;\n    --wy-cr-edge: rgba(191,244,255,.38) !important;\n    --wy-cr-mark: #8FF0FF !important;\n    --wy-cr-seal: #2A2358 !important;\n    --wy-cr-seal-ink: #ECEAFF !important;\n    --wy-cr-dim: #CFCBF2 !important;\n    --wy-cr-stain: rgba(191,244,255,.18) !important;\n    --wy-cr-slip: rgba(28,24,56,.92) !important;\n    --wy-cr-desk: #0E0B20 !important;\n    --wy-cr-desk-ink: #ECEAFF !important;\n    --wy-sc-own: #F2DFC2 !important;\n    --wy-sc-own-ink: #5A1A0E !important;\n    --wy-sc-accent: #A8321F !important;\n    --wy-sc-on-fill: #FFF8EC !important;\n    --wy-sc-chat-bg: #F4EBD3 !important;\n    --wy-sc-bubble: #FBF5E6 !important;\n    --wy-sc-panel: #FAF3E2 !important;\n    --wy-sc-line: #DCCCA6 !important;\n    --wy-sc-sub: #66563F !important;\n    --wy-sc-ink: #2B2420 !important;\n    --wy-sc-alert: #B42318 !important;\n    --wy-sc-warn: #8A5300 !important;\n    --wy-sc-warn-ink: #7A4A00 !important;\n    --wy-sc-scrim: rgba(43,36,32,.45) !important;\n    --wy-sc-shadow: rgba(70,48,24,.2) !important;\n    --wy-sc-hover: rgba(43,36,32,.05) !important;\n    --wy-sc-quote: rgba(43,36,32,.06) !important;\n    --wy-sc-frame: #5E4F3D !important;\n    --wy-sc-mos: #E6D6AE !important;\n    --wy-sc-tag: rgba(43,36,32,.06) !important;\n    --wy-sc-boot-bg: #F7EEDB !important;\n    --wy-sc-pin-bg: #EFE4C8 !important;\n    --wy-sc-hl: rgba(168,50,31,.12) !important;\n    --wy-sc-card-line: #E2D3AC !important;\n    --wy-sc-pay: #A8321F !important;\n    --wy-sc-pay-done: #EBC88C !important;\n    --wy-sc-pay-line: rgba(255,255,255,.34) !important;\n    --wy-sc-pay-done-ink: #5C2D04 !important;\n    --wy-sc-pay-done-sub: #6E3A0E !important;\n    --wy-sc-pay-done-ic: #8E5A2A !important;\n    --wy-sc-pay-done-line: rgba(110,58,14,.22) !important;\n    --wy-sc-callscr-bg: #2B2420 !important;\n    --wy-sc-glow: rgba(43,36,32,.18) !important;\n    --wy-sc-edge: #C9B68C !important;\n    --wy-sc-mark: #A8321F !important;\n    --wy-sc-seal: #A8321F !important;\n    --wy-sc-seal-ink: #FFF4E2 !important;\n    --wy-sc-dim: #3E352D !important;\n    --wy-sc-stain: rgba(120,140,150,.18) !important;\n    --wy-sc-slip: #FFF9EC !important;\n    --wy-sc-desk: #4A2F1A !important;\n    --wy-sc-desk-ink: #F4EBD3 !important;\n    --wy-cr-stone: #3B3184 !important;\n    --wy-cr-stone-hi: #8E7CF0 !important;\n    --wy-cr-pool: #07060F !important;\n    --wy-cr-rule: rgba(191,244,255,.16) !important;\n    --wy-cr-desk-warn: #F0C27A !important;\n    --wy-cr-wood: #2A2358 !important;\n    --wy-cr-wood-hi: #6F5BD6 !important;\n    --wy-sc-stone: #3A3431 !important;\n    --wy-sc-stone-hi: #6B625B !important;\n    --wy-sc-pool: #0F0D0C !important;\n    --wy-sc-rule: rgba(168,50,31,.24) !important;\n    --wy-sc-desk-warn: #F0C27A !important;\n    --wy-sc-wood: #7A4E2C !important;\n    --wy-sc-wood-hi: #B07E52 !important;\n    --wy-cr-tal: #2B2170 !important;\n    --wy-cr-go: #3FC6E0 !important;\n    --wy-sc-tal: #EFDDAA !important;\n    --wy-sc-go: #3F6B57 !important;\n    --wy-cr-lit: rgba(255,255,255,.62) !important;\n    --wy-cr-spark: #EFFFFF !important;\n    --wy-cr-facet-a: rgba(191,244,255,.12) !important;\n    --wy-cr-facet-b: rgba(7,6,15,.34) !important;\n    --wy-cr-fibre: rgba(191,244,255,.05) !important;\n    --wy-cr-gold: #C9A45C !important;\n    --wy-cr-lamp: rgba(143,240,255,.2) !important;\n    --wy-cr-seal-hi: #3B3184 !important;\n    --wy-cr-seal-lo: #120F26 !important;\n    --wy-sc-lit: rgba(255,232,196,.7) !important;\n    --wy-sc-spark: #FFF6E6 !important;\n    --wy-sc-facet-a: rgba(255,255,255,.08) !important;\n    --wy-sc-facet-b: rgba(43,36,32,.12) !important;\n    --wy-sc-fibre: rgba(120,88,44,.06) !important;\n    --wy-sc-gold: #C9A45C !important;\n    --wy-sc-lamp: rgba(255,196,120,.30) !important;\n    --wy-sc-seal-hi: #C2452E !important;\n    --wy-sc-seal-lo: #7E2414 !important;\n    --wy-cr-body-a: #1A1446 !important;\n    --wy-cr-body-b: #120D36 !important;\n    --wy-cr-body-c: #0D1638 !important;\n    --wy-cr-tint-a: rgba(110,80,230,.4) !important;\n    --wy-cr-tint-b: rgba(30,140,180,.34) !important;\n    --wy-cr-rim-a: #A99BFF !important;\n    --wy-cr-rim-b: #8FF0FF !important;\n    --wy-cr-cap: #2A2358 !important;\n    --wy-cr-cap-lo: #3B3184 !important;\n    --wy-cr-sheen: rgba(191,244,255,.08) !important;\n    --wy-cr-base: #0B0918 !important;\n    --wy-cr-silk-0: #3A1F36 !important;\n    --wy-cr-silk-1: #14343B !important;\n    --wy-cr-silk-2: #1A2E58 !important;\n    --wy-cr-silk-3: #2C2258 !important;\n    --wy-cr-silk-4: #392B18 !important;\n    --wy-cr-silk-5: #12313A !important;\n    --wy-cr-silk-6: #3E1E37 !important;\n    --wy-cr-silk-7: #202B4F !important;\n    --wy-cr-silk-8: #27301C !important;\n    --wy-cr-silk-9: #372A20 !important;\n    --wy-cr-silk-10: #202A62 !important;\n    --wy-cr-silk-11: #283040 !important;\n    --wy-cr-silk-hi: rgba(191,244,255,.08) !important;\n    --wy-cr-silk-lo: rgba(5,3,18,.4) !important;\n    --wy-sc-body-a: #5A6862 !important;\n    --wy-sc-body-b: #48554F !important;\n    --wy-sc-body-c: #F4EBD3 !important;\n    --wy-sc-tint-a: rgba(168,50,31,.22) !important;\n    --wy-sc-tint-b: rgba(120,85,40,.14) !important;\n    --wy-sc-rim-a: #D59D64 !important;\n    --wy-sc-rim-b: #3C2413 !important;\n    --wy-sc-cap: #F3EEDF !important;\n    --wy-sc-cap-lo: #A39A84 !important;\n    --wy-sc-sheen: rgba(255,255,255,.07) !important;\n    --wy-sc-base: #2F2118 !important;\n    --wy-sc-silk-0: #8A4A3A !important;\n    --wy-sc-silk-1: #4A6B5C !important;\n    --wy-sc-silk-2: #4F5F7A !important;\n    --wy-sc-silk-3: #6A557E !important;\n    --wy-sc-silk-4: #85602F !important;\n    --wy-sc-silk-5: #3F6A68 !important;\n    --wy-sc-silk-6: #7A4A5E !important;\n    --wy-sc-silk-7: #55627E !important;\n    --wy-sc-silk-8: #66653A !important;\n    --wy-sc-silk-9: #7A5236 !important;\n    --wy-sc-silk-10: #4E5888 !important;\n    --wy-sc-silk-11: #5E6B70 !important;\n    --wy-sc-silk-hi: rgba(255,255,255,.24) !important;\n    --wy-sc-silk-lo: rgba(0,0,0,.34) !important;\n}\n\n/* 外观 (looks build): a device look maps every phone token that differs between light and dark (and the inks that sit on them) onto\n   its own palette — placed right after the dark rule, same specificity, so order wins; var() only (no literal outside the token rules).\n   No data-wy-look attribute = the phone look = these rules never apply. */\n:host([data-wy-look=\"crystal\"]) {\n    --wy-own: var(--wy-cr-own) !important;\n    --wy-own-ink: var(--wy-cr-own-ink) !important;\n    --wy-accent: var(--wy-cr-accent) !important;\n    --wy-on-fill: var(--wy-cr-on-fill) !important;\n    --wy-chat-bg: var(--wy-cr-chat-bg) !important;\n    --wy-bubble: var(--wy-cr-bubble) !important;\n    --wy-panel: var(--wy-cr-panel) !important;\n    --wy-line: var(--wy-cr-line) !important;\n    --wy-sub: var(--wy-cr-sub) !important;\n    --wy-ink: var(--wy-cr-ink) !important;\n    --wy-alert: var(--wy-cr-alert) !important;\n    --wy-warn: var(--wy-cr-warn) !important;\n    --wy-warn-ink: var(--wy-cr-warn-ink) !important;\n    --wy-scrim: var(--wy-cr-scrim) !important;\n    --wy-shadow: var(--wy-cr-shadow) !important;\n    --wy-hover: var(--wy-cr-hover) !important;\n    --wy-quote: var(--wy-cr-quote) !important;\n    --wy-frame: var(--wy-cr-frame) !important;\n    --wy-mos: var(--wy-cr-mos) !important;\n    --wy-tag: var(--wy-cr-tag) !important;\n    --wy-boot-bg: var(--wy-cr-boot-bg) !important;\n    --wy-pin-bg: var(--wy-cr-pin-bg) !important;\n    --wy-hl: var(--wy-cr-hl) !important;\n    --wy-card-line: var(--wy-cr-card-line) !important;\n    --wy-pay: var(--wy-cr-pay) !important;\n    --wy-pay-done: var(--wy-cr-pay-done) !important;\n    --wy-pay-line: var(--wy-cr-pay-line) !important;\n    --wy-pay-done-ink: var(--wy-cr-pay-done-ink) !important;\n    --wy-pay-done-sub: var(--wy-cr-pay-done-sub) !important;\n    --wy-pay-done-ic: var(--wy-cr-pay-done-ic) !important;\n    --wy-pay-done-line: var(--wy-cr-pay-done-line) !important;\n    --wy-callscr-bg: var(--wy-cr-callscr-bg) !important;\n}\n\n:host([data-wy-look=\"scroll\"]) {\n    --wy-own: var(--wy-sc-own) !important;\n    --wy-own-ink: var(--wy-sc-own-ink) !important;\n    --wy-accent: var(--wy-sc-accent) !important;\n    --wy-on-fill: var(--wy-sc-on-fill) !important;\n    --wy-chat-bg: var(--wy-sc-chat-bg) !important;\n    --wy-bubble: var(--wy-sc-bubble) !important;\n    --wy-panel: var(--wy-sc-panel) !important;\n    --wy-line: var(--wy-sc-line) !important;\n    --wy-sub: var(--wy-sc-sub) !important;\n    --wy-ink: var(--wy-sc-ink) !important;\n    --wy-alert: var(--wy-sc-alert) !important;\n    --wy-warn: var(--wy-sc-warn) !important;\n    --wy-warn-ink: var(--wy-sc-warn-ink) !important;\n    --wy-scrim: var(--wy-sc-scrim) !important;\n    --wy-shadow: var(--wy-sc-shadow) !important;\n    --wy-hover: var(--wy-sc-hover) !important;\n    --wy-quote: var(--wy-sc-quote) !important;\n    --wy-frame: var(--wy-sc-frame) !important;\n    --wy-mos: var(--wy-sc-mos) !important;\n    --wy-tag: var(--wy-sc-tag) !important;\n    --wy-boot-bg: var(--wy-sc-boot-bg) !important;\n    --wy-pin-bg: var(--wy-sc-pin-bg) !important;\n    --wy-hl: var(--wy-sc-hl) !important;\n    --wy-card-line: var(--wy-sc-card-line) !important;\n    --wy-pay: var(--wy-sc-pay) !important;\n    --wy-pay-done: var(--wy-sc-pay-done) !important;\n    --wy-pay-line: var(--wy-sc-pay-line) !important;\n    --wy-pay-done-ink: var(--wy-sc-pay-done-ink) !important;\n    --wy-pay-done-sub: var(--wy-sc-pay-done-sub) !important;\n    --wy-pay-done-ic: var(--wy-sc-pay-done-ic) !important;\n    --wy-pay-done-line: var(--wy-sc-pay-done-line) !important;\n    --wy-callscr-bg: var(--wy-sc-callscr-bg) !important;\n}\n\n/* ---- base: the phone column ------------------------------------------------------------------------------------------- */\n.wy {\n    position: relative;\n    box-sizing: border-box;\n    display: flex;\n    flex-direction: column;\n    width: 100%;\n    max-width: 420px;\n    height: 100%;\n    max-height: 860px;\n    min-height: 0;\n    margin: 0 auto;\n    overflow: hidden;\n    /* the screen's corners: set from OUTSIDE by the frame (the device, style.css) — a custom property is the one thing that crosses\n       the shadow boundary; absent = 0 (today's square screen). Deliberately not a :host token. */\n    border-radius: var(--wy-screen-radius, 0);\n    /* the top bar's height (refined list 52 px): ONE value read by the bar and by the condensing bar's scroller padding (integration) */\n    --wy-top-h: 52px;\n    background: var(--wy-panel);\n    color: var(--wy-ink);\n    user-select: none;\n    -webkit-user-select: none;\n}\n.wy *, .wy *::before, .wy *::after { box-sizing: border-box; }\n.wy svg { display: block; flex: none; }\n.wy button { font: inherit; color: inherit; background: none; border: 0; margin: 0; padding: 0; cursor: pointer; }\n.wy button:disabled { cursor: default; }\n.wy textarea, .wy input { font: inherit; color: var(--wy-ink); }\n.wy :focus-visible { outline: 2px solid var(--wy-accent); outline-offset: -2px; }\n.wy-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin; }\n\n/* ---- SO's own controls inside the phone: the dark pill of THEATER_GUARD_PILL, both themes ----------------------------- */\n/* `.wy .wy-so` (0,2,0) beats the `.wy button` reset (0,1,1) on SO's own buttons (the hold control, menu powers) */\n.wy-so, .wy .wy-so { color: var(--wy-so-ink); -webkit-text-fill-color: var(--wy-so-ink); background: var(--wy-so-bg); border-radius: 999px; }\n\n/* ---- the hold-to-load control (Task 16 ports the behaviour; the locks hold from day one) ------------------------------ */\n[data-wy-hold] {\n    position: relative;\n    display: inline-flex;\n    align-items: center;\n    justify-content: center;\n    min-height: 44px;\n    padding: 0 16px;\n    overflow: hidden;\n    touch-action: pan-y;\n    user-select: none;\n    -webkit-user-select: none;\n    -webkit-touch-callout: none;\n}\n\n/* ---- shell (Task 13): pages, top bar, tab bar, badge, empty / foreign page, the layer, toast, banner, wide frame ------- */\n.wy-page { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; background: var(--wy-panel); color: var(--wy-ink); }\n/* the refined list (redesign D2, mock section 4): a 52 px top bar, title 17 px. A page is no stacking context, so its bar's z-index 2 competes\n   at the phone's root with the motion layers (ghost 1 · dim 2 · sliding page 3) — it stays 2; a list row's unread badge is 1 (below) */\n.wy-top { flex: none; position: relative; z-index: 2; display: grid; grid-template-columns: 76px minmax(0, 1fr) 76px; align-items: center; min-height: var(--wy-top-h); padding: 0 4px; background: var(--wy-panel); }\n.wy-top.wy-line { border-bottom: 1px solid var(--wy-line); }\n.wy-top-l { display: flex; align-items: center; min-width: 0; }\n.wy-top-r { display: flex; align-items: center; justify-content: flex-end; gap: 2px; min-width: 0; }\n.wy-ttl { min-width: 0; text-align: center; font-weight: 600; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n.wy-ttl-n { font-weight: 500; }\n/* `.wy .wy-back` / `.wy .wy-tab` (0,2,0): the `.wy button` reset (0,1,1) ate the back button's side padding and the tab labels' 11 px\n   (they rendered at the phone's 15 px) — the designer's finding 2026-11-16, fixed in redesign slice 1 */\n.wy .wy-back { display: inline-flex; align-items: center; gap: 2px; min-width: 44px; min-height: 44px; padding: 0 6px; }\n.wy-back svg { width: 24px; height: 24px; }\n.wy-back-n { font-size: 15px; }\n.wy-ib { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 10px; }\n.wy-ib svg { width: 24px; height: 24px; }\n.wy-ib:hover { background: var(--wy-hover); }\n/* tab bar (refined list): a hairline on top, labels 10.5 px, icons 26 px, the inactive tabs at 86 % */\n.wy-tabbar { flex: none; display: flex; background: var(--wy-panel); border-top: 0; box-shadow: 0 -0.5px 0 var(--wy-line); padding: 5px 0 7px; }\n.wy .wy-tab { flex: 1 1 0; position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; min-height: 46px; padding-top: 2px; font-size: 10.5px; color: var(--wy-ink); }\n.wy-tab svg { width: 26px; height: 26px; }\n.wy-tab.wy-on { color: var(--wy-accent); }\n.wy-tab:not(.wy-on) > svg, .wy-tab:not(.wy-on) > .wy-tab-label { opacity: 0.86; }\n.wy-badge { position: absolute; top: -6px; right: -7px; z-index: 2; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--wy-alert); color: var(--wy-on-fill); font-size: 11px; font-weight: 600; line-height: 18px; text-align: center; box-shadow: 0 0 0 1.5px var(--wy-panel); }\n.wy-tab .wy-badge { top: 0; right: calc(50% - 26px); box-shadow: 0 0 0 2px var(--wy-panel); }\n.wy-empty { align-items: center; justify-content: center; gap: 10px; padding: 24px; text-align: center; }\n.wy-empty-logo svg { width: 96px; height: 96px; }\n.wy-empty-name { font-size: 22px; font-weight: 600; }\n.wy-empty-who { max-width: 280px; margin: 0; color: var(--wy-sub); font-size: 14px; }\n.wy-layer { position: absolute; inset: 0; z-index: 40; pointer-events: none; }\n.wy-layer > * { pointer-events: auto; }\n/* toasts sit just under the top bar (redesign D2): at the bottom they covered the conversation's hold line and the dock */\n.wy-toast { position: absolute; left: 50%; top: 64px; transform: translateX(-50%); display: flex; align-items: center; gap: 12px; max-width: calc(100% - 32px); padding: 10px 16px; border-radius: 12px; background: var(--wy-so-bg); color: var(--wy-so-ink); font-size: 14px; animation: wy-fadeup 0.25s ease both; }\n.wy .wy-toast-act { min-height: 32px; color: var(--wy-tile-a); font-weight: 600; }\n/* dock F (2026-11-17): a toast lets presses through (only its action button takes them), and sizes to its text instead of wrapping at\n   half the screen */\n.wy-layer > .wy-toast { width: max-content; pointer-events: none; }\n.wy-layer > .wy-toast .wy-toast-act { pointer-events: auto; }\n.wy-banner { position: absolute; top: 8px; left: 8px; right: 8px; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: var(--wy-bubble); color: var(--wy-ink); box-shadow: 0 8px 24px var(--wy-shadow); cursor: pointer; animation: wy-drop 0.3s ease both; }\n.wy-banner-logo svg { width: 32px; height: 32px; }\n.wy-banner-body { display: flex; flex-direction: column; min-width: 0; }\n.wy-banner-who { font-size: 14px; font-weight: 600; }\n.wy-banner-text { overflow: hidden; color: var(--wy-sub); font-size: 13px; white-space: nowrap; text-overflow: ellipsis; }\n:host([data-wy-wide]) { padding: 16px !important; }\n:host([data-wy-wide]) .wy { border: 10px solid var(--wy-frame); border-radius: 36px; box-shadow: 0 18px 50px var(--wy-shadow); }\n\n/* ---- lists (Task 14): avatars, mosaics, chat rows, contacts, short lists, the + menu --------------------------------- */\n.wy-av { --wy-av-size: 40px; position: relative; display: inline-flex; align-items: center; justify-content: center; flex: none; width: var(--wy-av-size); height: var(--wy-av-size); overflow: hidden; border-radius: 6px; color: var(--wy-on-fill); font-size: calc(var(--wy-av-size) * 0.42); font-weight: 600; line-height: 1; }\n.wy-av img { display: block; width: 100%; height: 100%; object-fit: cover; }\n.wy-av-img { background: var(--wy-line); }\n.wy-hue-0 { background: var(--wy-hue-0); }\n.wy-hue-1 { background: var(--wy-hue-1); }\n.wy-hue-2 { background: var(--wy-hue-2); }\n.wy-hue-3 { background: var(--wy-hue-3); }\n.wy-hue-4 { background: var(--wy-hue-4); }\n.wy-hue-5 { background: var(--wy-hue-5); }\n.wy-hue-6 { background: var(--wy-hue-6); }\n.wy-hue-7 { background: var(--wy-hue-7); }\n.wy-hue-8 { background: var(--wy-hue-8); }\n.wy-hue-9 { background: var(--wy-hue-9); }\n.wy-hue-10 { background: var(--wy-hue-10); }\n.wy-hue-11 { background: var(--wy-hue-11); }\n/* letter avatars that look designed (refined list, redesign D2): a soft top-light gradient, a 1 px inner highlight; two characters\n   (soWyAvLabel) a size down; calmer in the dark theme. Not on mosaic tiles or the start-up orbit (they carry no wy-av-t). */\n.wy-av-t { background-image: linear-gradient(172deg, var(--wy-av-hi), transparent 52%, var(--wy-av-lo)); box-shadow: inset 0 0 0 1px var(--wy-av-edge); font-weight: 500; text-shadow: 0 1px 1px var(--wy-av-ts); }\n.wy-av-two { font-size: calc(var(--wy-av-size) * 0.3); letter-spacing: 0.5px; }\n:host([data-wy-theme=\"dark\"]) .wy-av-t { filter: saturate(0.8) brightness(0.9); }\n/* the familiar mosaic: rows of --wy-t tiles (soWyMosaicEl), the short row first, every row centred, on a neutral tile */\n.wy-mos { --wy-av-size: 48px; display: flex; flex-direction: column; justify-content: center; flex: none; gap: 1.5px; width: var(--wy-av-size); height: var(--wy-av-size); padding: 2.5px; overflow: hidden; border-radius: 6px; background: var(--wy-mos); }\n.wy-mos-r { display: flex; justify-content: center; gap: 1.5px; }\n.wy-mos .wy-av { width: var(--wy-t, 12px); height: var(--wy-t, 12px); border-radius: 2px; font-size: calc(var(--wy-t, 12px) * 0.52); }\n.wy-mos.wy-dis { filter: grayscale(1); opacity: 0.55; }\n.wy-avw { position: relative; flex: none; display: inline-flex; }\n/* unread badges on the avatar's corner, ringed in the row colour; z-index 1 (2026-11-18, the designer's finding, reproduced in the browser):\n   at 2 it tied with the top bar and drew OVER the condensed bar when the list scrolled under it */\n.wy-avw .wy-badge { top: -7px; right: -7px; z-index: 1; box-shadow: 0 0 0 2px var(--wy-panel); }\n.wy-avw .wy-badge.wy-dot { top: -4px; right: -4px; width: 10px; min-width: 10px; height: 10px; padding: 0; }\n/* rows: 72 px, 16 px sides; a hairline divider inset to the text column (16 + 48 + 12 = 76 px), none under the last / pressed row */\n.wy-row { position: relative; display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 12px 16px; background: var(--wy-panel); cursor: pointer; }\n.wy-row::after { content: \"\"; position: absolute; left: 76px; right: 0; bottom: 0; height: 1px; background: var(--wy-line); transform: scaleY(0.5); transform-origin: bottom; }\n.wy-row:last-child::after, .wy-row:hover::after, .wy-row:active::after { display: none; }\n.wy-row:hover { background: var(--wy-hover); }\n.wy-row .wy-avw > .wy-av, .wy-row .wy-mos { border-radius: 7px; }\n.wy-grow { flex: 1 1 auto; min-width: 0; }\n.wy-t1, .wy-t2 { display: flex; align-items: center; gap: 6px; min-width: 0; }\n.wy-row .wy-t1 { align-items: flex-start; }\n.wy-t2 { margin-top: 4px; }\n.wy-nm { min-width: 0; overflow: hidden; font-size: 16px; white-space: nowrap; text-overflow: ellipsis; }\n.wy-row .wy-nm { font-size: 16.5px; line-height: 1.3; }\n.wy-tm { flex: none; margin-left: auto; padding-top: 2px; color: var(--wy-sub); font-size: 12px; line-height: 1.3; }\n.wy-pv { flex: 1 1 auto; min-width: 0; overflow: hidden; color: var(--wy-sub); font-size: 13.5px; white-space: nowrap; text-overflow: ellipsis; }\n.wy-pv .wy-at { color: var(--wy-alert); }\n.wy-mute { flex: none; width: 14px; height: 14px; color: var(--wy-sub); }\n.wy-mute svg { width: 14px; height: 14px; }\n.wy-row.wy-dis .wy-nm, .wy-row.wy-dis .wy-pv { color: var(--wy-sub); opacity: 0.8; }\n/* 窥屏: a quiet tinted tag, no border */\n.wy-obs { flex: none; margin-top: 2px; padding: 0 5px 0 4px; border: 0; border-radius: 4px; background: var(--wy-tag); color: var(--wy-sub); font-size: 10.5px; font-weight: 500; line-height: 17px; white-space: nowrap; }\n.wy-new { flex: none; margin-top: 3px; padding: 0 4px; border-radius: 5px; background: var(--wy-accent); color: var(--wy-on-fill); font-size: 10px; font-weight: 600; line-height: 15px; }\n.wy-prow { position: relative; display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 16px; background: var(--wy-panel); cursor: pointer; }\n.wy-prow::after { content: \"\"; position: absolute; left: 68px; right: 0; bottom: 0; height: 1px; background: var(--wy-line); transform: scaleY(0.5); transform-origin: bottom; }\n.wy-prow:hover { background: var(--wy-hover); }\n.wy-prow .wy-nm { flex: 1 1 auto; font-size: 15.5px; }\n.wy-sq { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 40px; height: 40px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); }\n.wy-sq svg { width: 24px; height: 24px; }\n.wy-sq-observed { background: var(--wy-sub); }\n.wy-sub2 { flex: none; color: var(--wy-sub); font-size: 13px; }\n.wy-gap { height: 8px; background: var(--wy-chat-bg); }\n.wy-foot { padding: 16px 14px 24px; color: var(--wy-sub); font-size: 12.5px; text-align: center; }\n/* the 我 page: the note under the two story switches is that group's footer — left-aligned like the switches' descriptions */\n.wy-foot.wy-grpfoot { padding: 6px 16px 10px; line-height: 1.45; text-align: left; }\n.wy-none { padding: 40px 24px; color: var(--wy-sub); font-size: 13px; text-align: center; }\n.wy-pop-wrap { position: absolute; inset: 0; }\n.wy-backdrop { position: absolute; inset: 0; }\n.wy-pop { position: absolute; z-index: 1; min-width: 150px; padding: 4px; border-radius: 10px; background: var(--wy-bubble); color: var(--wy-ink); box-shadow: 0 8px 28px var(--wy-shadow); }\n.wy-pop button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0 12px; border-radius: 8px; font-size: 15px; text-align: left; }\n.wy-pop button:hover { background: var(--wy-hover); }\n.wy-pop button svg { width: 20px; height: 20px; }\n.wy-pop-plus { top: 48px; right: 8px; }\n\n/* ---- the chat screen (Task 15): bubbles with tails, big emoji, voice, frames, grey lines, footers, typing row ----------- */\n.wy-chat { background: var(--wy-chat-bg); }\n.wy-chat .wy-top { background: var(--wy-chat-bg); border-bottom: 1px solid var(--wy-line); }\n.wy-msgs { padding: 6px 0 12px; }\n.wy-m { position: relative; display: flex; align-items: flex-start; gap: 9px; min-width: 0; padding: 7px 12px; }\n.wy-m[data-wy-side=\"me\"] { flex-direction: row-reverse; }\n.wy-m > .wy-av { cursor: pointer; touch-action: manipulation; }\n.wy-av-ghost { background: var(--wy-line); }\n.wy-mb { position: relative; display: flex; flex-direction: column; align-items: flex-start; min-width: 0; max-width: 70%; }\n.wy-m[data-wy-side=\"me\"] .wy-mb { align-items: flex-end; }\n.wy-mn { margin: -2px 0 3px 2px; color: var(--wy-sub); font-size: 12px; }\n.wy-bubble { position: relative; max-width: 100%; padding: 9px 11px; border-radius: 6px; background: var(--wy-bubble); color: var(--wy-ink); font-size: 15px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; user-select: text; -webkit-user-select: text; }\n.wy-bubble::before { content: \"\"; position: absolute; top: 13px; left: -6px; width: 0; height: 0; border-top: 5px solid transparent; border-bottom: 5px solid transparent; border-right: 6px solid var(--wy-bubble); }\n.wy-m[data-wy-side=\"me\"] .wy-bubble { background: var(--wy-own); color: var(--wy-own-ink); }\n.wy-m[data-wy-side=\"me\"] .wy-bubble::before { left: auto; right: -6px; border-right: 0; border-left: 6px solid var(--wy-own); }\n.wy-bubble .wy-at { color: var(--wy-accent); font-weight: 500; }\n.wy-m[data-wy-side=\"me\"] .wy-bubble .wy-at { color: var(--wy-own-ink); font-weight: 600; }\n.wy-big { position: relative; padding: 0 2px; font-size: 44px; line-height: 1.15; letter-spacing: 2px; overflow-wrap: anywhere; }\n.wy-voice { display: flex; align-items: center; gap: 8px; width: var(--wy-voice-w, 90px); max-width: 100%; height: 40px; cursor: pointer; user-select: none; -webkit-user-select: none; }\n.wy-voice svg { width: 20px; height: 20px; }\n.wy-m[data-wy-side=\"me\"] .wy-voice { flex-direction: row-reverse; }\n.wy-m[data-wy-side=\"me\"] .wy-voice svg { transform: scaleX(-1); }\n.wy-sec { font-size: 14px; }\n.wy-vtext { margin-top: 5px; max-width: 100%; padding: 6px 9px; border-radius: 6px; background: var(--wy-quote); color: var(--wy-ink); font-size: 13.5px; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n.wy-frame { position: relative; display: flex; flex-direction: column; width: 190px; max-width: 100%; overflow: hidden; border-radius: 8px; color: var(--wy-on-fill); }\n/* the picture area keeps the ratio; the description (.wy-cap) is below it in the same tile (2026-11-16: a long one covered ▶ / duration) */\n.wy-pic { position: relative; display: block; flex: none; aspect-ratio: 4 / 3; }\n.wy-video .wy-pic { aspect-ratio: 16 / 10; }\n.wy-em { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -62%); font-size: 40px; line-height: 1; }\n.wy-play { position: absolute; top: 10px; right: 10px; display: inline-flex; padding: 4px; border-radius: 999px; background: var(--wy-scrim); }\n.wy-play svg { width: 18px; height: 18px; }\n.wy-dur { position: absolute; top: 12px; left: 10px; padding: 0 6px; border-radius: 6px; background: var(--wy-scrim); font-size: 11.5px; line-height: 18px; }\n.wy-cap { position: relative; padding: 6px 9px; background: var(--wy-scrim); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-q { max-width: 100%; margin-top: 5px; padding: 4px 8px; border-radius: 4px; background: var(--wy-quote); color: var(--wy-sub); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }\n.wy-line-mid { position: relative; padding: 5px 40px; color: var(--wy-sub); font-size: 12px; line-height: 1.5; text-align: center; overflow-wrap: anywhere; }\n.wy-line-mid.wy-time { padding-top: 12px; font-size: 11.5px; }\n.wy .wy-peek { margin-left: 4px; color: var(--wy-accent); font-size: 11.5px; }\n/* playtest 2026-11-19 A15: hit areas larger than what is drawn (nothing visible moves) — 偷看, the row ⋯, the switches, the 我 card's name */\n.wy .wy-peek { position: relative; }\n.wy .wy-peek::before { content: \"\"; position: absolute; inset: -10px -6px; }\n.wy-peekpill, .wy-note { display: inline-block; max-width: 100%; margin-top: 4px; padding: 3px 10px; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-peekpill { display: block; width: fit-content; margin: 4px auto 0; }\n.wy-noteline { display: flex; flex-direction: column; align-items: center; padding: 8px 20px; }\n/* pt8 (owner's playtest 2026-11-18): the cause line — WHY a request failed, one small secondary line; selectable (he copies it into a report) */\n.wy-cause { display: block; max-width: 100%; margin-top: 3px; color: var(--wy-sub); font-size: 11.5px; line-height: 1.45; text-align: center; overflow-wrap: anywhere; }\n.wy-cause, .wy-note-error, .wy-cs-why, .wy-cs-note, .wy-boot-fail-why { user-select: text; -webkit-user-select: text; cursor: text; }\n.wy-dots { display: flex; align-items: center; gap: 4px; height: 38px; padding: 0 13px; }\n.wy-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--wy-sub); animation: wy-dots 1.1s infinite ease-in-out; }\n.wy-dots i:nth-child(2) { animation-delay: 0.15s; }\n.wy-dots i:nth-child(3) { animation-delay: 0.3s; }\n/* the dock (layout F, redesign Lane D slice D1): ONE row [mic ↔ keyboard 40] [field] [+ 40 ↔ 发送 56]; + gives way to 发送 while the field\n   has text (.wy-has-text), both give way to the stop square while this chat's call runs (.wy-running); watching = one slim line */\n.wy-chatfoot { flex: none; display: flex; flex-direction: column; gap: 8px; padding: 8px 10px 9px; border-top: 1px solid var(--wy-line); background: var(--wy-panel); }\n.wy-chatfoot.wy-watch { padding: 4px 12px 6px; }\n.wy-inrow { display: flex; align-items: flex-end; gap: 8px; min-width: 0; }\n.wy-input { flex: 1 1 auto; min-width: 0; min-height: 40px; max-height: 120px; padding: 9px 10px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-bubble); font-size: 15px; line-height: 1.4; resize: none; outline: none; user-select: text; -webkit-user-select: text; }\n/* playtest 2026-11-19 A6: the field grows with its lines up to max-height (a second line no longer scrolls the first one's top out of\n   the one-line box); a browser without field-sizing keeps today's one-line box. One line keeps today's height (the rows=\"1\" box). */\n@supports (field-sizing: content) {\n    .wy-input { field-sizing: content; }\n}\n.wy-input:focus { border-color: var(--wy-accent); }\n.wy-input::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy .wy-dk { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; color: var(--wy-ink); }\n.wy-dk svg { width: 28px; height: 28px; }\n.wy-dk:hover { background: var(--wy-hover); }\n.wy .wy-send { flex: none; min-width: 56px; min-height: 40px; padding: 0 14px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); font-weight: 600; }\n.wy-send:disabled { opacity: 0.45; }\n.wy-inrow:not(.wy-has-text) > .wy-send, .wy-inrow.wy-has-text > .wy-plus, .wy-inrow.wy-running > .wy-send, .wy-inrow.wy-running > .wy-plus { display: none; }\n.wy .wy-stopsq { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 56px; min-height: 40px; border-radius: 6px; background: var(--wy-alert); color: var(--wy-on-fill); }\n.wy-stopsq-i { width: 12px; height: 12px; border-radius: 2px; background: currentColor; }\n.wy-obsbar { display: flex; flex-direction: column; align-items: center; gap: 6px; }\n.wy-obs-t { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 12px; color: var(--wy-sub); font-size: 13px; }\n.wy-obs-t b { font-weight: 500; }\n.wy-disbar { padding: 10px 12px; color: var(--wy-sub); font-size: 13px; text-align: center; }\n.wy-hold { font-size: 14px; }\n/* the hold line: the last element of the conversation, a quiet dashed line centred in the COLUMN — widened under a classic scrollbar by\n   its measured width (--wy-sbw, soWyAfterRender) so the scrollbar does not push it left; the label centred in the box */\n.wy-holdline { display: flex; justify-content: center; margin-right: calc(-1 * var(--wy-sbw, 0px)); padding: 4px 16px 14px; }\n.wy .wy-holdline .wy-hold { width: 100%; max-width: 340px; min-width: 0; min-height: 46px; padding: 0 14px; border: 1.5px dashed var(--wy-line); border-radius: 14px; background: transparent; color: var(--wy-sub); -webkit-text-fill-color: var(--wy-sub); font-size: 13.5px; }\n.wy-holdline .wy-hold-t { text-align: center; }\n.wy-holdline .wy-hold-fill { transform-origin: center; opacity: 0.22; }\n/* the \"+\" sheet (照片 · 视频; a grid of 68 px+ cells — 4 per row at 375 px — with room for more) and the 照片 / 视频 composer */\n.wy-attach { padding-top: 14px; }\n.wy-att-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(68px, 1fr)); gap: 12px 6px; padding: 4px 12px 14px; }\n.wy .wy-att { display: flex; flex-direction: column; align-items: center; gap: 6px; min-height: 84px; color: var(--wy-sub); font-size: 12.5px; }\n.wy-att-i { display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 14px; background: var(--wy-chat-bg); color: var(--wy-ink); }\n.wy-att-i svg { width: 26px; height: 26px; }\n.wy-att:hover .wy-att-i { background: var(--wy-hover); }\n.wy-sheet.wy-compose { gap: 10px; max-height: calc(100% - 12px); overflow-y: auto; overscroll-behavior: contain; padding: 8px 14px 14px; }\n.wy-cmp-head { position: sticky; top: -8px; z-index: 1; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 44px; margin: -8px -14px 0; padding: 8px 14px 0; background: var(--wy-bubble); }\n.wy .wy-cmp-x { justify-self: start; min-width: 44px; min-height: 40px; padding: 0 4px; color: var(--wy-sub); font-size: 15px; text-align: left; }\n.wy-cmp-t { font-size: 16px; font-weight: 600; }\n.wy .wy-cmp-go { justify-self: end; min-width: 56px; min-height: 40px; padding: 0 14px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); font-weight: 600; }\n.wy .wy-cmp-go:disabled { opacity: 0.45; cursor: default; }\n.wy-cmp-prev { display: flex; justify-content: center; }\n.wy-cmp-prev .wy-frame { width: 144px; }\n.wy-cmp-in { flex: none; width: 100%; min-height: 56px; max-height: 120px; padding: 8px 10px; border: 1px solid var(--wy-line); border-radius: 8px; background: var(--wy-chat-bg); font-size: 15px; line-height: 1.45; resize: none; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-cmp-in:focus { border-color: var(--wy-accent); }\n.wy-cmp-in::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy-cmp-lab { margin-bottom: -4px; color: var(--wy-sub); font-size: 12.5px; }\n.wy-cmp-emo { display: flex; flex-wrap: wrap; gap: 6px; }\n.wy .wy-cmp-e { width: 40px; height: 40px; border-radius: 10px; background: var(--wy-chat-bg); box-shadow: inset 0 0 0 1px var(--wy-line); font-size: 20px; line-height: 1; }\n.wy .wy-cmp-e[aria-checked=\"true\"] { box-shadow: inset 0 0 0 2px var(--wy-accent); }\n.wy .wy-cmp-dur .wy-seg-i { min-height: 40px; }\n\n/* ---- the hold control (Task 16): the fill runs for --wy-hold-ms while held, snaps back on release ---------------------- */\n.wy-hold { min-width: 200px; max-width: 100%; border-radius: 999px; cursor: pointer; }\n.wy-hold-t { position: relative; z-index: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }\n.wy-hold-fill { position: absolute; inset: 0; z-index: 0; border-radius: inherit; background: var(--wy-accent); opacity: 0.5; transform: scaleX(0); transform-origin: left center; pointer-events: none; }\n.wy-hold.holding .wy-hold-fill { transform: scaleX(1); transition: transform var(--wy-hold-ms, 2000ms) linear; }\n\n/* ---- the message menu (Task 17): popover, ⋯ opener, inline editor, quote chip --------------------------------------- */\n.wy-backdrop.wy-clear { background: transparent; }\n.wy-pop-msg { display: flex; flex-direction: column; gap: 4px; min-width: 0; max-width: calc(100% - 16px); padding: 6px; top: 64px; left: 8px; }\n.wy-pop-cap { padding: 0 6px; color: var(--wy-sub); font-size: 11.5px; }\n/* the familiar bubble menu is a grid of icon + label: one row up to five items, two even rows beyond (--wy-mi-cols, soWyMenuCols:\n   6 → 3 + 3, 7 → 4 + 3) — never a lone item on a second row (more functions phase 2, 2026-11-17) */\n.wy-mi-row { display: grid; grid-template-columns: repeat(var(--wy-mi-cols, 5), 56px); gap: 4px; }\n.wy-pop .wy-mi { flex-direction: column; justify-content: center; gap: 3px; width: 56px; min-height: 56px; padding: 6px 0; border-radius: 10px; font-size: 12px; text-align: center; }\n.wy-pop .wy-mi.wy-so { border-radius: 10px; }\n.wy-pop .wy-mi.wy-so:hover { background: var(--wy-so-bg); opacity: 0.9; }\n.wy-pop .wy-mi[aria-disabled=\"true\"] { opacity: 0.45; cursor: default; }\n/* the ⋯ (消息菜单 = 点 ⋯, the default since redesign D2): a 32 px round target on the outer side of every message, ALWAYS in the layout\n   (opacity only — nothing moves when it shows): on hover / keyboard focus of the row, or after a tap on the bubble (.wy-sel, touch).\n   On a grey-line notice it sits in the line's right padding (absolute) so the text stays centred. Hidden = not a target on touch. */\n.wy-mmore { flex: none; align-self: center; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--wy-hover); color: var(--wy-sub); opacity: 0; }\n.wy-mmore svg { width: 18px; height: 18px; }\n.wy-line-mid .wy-mmore { position: absolute; top: 50%; right: 4px; width: 32px; height: 32px; margin-top: -16px; }\n.wy-mmore:focus-visible, .wy-m:focus-within > .wy-mmore, .wy-line-mid:focus-within > .wy-mmore, .wy-sel > .wy-mmore { opacity: 1; }\n@media (hover: hover) {\n    .wy-m:hover > .wy-mmore, .wy-line-mid:hover > .wy-mmore { opacity: 1; }\n    .wy-mmore:hover { color: var(--wy-ink); }\n}\n@media (hover: none) {\n    .wy-mmore { pointer-events: none; }\n    .wy-sel > .wy-mmore, .wy-mmore:focus-visible { pointer-events: auto; }\n}\n.wy-bubble, .wy-big, .wy-frame, .wy-sys-t, .wy-cardmsg, .wy-fwdmsg, .wy-paymsg { -webkit-touch-callout: none; }\n/* 消息菜单 = 长按气泡 (.wy-menu-hold on the chat page): while held the bubble lifts and a tint charges from the finger over the hold\n   (.wy-lp, --wy-lp-ms / --wy-lp-x / --wy-lp-y set by soWyLift); let go early and it settles back. Transform / opacity only, and only\n   with the phone's motion flag on (soWyLift never adds .wy-lp with it off; the menu still opens). Grey-line notices (inline) only open. */\n.wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-bubble, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-big, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-frame, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-cardmsg, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-fwdmsg, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-paymsg { transition: transform 0.2s ease; }\n.wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-bubble::after, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-big::after, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-frame::after, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-cardmsg::after, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-fwdmsg::after, .wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-paymsg::after { content: \"\"; position: absolute; inset: 0; z-index: 2; border-radius: inherit; background: var(--wy-accent); opacity: 0; transform: scale(0); transform-origin: var(--wy-lp-x, 50%) var(--wy-lp-y, 50%); pointer-events: none; transition: transform 0.15s ease, opacity 0.15s ease; }\n.wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-lp { transform: translateY(-2px) scale(1.035); transition: transform var(--wy-lp-ms, 500ms) cubic-bezier(0.2, 0.8, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-lp::after { opacity: 0.18; transform: scale(1); transition: transform var(--wy-lp-ms, 500ms) cubic-bezier(0.3, 0.2, 0.3, 1), opacity 0.15s ease; }\n.wy-edit { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 0 4px; }\n.wy-edit-in { width: 100%; min-height: 72px; max-height: 200px; padding: 8px 10px; border: 1px solid var(--wy-accent); border-radius: 8px; background: var(--wy-bubble); font-size: 15px; line-height: 1.45; resize: vertical; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-edit-btns { display: flex; justify-content: flex-end; gap: 8px; }\n.wy-edit-btns button { min-height: 36px; padding: 0 14px; border-radius: 6px; font-size: 14px; }\n.wy .wy-edit-no { background: var(--wy-hover); }\n.wy .wy-edit-ok { background: var(--wy-accent); color: var(--wy-on-fill); font-weight: 600; }\n.wy-qchip { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 4px 4px 4px 10px; border-radius: 6px; background: var(--wy-quote); color: var(--wy-sub); font-size: 12.5px; }\n.wy-qchip-t { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }\n.wy-qchip-x { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; }\n.wy-qchip-x svg { width: 16px; height: 16px; }\n\n/* ---- group info, profile, pictures, pick (Task 18) --------------------------------------------------------------------- */\n.wy-info .wy-scroll, .wy-profile .wy-scroll { background: var(--wy-chat-bg); }\n.wy-card { background: var(--wy-panel); }\n.wy-mgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 12px 6px; padding: 16px 12px; }\n.wy-mcell { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; cursor: pointer; }\n.wy-mcell-n { max-width: 100%; overflow: hidden; color: var(--wy-sub); font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }\n.wy-mcell-plus { display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border: 1.5px dashed var(--wy-line); border-radius: 6px; color: var(--wy-sub); }\n.wy-mcell-plus svg { width: 24px; height: 24px; }\n.wy-countnote { padding: 10px 16px; background: var(--wy-panel); color: var(--wy-sub); font-size: 12.5px; text-align: center; }\n.wy-kv { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 10px 16px; background: var(--wy-panel); border-bottom: 1px solid var(--wy-line); }\n.wy-kv-top { align-items: flex-start; }\n.wy-k { flex: none; font-size: 15px; }\n/* A13 (2026-11-19): the oracle's ☾ hangs in the row's left padding — 「怎么来的」 starts where every other label starts */\n.wy-k-how .wy-moon { display: inline-block; width: 13px; margin-left: -13px; color: var(--wy-sub); font-size: 12px; text-align: left; }\n.wy-v { flex: 1 1 auto; min-width: 0; color: var(--wy-sub); font-size: 14px; text-align: right; overflow-wrap: anywhere; }\n.wy-kv-top .wy-v { display: flex; flex-direction: column; gap: 4px; }\n.wy-floor { color: var(--wy-accent); font-size: 12.5px; }\n.wy-setrow { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 10px 16px; background: var(--wy-panel); border-bottom: 1px solid var(--wy-line); }\n.wy-setrow-t { display: flex; flex: 1 1 auto; flex-direction: column; gap: 3px; min-width: 0; }\n.wy-setrow-n { font-size: 15px; font-weight: 500; }\n.wy-setrow-d { color: var(--wy-sub); font-size: 12.5px; line-height: 1.45; }\n.wy .wy-switch { position: relative; flex: none; width: 50px; height: 30px; border-radius: 15px; background: var(--wy-line); transition: background 0.2s ease; }\n.wy .wy-switch::after { content: \"\"; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: var(--wy-on-fill); box-shadow: 0 1px 3px var(--wy-shadow); transition: transform 0.2s ease; }\n.wy .wy-switch.wy-on { background: var(--wy-accent); }\n.wy .wy-switch.wy-on::after { transform: translateX(20px); }\n.wy .wy-switch::before { content: \"\"; position: absolute; inset: -7px -4px; border-radius: 22px; }   /* A15: 58 × 44 to the finger */\n/* 动画 (redesign slice 1): the text above, a three-stop control below — a recessed well (the chat background) with a raised thumb (the\n   bubble colour) on the choice, both themes */\n.wy-setrow.wy-setrow-seg { flex-direction: column; align-items: stretch; gap: 10px; }\n.wy-seg { display: flex; gap: 2px; padding: 2px; border-radius: 9px; background: var(--wy-chat-bg); box-shadow: inset 0 0 0 1px var(--wy-line); }\n.wy .wy-seg-i { flex: 1 1 0; min-width: 0; min-height: 32px; padding: 0 8px; border-radius: 7px; color: var(--wy-ink); font-size: 13.5px; text-align: center; white-space: nowrap; transition: background 0.2s ease, color 0.2s ease; }\n.wy .wy-seg-i.wy-on { background: var(--wy-bubble); color: var(--wy-ink); font-weight: 600; box-shadow: 0 1px 3px var(--wy-shadow), inset 0 0 0 1px var(--wy-line); }\n.wy .wy-btnrow { display: flex; align-items: center; justify-content: center; width: 100%; min-height: 52px; padding: 0 16px; background: var(--wy-panel); color: var(--wy-ink); font-size: 15px; font-weight: 500; }\n.wy .wy-btnrow.wy-danger { color: var(--wy-alert); }\n.wy .wy-btnrow.wy-muted-t { color: var(--wy-sub); font-size: 14px; font-weight: 400; }\n.wy-endpad { height: 32px; }\n.wy-pcard { display: flex; align-items: center; gap: 16px; padding: 24px 18px 22px; }\n.wy-pcard .wy-av { border-radius: 8px; cursor: pointer; }\n.wy-pname { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 20px; font-weight: 600; overflow-wrap: anywhere; }\n.wy-meta { margin-top: 4px; color: var(--wy-sub); font-size: 13px; overflow-wrap: anywhere; }\n.wy-sigcard { padding: 13px 16px; }\n.wy-sigcard .wy-k { margin-bottom: 4px; color: var(--wy-sub); font-size: 13px; }\n.wy-sig { font-size: 14.5px; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n.wy-sechead { padding: 14px 16px 6px; color: var(--wy-sub); font-size: 12.5px; }\n.wy-backdrop.wy-dim { background: var(--wy-scrim); }\n.wy-sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 1; display: flex; flex-direction: column; padding: 6px 0 10px; border-radius: 14px 14px 0 0; background: var(--wy-bubble); color: var(--wy-ink); box-shadow: 0 -8px 24px var(--wy-shadow); animation: wy-rise 0.22s ease both; }\n.wy-sheet-t { padding: 10px 16px 8px; color: var(--wy-sub); font-size: 12.5px; text-align: center; }\n.wy .wy-sheet-i { min-height: 50px; padding: 0 16px; border-top: 1px solid var(--wy-line); font-size: 16px; text-align: center; }\n.wy .wy-sheet-c { margin-top: 6px; border-top: 6px solid var(--wy-chat-bg); }\n/* 删除联系人 (2026-11-17): both options are destructive (red); the one that also deletes the lines is set apart (bold) */\n.wy .wy-sheet-i.wy-danger { color: var(--wy-alert); }\n.wy .wy-sheet-i.wy-danger-all { font-weight: 600; }\n.wy .wy-done { min-width: 64px; min-height: 34px; margin-right: 6px; padding: 0 10px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); font-size: 14px; font-weight: 600; white-space: nowrap; }\n.wy .wy-done:disabled { opacity: 0.4; }\n.wy-pickpage .wy-top { grid-template-columns: 76px minmax(0, 1fr) 96px; }\n.wy-pickstrip { flex: none; display: flex; align-items: center; gap: 6px; min-height: 52px; padding: 8px 14px; overflow-x: auto; border-bottom: 1px solid var(--wy-line); }\n.wy-ph { color: var(--wy-sub); font-size: 13px; }\n.wy-gname { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-bottom: 1px solid var(--wy-line); }\n.wy-gname span { flex: none; color: var(--wy-sub); font-size: 13px; }\n.wy-gname input { flex: 1 1 auto; min-width: 0; min-height: 36px; padding: 0 10px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-bubble); outline: none; user-select: text; -webkit-user-select: text; }\n.wy-gname input:focus { border-color: var(--wy-accent); }\n.wy-pick { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 14px; cursor: pointer; }\n.wy-pick:hover { background: var(--wy-hover); }\n.wy-ck { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 1.5px solid var(--wy-line); border-radius: 50%; color: transparent; }\n.wy-ck svg { width: 14px; height: 14px; }\n.wy-pick.wy-on .wy-ck { border-color: var(--wy-accent); background: var(--wy-accent); color: var(--wy-on-fill); }\n.wy-pick.wy-lock { cursor: default; opacity: 0.5; }\n\n/* ---- the 我 tab (Task 19): own card, switches, note link, size, summarise, background, reset; chat background */\n.wy-tabs-me .wy-scroll { background: var(--wy-chat-bg); }\n.wy-mecard { padding-top: 26px; }\n.wy-mecard .wy-grow { cursor: pointer; }\n/* A15: the name block fills the card's height (its lines stay centred where they were), so the tap is not a 29 px strip */\n.wy-mecard .wy-grow { align-self: stretch; display: flex; flex-direction: column; justify-content: center; }\n.wy-chev { flex: none; display: inline-flex; color: var(--wy-sub); }\n.wy-chev svg { width: 18px; height: 18px; }\n.wy-linkrow { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 2px 16px 10px; background: var(--wy-panel); border-bottom: 1px solid var(--wy-line); }\n.wy .wy-link { min-height: 32px; color: var(--wy-accent); font-size: 13.5px; }\n/* B5 (2026-11-19): the no-reply note as the way to 重新回复 — the phone's link, centred under the conversation like the note it replaces */\n.wy .wy-link.wy-note-retry { display: inline-flex; align-items: center; margin-top: 0; padding: 0 12px; cursor: pointer; }\n.wy-size { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding: 10px 16px; background: var(--wy-panel); color: var(--wy-sub); font-size: 13px; border-bottom: 1px solid var(--wy-line); }\n.wy-size.wy-lv-amber .wy-size-note { color: var(--wy-warn); font-weight: 600; }\n.wy-size.wy-lv-red .wy-size-note { color: var(--wy-alert); font-weight: 600; }\n.wy-sumrow { display: flex; flex-direction: column; align-items: center; background: var(--wy-panel); }\n.wy .wy-btnrow svg { width: 20px; height: 20px; margin-right: 8px; }\n/* A20: the profile's 音视频通话 sits right under 发消息 — one block, a hairline between the two rows */\n.wy .wy-btnrow.wy-pcall { border-top: 1px solid var(--wy-line); }\n.wy .wy-sum { color: var(--wy-accent); }\n.wy .wy-sum:disabled { color: var(--wy-sub); cursor: default; }\n.wy-sumrow .wy-note { margin: 0 0 10px; }\n.wy-sheet-note { max-height: 80%; }\n/* the memory slice, UI (2026-11-18; owner #44, the designer's mock option ①): the size sheet (soWyMeterSheet) and the 我 page's 「记忆与长度」\n   rows (soWyMemRows). Amber TEXT reads --wy-warn-ink (the light theme's #B26A00 is under 4.5 : 1 on white at these sizes; dark = --wy-warn);\n   bars and fills read --wy-warn. The level never rests on colour alone: ⚠ + the words on red, the bar's fill and the sentence on every level. */\n.wy-msheet { max-height: calc(100% - 12px); overflow-y: auto; overscroll-behavior: contain; }\n.wy-ms-num { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; font-size: 30px; font-weight: 600; line-height: 1.3; font-variant-numeric: tabular-nums; }\n.wy-ms-num.wy-lv-amber { color: var(--wy-warn-ink); }\n.wy-ms-num.wy-lv-red { color: var(--wy-alert); }\n.wy-ms-warn { display: inline-flex; }\n.wy-ms-warn svg { width: 26px; height: 26px; }\n.wy-ms-sub { padding: 0 16px 14px; color: var(--wy-sub); font-size: 12.5px; text-align: center; }\n.wy-ms-bar { position: relative; height: 6px; margin: 0 22px; border-radius: 3px; background: var(--wy-chat-bg); box-shadow: inset 0 0 0 1px var(--wy-line); }\n.wy-ms-fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 3px; background: var(--wy-sub); }\n.wy-ms-bar.wy-lv-amber .wy-ms-fill { background: var(--wy-warn); }\n.wy-ms-bar.wy-lv-red .wy-ms-fill { background: var(--wy-alert); }\n.wy-ms-mark { position: absolute; left: 80%; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--wy-ink); opacity: 0.45; }\n.wy-ms-scale { position: relative; height: 18px; margin: 5px 22px 0; color: var(--wy-sub); font-size: 11px; }\n.wy-ms-scale span { position: absolute; top: 0; white-space: nowrap; }\n.wy-ms-scale .wy-ms-at { left: 80%; transform: translateX(-50%); }\n.wy-ms-why { margin: 10px 22px 6px; font-size: 14px; line-height: 1.6; text-align: center; }\n.wy-ms-after { margin: 0 22px 10px; color: var(--wy-sub); font-size: 12.5px; text-align: center; }\n.wy-ms-after.wy-lv-amber { color: var(--wy-warn-ink); }\n.wy-ms-after.wy-lv-red { color: var(--wy-alert); }\n.wy .wy-sheet-i.wy-ms-go { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 4px; color: var(--wy-accent); font-weight: 600; }\n.wy .wy-sheet-i.wy-ms-go svg { width: 20px; height: 20px; }\n.wy .wy-sheet-i.wy-ms-go:disabled { color: var(--wy-sub); font-weight: 400; cursor: default; }\n.wy-memrow .wy-mem-v { flex: none; display: inline-flex; align-items: center; gap: 4px; color: var(--wy-sub); font-size: 14px; font-variant-numeric: tabular-nums; }\n.wy-memrow .wy-mem-v svg { width: 15px; height: 15px; }\n.wy-memrow .wy-mem-v.wy-lv-amber { color: var(--wy-warn-ink); font-weight: 600; }\n.wy-memrow .wy-mem-v.wy-lv-red { color: var(--wy-alert); font-weight: 600; }\n.wy-memrow::after { left: 16px; }\n.wy .wy-memset .wy-seg-i { padding: 0 4px; font-variant-numeric: tabular-nums; }\n.wy-pre { flex: 1 1 auto; min-height: 0; margin: 0; padding: 10px 16px; overflow: auto; color: var(--wy-ink); font: 12.5px/1.6 ui-monospace, \"Cascadia Mono\", Menlo, Consolas, monospace; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n.wy-chat.wy-has-bg { background-color: var(--wy-chat-bg); background-position: center; background-size: cover; background-repeat: no-repeat; }\n.wy-chat.wy-has-bg .wy-top { background: var(--wy-panel); }\n.wy-chat.wy-has-bg .wy-scroll { background: var(--wy-scrim); }\n.wy-chat.wy-has-bg .wy-line-mid .wy-sys-t { display: inline-block; padding: 2px 8px; border-radius: 6px; background: var(--wy-panel); }\n.wy-chat.wy-has-bg .wy-mn { display: inline-block; padding: 0 6px; border-radius: 5px; background: var(--wy-panel); }\n.wy-chat.wy-has-bg .wy-q, .wy-chat.wy-has-bg .wy-vtext { background: var(--wy-panel); }\n\n/* ---- the empty phone, 开机 and the start-up show (Task 20) ------------------------------------------------------------ */\n.wy .wy-bootbtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 168px; min-height: 48px; margin-top: 16px; padding: 0 26px; border-radius: 999px; background: var(--wy-accent); color: var(--wy-on-fill); font-size: 16px; font-weight: 600; box-shadow: 0 6px 18px var(--wy-shadow); }\n.wy .wy-bootbtn:disabled { opacity: 0.5; }\n.wy-bootbtn svg { width: 20px; height: 20px; }\n.wy-boot-cost { max-width: 260px; margin: 0; color: var(--wy-sub); font-size: 12.5px; line-height: 1.5; }\n/* the start-up overlay keeps its own (green-tinted) background — the owner: \"the start-up animation is fine\" (redesign D2 moved the\n   rest of the phone to neutral greys) */\n.wy-boot { position: absolute; inset: 0; z-index: 5; overflow: hidden; background: var(--wy-boot-bg); color: var(--wy-ink); }\n.wy-boot-art { position: absolute; inset: 0; width: 100%; height: 100%; }\n.wy-boot-art #ring { animation: wy-pulse 2.4s ease-in-out infinite; }\n/* #logo carries its own transform=\"translate(…)\" — a CSS transform would replace it, so the logo only fades */\n.wy-boot-art #logo { animation: wy-logo-in 0.6s ease both; }\n.wy-boot-art #contacts { transform-box: view-box; transform-origin: 195px 390px; animation: wy-spin 18s linear infinite; transition: opacity 0.4s ease; }\n.wy-boot:not([data-wy-phase=\"splash\"]) .wy-boot-art #contacts { opacity: 0; }\n.wy-boot-orbit { position: absolute; left: 50%; top: 50%; width: 0; height: 0; animation: wy-spin 18s linear infinite; }\n.wy-boot-contact { position: absolute; left: 0; top: 0; transform: rotate(var(--wy-a, -90deg)) translateY(calc(-1 * var(--wy-orbit-r, 120px))) rotate(calc(-1 * var(--wy-a, -90deg))); transition: transform 0.45s ease; }\n.wy-boot-unspin { position: absolute; left: -32px; top: -23px; display: flex; flex-direction: column; align-items: center; gap: 3px; width: 64px; animation: wy-spin-rev 18s linear infinite; }\n.wy-boot-unspin .wy-av { border-radius: 10px; box-shadow: 0 4px 12px var(--wy-shadow); animation: wy-pop 0.35s ease both; }\n.wy-boot-contact.wy-boot-flown { visibility: hidden; }   /* its copy (.wy-fly) has taken off to the row: never two of one name (landing) */\n.wy-boot-cn { max-width: 64px; overflow: hidden; color: var(--wy-ink); font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }\n.wy-boot-text { position: absolute; left: 16px; right: 16px; bottom: 7%; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }\n.wy-boot-name { font-size: 22px; font-weight: 600; letter-spacing: 2px; }\n.wy-boot-line { color: var(--wy-sub); font-size: 13px; }\n.wy-boot-failed .wy-boot-text, .wy-boot-failed .wy-boot-orbit { display: none; }\n.wy-boot-failed .wy-boot-art #ring, .wy-boot-failed .wy-boot-art #contacts { animation: none; }\n.wy-boot-fail { position: absolute; left: 16px; right: 16px; bottom: 6%; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 16px; border-radius: 14px; background: var(--wy-bubble); color: var(--wy-ink); box-shadow: 0 8px 24px var(--wy-shadow); text-align: center; animation: wy-drop 0.25s ease both; }\n.wy-boot-fail-t { font-size: 15px; font-weight: 600; }\n.wy-boot-fail-why { color: var(--wy-sub); font-size: 13px; overflow-wrap: anywhere; }\n.wy-boot-fail-btns { display: flex; gap: 10px; margin-top: 4px; }\n.wy .wy-boot-back, .wy .wy-boot-retry { min-width: 96px; min-height: 40px; padding: 0 16px; border-radius: 999px; font-size: 14.5px; }\n.wy .wy-boot-back { background: var(--wy-hover); }\n.wy .wy-boot-retry { background: var(--wy-accent); color: var(--wy-on-fill); font-weight: 600; }\n.wy-boot-out { animation: wy-fade-out 0.55s ease 0.25s both; pointer-events: none; }\n.wy-fly { position: absolute; left: 0; top: 0; z-index: 6; border-radius: 10px; transform-origin: 0 0; pointer-events: none; animation: wy-fly 0.8s cubic-bezier(0.5, 0, 0.2, 1) both; }\n.wy-fly.wy-fly-fade { animation: wy-fly-fade 0.5s ease both; }\n.wy-boot-in .wy-row { animation: wy-row-in 0.4s ease both; animation-delay: calc(var(--wy-i, 0) * 110ms + 120ms); }\n\n/* ---- more functions, phase 1 (slice B, 2026-11-17): cards, the chat record, forward select, the @ picker, pin, remark, block, search ---- */\n/* the card bubble: the same card on both sides (the familiar app keeps cards light on its green side too) — title + sub beside an icon\n   tile (a 名片 / 音乐: the tile leads), a hairline and a small kind label; no tail */\n.wy-cardmsg { position: relative; display: flex; flex-direction: column; width: 232px; max-width: 100%; overflow: hidden; border-radius: 6px; background: var(--wy-bubble); color: var(--wy-ink); }\n.wy-cardmsg[data-wy-act] { cursor: pointer; }\n.wy-card-main { display: flex; align-items: center; gap: 10px; min-height: 66px; padding: 11px 12px 10px; }\n.wy-card-tx { display: flex; flex: 1 1 auto; flex-direction: column; gap: 3px; min-width: 0; }\n/* the card is the only place its title (≤ 40) and line (≤ 60) live: both wrap in full, the card grows taller (owner's playtest 2026-11-18) */\n.wy-card-t { font-size: 15px; line-height: 1.35; overflow-wrap: anywhere; }\n.wy-card-s { color: var(--wy-sub); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-card-i { flex: none; display: inline-flex; }\n.wy-card-contact .wy-card-i, .wy-card-music .wy-card-i { order: -1; }\n.wy-card-ic { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border-radius: 6px; color: var(--wy-on-fill); }\n.wy-card-ic svg { width: 24px; height: 24px; }\n.wy-card-ic-loc { background: var(--wy-hue-5); }\n.wy-card-ic-file { background: var(--wy-hue-2); }\n.wy-card-ic-link { background: var(--wy-hue-10); }\n.wy-card-ic-music { background: var(--wy-hue-6); }\n.wy-card-ic-contact { background: var(--wy-hue-7); }\n.wy-card-k { margin: 0 12px; padding: 5px 0 6px; border-top: 1px solid var(--wy-card-line); color: var(--wy-sub); font-size: 11.5px; line-height: 1.4; }\n.wy-card-ph { opacity: 0.5; }\n/* the forwarded chat record: 「「来源」的聊天记录」, the first lines, a label; tap = the whole snapshot in a sheet */\n.wy-fwdmsg { position: relative; display: flex; flex-direction: column; width: 232px; max-width: 100%; padding: 10px 12px 0; overflow: hidden; border-radius: 6px; background: var(--wy-bubble); color: var(--wy-ink); cursor: pointer; }\n.wy-fwd-t { font-size: 15px; line-height: 1.35; overflow-wrap: anywhere; }\n.wy-fwd-ls { display: flex; flex-direction: column; gap: 1px; margin-top: 5px; }\n.wy-fwd-l { overflow: hidden; color: var(--wy-sub); font-size: 12.5px; line-height: 1.45; white-space: nowrap; text-overflow: ellipsis; }\n.wy-fwd-k { margin-top: 8px; padding: 5px 0 6px; border-top: 1px solid var(--wy-card-line); color: var(--wy-sub); font-size: 11.5px; line-height: 1.4; }\n.wy-sheet.wy-fwdsheet, .wy-sheet.wy-refsheet { max-height: 80%; }\n.wy-fwd-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px 8px; }\n.wy-fwd-row { display: flex; flex-direction: column; gap: 2px; padding: 9px 0; border-bottom: 1px solid var(--wy-line); }\n.wy-fwd-row:last-child { border-bottom: 0; }\n.wy-fwd-n { color: var(--wy-sub); font-size: 12.5px; }\n.wy-fwd-v { font-size: 14.5px; line-height: 1.5; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n/* a leading unknown bracket tag (〔晚上 8:50〕…) as a quiet small tag before the words */\n.wy-tagq { display: inline-block; margin-right: 6px; padding: 0 5px; border-radius: 4px; background: var(--wy-quote); color: var(--wy-sub); font-size: 11.5px; line-height: 18px; vertical-align: 1px; white-space: nowrap; }\n.wy-m[data-wy-side=\"me\"] .wy-tagq { color: var(--wy-own-ink); }\n/* picking lines to forward: a check circle on the left of every line that can go, the rest dimmed; 取消 top left, the select bar below */\n.wy-fselmode .wy-m, .wy-fselmode .wy-line-mid { padding-left: 48px; }\n.wy-fselmode .wy-m.wy-fok { cursor: pointer; }\n.wy-fselmode .wy-fno { opacity: 0.4; }\n.wy-fck { position: absolute; left: 14px; top: 16px; display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 1.5px solid var(--wy-sub); border-radius: 50%; color: transparent; }\n.wy-fck svg { width: 14px; height: 14px; }\n.wy-fon > .wy-fck { border-color: var(--wy-accent); background: var(--wy-accent); color: var(--wy-on-fill); }\n.wy .wy-fsel-x { min-height: 44px; padding: 0 12px; font-size: 15px; }\n.wy-chatfoot.wy-fbar { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px 9px; }\n.wy-fbar-n { min-width: 0; color: var(--wy-sub); font-size: 13px; }\n.wy .wy-fbar-go { flex: none; min-width: 88px; min-height: 40px; padding: 0 16px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); font-weight: 600; }\n.wy .wy-fbar-go:disabled { opacity: 0.45; }\n/* the @ picker: a compact list floating just above the input row (the dock is its anchor) */\n.wy-chatfoot { position: relative; }\n.wy-atpick { position: absolute; left: 10px; right: 10px; bottom: calc(100% + 6px); z-index: 3; display: flex; flex-direction: column; max-height: 216px; overflow-y: auto; overscroll-behavior: contain; padding: 4px; border-radius: 10px; background: var(--wy-bubble); color: var(--wy-ink); box-shadow: 0 8px 28px var(--wy-shadow); }\n.wy .wy-at-i { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 4px 8px; border-radius: 8px; text-align: left; }\n.wy-at-i:hover { background: var(--wy-hover); }\n.wy-at-i .wy-nm { flex: 0 1 auto; font-size: 14.5px; }\n.wy-at-real { flex: none; color: var(--wy-sub); font-size: 12px; }\n.wy-av.wy-at-all { --wy-av-size: 28px; background: var(--wy-accent); font-size: 15px; }\n/* the jump to a line (@ / search): a brief tint */\n.wy-m.wy-hl, .wy-line-mid.wy-hl { background: var(--wy-hl); }\n/* 置顶: pinned rows wear the familiar soft tint; the row menu; with 消息菜单 = 点 ⋯ a hover device shows a ⋯ on the row */\n.wy-row.wy-pin { background: var(--wy-pin-bg); }\n.wy-row.wy-pin:hover { background: var(--wy-hover); }\n/* the ⋯ sits at the right end of the row's LOWER line (playtest 2026-11-18: centred on the row it covered the time — 「周六 2⋯」); while it\n   can show (hover, its keyboard focus) that line gives it room: the preview ellipsizes earlier, the mute icon moves left — the name, the\n   time and the tags of the top line never move and are never covered. Hidden it takes no room (absolute, transparent). */\n.wy-t2-more { position: relative; }\n.wy .wy-rmore { position: absolute; top: 50%; right: -4px; z-index: 1; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; margin-top: -14px; border-radius: 50%; background: var(--wy-bubble); color: var(--wy-sub); box-shadow: 0 1px 4px var(--wy-shadow); opacity: 0; pointer-events: none; }\n.wy-rmore svg { width: 18px; height: 18px; }\n.wy .wy-rmore::before { content: \"\"; position: absolute; inset: -6px; border-radius: 50%; }   /* A15: 40 × 40 to the pointer */\n.wy-rmore:focus-visible { opacity: 1; pointer-events: auto; }\n.wy-t2-more:focus-within { padding-right: 30px; }\n@media (hover: hover) {\n    .wy-row:hover .wy-rmore { opacity: 1; pointer-events: auto; }\n    .wy-row:hover .wy-t2-more { padding-right: 30px; }\n}\n.wy-pop-row { top: 120px; left: 24px; min-width: 132px; }\n.wy .wy-pop .wy-danger { color: var(--wy-alert); }\n/* 备注 (the profile's inline editor), the card composer's fields, 添加到通讯录 */\n.wy-remarkrow .wy-nm { flex: 1 0 auto; }\n/* a long 备注 (up to THEATER_WEIYU_REMARK_MAX) gives way, one line with an ellipsis; the label never does (playtest 2026-11-19 A4) */\n.wy-remarkrow .wy-sub2 { flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }\n.wy-remarkedit { display: flex; flex-direction: column; gap: 8px; padding: 12px 16px; background: var(--wy-panel); }\n.wy-remark-in, .wy-cf-in { width: 100%; min-height: 40px; padding: 0 10px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-chat-bg); font-size: 15px; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-remark-in:focus, .wy-cf-in:focus { border-color: var(--wy-accent); }\n.wy-remark-in::placeholder, .wy-cf-in::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy-cardcmp .wy-cmp-prev { padding: 12px; border-radius: 10px; background: var(--wy-chat-bg); }   /* the preview card on the chat's own ground */\n.wy-cf { display: flex; flex-direction: column; gap: 5px; }\n.wy-cf-l { color: var(--wy-sub); font-size: 12.5px; }\n.wy-cf-pick { flex: none; display: flex; flex-direction: column; max-height: 176px; overflow-y: auto; overscroll-behavior: contain; border-radius: 8px; background: var(--wy-chat-bg); }\n.wy-cf-pick .wy-pick { min-height: 46px; padding: 6px 10px; }\n/* the 名片 pick list sits on the chat's ground, where a --wy-line ring (and a hovered row's --wy-hover) swallowed the empty ring (playtest A11) */\n.wy-cf-pick .wy-ck { border-color: var(--wy-sub); }\n.wy .wy-btnrow.wy-primary { color: var(--wy-accent); font-weight: 600; }\n/* 黑名单: the notice that replaces the input row in his private chat with a blocked contact */\n.wy-blockbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 12px; min-height: 40px; padding: 2px 4px; color: var(--wy-sub); font-size: 13px; text-align: center; }\n.wy .wy-unblock { min-height: 34px; padding: 0 14px; border-radius: 6px; background: var(--wy-hover); color: var(--wy-accent); font-size: 14px; font-weight: 600; }\n/* 立即跟上剧情 (2026-11-27): the 「没跟上」 strip heading the chat list (a tap = the catch-up) and its link line at the end of an open chat */\n.wy .wy-custrip { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 40px; padding: 8px 14px; border-bottom: 1px solid var(--wy-line); background: var(--wy-panel); color: var(--wy-warn-ink); font-size: 13.5px; text-align: left; cursor: pointer; }\n.wy-custrip > svg { flex: none; width: 18px; height: 18px; color: var(--wy-accent); }\n.wy-cu-mark { flex: none; display: inline-flex; width: 18px; height: 18px; }\n.wy-cu-mark svg { width: 100%; height: 100%; }\n.wy-cu-t { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }\n.wy .wy-link.wy-cu-note { display: inline-flex; align-items: center; margin-top: 0; padding: 0 12px; color: var(--wy-warn-ink); cursor: pointer; }\n/* 搜索: the field heading the chat list; the search page's [field][取消]; results with the match in the accent colour */\n.wy-srchbar { padding: 6px 12px 8px; background: var(--wy-panel); }\n.wy .wy-srch { display: flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 36px; border-radius: 8px; background: var(--wy-chat-bg); color: var(--wy-sub); font-size: 14.5px; }\n.wy-srch svg, .wy-srchf svg { width: 17px; height: 17px; }\n.wy-top.wy-srchtop { display: flex; align-items: center; gap: 6px; padding: 0 4px 0 12px; }\n.wy-srchf { display: flex; flex: 1 1 auto; align-items: center; gap: 6px; min-width: 0; min-height: 36px; padding: 0 10px; border-radius: 8px; background: var(--wy-chat-bg); color: var(--wy-sub); }\n.wy-srch-in { flex: 1 1 auto; min-width: 0; height: 34px; padding: 0; border: 0; background: transparent; font-size: 15px; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-srch-in::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy .wy-srch-in:focus-visible { outline: none; }   /* the pill is the field; the caret shows the focus (no second ring inside it) */\n.wy .wy-srch-x { flex: none; min-height: 44px; padding: 0 10px; color: var(--wy-accent); font-size: 15px; }\n.wy-search .wy-scroll { background: var(--wy-chat-bg); }\n.wy-srch-tx { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-width: 0; }\n.wy-srch-tx .wy-nm { flex: none; }\n.wy-srch-sub { overflow: hidden; color: var(--wy-sub); font-size: 13px; white-space: nowrap; text-overflow: ellipsis; }\n.wy-hit { color: var(--wy-accent); font-weight: 600; }\n\n/* ---- more functions, phase 2 (slice B, 2026-11-17): the call bubble, the calling screen, the transfer card / receipt, its sheet + composer ---- */\n/* the call bubble = the ordinary bubble (tail, both colours) holding a handset / camera and the words; on his side the icon follows them */\n.wy-callmsg { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; user-select: none; -webkit-user-select: none; }\n.wy-callmsg svg { flex: none; width: 19px; height: 19px; }\n.wy-m[data-wy-side=\"me\"] .wy-callmsg { flex-direction: row-reverse; }\n.wy-callmsg[data-wy-act] { cursor: pointer; }\n.wy .wy-callpeek { margin: 4px 0 0 2px; }\n.wy-callgist { max-width: 100%; margin-top: 4px; padding: 6px 9px; border-radius: 6px; background: var(--wy-quote); color: var(--wy-ink); font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n/* the brief \"calling…\" screen (动画 开 only): their picture and name, 正在等待…, a red hang-up — the familiar call screen in miniature */\n.wy-callscr { position: absolute; inset: 0; z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 76px 24px 48px; border-radius: inherit; background: var(--wy-callscr-bg); color: var(--wy-on-fill); }\n.wy-callscr-who { display: flex; flex-direction: column; align-items: center; gap: 8px; min-width: 0; max-width: 100%; text-align: center; }\n.wy-callscr-who .wy-av { margin-bottom: 8px; border-radius: 12px; }\n.wy-callscr-nm { max-width: 100%; overflow: hidden; font-size: 22px; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }\n.wy-callscr-st { color: var(--wy-callscr-sub); font-size: 14px; }\n.wy[data-wy-motion=\"on\"] .wy-callscr-st { animation: wy-pulse 1.4s ease-in-out infinite; }\n.wy-callscr-mode { display: inline-flex; align-items: center; gap: 5px; color: var(--wy-callscr-sub); font-size: 12.5px; }\n.wy-callscr-mode svg { width: 15px; height: 15px; }\n.wy .wy-callscr-end { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--wy-on-fill); font-size: 13px; }\n.wy-callscr-x { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; border-radius: 50%; background: var(--wy-alert); }\n.wy-callscr-x svg { width: 30px; height: 30px; transform: rotate(135deg); }\n/* keyboard focus on a round call-screen button (挂断 / 取消 / 重拨 / 关闭): the phone's ring follows the circle, not the button's box (circle + label) */\n.wy .wy-callscr-end:focus-visible { outline: none; }\n.wy .wy-callscr-end:focus-visible > .wy-callscr-x { outline: 2px solid var(--wy-accent); outline-offset: 3px; }\n/* the live call scene, slice B (2026-11-18): the calling screen is the START request in flight (both 动画 states) and grows into the call\n   panel (.wy-cs-on) — the familiar call screen as a pattern: full screen and dark in BOTH themes (a call screen is dark in the familiar app\n   whichever theme it wears, and a video's \"camera\" is dark), the picture and name with a running timer, her words large, his smaller on the\n   right, the field above the big round red hang-up at the bottom centre. A video call: her camera fills the top (the 画面 text as the scene,\n   no fake photo), his own small preview in a corner. A START that did not get through: 取消 (grey) · 重拨 (green) side by side. */\n.wy-cs { z-index: 6; }\n.wy-cs-why { max-width: 100%; max-height: 10.5em; overflow-y: auto; color: var(--wy-callscr-sub); font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-callscr-foot.wy-cs-two { display: flex; justify-content: center; gap: 56px; }\n.wy-cs-quiet .wy-callscr-x { background: var(--wy-cs-soft); }\n.wy-cs-redial .wy-callscr-x { background: var(--wy-tile-b); }\n.wy-cs-quiet .wy-callscr-x svg, .wy-cs-redial .wy-callscr-x svg { transform: none; }\n.wy-cs.wy-cs-on { align-items: stretch; justify-content: flex-start; padding: 0; }\n.wy-cs-head { flex: none; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 34px 20px 10px; text-align: center; }\n.wy-cs-head .wy-av { border-radius: 12px; }\n.wy-cs-who { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; max-width: 100%; }\n.wy-cs-nm { max-width: 100%; overflow: hidden; font-size: 19px; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }\n.wy-cs-time { color: var(--wy-callscr-sub); font-size: 13.5px; font-variant-numeric: tabular-nums; }\n.wy-cs-log { display: flex; flex-direction: column; gap: 14px; padding: 10px 20px 12px; }\n.wy-cs-turn { display: flex; flex-direction: column; gap: 5px; min-width: 0; }\n.wy-cs-her { align-items: flex-start; }\n.wy-cs-mine { align-items: flex-end; }\n.wy-cs-l { max-width: 100%; font-size: 17px; line-height: 1.5; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n.wy-cs-tag { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 5px; background: var(--wy-cs-tag); color: var(--wy-callscr-sub); font-size: 12px; line-height: 20px; vertical-align: 2px; white-space: nowrap; }\n.wy-cs-snd { color: var(--wy-cs-dim); font-size: 12.5px; font-style: italic; line-height: 1.45; overflow-wrap: anywhere; }\n.wy-cs-act { color: var(--wy-callscr-sub); font-size: 13px; font-style: italic; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-cs-me { max-width: 82%; padding: 6px 10px; border-radius: 10px; background: var(--wy-cs-soft); color: var(--wy-callscr-sub); font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; user-select: text; -webkit-user-select: text; }\n.wy .wy-cs-redo { min-height: 28px; padding: 0 11px; border-radius: 999px; background: var(--wy-cs-soft); color: var(--wy-callscr-sub); font-size: 12px; }\n.wy .wy-cs-again { align-self: flex-end; min-height: 32px; padding: 0 13px; border-radius: 999px; background: var(--wy-cs-soft); color: var(--wy-on-fill); font-size: 13px; }\n.wy-cs-speaking { display: flex; align-items: center; gap: 2px; color: var(--wy-callscr-sub); font-size: 13px; }\n.wy-cs-speaking .wy-dots { height: 20px; padding: 0 4px; }\n.wy-cs-speaking .wy-dots i { background: var(--wy-callscr-sub); }\n.wy-cs-note { color: var(--wy-callscr-sub); font-size: 12px; overflow-wrap: anywhere; }\n.wy-cs-foot { flex: none; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 8px 16px 24px; }\n.wy-cs-foot > [hidden] { display: none; }\n.wy-cs-inrow { display: flex; align-items: center; gap: 8px; width: 100%; }\n.wy .wy-cs-in { border-color: transparent; background: var(--wy-cs-soft); color: var(--wy-on-fill); }\n.wy .wy-cs-in:focus { border-color: var(--wy-cs-dim); }\n.wy .wy-cs-in::placeholder { color: var(--wy-cs-dim); }\n.wy-cs-ended { padding: 4px 0 0; color: var(--wy-callscr-sub); font-size: 15px; }   /* her hang-up: this line, then 关闭 below it */\n.wy-cs-on .wy-callscr-x { width: 60px; height: 60px; }\n.wy-cs-cam { position: relative; flex: 0 0 46%; min-height: 168px; overflow: hidden; border-radius: inherit; border-bottom-left-radius: 0; border-bottom-right-radius: 0; background: var(--wy-cs-cam); }\n.wy-cs-cam .wy-cs-head { position: absolute; top: 0; left: 0; right: 0; z-index: 1; flex-direction: row; align-items: center; padding: 14px 16px 26px; background: linear-gradient(var(--wy-cs-fade), transparent); text-align: left; }\n.wy-cs-cam .wy-cs-who { align-items: flex-start; }\n.wy-cs-scene { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 60px 24px 24px; }\n.wy-cs-scene-t { max-height: 100%; overflow-y: auto; color: var(--wy-callscr-sub); font-size: 14.5px; font-style: italic; line-height: 1.7; text-align: center; overflow-wrap: anywhere; scrollbar-width: none; }\n.wy-cs-scene-av { opacity: 0.4; }\n.wy-cs-self { position: absolute; right: 12px; bottom: 12px; z-index: 1; display: flex; align-items: center; justify-content: center; width: 64px; height: 88px; border-radius: 10px; background: var(--wy-callscr-bg); box-shadow: 0 2px 12px var(--wy-cs-fade); }\n.wy-cs-self .wy-av { border-radius: 8px; }\n.wy[data-wy-motion=\"on\"] .wy-cs-new { animation: wy-cs-fade 0.45s ease both; }\n/* her reason for declining, under his call record */\n.wy-callwhy { margin-top: 4px; color: var(--wy-sub); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }\n/* the transcript of a finished call: a sheet in the phone's own theme (the same line pieces as the panel, in the sheet's colours) */\n.wy-sheet.wy-calllog { max-height: 80%; }\n.wy-calllog-head { flex: none; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 16px 9px; border-bottom: 1px solid var(--wy-line); }\n.wy-calllog-h { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; font-weight: 600; }\n.wy-calllog-h svg { width: 18px; height: 18px; }\n.wy-calllog-at { color: var(--wy-sub); font-size: 12px; }\n.wy-calllog-list { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; overscroll-behavior: contain; padding: 10px 16px 12px; }\n.wy-calllog-row { display: flex; flex-direction: column; gap: 2px; }\n.wy-calllog-n { color: var(--wy-sub); font-size: 12px; }\n.wy-calllog-v { display: flex; flex-direction: column; gap: 3px; }\n.wy-calllog .wy-cs-l { font-size: 15px; }\n.wy-calllog .wy-cs-tag { background: var(--wy-tag); color: var(--wy-sub); }\n.wy-calllog .wy-cs-snd, .wy-calllog .wy-cs-act { color: var(--wy-sub); }\n.wy-calllog-pic { padding: 6px 10px; border-radius: 6px; background: var(--wy-quote); color: var(--wy-sub); font-size: 13px; font-style: italic; line-height: 1.55; overflow-wrap: anywhere; }\n.wy .wy-calllog-back { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--wy-accent); }\n.wy-calllog-back svg { width: 20px; height: 20px; }\n/* the transfer card (the familiar orange card, the same on both sides, no tail): icon · amount large · 附言 · state, a 「转账」 label under a\n   hairline; closed (已收款 / 已退回 / 已过期) = the paler colour, as the familiar app does (the text stays full white — opacity made it\n   muddy on the dark theme); the receipt (wy-pay-ans) is a closed card */\n.wy-paymsg { position: relative; display: flex; flex-direction: column; width: 232px; max-width: 100%; overflow: hidden; border-radius: 6px; background: var(--wy-pay); color: var(--wy-pay-ink); user-select: none; -webkit-user-select: none; }\n.wy-paymsg[data-wy-act] { cursor: pointer; }\n.wy-pay-closed { background: var(--wy-pay-done); color: var(--wy-pay-done-ink); }\n/* closed card ink (owner's pick \"B\" of the 11-18 transfer mock; light theme: dark brown on pale orange — white on the old pale orange was\n   ≈ 2.1:1; the dark theme's tokens are all white / the old hairline, so it draws exactly as before) */\n.wy-pay-closed .wy-pay-note, .wy-pay-closed .wy-pay-st, .wy-pay-closed .wy-pay-k { color: var(--wy-pay-done-sub); }\n.wy-pay-closed .wy-pay-ic { color: var(--wy-pay-done-ic); }\n.wy-pay-closed .wy-pay-k { border-top-color: var(--wy-pay-done-line); }\n.wy-pay-main { display: flex; align-items: center; gap: 11px; min-height: 66px; padding: 11px 12px 10px; }\n.wy-pay-ic { flex: none; display: inline-flex; }\n.wy-pay-ic svg { width: 34px; height: 34px; }\n.wy-pay-tx { display: flex; flex: 1 1 auto; flex-direction: column; gap: 2px; min-width: 0; }\n.wy-pay-amt { font-size: 18px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }\n.wy-pay-note { font-size: 13px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-pay-st { font-size: 12.5px; line-height: 1.4; }\n.wy-pay-k { margin: 0 12px; padding: 5px 0 6px; border-top: 1px solid var(--wy-pay-line); font-size: 11.5px; line-height: 1.4; }\n/* the transfer composer (the card composer's pattern) and the 收款 / 退回 sheet (the familiar 待你收款 page, as a sheet) */\n.wy-paycmp .wy-cmp-prev { padding: 12px; border-radius: 10px; background: var(--wy-chat-bg); }\n.wy-pay-to { display: flex; align-items: center; gap: 10px; min-width: 0; }\n.wy-pay-to .wy-nm { font-size: 15px; }\n.wy-paycaution { color: var(--wy-sub); font-size: 12px; line-height: 1.5; }\n.wy-paysheet-amt { padding: 4px 16px 0; font-size: 30px; font-weight: 600; line-height: 1.3; text-align: center; overflow-wrap: anywhere; }\n.wy-paysheet-note { padding: 2px 16px 0; color: var(--wy-sub); font-size: 14px; text-align: center; overflow-wrap: anywhere; }\n.wy-paysheet-free { padding: 8px 16px 12px; color: var(--wy-sub); font-size: 12px; text-align: center; }\n.wy .wy-sheet-i.wy-pay-take { color: var(--wy-accent); font-weight: 600; }\n\n/* ---- 世界用语 (ENABLE_THR_WEIYU_WORDS): the 我 row, the 开机 link, the editor page (the familiar settings page: grey ground, white\n   groups; chips wrap; fields ≥ 32 px; nothing wider than the phone) ------------------------------------------------------------ */\n.wy .wy-link.wy-words-boot { margin-top: 2px; }\n.wy-words .wy-scroll { display: flex; flex-direction: column; gap: 0; padding-bottom: 16px; background: var(--wy-chat-bg); }\n.wy-words-using { padding: 12px 16px 6px; color: var(--wy-sub); font-size: 12.5px; overflow-wrap: anywhere; }\n.wy-words-chips { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }\n.wy-words-using + .wy-words-chips { padding: 12px 16px; background: var(--wy-panel); border-top: 1px solid var(--wy-line); border-bottom: 1px solid var(--wy-line); }\n.wy .wy-chip { display: inline-flex; align-items: center; min-height: 32px; max-width: 100%; padding: 0 12px; border: 1px solid var(--wy-line); border-radius: 999px; background: var(--wy-bubble); color: var(--wy-ink); font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }\n.wy .wy-chip.wy-on { border-color: var(--wy-accent); background: var(--wy-hl); color: var(--wy-accent); font-weight: 600; }\n.wy .wy-chip.wy-chip-new { border-style: dashed; color: var(--wy-accent); }\n.wy .wy-chip.wy-chip-new.wy-on { border-style: solid; }\n.wy-words-noteonly { padding: 8px 16px 0; color: var(--wy-warn-ink); font-size: 12.5px; line-height: 1.45; }\n.wy-words-form { display: flex; flex-direction: column; margin-top: 10px; padding: 4px 0; background: var(--wy-panel); border-top: 1px solid var(--wy-line); border-bottom: 1px solid var(--wy-line); }\n.wy-words-f { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 16px; }\n.wy-words-l { flex: none; width: 64px; color: var(--wy-ink); font-size: 14px; }\n.wy-words-l.wy-words-l2 { width: auto; color: var(--wy-sub); }\n.wy-words-in { flex: 1 1 auto; width: 0; min-width: 0; min-height: 36px; padding: 0 10px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-panel); font-size: 15px; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-words-in:focus { border-color: var(--wy-accent); }\n.wy-words-in::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy-words-in.wy-words-mw { flex: none; width: 48px; text-align: center; }\n.wy-words-in.wy-dis { border-color: transparent; background: var(--wy-tag); color: var(--wy-sub); cursor: default; }\n.wy-words-basef { flex-direction: column; align-items: stretch; gap: 6px; }\n.wy-words-basef .wy-words-l { width: auto; }\n.wy-words-slot:empty { display: none; }\n.wy-words-slot { padding: 0 16px 4px 90px; }\n.wy-words-err { color: var(--wy-alert); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n/* A17 (2026-11-19): 「最多 N 个字」 under a field he is typing past — the editor's hint colour, the error line's size */\n.wy-words-max { color: var(--wy-sub); font-size: 12.5px; line-height: 1.4; }\n.wy-words-none { color: var(--wy-sub); font-size: 12.5px; }\n.wy-words-saveasrow { padding: 4px 16px 2px; }\n.wy .wy-words-morebtn { display: flex; align-items: center; gap: 6px; min-height: 40px; margin: 2px 16px 0; color: var(--wy-accent); font-size: 14px; }\n.wy .wy-words-morebtn svg { width: 16px; height: 16px; transition: transform 0.18s ease; }\n.wy .wy-words-morebtn.wy-on svg { transform: rotate(90deg); }\n.wy-words-prevrow { padding: 10px 16px 0; }\n.wy-words-def { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 16px; color: var(--wy-ink); font-size: 14px; cursor: pointer; }\n.wy-words-def input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--wy-accent); }\n.wy-words-hint { padding: 0 16px 8px; color: var(--wy-sub); font-size: 12.5px; line-height: 1.5; }\n.wy-words-btns { display: flex; gap: 10px; padding: 8px 16px 4px; }\n.wy .wy-words-cancel, .wy .wy-words-save { flex: 1 1 0; min-height: 44px; border-radius: 8px; font-size: 15px; font-weight: 500; }\n.wy .wy-words-cancel { background: var(--wy-panel); color: var(--wy-ink); box-shadow: inset 0 0 0 1px var(--wy-line); }\n.wy .wy-words-save { background: var(--wy-accent); color: var(--wy-on-fill); }\n.wy .wy-btnrow.wy-words-del { margin-top: 14px; border-top: 1px solid var(--wy-line); border-bottom: 1px solid var(--wy-line); }\n/* 1b (ENABLE_THR_WEIYU_WORDS_AI): 「✨ 让 AI 按这个世界起名」 under the base picker — one wide outlined action (正在写… greyed, 停止 beside it),\n   two small lines under it; after a landing a tinted check strip with 撤销建议; a dot + 「AI 建议」 / the flag line under each field */\n.wy-words-ai { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 6px 16px 8px; }\n.wy-words-airow { display: flex; align-items: center; gap: 8px; min-width: 0; }\n.wy .wy-words-aibtn { flex: 1 1 auto; min-width: 0; min-height: 40px; padding: 4px 14px; border-radius: 8px; background: var(--wy-hl); color: var(--wy-accent); box-shadow: inset 0 0 0 1px var(--wy-accent); font-size: 14.5px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }\n.wy .wy-words-aibtn:disabled { background: var(--wy-tag); color: var(--wy-sub); box-shadow: none; cursor: default; }\n.wy .wy-words-aistop { flex: none; min-height: 40px; padding: 0 14px; border-radius: 8px; background: var(--wy-panel); color: var(--wy-alert); box-shadow: inset 0 0 0 1px var(--wy-line); font-size: 14px; }\n.wy-words-aicost, .wy-words-nopreset { color: var(--wy-sub); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }\n.wy-words-aistate { color: var(--wy-accent); font-size: 12.5px; line-height: 1.4; }\n.wy-words-aiempty, .wy-words-cause { color: var(--wy-alert); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-words-ainote { color: var(--wy-warn-ink); font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; }\n.wy-words-aicheckrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 10px; min-width: 0; margin-top: 4px; padding: 6px 10px; border-radius: 6px; background: var(--wy-hl); }\n.wy-words-aicheck { min-width: 0; color: var(--wy-ink); font-size: 13px; line-height: 1.4; }\n.wy-words-mark { display: inline-flex; align-items: center; gap: 5px; margin-right: 10px; color: var(--wy-accent); font-size: 12px; line-height: 1.4; }\n.wy-words-dot { flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--wy-accent); }\n.wy-words-flag { color: var(--wy-warn-ink); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-words-basef + .wy-words-flag { padding: 0 16px 2px; }\n/* ---- AI auto-reply row (hold reply, 2026-11-20): the owner-approved mock (phone-hold/mock/mock.html) — a slim row just above the input box:\n   [switch · label] …… [AI 现在回复 (n)]; 32 px tall, never wraps (the label ellipsises first); the button reads like his own bubble */\n.wy .wy-ar-sw { position: relative; flex: none; box-sizing: border-box; width: 28px; height: 17px; border-radius: 9px; border: 1.5px solid currentColor; }\n.wy .wy-ar-sw::after { content: \"\"; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: currentColor; }\n.wy .wy-ar-sw.wy-on { background: var(--wy-accent); border-color: var(--wy-accent); }\n.wy .wy-ar-sw.wy-on::after { left: auto; right: 2px; background: var(--wy-on-fill); }\n.wy-ar-row { display: flex; align-items: center; gap: 8px; min-height: 32px; margin: -4px 0 -2px; min-width: 0; }\n.wy .wy-ar-tg { display: inline-flex; align-items: center; gap: 6px; flex: 0 1 auto; min-width: 0; min-height: 32px; padding: 0 8px 0 4px; border-radius: 16px;\n  font-size: 12.5px; font-weight: 500; color: var(--wy-sub); -webkit-text-fill-color: var(--wy-sub); white-space: nowrap; cursor: pointer; }\n.wy .wy-ar-tg > .wy-ar-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; }\n.wy .wy-ar-tg.wy-ar-off { color: var(--wy-warn-ink); -webkit-text-fill-color: var(--wy-warn-ink); font-weight: 600; }\n.wy .wy-ar-go { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: none; margin-left: auto; min-height: 32px; padding: 0 12px 0 14px;\n  border-radius: 16px; background: var(--wy-own); color: var(--wy-own-ink); -webkit-text-fill-color: var(--wy-own-ink); font-size: 13.5px; font-weight: 600;\n  white-space: nowrap; cursor: pointer; box-shadow: 0 1px 2px var(--wy-shadow); }\n.wy .wy-ar-go.wy-ar-busy { opacity: 0.55; cursor: default; }\n.wy-ar-n { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px;\n  background: var(--wy-own-ink); color: var(--wy-own); -webkit-text-fill-color: var(--wy-own); font-size: 11px; font-weight: 700; }\n/* ---- length lines (2026-11-21): the one line a field over its ceiling shows (soWyLenMark — only while over, never on an idle screen), and\n   the photo / video caption kept inside its tile (a 4000-character description scrolls there instead of stretching the tile) ---- */\n.wy-len { flex: none; color: var(--wy-sub); font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }\n.wy-pickpage > .wy-len { padding: 6px 14px 0; }\n.wy-cs-foot > .wy-len { align-self: stretch; text-align: center; }\n/* 每几次回复更新一次 (2026-11-21, env.stages.syncEvery only): the number box at the row's right end, and the refusal line under the row */\n.wy-every-in { flex: none; width: 5.5em; min-width: 0; min-height: 36px; padding: 0 8px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-chat-bg); font-size: 15px; text-align: center; outline: none; user-select: text; -webkit-user-select: text; }\n.wy-every-in:focus { border-color: var(--wy-accent); }\n.wy-every > .wy-len { padding: 6px 16px 8px; background: var(--wy-panel); border-bottom: 1px solid var(--wy-line); }\n.wy-cap { max-height: 9em; overflow-y: auto; }\n/* ---- dark skin: the green primary buttons (owner-approved fix 2026-11-21): white on the light dark-skin accent measured 1.8:1 — the dark ink\n   of his own bubble instead (8.9:1), as the add-contact mock's row buttons; the light skin keeps white on its dark green (5.5:1) ---- */\n:host([data-wy-theme=\"dark\"]) .wy .wy-done, :host([data-wy-theme=\"dark\"]) .wy .wy-bootbtn, :host([data-wy-theme=\"dark\"]) .wy .wy-boot-retry,\n:host([data-wy-theme=\"dark\"]) .wy .wy-send, :host([data-wy-theme=\"dark\"]) .wy .wy-cmp-go, :host([data-wy-theme=\"dark\"]) .wy .wy-edit-ok,\n:host([data-wy-theme=\"dark\"]) .wy .wy-fbar-go, :host([data-wy-theme=\"dark\"]) .wy .wy-words-save { color: var(--wy-own-ink); }\n/* ---- dark skin, the same fix for the remaining white-on-green bits (root's extra 2026-11-21, lane ac-b): the 「新」 tag, the 通讯录's green icon\n   tiles (not the grey 窥屏 tile) and the ticked checkboxes measured 1.8:1 — the dark ink instead (8.9:1); the light skin is untouched ---- */\n:host([data-wy-theme=\"dark\"]) .wy .wy-new, :host([data-wy-theme=\"dark\"]) .wy .wy-sq:not(.wy-sq-observed),\n:host([data-wy-theme=\"dark\"]) .wy .wy-pick.wy-on .wy-ck, :host([data-wy-theme=\"dark\"]) .wy .wy-fon > .wy-fck { color: var(--wy-own-ink); }\n/* ---- adding contacts by hand (2026-11-21): the 添加朋友 form / 编辑资料 page and the profile's 人物说明 card — the approved mock's\n   tools/mock-extra.css, tokens only (both skins for free); focus = :focus (the mock drew a class), no maxlength anywhere ---- */\n.wy-ac .wy-scroll { background: var(--wy-chat-bg); }\n.wy-ac-sec { display: flex; flex-direction: column; background: var(--wy-panel); border-top: 1px solid var(--wy-line); border-bottom: 1px solid var(--wy-line); }\n.wy-ac-sechead { padding: 14px 16px 6px; color: var(--wy-sub); font-size: 12.5px; }\n.wy-ac-f { display: flex; flex-direction: column; gap: 6px; min-width: 0; padding: 12px 16px; }\n.wy-ac-f + .wy-ac-f { border-top: 1px solid var(--wy-line); }\n.wy-ac-lr { display: flex; align-items: center; gap: 6px; min-width: 0; }\n.wy-ac-l { flex: none; color: var(--wy-ink); font-size: 15px; font-weight: 500; }\n.wy-ac-req { flex: none; padding: 0 5px; border-radius: 4px; background: var(--wy-alert); color: var(--wy-on-fill); font-size: 10.5px; font-weight: 600; line-height: 17px; }\n.wy-ac-opt { flex: none; padding: 0 5px; border-radius: 4px; background: var(--wy-tag); color: var(--wy-sub); font-size: 10.5px; font-weight: 500; line-height: 17px; }\n.wy-ac-n { margin-left: auto; color: var(--wy-sub); font-size: 12px; font-variant-numeric: tabular-nums; }\n.wy-ac-n.wy-ac-n-over { color: var(--wy-alert); font-weight: 600; }\n.wy .wy-ac-in, .wy .wy-ac-ta { width: 100%; box-sizing: border-box; min-height: 40px; padding: 0 10px; border: 1px solid var(--wy-line); border-radius: 6px; background: var(--wy-chat-bg); color: var(--wy-ink); font-size: 15px; outline: none; user-select: text; -webkit-user-select: text; }\n.wy .wy-ac-ta { display: block; min-height: 84px; max-height: 220px; padding: 8px 10px; line-height: 1.5; resize: none; font-family: inherit; field-sizing: content; }\n.wy-ac-in::placeholder, .wy-ac-ta::placeholder { color: var(--wy-sub); opacity: 1; }\n.wy .wy-ac-in:focus, .wy .wy-ac-ta:focus { border-color: var(--wy-accent); }\n.wy .wy-ac-in.wy-ac-bad { border-color: var(--wy-alert); }\n.wy-ac-ro { min-height: 24px; color: var(--wy-ink); font-size: 15px; line-height: 24px; overflow-wrap: anywhere; }\n.wy-ac-hint { color: var(--wy-sub); font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-ac-err { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; color: var(--wy-alert); font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }\n.wy .wy-ac-err .wy-link { min-height: 28px; font-size: 13px; }\n.wy-ac-seg { margin-top: 2px; }\n.wy .wy-ac-seg .wy-seg-i { min-height: 36px; font-size: 14px; }\n.wy-ac-foot { padding: 12px 16px 24px; color: var(--wy-sub); font-size: 12px; line-height: 1.55; }\n.wy-ac-desc { display: flex; align-items: flex-start; gap: 10px; padding: 13px 12px 13px 16px; background: var(--wy-panel); border-top: 1px solid var(--wy-line); cursor: pointer; }\n.wy-ac-desc-b { flex: 1 1 auto; min-width: 0; }\n.wy-ac-desc .wy-k { margin-bottom: 4px; color: var(--wy-sub); font-size: 13px; }\n.wy-ac-desc-v { font-size: 14.5px; line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere; }\n.wy-ac-chev { flex: none; display: inline-flex; align-items: center; gap: 2px; margin-top: 1px; color: var(--wy-sub); font-size: 13px; }\n.wy-ac-chev svg { width: 16px; height: 16px; }\n/* ---- 从故事里找人 (adding contacts by hand, pass B): the one page — start · running · list · nobody new · failed / stopped — the approved\n   mock's tools/mock-extra.css, tokens only; plus the group-clash reason line (.wy-ac-why), long tags wrap, and 「新」 on a 通讯录 row ---- */\n.wy-ac-intro { display: flex; gap: 12px; align-items: flex-start; padding: 16px; background: var(--wy-panel); border-bottom: 1px solid var(--wy-line); }\n.wy-ac-badge { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 10px; background: var(--wy-hl); color: var(--wy-accent); }\n.wy-ac-badge svg { width: 26px; height: 26px; }\n.wy-ac-intro-t { font-size: 15px; font-weight: 600; }\n.wy-ac-intro-d { margin-top: 3px; color: var(--wy-sub); font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }\n.wy-ac-run { display: flex; flex-direction: column; gap: 6px; padding: 12px 16px 14px; background: var(--wy-panel); border-bottom: 1px solid var(--wy-line); }\n.wy .wy-ac-run .wy-words-aibtn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }\n.wy-ac-run .wy-words-aibtn svg { width: 18px; height: 18px; }\n.wy-ac-dots { display: inline-flex; gap: 3px; }\n.wy-ac-dots i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0.5; }\n.wy-ac-dots i:nth-child(2) { opacity: 0.75; }\n.wy-ac-dots i:nth-child(3) { opacity: 1; }\n/* the owner 2026-11-23 (\"looks frozen\"): while the find request is out the dots bounce like the chat's typing dots (.wy-dots: same keyframes,\n   timing, delays) and the skeleton rows breathe like the call screen's 正在等待… (wy-pulse, 动画 开 only), one row after another. 关 / the\n   system's reduced motion stop both through the zeroing rules at the end (the static opacities above are what is left). */\n.wy-ac-dots i { animation: wy-dots 1.1s infinite ease-in-out; }\n.wy-ac-dots i:nth-child(2) { animation-delay: 0.15s; }\n.wy-ac-dots i:nth-child(3) { animation-delay: 0.3s; }\n.wy-ac-skel { display: flex; gap: 12px; align-items: center; padding: 14px 16px; background: var(--wy-panel); }\n.wy-ac-skel + .wy-ac-skel { border-top: 1px solid var(--wy-line); }\n.wy-ac-skel-av { flex: none; width: 44px; height: 44px; border-radius: 6px; background: var(--wy-tag); }\n.wy-ac-skel-l { flex: 1 1 auto; display: flex; flex-direction: column; gap: 7px; }\n.wy-ac-skel-l i { display: block; height: 10px; border-radius: 5px; background: var(--wy-tag); }\n.wy-ac-skel-l i:nth-child(1) { width: 34%; height: 13px; }\n.wy-ac-skel-l i:nth-child(2) { width: 72%; }\n.wy-ac-skel-l i:nth-child(3) { width: 58%; }\n.wy[data-wy-motion=\"on\"] .wy-ac-skel-av, .wy[data-wy-motion=\"on\"] .wy-ac-skel-l i { animation: wy-pulse 1.4s ease-in-out infinite; }\n.wy[data-wy-motion=\"on\"] .wy-ac-skel + .wy-ac-skel .wy-ac-skel-av, .wy[data-wy-motion=\"on\"] .wy-ac-skel + .wy-ac-skel .wy-ac-skel-l i { animation-delay: 0.2s; }\n.wy[data-wy-motion=\"on\"] .wy-ac-skel + .wy-ac-skel + .wy-ac-skel .wy-ac-skel-av, .wy[data-wy-motion=\"on\"] .wy-ac-skel + .wy-ac-skel + .wy-ac-skel .wy-ac-skel-l i { animation-delay: 0.4s; }\n.wy-ac-listhead { padding: 14px 16px 6px; color: var(--wy-sub); font-size: 12.5px; }\n.wy-ac-cand { position: relative; display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px 12px 16px; background: var(--wy-panel); }\n.wy-ac-cand + .wy-ac-cand::before { content: \"\"; position: absolute; left: 72px; right: 0; top: 0; height: 1px; background: var(--wy-line); transform: scaleY(0.5); transform-origin: top; }\n.wy-ac-cand > .wy-av { flex: none; border-radius: 6px; }\n.wy-ac-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }\n.wy-ac-nl { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; min-width: 0; }\n.wy-ac-nm { min-width: 0; font-size: 16px; font-weight: 500; overflow-wrap: anywhere; }\n.wy-ac-tag { max-width: 100%; margin-top: 0; white-space: normal; overflow-wrap: anywhere; }\n.wy-ac-tag.wy-ac-tag-warn { background: var(--wy-tag); color: var(--wy-warn-ink); font-weight: 600; }\n.wy-ac-why { color: var(--wy-alert); font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; }\n.wy-ac-from { color: var(--wy-sub); font-size: 12.5px; overflow-wrap: anywhere; }\n.wy-ac-sig { font-size: 13.5px; overflow-wrap: anywhere; }\n.wy-ac-ex { margin-top: 3px; padding: 5px 8px; border-radius: 4px; background: var(--wy-quote); color: var(--wy-sub); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-ac-ex-t { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }\n.wy-ac-ex b { color: var(--wy-ink); font-weight: 500; }\n.wy .wy-ac-add { flex: none; align-self: flex-start; min-width: 56px; min-height: 32px; margin-top: 4px; padding: 0 12px; border-radius: 6px; background: var(--wy-accent); color: var(--wy-on-fill); font-size: 13.5px; font-weight: 600; white-space: nowrap; }\n/* dark skin: white on the light dark-skin accent reads poorly — the dark ink instead (as the mock drew it, as the primary buttons above) */\n:host([data-wy-theme=\"dark\"]) .wy .wy-ac-add { color: var(--wy-own-ink); }\n.wy .wy-ac-added { flex: none; align-self: flex-start; min-height: 32px; margin-top: 4px; padding: 0 4px; color: var(--wy-sub); font-size: 13.5px; line-height: 32px; white-space: nowrap; }\n.wy-ac-cand.wy-ac-done .wy-ac-ex { opacity: 0.7; }\n.wy-ac-have { padding: 12px 16px; color: var(--wy-sub); font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-ac-more { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 16px 28px; }\n.wy-ac-more .wy-words-aicost { text-align: center; }\n.wy-ac-res { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 30px 24px 18px; text-align: center; }\n.wy-ac-res-ic { display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 50%; background: var(--wy-tag); color: var(--wy-sub); }\n.wy-ac-res-ic svg { width: 28px; height: 28px; }\n.wy-ac-res-t { font-size: 16px; font-weight: 600; }\n.wy-ac-res-t.wy-ac-bad { color: var(--wy-alert); }\n.wy-ac-res-have { max-width: 290px; margin-top: 4px; color: var(--wy-sub); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }\n.wy-ac-res-d { max-width: 290px; color: var(--wy-sub); font-size: 13px; line-height: 1.55; overflow-wrap: anywhere; }\n.wy .wy-ac-res .wy-link { margin-top: 2px; }\n.wy-prow .wy-new { margin-top: 0; }\n/* ---- phone upgrades: stickers (plan Task 16) — the bubble (a 120 px box, no bubble background), the panel (a bottom sheet of cells) ---- */\n.wy-stk { display: flex; align-items: center; justify-content: center; width: 120px; height: 120px; max-width: 100%; overflow: hidden; border-radius: 10px; }\n.wy-stk-img { display: block; width: 100%; height: 100%; object-fit: contain; }\n.wy-stk-tile { border: 1px dashed var(--wy-line); background: var(--wy-tag); color: var(--wy-sub); }\n/* a word sticker: a plain white square with bold black characters in BOTH skins (Prince 2026-11-23) — the paper and the ink are fixed together\n   (landmines-ui: a card whose background is fixed pins its text colour) */\n.wy-stk-word { border: 1px solid var(--wy-stk-edge); border-radius: 4px; background: var(--wy-stk-paper); color: var(--wy-stk-ink); font-weight: 800; }\n.wy-stk-n { padding: 6px; font-size: 15px; line-height: 1.3; text-align: center; overflow-wrap: anywhere; }\n.wy-stk-word .wy-stk-n { color: var(--wy-stk-ink); font-size: 32px; line-height: 1.15; letter-spacing: 0.02em; }\n.wy-stk-word.wy-stk-long .wy-stk-n { font-size: 18px; }\n.wy-sheet.wy-stksheet { max-height: 70%; }\n.wy-stk-body { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 12px 8px; }\n.wy-stk-h { padding: 8px 4px 6px; color: var(--wy-sub); font-size: 12.5px; }\n.wy-stk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 6px; }\n.wy .wy-stk-cell { display: flex; align-items: center; justify-content: center; min-width: 44px; min-height: 72px; padding: 2px; border-radius: 10px; }\n.wy-stk-cell:hover { background: var(--wy-hover); }\n.wy-stk-cell .wy-stk { width: 68px; height: 68px; }\n.wy-stk-cell .wy-stk-n { font-size: 14px; }\n.wy-stk-cell .wy-stk-word .wy-stk-n { font-size: 20px; }\n.wy-stk-cell .wy-stk-word.wy-stk-long .wy-stk-n { font-size: 12px; }\n.wy-stk-load, .wy-stk-fail { padding: 10px 4px; color: var(--wy-sub); font-size: 13px; }\n/* ---- phone upgrades: reactions (plan Task 17) — the menu's quick row (seven 40 px cells: the menu widens to them), the chips under the\n   bubble (a 40 px tap area over a 28 px pill), the picker, the list of who ---- */\n.wy-re-row { display: grid; grid-template-columns: repeat(7, 40px); justify-content: space-between; gap: 2px; padding: 0 2px 4px; border-bottom: 1px solid var(--wy-line); }\n.wy-pop .wy-re-q, .wy-pop .wy-re-more { justify-content: center; width: 40px; min-height: 40px; padding: 0; border-radius: 50%; font-size: 22px; text-align: center; }\n.wy-pop .wy-re-q.wy-on { background: var(--wy-tag); }\n.wy-pop .wy-re-more { color: var(--wy-sub); font-size: 22px; font-weight: 300; }\n.wy-re-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }\n.wy .wy-re-chip { position: relative; display: inline-flex; align-items: center; gap: 3px; min-height: 28px; padding: 0 9px; border: 1px solid var(--wy-line); border-radius: 14px; background: var(--wy-bubble); color: var(--wy-ink); font-size: 15px; line-height: 1; }\n.wy-re-chip::before { content: \"\"; position: absolute; inset: -6px -2px; }\n.wy .wy-re-chip.wy-re-mine { border-color: var(--wy-accent); }\n.wy-re-n { color: var(--wy-sub); font-size: 12px; }\n.wy-sheet.wy-repick { gap: 8px; padding: 8px 14px 14px; }\n.wy-sheet.wy-repick .wy-cmp-head { position: static; margin: 0; padding: 0; }\n.wy .wy-re-in { width: 100%; min-height: 44px; font-size: 22px; text-align: center; }\n.wy-re-bad { color: var(--wy-alert); font-size: 12.5px; text-align: center; }\n.wy-sheet.wy-relist { max-height: 70%; }\n.wy-re-em { font-size: 26px; }\n.wy-re-list { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }\n.wy-re-who { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 16px; font-size: 15px; }\n/* ---- phone upgrades: the incoming call (plan Task 18) — the ring screen = the calling screen with the two-button foot (拒绝 red, 接听 the\n   redial tint), her voice message under her missed / declined call ---- */\n.wy-cs-accept .wy-callscr-x { background: var(--wy-tile-b); }\n.wy-cs-accept .wy-callscr-x svg { transform: none; }\n.wy-vm { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; margin-top: 4px; }\n.wy-vm-l { color: var(--wy-sub); font-size: 12px; }\n/* ---- phone upgrades: status and the versions pager (plan Task 19) — the status as a small second line (contacts row; the private chat's\n   title inside the unchanged 52 px bar), the profile's 状态 card; the pager under the round's last line (two 40 px buttons) ---- */\n.wy-pcol { display: flex; flex: 1 1 auto; flex-direction: column; justify-content: center; gap: 1px; min-width: 0; }\n.wy-prow .wy-pcol .wy-nm { flex: none; }\n.wy-pst { min-width: 0; overflow: hidden; color: var(--wy-sub); font-size: 12.5px; line-height: 1.3; white-space: nowrap; text-overflow: ellipsis; }\n.wy-ttl2 { display: inline-flex; flex-direction: column; align-items: center; max-width: 100%; vertical-align: middle; line-height: 1.2; }\n.wy-ttl-1 { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }\n.wy-ttl-st { max-width: 100%; overflow: hidden; color: var(--wy-sub); font-size: 11.5px; font-weight: 400; white-space: nowrap; text-overflow: ellipsis; }\n.wy-stcard { border-bottom: 1px solid var(--wy-line); }\n.wy-vers { display: flex; align-items: center; gap: 2px; margin: -2px 0 6px 52px; color: var(--wy-sub); font-size: 13px; }\n.wy .wy-vers-b { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; color: var(--wy-sub); font-size: 22px; line-height: 1; }\n.wy .wy-vers-b:hover { background: var(--wy-hover); }\n.wy .wy-vers-b:disabled { opacity: 0.35; cursor: default; }\n.wy-vers-n { min-width: 28px; text-align: center; font-variant-numeric: tabular-nums; }\n.wy-vers-full { margin-left: 6px; font-size: 12px; }\n/* ====== LOOKS (crystal / scroll; looks build 2026-11-24, plan 2026-11-23-phone-looks.md Tasks 3–6) ======\n   Everything here hangs on :host([data-wy-look=…]) or on classes only the device builders write (wy-dtop, wy-ln, wy-spk, …), so the phone\n   look never matches a rule of this section. Colours = tokens only (the device palettes --wy-cr-* / --wy-sc-* of the two token rules). */\n/* the chat's top (Task 3): crystal = the name etched on the top facet; scroll = a pasted title slip on the silk */\n.wy-dtop { position: relative; z-index: 1; flex: 0 0 auto; display: flex; align-items: center; gap: 6px; min-height: var(--wy-top-h); padding: 6px 8px; }\n.wy-dtop-c { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; text-align: center; }\n.wy-dtop-ttl { max-width: 100%; overflow: hidden; color: var(--wy-ink); font-size: 15px; font-weight: 600; white-space: nowrap; text-overflow: ellipsis; }\n.wy-dtop-sub { max-width: 100%; overflow: hidden; color: var(--wy-sub); font-size: 11px; white-space: nowrap; text-overflow: ellipsis; }\n.wy .wy-dtop-b { position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; gap: 2px; min-width: 40px; height: 40px; padding: 0 6px; border: 0; border-radius: 0; background: none; color: var(--wy-accent); font-size: 14px; cursor: pointer; }\n.wy-dtop-b svg { width: 22px; height: 22px; }\n.wy-dtop-sp { flex: 0 0 auto; width: 40px; }\n.wy-dtop-n { color: var(--wy-sub); font-size: 11px; }\n:host([data-wy-look=\"crystal\"]) .wy-dtop { isolation: isolate; margin: 4px 10px 0; }\n/* the top facet is drawn by ::before, so its cut never clips the back / ⋯ marks' hit area or focus ring (polish K1P, review A minor M-1) */\n:host([data-wy-look=\"crystal\"]) .wy-dtop::before { content: \"\"; position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: -1; background: linear-gradient(180deg, var(--wy-cr-edge), transparent 85%); clip-path: polygon(9% 0, 91% 0, 100% 100%, 0 100%); pointer-events: none; }\n:host([data-wy-look=\"crystal\"]) .wy-dtop-ttl { letter-spacing: 1.5px; text-shadow: 0 0 8px var(--wy-cr-glow); }\n:host([data-wy-look=\"scroll\"]) .wy-dtop { padding: 8px 8px 6px; border-bottom: 1px solid var(--wy-sc-edge); }\n:host([data-wy-look=\"scroll\"]) .wy-dtop-c { flex: 0 1 auto; margin: 0 auto; padding: 3px 16px; border: 1px solid var(--wy-sc-edge); background: var(--wy-sc-slip); box-shadow: 1px 2px 0 var(--wy-sc-glow); }\n:host([data-wy-look=\"scroll\"]) .wy-dtop-ttl { font-family: \"STKaiti\", \"KaiTi\", \"Kaiti SC\", \"BiauKai\", serif; font-size: 16px; letter-spacing: 2px; }\n/* the scroll asks for brush / kai faces by name (no font file ships, spec §13.7) — the paper's lettering everywhere */\n:host([data-wy-look=\"scroll\"]) .wy { font-family: \"STKaiti\", \"KaiTi\", \"Kaiti SC\", \"BiauKai\", \"Songti SC\", serif; }\n/* message rows (Task 4): a line = .wy-m.wy-ln (the phone's row frame, no bubble) > .wy-spk (the speaker's mark) + .wy-mb (name, body\n   .wy-lt / the kind's own box, quote, chips) (+ his .wy-ln-mark) + ⋯. data-wy-age 0 … 3 = newest … older (dimmer in steps, still readable). */\n/* crystal-ui round (2026-11-26): the mark's one cell IS its box (grid-template). With auto tracks a portrait picture (ST's own avatars are\n   2:3) sized the row by its natural height — the picture grew taller than the mark, out of the 我 card, the 我 stone and the seal's red frame. */\n.wy-spk { position: relative; flex: none; display: inline-grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; width: 30px; height: 30px; margin-top: 16px; color: var(--wy-spk-c, var(--wy-accent)); cursor: pointer; touch-action: manipulation; }\n.wy-ln-me > .wy-spk { margin-top: 1px; }\n.wy-spk > svg { grid-area: 1 / 1; width: 100%; height: 100%; }\n.wy-spk-img > img { grid-area: 1 / 1; display: block; width: 84%; height: 84%; object-fit: cover; }\n.wy-spk-ch { grid-area: 1 / 1; font-size: 15px; font-weight: 700; line-height: 1; }\n.wy-ln .wy-mb { max-width: 78%; }\n.wy-ln .wy-mn { margin: 0 0 2px; color: var(--wy-sub); font-size: 12px; font-weight: 600; }\n.wy-lt { position: relative; max-width: 100%; padding: 1px 0; color: var(--wy-ink); font-size: 15px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }\n.wy-lt .wy-at { color: var(--wy-accent); font-weight: 600; }\n.wy-ln-me .wy-lt { text-align: right; }\n.wy-ln-mark { flex: none; align-self: stretch; width: 3px; margin: 2px 0; border-radius: 2px; }\n/* the age steps dim the line's BODY only (text, quote, chips) — never the speaker's name (.wy-mn), which every line must keep readable; the\n   paper's steps are gentler than the glass's so the dimmest step still clears 4.5 : 1 for ink, the grey and the red @ (weiyu-lk-contrast) */\n.wy-ln[data-wy-age=\"1\"] > .wy-mb > :not(.wy-mn) { opacity: 0.92; }\n.wy-ln[data-wy-age=\"2\"] > .wy-mb > :not(.wy-mn) { opacity: 0.84; }\n.wy-ln[data-wy-age=\"3\"] > .wy-mb > :not(.wy-mn) { opacity: 0.78; }\n:host([data-wy-look=\"scroll\"]) .wy-ln[data-wy-age=\"1\"] > .wy-mb > :not(.wy-mn) { opacity: 0.96; }\n:host([data-wy-look=\"scroll\"]) .wy-ln[data-wy-age=\"2\"] > .wy-mb > :not(.wy-mn) { opacity: 0.93; }\n:host([data-wy-look=\"scroll\"]) .wy-ln[data-wy-age=\"3\"] > .wy-mb > :not(.wy-mn) { opacity: 0.9; }\n.wy-lt.wy-voice, .wy-lt.wy-callmsg { min-height: 36px; padding: 0 10px; }\n/* 消息菜单 = 长按气泡 on a device line (looks fold-in): soWyLift marks the held .wy-lt with .wy-lp (under a device also with 动画 关). A still\n   tint always; with motion on the phone's lift + a fill charging from the finger over the hold (--wy-lp-ms / -x / -y), in the device's ink */\n.wy-menu-hold .wy-lt.wy-lp { background-color: var(--wy-hl); }\n.wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-lt { transition: transform 0.2s ease, background-color 0.15s ease; }\n.wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-lt::after { content: \"\"; position: absolute; inset: 0; z-index: 2; border-radius: inherit; background: var(--wy-accent); opacity: 0; transform: scale(0); transform-origin: var(--wy-lp-x, 50%) var(--wy-lp-y, 50%); pointer-events: none; transition: transform 0.15s ease, opacity 0.15s ease; }\n.wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-lt.wy-lp { transform: translateY(-2px) scale(1.03); transition: transform var(--wy-lp-ms, 500ms) cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.15s ease; }\n.wy[data-wy-motion=\"on\"] .wy-menu-hold .wy-lt.wy-lp::after { opacity: 0.16; transform: scale(1); transition: transform var(--wy-lp-ms, 500ms) cubic-bezier(0.3, 0.2, 0.3, 1), opacity 0.15s ease; }\n.wy-ln-stain { position: absolute; top: 50%; left: 50%; width: 140px; height: 36px; margin: -18px 0 0 -70px; color: var(--wy-sc-stain); pointer-events: none; }\n.wy-ln-stain svg { width: 100%; height: 100%; }\n/* crystal: lines of light inside the gem */\n:host([data-wy-look=\"crystal\"]) .wy-spk-sig { filter: drop-shadow(0 0 3px var(--wy-cr-glow)); }\n:host([data-wy-look=\"crystal\"]) .wy-spk-img { color: var(--wy-cr-mark); }\n:host([data-wy-look=\"crystal\"]) .wy-spk-img > img { width: 100%; height: 100%; clip-path: polygon(30% 0, 70% 0, 100% 30%, 100% 70%, 70% 100%, 30% 100%, 0 70%, 0 30%); }\n:host([data-wy-look=\"crystal\"]) .wy-lt { text-shadow: 0 0 6px var(--wy-cr-glow); }\n:host([data-wy-look=\"crystal\"]) .wy-ln[data-wy-age=\"0\"] .wy-lt { text-shadow: 0 0 10px var(--wy-cr-glow), 0 0 2px var(--wy-cr-glow); }\n:host([data-wy-look=\"crystal\"]) .wy-ln-me .wy-lt { color: var(--wy-cr-mark); }\n:host([data-wy-look=\"crystal\"]) .wy-ln-mark { background: var(--wy-cr-mark); box-shadow: 0 0 6px var(--wy-cr-glow); }\n:host([data-wy-look=\"crystal\"]) .wy-lt.wy-voice, :host([data-wy-look=\"crystal\"]) .wy-lt.wy-callmsg,\n:host([data-wy-look=\"crystal\"]) .wy-cardmsg, :host([data-wy-look=\"crystal\"]) .wy-fwdmsg, :host([data-wy-look=\"crystal\"]) .wy-paymsg,\n:host([data-wy-look=\"crystal\"]) .wy-frame { border: 1px solid var(--wy-cr-edge); border-radius: 2px; box-shadow: 0 0 10px var(--wy-cr-glow); }\n:host([data-wy-look=\"crystal\"]) .wy-q { border-left: 2px solid var(--wy-cr-edge); border-radius: 0; }\n:host([data-wy-look=\"crystal\"]) .wy-line-mid .wy-sys-t { letter-spacing: 1px; text-shadow: 0 0 6px var(--wy-cr-glow); }\n:host([data-wy-look=\"crystal\"]) .wy-re-chip { border: 1px solid var(--wy-cr-edge); }\n/* scroll: lines written on the paper */\n:host([data-wy-look=\"scroll\"]) .wy-spk-seal { border-radius: 4px; background: var(--wy-spk-c); color: var(--wy-sc-seal-ink); }\n:host([data-wy-look=\"scroll\"]) .wy-spk-seal > svg { width: 86%; height: 86%; opacity: 0.7; }\n:host([data-wy-look=\"scroll\"]) .wy-spk-img { color: var(--wy-sc-seal); }\n:host([data-wy-look=\"scroll\"]) .wy-spk-img > img { width: 84%; height: 84%; border-radius: 4px; }\n:host([data-wy-look=\"scroll\"]) .wy-lt { font-size: 15.5px; }\n:host([data-wy-look=\"scroll\"]) .wy-ln-me .wy-lt { color: var(--wy-own-ink); }\n:host([data-wy-look=\"scroll\"]) .wy-ln-mark { width: 2px; background: var(--wy-sc-mark); }\n:host([data-wy-look=\"scroll\"]) .wy-lt.wy-voice, :host([data-wy-look=\"scroll\"]) .wy-lt.wy-callmsg { border-bottom: 1px dashed var(--wy-sc-edge); }\n:host([data-wy-look=\"scroll\"]) .wy-cardmsg, :host([data-wy-look=\"scroll\"]) .wy-fwdmsg, :host([data-wy-look=\"scroll\"]) .wy-paymsg { border: 1px solid var(--wy-sc-edge); border-radius: 0; box-shadow: 1px 2px 0 var(--wy-sc-glow); }\n:host([data-wy-look=\"scroll\"]) .wy-frame { border: 4px solid var(--wy-sc-edge); border-radius: 0; }\n:host([data-wy-look=\"scroll\"]) .wy-q { border-left: 2px solid var(--wy-sc-mark); border-radius: 0; }\n:host([data-wy-look=\"scroll\"]) .wy-re-chip { border: 1px solid var(--wy-sc-edge); border-radius: 2px; }\n/* the writing place (Task 5; polish K1P after the stage-1 second opinion #1): .wy-chatfoot.wy-dfoot > (auto-reply row, quote chip) +\n   .wy-inrow.wy-ring (crystal) / .wy-inrow.wy-desk (scroll). Every control stays visible under a device (「+」 and send both; send greys until\n   there is text); the running stop square replaces them as on the phone. The DOM order is the phone's (mic, field, stickers, 「+」, send,\n   stop: the same acts in the same order); only `order` places them. The real textarea is never length-limited and keeps its IME. */\n.wy-ring-f, .wy-slip { position: relative; flex: 1 1 auto; display: flex; align-items: center; min-width: 0; }\n.wy-ring-f > .wy-input, .wy-slip > .wy-input { position: relative; z-index: 1; flex: 1 1 auto; min-width: 0; border: 0; background: transparent; }\n.wy-ring-art { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 0; color: var(--wy-cr-mark); pointer-events: none; }\n.wy-ring-art svg, .wy-dk-art svg, .wy-slip-brush svg { display: block; width: 100%; height: 100%; }\n.wy .wy-dk-dev { position: relative; z-index: 1; background: none; }\n.wy-dk-art { position: absolute; top: 0; right: 0; bottom: 0; left: 0; color: var(--wy-cr-edge); pointer-events: none; }\n.wy-dk-dev > svg:last-child, .wy-send-stone > svg:last-child { position: relative; width: 22px; height: 22px; }\n.wy-inrow.wy-ring:not(.wy-running):not(.wy-has-text) > .wy-send, .wy-inrow.wy-desk:not(.wy-running):not(.wy-has-text) > .wy-send { display: inline-flex; }\n.wy-inrow.wy-ring:not(.wy-running).wy-has-text > .wy-plus, .wy-inrow.wy-desk:not(.wy-running).wy-has-text > .wy-plus { display: inline-flex; }\n.wy-inrow.wy-ring > .wy-mic, .wy-inrow.wy-desk > .wy-mic { order: 1; }\n.wy-inrow.wy-ring > .wy-plus, .wy-inrow.wy-desk > .wy-plus { order: 2; }\n.wy-inrow.wy-ring > .wy-ring-f, .wy-inrow.wy-desk > .wy-slip { order: 3; }\n.wy-inrow.wy-ring > .wy-stkbtn, .wy-inrow.wy-desk > .wy-stkbtn { order: 4; }\n.wy-inrow.wy-ring > .wy-send, .wy-inrow.wy-desk > .wy-send, .wy-inrow.wy-ring > .wy-stopsq, .wy-inrow.wy-desk > .wy-stopsq { position: relative; z-index: 1; order: 5; }\n.wy .wy-send-dev { position: relative; align-items: center; justify-content: center; }\n.wy .wy-send-seal { min-width: 48px; width: 48px; height: 48px; padding: 0; border-radius: 4px; background: none; }\n.wy-send-seal > .wy-spk { width: 42px; height: 42px; margin: 0; pointer-events: none; }\n/* crystal: ONE rune ring around the whole row (the field's holder steps aside so the stretched ring art spans the row; no box of its own);\n   the typed line is light in the ring's middle — up to three lines show, more scroll inside it (never cut); the controls are rune stones\n   on the ring's band, send = a bright hex stone */\n:host([data-wy-look=\"crystal\"]) .wy-chatfoot { border-top: 0; background: linear-gradient(0deg, var(--wy-cr-desk), transparent); }\n:host([data-wy-look=\"crystal\"]) .wy-dfoot .wy-qchip { border-radius: 0; background: var(--wy-cr-stain); color: var(--wy-cr-dim); clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }\n:host([data-wy-look=\"crystal\"]) .wy-inrow.wy-ring { position: relative; align-items: center; gap: 2px; min-height: 72px; margin: 0 -4px; padding: 10px 2px; }\n:host([data-wy-look=\"crystal\"]) .wy-ring-f { position: static; align-self: stretch; justify-content: center; padding: 0 4px; border: 0; border-radius: 0; background: none; box-shadow: none; }\n:host([data-wy-look=\"crystal\"]) .wy-ring-art { filter: drop-shadow(0 0 5px var(--wy-cr-glow)); }\n:host([data-wy-look=\"crystal\"]) .wy-ring-art::after { content: \"\"; position: absolute; top: 24%; right: 13%; bottom: 24%; left: 13%; border-radius: 50%; background: radial-gradient(closest-side, var(--wy-cr-stone), transparent); opacity: 0.55; }\n:host([data-wy-look=\"crystal\"]) .wy-ring-f:focus-within > .wy-ring-art { filter: drop-shadow(0 0 9px var(--wy-cr-glow)) brightness(1.25); }\n:host([data-wy-look=\"crystal\"]) .wy-ring-f > .wy-input { align-self: center; min-height: 26px; max-height: 69px; padding: 2px 0; overflow-y: auto; scrollbar-width: none; text-align: center; font-size: 15px; line-height: 21px; color: var(--wy-cr-mark); caret-color: var(--wy-cr-mark); text-shadow: 0 0 6px var(--wy-cr-glow), 0 0 14px var(--wy-cr-glow); }\n:host([data-wy-look=\"crystal\"]) .wy-ring-f > .wy-input::placeholder { color: var(--wy-cr-sub); text-shadow: none; }\n:host([data-wy-look=\"crystal\"]) .wy-ring > .wy-dk-dev { width: 36px; height: 36px; color: var(--wy-cr-mark); filter: drop-shadow(0 0 4px var(--wy-cr-glow)); }\n:host([data-wy-look=\"crystal\"]) .wy-ring .wy-dk-art { color: var(--wy-cr-stone-hi); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-send-stone { width: 38px; min-width: 38px; height: 38px; padding: 0; border: 0; border-radius: 0; background: linear-gradient(150deg, var(--wy-cr-mark), var(--wy-cr-stone)); clip-path: polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%); color: var(--wy-cr-on-fill); }\n:host([data-wy-look=\"crystal\"]) .wy-send-stone > .wy-dk-art { color: var(--wy-cr-mark); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-send-stone:disabled { background: linear-gradient(150deg, var(--wy-cr-seal), var(--wy-cr-pool)); color: var(--wy-cr-sub); }   /* looks polish: dormant, never a washed-out grey */\n:host([data-wy-look=\"crystal\"]) .wy .wy-ring > .wy-stopsq { min-width: 40px; width: 40px; height: 40px; border-radius: 0; background: var(--wy-cr-alert); clip-path: polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%); color: var(--wy-cr-on-fill); }\n/* scroll: the writing desk — a wooden roller at the paper's foot (.wy-lk-rod: the lines come out from behind it), then the desk with the\n   player's things: the inkstone (「+」, drawn: a stone with its ink well), a ruled paper slip with a brush resting on it (the field), a small\n   paper of stickers, the voice token, and his red seal (send) */\n.wy-lk-rod { position: relative; z-index: 3; flex: none; height: 12px; margin: -6px -2px 0; border-radius: 6px; background: linear-gradient(180deg, var(--wy-sc-wood-hi), var(--wy-sc-wood) 55%, var(--wy-sc-desk)); box-shadow: 0 2px 3px var(--wy-sc-glow); pointer-events: none; }\n:host([data-wy-look=\"scroll\"]) .wy-chatfoot { border-top: 0; background: var(--wy-sc-desk); color: var(--wy-sc-desk-ink); }\n:host([data-wy-look=\"scroll\"]) .wy-dfoot .wy-ar-tg { color: var(--wy-sc-desk-ink); -webkit-text-fill-color: var(--wy-sc-desk-ink); }\n:host([data-wy-look=\"scroll\"]) .wy-dfoot .wy-ar-tg.wy-ar-off { color: var(--wy-sc-desk-warn); -webkit-text-fill-color: var(--wy-sc-desk-warn); }\n:host([data-wy-look=\"scroll\"]) .wy-chatfoot > .wy-len { color: var(--wy-sc-desk-ink); }\n:host([data-wy-look=\"scroll\"]) .wy-dfoot .wy-qchip { border-radius: 1px; background: var(--wy-sc-slip); color: var(--wy-sub); box-shadow: inset 0 0 0 1px var(--wy-sc-edge); }\n:host([data-wy-look=\"scroll\"]) .wy-inrow.wy-desk { align-items: center; gap: 7px; padding: 2px 0 0; }\n:host([data-wy-look=\"scroll\"]) .wy-slip { align-self: stretch; padding: 5px 28px 5px 10px; border-radius: 1px; background: var(--wy-sc-slip); box-shadow: inset 0 0 0 1px var(--wy-sc-edge), 0 2px 4px var(--wy-sc-pool); }\n:host([data-wy-look=\"scroll\"]) .wy-slip > .wy-input { min-height: 48px; max-height: 120px; padding: 0; font-size: 16px; line-height: 24px; color: var(--wy-ink); caret-color: var(--wy-sc-mark); background: repeating-linear-gradient(180deg, transparent 0 23px, var(--wy-sc-rule) 23px 24px); background-attachment: local; }\n/* K2C: the field's focus shows on the ring / the slip itself (the ring brightens; the slip takes a red edge), never as a box inside it */\n.wy .wy-ring-f > .wy-input:focus-visible, .wy .wy-slip > .wy-input:focus-visible { outline: none; }\n:host([data-wy-look=\"scroll\"]) .wy-slip:focus-within { box-shadow: inset 0 0 0 1.5px var(--wy-sc-mark), 0 2px 4px var(--wy-sc-pool); }\n:host([data-wy-look=\"scroll\"]) .wy-slip-brush { position: absolute; right: 3px; bottom: 4px; z-index: 1; width: 24px; height: 24px; color: var(--wy-ink); opacity: 0.8; transform: rotate(-28deg); pointer-events: none; }\n/* looks polish: a carved stone from above — a raised lip round a dark well, a glint on the ink (it read as a black cup) */\n:host([data-wy-look=\"scroll\"]) .wy .wy-inkstone { width: 42px; height: 46px; border-radius: 8px 8px 10px 10px; background: radial-gradient(ellipse 30% 9% at 40% 26%, var(--wy-sc-stone-hi), transparent 100%), radial-gradient(ellipse 66% 34% at 50% 32%, var(--wy-sc-pool) 0 62%, var(--wy-sc-stone-hi) 66% 72%, transparent 76%), linear-gradient(180deg, var(--wy-sc-stone-hi), var(--wy-sc-stone) 60%); box-shadow: inset 0 0 0 1.5px var(--wy-sc-stone-hi), inset 0 -3px 0 var(--wy-sc-pool), 0 3px 5px var(--wy-sc-pool); color: var(--wy-sc-desk-ink); }\n:host([data-wy-look=\"scroll\"]) .wy-inkstone > svg { display: none; }\n:host([data-wy-look=\"scroll\"]) .wy-inkstone::after { content: \"\"; position: absolute; top: 28px; left: 15px; width: 12px; height: 12px; background: linear-gradient(var(--wy-sc-desk-ink), var(--wy-sc-desk-ink)) center / 100% 2px no-repeat, linear-gradient(var(--wy-sc-desk-ink), var(--wy-sc-desk-ink)) center / 2px 100% no-repeat; }\n:host([data-wy-look=\"scroll\"]) .wy .wy-desk > .wy-mic { width: 34px; height: 34px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, var(--wy-sc-stone-hi), var(--wy-sc-stone) 70%); box-shadow: 0 2px 3px var(--wy-sc-pool); color: var(--wy-sc-desk-ink); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-desk > .wy-stkbtn { width: 30px; height: 38px; border-radius: 1px; background: var(--wy-sc-slip); box-shadow: inset 0 0 0 1px var(--wy-sc-edge), 3px 2px 0 var(--wy-sc-edge); color: var(--wy-ink); transform: rotate(5deg); }\n:host([data-wy-look=\"scroll\"]) .wy-desk > .wy-stkbtn > svg { width: 20px; height: 20px; }\n/* looks polish: his seal is a carved stone (a lit bevel, a darker cut edge, paste speckle) — here and on the 我 desk object */\n:host([data-wy-look=\"scroll\"]) .wy-send-seal .wy-spk { transform: rotate(-3deg); box-shadow: inset 0 1px 0 var(--wy-sc-lit), inset 0 -2px 0 var(--wy-sc-seal-lo), 0 3px 0 var(--wy-sc-pool), 0 4px 7px var(--wy-sc-glow); }\n:host([data-wy-look=\"scroll\"]) .wy-send-seal .wy-spk-seal { background: radial-gradient(circle, var(--wy-sc-seal-hi) 0 0.8px, transparent 1.2px) 1px 2px / 7px 6px, radial-gradient(circle, var(--wy-sc-seal-lo) 0 0.8px, transparent 1.3px) 4px 0 / 9px 8px, linear-gradient(145deg, var(--wy-sc-seal-hi), var(--wy-sc-seal) 45%, var(--wy-sc-seal-lo)); color: var(--wy-sc-seal-ink); }\n:host([data-wy-look=\"scroll\"]) .wy-send-seal .wy-spk-ch { font-size: 22px; }\n:host([data-wy-look=\"scroll\"]) .wy-send-seal:disabled > .wy-spk { filter: saturate(0.4) brightness(0.8); }   /* looks polish: unlit, never washed out */\n:host([data-wy-look=\"scroll\"]) .wy .wy-desk > .wy-stopsq { min-width: 48px; height: 44px; border-radius: 3px; background: var(--wy-sc-seal); color: var(--wy-sc-seal-ink); }\n/* the forward bar on the device (minor M-3): crystal = a count of light and a cut stone to send; scroll = the count on the desk, a seal to send */\n:host([data-wy-look=\"crystal\"]) .wy-fbar-n { color: var(--wy-cr-mark); letter-spacing: 1px; text-shadow: 0 0 6px var(--wy-cr-glow); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-fbar-go { border-radius: 0; background: var(--wy-cr-mark); color: var(--wy-cr-on-fill); clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0 50%); }\n:host([data-wy-look=\"scroll\"]) .wy-fbar-n { color: var(--wy-sc-desk-ink); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-fbar-go { border-radius: 3px; background: var(--wy-sc-seal); color: var(--wy-sc-seal-ink); box-shadow: 0 3px 0 var(--wy-sc-pool); }\n/* the other footers in the device's surface */\n:host([data-wy-look=\"crystal\"]) .wy-disbar, :host([data-wy-look=\"crystal\"]) .wy-obsbar, :host([data-wy-look=\"crystal\"]) .wy-blockbar { letter-spacing: 1px; text-shadow: 0 0 6px var(--wy-cr-glow); }\n:host([data-wy-look=\"scroll\"]) .wy-disbar, :host([data-wy-look=\"scroll\"]) .wy-obsbar, :host([data-wy-look=\"scroll\"]) .wy-blockbar { border: 1px dashed var(--wy-sc-edge); background: var(--wy-sc-slip); }\n/* sheets and menus (Task 5): .wy-dsheet = the device's panel (crystal: a cut glass slab of rune stones beside the ring; scroll: a paper slip\n   laid out from the inkstone) — same contents; the phone's per-sheet sizes repeated for it */\n.wy-dsheet { position: absolute; left: 8px; right: 8px; bottom: 8px; z-index: 1; display: flex; flex-direction: column; max-height: calc(100% - 16px); padding: 8px 0; color: var(--wy-ink); }\n.wy-dsheet.wy-compose { gap: 10px; overflow-y: auto; overscroll-behavior: contain; padding: 8px 14px 14px; }\n.wy-dsheet.wy-fwdsheet, .wy-dsheet.wy-refsheet, .wy-dsheet.wy-calllog { max-height: 80%; }\n.wy-dsheet.wy-stksheet, .wy-dsheet.wy-relist { max-height: 70%; }\n.wy-dsheet.wy-repick { gap: 8px; padding: 8px 14px 14px; }\n.wy-dsheet.wy-repick .wy-cmp-head { position: static; margin: 0; padding: 0; }\n:host([data-wy-look=\"crystal\"]) .wy-dsheet { border: 1px solid var(--wy-cr-edge); background: var(--wy-cr-slip); box-shadow: 0 0 18px var(--wy-cr-glow); clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%, 0 14px); }\n:host([data-wy-look=\"crystal\"]) .wy-dsheet .wy-att-i { border-radius: 0; background: var(--wy-cr-seal); color: var(--wy-cr-mark); clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }\n:host([data-wy-look=\"crystal\"]) .wy-pop { border: 1px solid var(--wy-cr-edge); box-shadow: 0 0 16px var(--wy-cr-glow); }\n:host([data-wy-look=\"scroll\"]) .wy-dsheet { border: 1px solid var(--wy-sc-edge); background: var(--wy-sc-slip); box-shadow: 2px 3px 0 var(--wy-sc-glow); }\n:host([data-wy-look=\"scroll\"]) .wy-dsheet .wy-att-i { border: 1px solid var(--wy-sc-edge); border-radius: 0; background: var(--wy-sc-slip); color: var(--wy-sc-mark); }\n:host([data-wy-look=\"scroll\"]) .wy-pop { border: 1px solid var(--wy-sc-edge); border-radius: 0; box-shadow: 2px 3px 0 var(--wy-sc-glow); }\n/* message cards in the device's own form (polish K1P, stage-1 second opinion #2): .wy-dcard = the transfer, the five cards, the forwarded\n   record, the call record, the voice note under a device; .wy-dglyph = the kind's mark (its line icon on a rune stone / inside a seal), never\n   the phone's coloured tile or blue button. crystal = plates of light etched into the gem (cut corners, an inner glow); scroll = paper slips\n   (the transfer a red double-ruled note, the forwarded and the call records red-bordered record slips). Same DOM, acts and data attributes. */\n.wy-dglyph { position: relative; flex: none; display: inline-grid; place-items: center; width: 36px; height: 36px; }\n.wy-dglyph > .wy-dglyph-art { grid-area: 1 / 1; width: 100%; height: 100%; }\n.wy-dcard .wy-dglyph > .wy-dglyph-art > svg { display: block; width: 100%; height: 100%; transform: none; }\n.wy-dcard .wy-dglyph > svg { grid-area: 1 / 1; position: relative; width: 18px; height: 18px; transform: none; }\n.wy-lt.wy-voice.wy-dcard .wy-dglyph, .wy-lt.wy-callmsg.wy-dcard .wy-dglyph { width: 28px; height: 28px; }\n.wy-lt.wy-voice.wy-dcard .wy-dglyph > svg, .wy-lt.wy-callmsg.wy-dcard .wy-dglyph > svg { width: 15px; height: 15px; }\n.wy-card-ic.wy-dglyph { width: 42px; height: 42px; border-radius: 0; background: none; }\n.wy-card-ic.wy-dglyph > svg { width: 22px; height: 22px; }\n.wy-pay-ic.wy-dglyph { width: 40px; height: 40px; }\n.wy-pay-ic.wy-dglyph > svg { width: 20px; height: 20px; }\n.wy-lt.wy-voice.wy-dcard { gap: 6px; min-width: 128px; padding: 0 10px 0 4px; }\n.wy-dcard > .wy-sec { margin-left: auto; }\n.wy-ln-me .wy-dcard > .wy-sec { margin-right: auto; margin-left: 0; }\n.wy-ln-me .wy-lt.wy-voice.wy-dcard, .wy-ln-me .wy-lt.wy-callmsg.wy-dcard { padding: 0 4px 0 10px; }\n.wy-lt.wy-callmsg.wy-dcard { gap: 6px; padding: 0 10px 0 4px; }\n:host([data-wy-look=\"crystal\"]) .wy-dglyph { color: var(--wy-cr-mark); filter: drop-shadow(0 0 4px var(--wy-cr-glow)); }\n:host([data-wy-look=\"crystal\"]) .wy-dglyph > .wy-dglyph-art { color: var(--wy-cr-stone-hi); }\n:host([data-wy-look=\"crystal\"]) .wy-dcard { border: 1px solid var(--wy-cr-edge); border-radius: 0; background: linear-gradient(160deg, var(--wy-cr-stain), transparent 55%), var(--wy-cr-slip); color: var(--wy-ink); box-shadow: inset 0 0 14px var(--wy-cr-stain), 0 0 10px var(--wy-cr-glow); clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px); }\n:host([data-wy-look=\"crystal\"]) .wy-dcard .wy-card-k, :host([data-wy-look=\"crystal\"]) .wy-dcard .wy-fwd-k, :host([data-wy-look=\"crystal\"]) .wy-dcard .wy-pay-k { border-top-color: var(--wy-cr-edge); color: var(--wy-cr-sub); letter-spacing: 1px; }\n:host([data-wy-look=\"crystal\"]) .wy-dcard.wy-paymsg { color: var(--wy-ink); }\n:host([data-wy-look=\"crystal\"]) .wy-dcard.wy-paymsg .wy-pay-amt { color: var(--wy-cr-warn); text-shadow: 0 0 8px var(--wy-cr-glow); }\n:host([data-wy-look=\"crystal\"]) .wy-dcard.wy-paymsg .wy-pay-note, :host([data-wy-look=\"crystal\"]) .wy-dcard.wy-paymsg .wy-pay-st { color: var(--wy-cr-dim); }\n:host([data-wy-look=\"crystal\"]) .wy-dcard.wy-pay-closed { background: var(--wy-cr-slip); box-shadow: inset 0 0 10px var(--wy-cr-stain); }\n:host([data-wy-look=\"crystal\"]) .wy-dcard.wy-pay-closed .wy-pay-amt { color: var(--wy-cr-dim); text-shadow: none; }\n:host([data-wy-look=\"crystal\"]) .wy-dcard.wy-fwdmsg { box-shadow: inset 3px 0 0 var(--wy-cr-mark), inset 0 0 14px var(--wy-cr-stain); }\n:host([data-wy-look=\"crystal\"]) .wy-lt.wy-voice.wy-dcard { background: repeating-linear-gradient(90deg, var(--wy-cr-mark) 0 2px, transparent 2px 6px) 50% 50% / calc(100% - 84px) 36% no-repeat, var(--wy-cr-slip); }\n/* scroll: slips of paper; the transfer a red double-ruled note (no solid red card), the records red-bordered record slips */\n:host([data-wy-look=\"scroll\"]) .wy-dglyph { color: var(--wy-sc-seal); }\n:host([data-wy-look=\"scroll\"]) .wy-dcard { border: 0; border-radius: 1px; background: var(--wy-sc-slip); color: var(--wy-ink); box-shadow: inset 0 0 0 1px var(--wy-sc-edge), 2px 3px 0 var(--wy-sc-glow); }\n:host([data-wy-look=\"scroll\"]) .wy-dcard .wy-card-k, :host([data-wy-look=\"scroll\"]) .wy-dcard .wy-fwd-k, :host([data-wy-look=\"scroll\"]) .wy-dcard .wy-pay-k { border-top: 1px dashed var(--wy-sc-edge); color: var(--wy-sub); }\n:host([data-wy-look=\"scroll\"]) .wy-dcard.wy-paymsg { color: var(--wy-ink); box-shadow: inset 0 0 0 1px var(--wy-sc-mark), inset 0 0 0 3px var(--wy-sc-slip), inset 0 0 0 4px var(--wy-sc-mark), 2px 3px 0 var(--wy-sc-glow); }\n:host([data-wy-look=\"scroll\"]) .wy-dcard.wy-paymsg .wy-pay-amt { color: var(--wy-sc-mark); }\n:host([data-wy-look=\"scroll\"]) .wy-dcard.wy-paymsg .wy-pay-note, :host([data-wy-look=\"scroll\"]) .wy-dcard.wy-paymsg .wy-pay-st { color: var(--wy-sub); }\n:host([data-wy-look=\"scroll\"]) .wy-dcard.wy-pay-closed { background: var(--wy-sc-panel); box-shadow: inset 0 0 0 1px var(--wy-sc-edge), 2px 3px 0 var(--wy-sc-glow); }\n:host([data-wy-look=\"scroll\"]) .wy-dcard.wy-pay-closed .wy-pay-amt { color: var(--wy-sc-dim); }\n:host([data-wy-look=\"scroll\"]) .wy-dcard.wy-fwdmsg, :host([data-wy-look=\"scroll\"]) .wy-lt.wy-callmsg.wy-dcard { box-shadow: inset 0 0 0 1.5px var(--wy-sc-mark), 2px 3px 0 var(--wy-sc-glow); }\n:host([data-wy-look=\"scroll\"]) .wy-lt.wy-voice.wy-dcard { border-bottom: 0; background: repeating-linear-gradient(90deg, var(--wy-sc-edge) 0 2px, transparent 2px 7px) 50% 50% / calc(100% - 84px) 34% no-repeat, var(--wy-sc-slip); }\n:host([data-wy-look=\"scroll\"]) .wy-lt.wy-callmsg.wy-dcard { border-bottom: 0; }\n/* the device card marks (K4 Step 0, art cr-* / sc-*): the forwarded record's head = its mark beside the title; on the scroll the mark is\n   dark ink over the red seal (never the seal's red, so it never vanishes into it). The 开机 seal button keeps its own paper ink. */\n.wy-fwd-h { display: flex; align-items: center; gap: 8px; }\n.wy-fwd-h > .wy-fwd-t { flex: 1 1 auto; min-width: 0; }\n.wy-fwd-ic.wy-dglyph { width: 30px; height: 30px; }\n.wy-dcard .wy-fwd-ic.wy-dglyph > svg { width: 16px; height: 16px; }\n:host([data-wy-look=\"scroll\"]) .wy-dcard .wy-dglyph > svg, :host([data-wy-look=\"scroll\"]) .wy-calllog-ic.wy-dglyph > svg { color: var(--wy-sc-ink); }\n/* sheets and menus in the device's form (polish K1P, second opinion #3): crystal 「+」 = rune stones rising over the ring (no slab, no grid\n   lines); scroll 「+」 = paper slips laid out on a wooden tray from the inkstone's side; the call choice = two stones / two slips; the 取消 row\n   = a quiet line (never the phone's grey bar); the message menu = a cut plate of light / a red-ruled paper slip, its reaction row = small\n   runes / seal stamps. Same contents, order and acts. */\n.wy-dsheet.wy-attach .wy-att-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 4px; padding: 4px 6px 8px; }\n.wy-dsheet.wy-attach .wy-att { width: 64px; min-height: 76px; }\n.wy .wy-dsheet > .wy-sheet-c { min-height: 40px; margin: 2px auto 0; padding: 0 22px; border-top: 0; background: none; font-size: 14px; }\n:host([data-wy-look=\"crystal\"]) .wy-dsheet.wy-attach { left: 0; right: 0; bottom: 70px; padding: 18px 4px 4px; border: 0; background: radial-gradient(ellipse at 50% 62%, var(--wy-cr-pool) 0 52%, transparent 74%); box-shadow: none; clip-path: none; }\n:host([data-wy-look=\"crystal\"]) .wy-dsheet.wy-attach .wy-att { color: var(--wy-cr-ink); text-shadow: 0 0 6px var(--wy-cr-glow); }\n:host([data-wy-look=\"crystal\"]) .wy-dsheet .wy-att-i { width: 50px; height: 50px; background: linear-gradient(150deg, var(--wy-cr-stone-hi), var(--wy-cr-stone)); color: var(--wy-cr-mark); clip-path: polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-dsheet > .wy-sheet-c { color: var(--wy-cr-mark); letter-spacing: 2px; text-shadow: 0 0 6px var(--wy-cr-glow); }\n:host([data-wy-look=\"crystal\"]) .wy-dsheet.wy-callsheet { left: 0; right: 0; bottom: 70px; padding: 16px 24px 4px; border: 0; background: radial-gradient(ellipse at 50% 62%, var(--wy-cr-pool) 0 52%, transparent 74%); box-shadow: none; clip-path: none; }\n:host([data-wy-look=\"crystal\"]) .wy .wy-dsheet.wy-callsheet > .wy-sheet-i:not(.wy-sheet-c) { margin: 4px 0; border-top: 0; background: linear-gradient(150deg, var(--wy-cr-stone), var(--wy-cr-seal)); color: var(--wy-cr-ink); box-shadow: inset 0 0 10px var(--wy-cr-glow); clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 18px 100%, 0 50%); }\n:host([data-wy-look=\"crystal\"]) .wy-pop { border: 0; border-radius: 0; background: linear-gradient(160deg, var(--wy-cr-stain), transparent 60%), var(--wy-cr-panel); box-shadow: inset 0 0 0 1px var(--wy-cr-edge), inset 0 0 18px var(--wy-cr-stain); clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px); }\n:host([data-wy-look=\"crystal\"]) .wy-pop .wy-mi:not(.wy-so) > svg { color: var(--wy-cr-mark); filter: drop-shadow(0 0 4px var(--wy-cr-glow)); }\n:host([data-wy-look=\"crystal\"]) .wy-pop .wy-mi.wy-so { border-radius: 0; clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }\n:host([data-wy-look=\"crystal\"]) .wy-re-row { border-bottom-color: var(--wy-cr-edge); }\n:host([data-wy-look=\"crystal\"]) .wy-pop .wy-re-q, :host([data-wy-look=\"crystal\"]) .wy-pop .wy-re-more { border-radius: 0; background: var(--wy-cr-stain); clip-path: polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%); }\n:host([data-wy-look=\"crystal\"]) .wy-pop .wy-re-q.wy-on { background: var(--wy-cr-stone); }\n:host([data-wy-look=\"crystal\"]) .wy-pop .wy-re-more { color: var(--wy-cr-mark); }\n:host([data-wy-look=\"scroll\"]) .wy-dsheet.wy-attach { left: 6px; right: 6px; bottom: 66px; padding: 12px 6px 4px; border: 0; border-radius: 4px; background: var(--wy-sc-desk); box-shadow: inset 0 1px 0 var(--wy-sc-wood-hi), 0 8px 16px var(--wy-sc-pool); transform-origin: 14% 100%; }\n:host([data-wy-look=\"scroll\"]) .wy-dsheet.wy-attach .wy-att { padding: 8px 0 6px; border-radius: 1px; background: var(--wy-sc-slip); color: var(--wy-ink); box-shadow: inset 0 0 0 1px var(--wy-sc-edge), inset 0 0 0 3px var(--wy-sc-slip), inset 0 0 0 4px var(--wy-sc-rule), 1px 2px 0 var(--wy-sc-pool); }\n:host([data-wy-look=\"scroll\"]) .wy-dsheet .wy-att-i { width: 34px; height: 34px; border: 0; background: none; color: var(--wy-ink); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-dsheet.wy-attach > .wy-sheet-c { color: var(--wy-sc-desk-ink); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-dsheet > .wy-sheet-c { color: var(--wy-sub); }\n:host([data-wy-look=\"scroll\"]) .wy-dsheet.wy-callsheet { left: 6px; right: 6px; bottom: 66px; padding: 12px 18px 4px; border: 0; border-radius: 4px; background: var(--wy-sc-desk); box-shadow: inset 0 1px 0 var(--wy-sc-wood-hi), 0 8px 16px var(--wy-sc-pool); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-dsheet.wy-callsheet > .wy-sheet-i:not(.wy-sheet-c) { margin: 4px 0; border-top: 0; border-radius: 1px; background: var(--wy-sc-slip); color: var(--wy-ink); box-shadow: inset 0 0 0 1px var(--wy-sc-edge), inset 0 0 0 3px var(--wy-sc-slip), inset 0 0 0 4px var(--wy-sc-rule); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-dsheet.wy-callsheet > .wy-sheet-c { color: var(--wy-sc-desk-ink); }\n:host([data-wy-look=\"scroll\"]) .wy-pop { border: 0; border-radius: 1px; background: var(--wy-sc-slip); box-shadow: inset 0 0 0 1px var(--wy-sc-edge), inset 0 0 0 4px var(--wy-sc-slip), inset 0 0 0 5px var(--wy-sc-rule), 2px 3px 0 var(--wy-sc-glow); }\n:host([data-wy-look=\"scroll\"]) .wy-pop .wy-mi.wy-so { border-radius: 1px; background: var(--wy-sc-slip); color: var(--wy-sc-mark); -webkit-text-fill-color: var(--wy-sc-mark); box-shadow: inset 0 0 0 1.5px var(--wy-sc-mark), inset 0 0 0 3.5px var(--wy-sc-slip), inset 0 0 0 4.5px var(--wy-sc-rule); }\n:host([data-wy-look=\"scroll\"]) .wy-pop .wy-mi.wy-so:hover { background: var(--wy-sc-hl); opacity: 1; }\n:host([data-wy-look=\"scroll\"]) .wy-re-row { border-bottom: 1px dashed var(--wy-sc-edge); }\n:host([data-wy-look=\"scroll\"]) .wy-pop .wy-re-q, :host([data-wy-look=\"scroll\"]) .wy-pop .wy-re-more { width: 36px; min-height: 36px; margin: 2px; border-radius: 3px; box-shadow: inset 0 0 0 1.5px var(--wy-sc-mark); }\n:host([data-wy-look=\"scroll\"]) .wy-pop .wy-re-q.wy-on { background: var(--wy-sc-hl); box-shadow: inset 0 0 0 2px var(--wy-sc-mark); }\n:host([data-wy-look=\"scroll\"]) .wy-pop .wy-re-more { color: var(--wy-sc-mark); }\n:host([data-wy-look=\"crystal\"]) .wy-dsheet.wy-stksheet .wy-stk-cell { border-radius: 0; background: var(--wy-cr-stain); clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }\n:host([data-wy-look=\"scroll\"]) .wy-dsheet.wy-stksheet { border: 6px solid var(--wy-sc-desk); border-radius: 4px; box-shadow: inset 0 0 0 3px var(--wy-sc-slip), inset 0 0 0 4px var(--wy-sc-rule), 0 8px 16px var(--wy-sc-pool); }\n/* reaction chips (second opinion #4): crystal = small glowing runes (a cut stone of light around the emoji); scroll = small seal stamps */\n:host([data-wy-look=\"crystal\"]) .wy .wy-re-chip { min-height: 28px; padding: 0 12px; border: 0; border-radius: 0; background: var(--wy-cr-stain); color: var(--wy-cr-ink); clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 8px 100%, 0 50%); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-re-chip.wy-re-mine { background: var(--wy-cr-stone); color: var(--wy-cr-ink); box-shadow: inset 0 0 8px var(--wy-cr-glow); }\n:host([data-wy-look=\"crystal\"]) .wy-re-chip .wy-re-n { color: var(--wy-cr-mark); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-re-chip.wy-re-mine .wy-re-n { color: var(--wy-cr-ink); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-re-chip { min-height: 28px; padding: 0 7px; border: 0; border-radius: 3px; background: var(--wy-sc-slip); color: var(--wy-sc-mark); box-shadow: inset 0 0 0 1.5px var(--wy-sc-mark); transform: rotate(-2deg); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-re-chip.wy-re-mine { background: var(--wy-sc-hl); box-shadow: inset 0 0 0 2px var(--wy-sc-mark); }\n:host([data-wy-look=\"scroll\"]) .wy-re-chip .wy-re-n { color: var(--wy-sc-mark); font-weight: 700; }\n/* typing, recall ghosts, the in-chat banner (Task 6; the moving parts are in the MOTION section) */\n.wy-lk-typing { display: flex; align-items: center; gap: 8px; padding: 6px 14px; color: var(--wy-sub); font-size: 12.5px; }\n.wy-lk-ty-art { display: inline-flex; width: 22px; height: 22px; }\n.wy-lk-ty-art svg { width: 100%; height: 100%; }\n:host([data-wy-look=\"crystal\"]) .wy-lk-typing { justify-content: center; color: var(--wy-cr-mark); letter-spacing: 1px; text-shadow: 0 0 6px var(--wy-cr-glow); }\n:host([data-wy-look=\"scroll\"]) .wy-lk-typing { flex-direction: column; align-items: flex-start; gap: 0; }\n:host([data-wy-look=\"scroll\"]) .wy-lk-ty-art { width: 64px; height: 5px; color: var(--wy-sc-desk); }\n:host([data-wy-look=\"scroll\"]) .wy-lk-ty-t { padding: 2px 8px; border: 1px solid var(--wy-sc-edge); background: var(--wy-sc-slip); color: var(--wy-ink); }\n.wy-lk-ghost { position: absolute; top: 2px; right: 28%; bottom: 2px; left: 28%; pointer-events: none; }\n.wy-lk-dust { background: radial-gradient(circle, var(--wy-cr-mark) 0 1px, transparent 1.5px) 0 0 / 7px 7px; }\n.wy-lk-wash { background: linear-gradient(90deg, transparent, var(--wy-ink), transparent); opacity: 0.35; filter: blur(2px); }\n.wy-banner-mark { flex: none; display: inline-flex; width: 30px; height: 30px; }\n.wy-banner-mark svg { width: 100%; height: 100%; }\n:host([data-wy-look=\"crystal\"]) .wy-banner-dev { border: 1px solid var(--wy-cr-edge); box-shadow: 0 0 16px var(--wy-cr-glow); }\n:host([data-wy-look=\"crystal\"]) .wy-banner-mark { color: var(--wy-cr-mark); }\n:host([data-wy-look=\"scroll\"]) .wy-banner-dev { border: 1px solid var(--wy-sc-edge); border-radius: 0; background: var(--wy-sc-slip); }\n:host([data-wy-look=\"scroll\"]) .wy-banner-mark { color: var(--wy-sc-seal); }\n/* K2C (stage-2 second opinion #3): the phone's own toasts on the device (.wy-dtoast; SO's own keep their colours) — crystal: a band of light\n   across the gem with a rune at its start (the ends fade out; the words in light); scroll: a small paper slip with a red seal. Same place,\n   same fade as every toast. */\n.wy-dtoast-mark { flex: none; display: inline-flex; width: 22px; height: 22px; }\n.wy-dtoast-mark svg { width: 100%; height: 100%; }\n:host([data-wy-look=\"crystal\"]) .wy-layer > .wy-toast.wy-dtoast { width: 100%; max-width: none; justify-content: center; gap: 8px; padding: 9px 30px; border: solid var(--wy-cr-edge); border-width: 1px 0; border-radius: 0; background: linear-gradient(90deg, transparent, var(--wy-cr-panel) 30px, var(--wy-cr-panel) calc(100% - 30px), transparent); color: var(--wy-cr-ink); letter-spacing: 1px; text-shadow: 0 0 8px var(--wy-cr-glow); }\n:host([data-wy-look=\"crystal\"]) .wy-dtoast-mark { color: var(--wy-cr-mark); filter: drop-shadow(0 0 4px var(--wy-cr-glow)); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-dtoast .wy-toast-act { color: var(--wy-cr-mark); }\n:host([data-wy-look=\"scroll\"]) .wy-layer > .wy-toast.wy-dtoast { gap: 8px; padding: 8px 14px 8px 10px; border-radius: 1px; background: var(--wy-sc-slip); color: var(--wy-sc-ink); box-shadow: inset 0 0 0 1px var(--wy-sc-edge), inset 0 0 0 3px var(--wy-sc-slip), inset 0 0 0 4px var(--wy-sc-rule), 1px 3px 0 var(--wy-sc-glow), 0 6px 14px var(--wy-sc-pool); }\n:host([data-wy-look=\"scroll\"]) .wy-dtoast-mark { padding: 2px; border-radius: 3px; background: var(--wy-sc-seal); color: var(--wy-sc-seal-ink); box-shadow: 1px 2px 0 var(--wy-sc-glow); transform: rotate(-4deg); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-dtoast .wy-toast-act { color: var(--wy-sc-mark); }\n/* 立即跟上剧情's 「没跟上」 strip on the device: crystal = a band of light across the list (as its toasts), scroll = a paper slip with a red seal */\n:host([data-wy-look=\"crystal\"]) .wy .wy-custrip { margin: 4px 0 6px; padding: 8px 26px; border: solid var(--wy-cr-edge); border-width: 1px 0; background: linear-gradient(90deg, transparent, var(--wy-cr-panel) 26px, var(--wy-cr-panel) calc(100% - 26px), transparent); color: var(--wy-cr-ink); letter-spacing: 1px; text-shadow: 0 0 8px var(--wy-cr-glow); }\n:host([data-wy-look=\"crystal\"]) .wy-custrip .wy-cu-mark, :host([data-wy-look=\"crystal\"]) .wy-custrip > svg { color: var(--wy-cr-mark); filter: drop-shadow(0 0 4px var(--wy-cr-glow)); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-custrip { width: calc(100% - 16px); margin: 6px 8px; padding: 7px 12px 7px 8px; border: 0; border-radius: 1px; background: var(--wy-sc-slip); color: var(--wy-sc-ink); box-shadow: inset 0 0 0 1px var(--wy-sc-edge), inset 0 0 0 3px var(--wy-sc-slip), inset 0 0 0 4px var(--wy-sc-rule), 1px 3px 0 var(--wy-sc-glow); }\n:host([data-wy-look=\"scroll\"]) .wy-custrip .wy-cu-mark { width: 20px; height: 20px; padding: 2px; border-radius: 3px; background: var(--wy-sc-seal); color: var(--wy-sc-seal-ink); transform: rotate(-4deg); }\n:host([data-wy-look=\"scroll\"]) .wy-custrip > svg { color: var(--wy-sc-mark); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-link.wy-cu-note { color: var(--wy-cr-mark); text-shadow: 0 0 6px var(--wy-cr-glow); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-link.wy-cu-note { border: 1px dashed var(--wy-sc-edge); background: var(--wy-sc-slip); color: var(--wy-sc-ink); }\n:host([data-wy-look=\"scroll\"]) .wy-dsheet { --wy-lk-sheet-anim: wy-lk-slip; transform-origin: 100% 100%; }\n/* the list pages (Task 8): their top (.wy-dtop-list — crystal: the top facet drawn behind it, never clipping its marks; scroll: the rack's wooden\n   top with the title slip), the search slot, the rows (.wy-drow: crystal = a cut shard of light, scroll = a roll in its own silk with a paper\n   slip), the unread marks, the bottom controls (.wy-dtabs). The scroll's list lies on the rack (wood). */\n.wy-dtop-r { flex: 0 0 auto; display: flex; align-items: center; justify-content: flex-end; min-width: 40px; }\n.wy-dtop-ttl .wy-ttl-n { margin-left: 2px; color: var(--wy-sub); font-size: 12px; font-weight: 400; }\n:host([data-wy-look=\"crystal\"]) .wy-dtop.wy-dtop-list { margin: 4px 0 0; padding: 6px 12px; background: none; clip-path: none; }\n:host([data-wy-look=\"crystal\"]) .wy-dtop-list::before { content: \"\"; position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: -1; background: linear-gradient(180deg, var(--wy-cr-edge), transparent 85%); clip-path: polygon(9% 0, 91% 0, 100% 100%, 0 100%); pointer-events: none; }\n:host([data-wy-look=\"crystal\"]) .wy-dtop-list .wy-ib { color: var(--wy-cr-mark); }\n:host([data-wy-look=\"scroll\"]) .wy-dtop.wy-dtop-list { padding: 8px 8px; border-bottom: 0; background: var(--wy-sc-desk); box-shadow: 0 3px 6px var(--wy-sc-glow); }\n:host([data-wy-look=\"scroll\"]) .wy-dtop-list .wy-dtop-b, :host([data-wy-look=\"scroll\"]) .wy-dtop-list .wy-ib { color: var(--wy-sc-desk-ink); }\n:host([data-wy-look=\"scroll\"]) .wy-tabs-chats > .wy-scroll, :host([data-wy-look=\"scroll\"]) .wy-sublist > .wy-scroll { background: var(--wy-sc-desk); }\n:host([data-wy-look=\"scroll\"]) .wy-tabs-chats .wy-none, :host([data-wy-look=\"scroll\"]) .wy-sublist .wy-none { color: var(--wy-sc-desk-ink); }\n:host([data-wy-look]) .wy-srchbar { background: transparent; }\n:host([data-wy-look=\"crystal\"]) .wy .wy-srch { border: 1px solid var(--wy-cr-edge); border-radius: 0; background: var(--wy-cr-slip); color: var(--wy-cr-dim); clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 50%, calc(100% - 12px) 100%, 12px 100%, 0 50%); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-srch { border-radius: 0; background: var(--wy-sc-slip); color: var(--wy-sub); box-shadow: inset 0 0 0 1px var(--wy-sc-edge); }\n/* the rows (list round 2026-11-24, the demo's round three): the shard / roll is drawn here on .wy-drow-art (a backdrop that never takes a tap)\n   — crystal = a FULL-WIDTH shard with pointed ends whose glowing outline contains the row (::before = the rim, ::after = the face 1 px in,\n   both cut to the same hexagon); scroll = a whole rolled scroll lying across the rack in its own silk (--wy-row-silk) with an ivory rod end\n   and knob each side (::before / ::after) and the red-bordered paper slip (.wy-drow-in) pasted on it. The unread mark sits at the lower right\n   end of the face / slip (crystal: the rune with the count; scroll: the red seal with the numeral; muted: the mark without a number). */\n.wy-row.wy-drow { isolation: isolate; gap: 0; min-height: 68px; padding: 4px 10px; background: transparent; }\n.wy-row.wy-drow::after { display: none; }\n.wy-row.wy-drow:hover, .wy-row.wy-drow.wy-pin, .wy-row.wy-drow.wy-pin:hover { background: transparent; }\n.wy-drow-art { position: absolute; top: 4px; right: 10px; bottom: 4px; left: 10px; z-index: -1; pointer-events: none; }\n.wy-drow-art::before, .wy-drow-art::after { content: \"\"; position: absolute; pointer-events: none; }\n.wy-drow-in { position: relative; flex: 1 1 auto; display: flex; align-items: center; gap: 10px; min-width: 0; padding: 8px 16px 8px 18px; }\n.wy-drow .wy-avw { position: static; }\n.wy-drow .wy-avw > .wy-badge { top: auto; right: 16px; bottom: 9px; }\n.wy-drow .wy-avw > .wy-lk-rmotes { top: auto; right: 14px; bottom: 6px; }\n.wy-drow .wy-spk { width: 40px; height: 40px; margin-top: 0; }\n.wy-drow .wy-spk-ch { font-size: 18px; }\n/* the lower line gives the unread mark its room at the slip's right end (and the ⋯, when it shows, stands left of it) */\n.wy-drow-in:has(> .wy-avw > .wy-badge) .wy-t2 { padding-right: 26px; }\n.wy-drow-in:has(> .wy-avw > .wy-badge) .wy-t2 > .wy-rmore { right: 22px; }\n.wy-drow-in:has(> .wy-avw > .wy-badge) .wy-t2-more:focus-within { padding-right: 56px; }\n@media (hover: hover) {\n    .wy-row.wy-drow:hover > .wy-drow-in:has(> .wy-avw > .wy-badge) .wy-t2-more { padding-right: 56px; }\n}\n.wy-kind { flex: none; margin-top: 2px; padding: 0 5px; border: 1px solid; border-radius: 2px; font-size: 10.5px; line-height: 15px; white-space: nowrap; }\n/* review B M-2: on a device row the kind word and 窥屏 lead line 2 (line 1 = the name, 新, the pin mark, the time) */\n.wy-drow .wy-t2 > .wy-kind, .wy-drow .wy-t2 > .wy-obs { margin-top: 0; }\n.wy-pinmark { flex: none; display: inline-flex; width: 14px; height: 14px; margin-top: 3px; }\n.wy-pinmark svg { width: 100%; height: 100%; }\n.wy-avw .wy-badge.wy-lk-un, .wy-tab .wy-badge.wy-lk-un { box-shadow: none; }\n.wy-badge.wy-lk-un-crystal { display: inline-grid; place-items: center; min-width: 22px; height: 22px; padding: 0; border-radius: 0; background: none; color: var(--wy-cr-mark); }\n.wy-badge.wy-lk-un-crystal > svg { grid-area: 1 / 1; width: 100%; height: 100%; }\n.wy-badge.wy-lk-un-crystal > .wy-lk-un-n { grid-area: 1 / 1; color: var(--wy-cr-ink); font-size: 10.5px; text-shadow: 0 0 3px var(--wy-cr-frame), 0 0 6px var(--wy-cr-glow); }\n.wy-avw .wy-badge.wy-lk-un-crystal.wy-dot { width: 16px; min-width: 16px; height: 16px; opacity: 0.6; }\n.wy-drow .wy-avw > .wy-badge.wy-lk-un-crystal.wy-dot { right: 19px; bottom: 12px; }\n.wy-badge.wy-lk-un-scroll { min-width: 20px; height: 20px; padding: 0 3px; border-radius: 3px; background: var(--wy-sc-seal); color: var(--wy-sc-seal-ink); font-size: 11.5px; line-height: 20px; }\n.wy-avw .wy-badge.wy-lk-un-scroll.wy-dot { width: 9px; min-width: 9px; height: 9px; padding: 0; border-radius: 50%; }\n/* crystal: the shard */\n:host([data-wy-look=\"crystal\"]) .wy-drow-art::before { top: 0; right: 0; bottom: 0; left: 0; background: linear-gradient(100deg, var(--wy-cr-rim-a), var(--wy-cr-stone) 50%, var(--wy-cr-rim-b)); opacity: 0.66; clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 14px 100%, 0 50%); }\n:host([data-wy-look=\"crystal\"]) .wy-drow-art::after { top: 1px; right: 1px; bottom: 1px; left: 1px; background: linear-gradient(180deg, var(--wy-cr-silk-hi), transparent 45%), linear-gradient(0deg, var(--wy-cr-silk-lo), transparent 40%), linear-gradient(100deg, var(--wy-row-silk, var(--wy-cr-seal)), var(--wy-cr-body-a) 60%, var(--wy-cr-body-c)); clip-path: polygon(13.5px 0, calc(100% - 13.5px) 0, 100% 50%, calc(100% - 13.5px) 100%, 13.5px 100%, 0 50%); }\n:host([data-wy-look=\"crystal\"]) .wy-drow.wy-pin .wy-drow-art { filter: drop-shadow(0 0 4px var(--wy-cr-glow)); }\n:host([data-wy-look=\"crystal\"]) .wy-drow.wy-pin .wy-drow-art::before { opacity: 1; background: linear-gradient(100deg, var(--wy-cr-ink), var(--wy-cr-stone-hi) 45%, var(--wy-cr-mark)); }\n/* pinned = the bright rim + glow; the face stays dark end to end and hover lights the rim, never the face (review L I-1 / M-4: the row text\n   — ink, grey, the alert red, the light — reads >= 4.5 on every stop of every face, test-pinned) */\n:host([data-wy-look=\"crystal\"]) .wy-drow.wy-pin .wy-drow-art::after { background: linear-gradient(180deg, var(--wy-cr-silk-hi), transparent 45%), linear-gradient(0deg, var(--wy-cr-silk-lo), transparent 40%), linear-gradient(100deg, var(--wy-cr-seal), var(--wy-cr-body-a) 60%, var(--wy-cr-body-b)); }\n:host([data-wy-look=\"crystal\"]) .wy-drow:hover .wy-drow-art::before { opacity: 1; }\n:host([data-wy-look=\"crystal\"]) .wy-drow .wy-nm { color: var(--wy-ink); letter-spacing: 1px; }\n:host([data-wy-look=\"crystal\"]) .wy-kind, :host([data-wy-look=\"crystal\"]) .wy-pinmark { color: var(--wy-cr-mark); }\n:host([data-wy-look=\"crystal\"]) .wy-kind { border-color: var(--wy-cr-edge); background: var(--wy-cr-stain); }\n:host([data-wy-look=\"crystal\"]) .wy-drow-mute .wy-spk { opacity: 0.8; }\n/* scroll: the roll */\n:host([data-wy-look=\"scroll\"]) .wy-row.wy-drow { min-height: 72px; padding: 4px; }\n:host([data-wy-look=\"scroll\"]) .wy-drow-art { top: 5px; right: 12px; bottom: 5px; left: 12px; border-radius: 8px; background: linear-gradient(180deg, var(--wy-sc-silk-hi), transparent 28%, transparent 62%, var(--wy-sc-silk-lo)), var(--wy-row-silk, var(--wy-sc-silk-11)); box-shadow: 0 3px 5px var(--wy-sc-pool); }\n:host([data-wy-look=\"scroll\"]) .wy-drow-art::before, :host([data-wy-look=\"scroll\"]) .wy-drow-art::after { top: 50%; width: 11px; height: 26px; margin-top: -13px; border-radius: 4px; background: linear-gradient(90deg, var(--wy-sc-cap-lo), var(--wy-sc-cap) 50%, var(--wy-sc-cap-lo)); box-shadow: 0 1px 2px var(--wy-sc-pool); }\n:host([data-wy-look=\"scroll\"]) .wy-drow-art::before { left: -9px; }\n:host([data-wy-look=\"scroll\"]) .wy-drow-art::after { right: -9px; }\n:host([data-wy-look=\"scroll\"]) .wy-drow-in { margin: 6px 24px; padding: 6px 10px 6px 8px; background: var(--wy-sc-body-c); box-shadow: inset 0 0 0 1px var(--wy-sc-edge), inset 0 0 0 3px var(--wy-sc-body-c), inset 0 0 0 4px var(--wy-sc-tint-a), 0 1px 2px var(--wy-sc-pool); }\n:host([data-wy-look=\"scroll\"]) .wy-drow.wy-pin .wy-drow-in { box-shadow: inset 0 0 0 1px var(--wy-sc-edge), inset 0 0 0 3px var(--wy-sc-body-c), inset 0 0 0 4.5px var(--wy-sc-mark), 0 1px 2px var(--wy-sc-pool); }\n:host([data-wy-look=\"scroll\"]) .wy-drow:hover .wy-drow-in { background: var(--wy-sc-panel); }\n:host([data-wy-look=\"scroll\"]) .wy-drow .wy-avw > .wy-badge { right: 9px; bottom: 7px; }\n:host([data-wy-look=\"scroll\"]) .wy-drow .wy-avw > .wy-badge.wy-lk-un-scroll.wy-dot { right: 14px; bottom: 12px; }\n/* the seal on the slip is in the roll's own tone (her picture keeps its red seal mount) */\n:host([data-wy-look=\"scroll\"]) .wy-drow .wy-spk-seal { background: var(--wy-row-silk, var(--wy-sc-silk-11)); box-shadow: inset 0 0 0 1px var(--wy-sc-silk-lo); }\n:host([data-wy-look=\"scroll\"]) .wy-drow .wy-nm { font-size: 17px; }\n:host([data-wy-look=\"scroll\"]) .wy-kind, :host([data-wy-look=\"scroll\"]) .wy-pinmark { color: var(--wy-sc-mark); }\n:host([data-wy-look=\"scroll\"]) .wy-kind { border-color: var(--wy-sc-mark); }\n/* the bottom controls (list round): left to right 联系人 · the chat list · 我 (soWyLkTabBar). The two ends are objects (crystal: rune stones on\n   the ring's ends; scroll: the stitched book, his seal); the middle is the chat list's place — on the list it shows the hint (its own name\n   then stays for assistive tech only), on 联系人 / 我 it reads 对话 / 书信 and leads back. */\n.wy-dtabs { gap: 4px; padding: 6px 8px 8px; }\n.wy .wy-dtab { gap: 2px; min-height: 54px; }\n.wy .wy-dtabs > .wy-dtab-contacts, .wy .wy-dtabs > .wy-dtab-me { flex: 0 0 60px; }\n.wy .wy-dtabs > .wy-dtab-chats { flex: 1 1 auto; justify-content: center; min-width: 0; }\n.wy-dtab-art { position: relative; display: inline-grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; width: 34px; height: 34px; }   /* one cell = the art (crystal-ui round, as .wy-spk) */\n.wy-dtab-art > svg { grid-area: 1 / 1; width: 100%; height: 100%; }\n.wy-dtab-art > .wy-lk-pic { grid-area: 1 / 1; display: block; width: 100%; height: 100%; object-fit: contain; pointer-events: none; user-select: none; }\n.wy-dtab-art > .wy-spk { width: 30px; height: 30px; margin: 0; cursor: inherit; }\n.wy-dtab-g { grid-area: 1 / 1; display: inline-grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; width: 17px; height: 17px; }\n.wy-dtab-g > svg { width: 100%; height: 100%; }\n.wy-dtab-g > .wy-spk { width: 17px; height: 17px; margin: 0; cursor: inherit; }\n.wy-dtab:not(.wy-on) > .wy-dtab-art { opacity: 0.72; }\n.wy .wy-dtab-chats.wy-on > .wy-tab-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }\n.wy-dtab-hint { max-width: 100%; font-size: 12.5px; line-height: 1.35; letter-spacing: 1px; text-align: center; }\n.wy .wy-dtabs > .wy-dtab-chats > .wy-badge { top: 0; right: auto; left: calc(50% + 14px); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-dtabs > .wy-dtab-chats > .wy-badge { left: calc(50% + 42px); }\n:host([data-wy-look=\"crystal\"]) .wy-dtabs { border-top: 1px solid var(--wy-cr-edge); background: linear-gradient(0deg, var(--wy-cr-desk), var(--wy-panel)); box-shadow: none; }\n:host([data-wy-look=\"crystal\"]) .wy-dtab { color: var(--wy-ink); }\n:host([data-wy-look=\"crystal\"]) .wy-dtab-art { color: var(--wy-cr-edge); }\n:host([data-wy-look=\"crystal\"]) .wy-dtab-g { color: var(--wy-cr-ink); }\n:host([data-wy-look=\"crystal\"]) .wy-dtab-contacts > .wy-dtab-art, :host([data-wy-look=\"crystal\"]) .wy-dtab-me > .wy-dtab-art { width: 38px; height: 38px; isolation: isolate; color: var(--wy-cr-stone-hi); opacity: 1; filter: drop-shadow(0 0 4px var(--wy-cr-glow)); }\n:host([data-wy-look=\"crystal\"]) .wy-dtab-contacts > .wy-dtab-art::before, :host([data-wy-look=\"crystal\"]) .wy-dtab-me > .wy-dtab-art::before { content: \"\"; grid-area: 1 / 1; width: 100%; height: 100%; z-index: -1; background: linear-gradient(150deg, var(--wy-cr-stone-hi), var(--wy-cr-stone) 55%, var(--wy-cr-seal)); clip-path: polygon(28% 9%, 72% 9%, 92% 34%, 87.5% 78%, 62.5% 92%, 37.5% 92%, 12.5% 78%, 8% 34%); }\n/* crystal-ui round (2026-11-26, Prince's shots 11–13): his picture on the 我 stone IS the stone's face — the whole stone, cut just inside its\n   rim, centred (it was a 17 px mark on it, and taller than wide); his sigil (no picture) stays the small mark like the 联系人 glyph */\n:host([data-wy-look=\"crystal\"]) .wy-dtab-me .wy-dtab-g:has(> .wy-spk-img), :host([data-wy-look=\"crystal\"]) .wy-dtab-me .wy-dtab-g > .wy-spk-img { width: 100%; height: 100%; }\n:host([data-wy-look=\"crystal\"]) .wy-dtab-me .wy-dtab-g > .wy-spk-img > img { clip-path: polygon(31.1% 14.7%, 68.9% 14.7%, 86.1% 36.2%, 82.3% 74.1%, 60.8% 86.1%, 39.3% 86.1%, 17.8% 74.1%, 13.9% 36.2%); }\n:host([data-wy-look=\"crystal\"]) .wy-dtab-me .wy-dtab-g > .wy-spk-img > svg { display: none; }\n:host([data-wy-look=\"crystal\"]) .wy-dtab-contacts.wy-on > .wy-dtab-art, :host([data-wy-look=\"crystal\"]) .wy-dtab-me.wy-on > .wy-dtab-art { color: var(--wy-cr-mark); filter: drop-shadow(0 0 7px var(--wy-cr-glow)); }\n:host([data-wy-look=\"crystal\"]) .wy-dtab.wy-on, :host([data-wy-look=\"crystal\"]) .wy-dtab.wy-on > .wy-dtab-art { color: var(--wy-cr-mark); }\n:host([data-wy-look=\"crystal\"]) .wy-dtab.wy-on > .wy-dtab-art { filter: drop-shadow(0 0 5px var(--wy-cr-glow)); }\n:host([data-wy-look=\"crystal\"]) .wy-dtab-chats > .wy-dtab-art { width: 2px; height: 16px; margin-top: -8px; }\n:host([data-wy-look=\"crystal\"]) .wy-dtab-beam { width: 1.5px; height: 100%; background: linear-gradient(180deg, transparent, var(--wy-cr-mark)); box-shadow: 0 0 6px var(--wy-cr-glow); }\n:host([data-wy-look=\"crystal\"]) .wy-dtab-hint { color: var(--wy-cr-dim); }\n:host([data-wy-look=\"scroll\"]) .wy-dtabs { background: var(--wy-sc-desk); box-shadow: none; }\n:host([data-wy-look=\"scroll\"]) .wy-dtab, :host([data-wy-look=\"scroll\"]) .wy-dtab.wy-on { color: var(--wy-sc-desk-ink); }\n:host([data-wy-look=\"scroll\"]) .wy-dtab-art { width: 38px; height: 38px; color: var(--wy-sc-desk-ink); }\n/* switch-art round (2026-11-26, Prince's pick F): the painted letter scroll fills an 80×36 box, no stretch (the brush was a 32 px icon\n   scaled 2.4 × 1.1); the desk's lamplight (looks polish S6b, with the pool under every desk object) lifts its dark rollers off the dark desk at 1× */\n:host([data-wy-look=\"scroll\"]) .wy-dtab-chats > .wy-dtab-art { width: 80px; height: 36px; }\n:host([data-wy-look=\"scroll\"]) .wy-dtab-chats .wy-lk-pic { filter: drop-shadow(0 -1px 0 var(--wy-sc-lit)) drop-shadow(0 3px 2px var(--wy-sc-pool)); }   /* looks polish S6b: the desk lamplight (below) */\n:host([data-wy-look=\"scroll\"]) .wy-dtab-me .wy-spk { width: 36px; height: 36px; transform: rotate(-3deg); box-shadow: inset 0 1px 0 var(--wy-sc-lit), inset 0 -2px 0 var(--wy-sc-seal-lo), 0 3px 0 var(--wy-sc-pool), 0 4px 7px var(--wy-sc-glow); }\n:host([data-wy-look=\"scroll\"]) .wy-dtab-me .wy-spk-seal { background: radial-gradient(circle, var(--wy-sc-seal-hi) 0 0.8px, transparent 1.2px) 1px 2px / 7px 6px, radial-gradient(circle, var(--wy-sc-seal-lo) 0 0.8px, transparent 1.3px) 4px 0 / 9px 8px, linear-gradient(145deg, var(--wy-sc-seal-hi), var(--wy-sc-seal) 45%, var(--wy-sc-seal-lo)); color: var(--wy-sc-seal-ink); }\n:host([data-wy-look=\"scroll\"]) .wy-dtab-me .wy-spk-ch { font-size: 20px; }\n:host([data-wy-look=\"scroll\"]) .wy-dtab.wy-on > .wy-dtab-art { transform: translateY(-2px); filter: drop-shadow(0 2px 0 var(--wy-sc-glow)); }\n:host([data-wy-look=\"scroll\"]) .wy-dtab.wy-on > .wy-tab-label { text-decoration: underline; text-underline-offset: 3px; }\n:host([data-wy-look=\"scroll\"]) .wy-dtab-hint { color: var(--wy-sc-desk-ink); }\n:host([data-wy-look=\"scroll\"]) .wy-dtab:not(.wy-on) > .wy-dtab-art { opacity: 1; }\n:host([data-wy-look=\"scroll\"]) .wy-dtab > .wy-tab-label { font-size: 12px; letter-spacing: 1px; }\n:host([data-wy-look=\"scroll\"]) .wy-dtab-contacts > .wy-dtab-art { color: var(--wy-sc-cap); }\n/* a message landing in a listed chat (polish K1P, spec §4.4): the motes that fly into the crystal row's unread rune (moved by Web Animations only) */\n.wy-lk-rmotes { position: absolute; top: -8px; right: -8px; z-index: 2; width: 26px; height: 26px; border-radius: 50%; background: radial-gradient(circle, var(--wy-cr-mark) 0 1.5px, transparent 2px) 0 0 / 7px 7px; opacity: 0; pointer-events: none; }\n/* moving between screens (Task 9; moved by Web Animations only — soWyLkMoSlide / soWyLkMoTab): the phone's slide shadow is not drawn on the\n   kept / arriving page; the crystal's band of light (invisible at rest, never takes a tap) */\n:host([data-wy-look]) .wy > .wy-page.wy-mo-top, :host([data-wy-look]) .wy > .wy-page.wy-mo-ghost.wy-mo-over { box-shadow: none; }\n.wy > .wy-lk-band { position: absolute; top: 0; bottom: 0; left: 0; z-index: 4; width: 40%; background: linear-gradient(90deg, transparent, var(--wy-cr-glow) 32%, var(--wy-cr-spark) 50%, var(--wy-cr-glow) 68%, transparent); opacity: 0; pointer-events: none; }\n/* the column is see-through under a device (KF): the band fades out above the gem's top facet and over the ring, so it never draws a lit rectangle on the night */\n:host([data-wy-look]) .wy > .wy-lk-band { -webkit-mask-image: linear-gradient(180deg, transparent, var(--wy-cr-pool) 8%, var(--wy-cr-pool) 70%, transparent 82%); mask-image: linear-gradient(180deg, transparent, var(--wy-cr-pool) 8%, var(--wy-cr-pool) 70%, transparent 82%); }\n/* calls as the device (Task 10; spec §4.4, §14.3, §14.7): .wy-dcs.wy-dcs-<dev> on every call screen (her ring, his ring / failure, the live\n   panel, her hang-up). crystal = the resonating light over the gem's dark (her mark inside rings of light; the hang-up stone, a light stone to\n   answer); scroll = a talisman on its own roller unrolled over the page (the paper = ::before, the roller = the talisman art cropped to it;\n   her mark inside ink ripples; the black tablet hangs up, a jade seal answers). Her lines gather out of light / soak in as ink (.wy-dcs-in);\n   she hangs up → the light dims / the ink dries and 对方已挂断 is stamped; the panel then waits for 关闭. Every motion sits under the 动画 flag. */\n.wy-callscr.wy-dcs { isolation: isolate; }\n.wy-dcs > .wy-dcs-art { position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: -1; pointer-events: none; }\n.wy-dcs-glow { position: absolute; top: 0; right: 0; bottom: 0; left: 0; background: radial-gradient(circle at 50% 36%, var(--wy-cr-glow), transparent 56%); opacity: 0.55; }\n.wy-dcs-face { position: relative; display: grid; place-items: center; width: var(--wy-dcs-f, 88px); height: var(--wy-dcs-f, 88px); margin-bottom: 8px; }\n.wy-dcs-face > .wy-spk { grid-area: 1 / 1; position: relative; z-index: 1; margin: 0; cursor: default; }\n.wy-dcs-reso { grid-area: 1 / 1; position: relative; width: 100%; height: 100%; pointer-events: none; }\n.wy-dcs-reso > i { position: absolute; top: 0; right: 0; bottom: 0; left: 0; border-radius: 50%; opacity: 0; }\n.wy .wy-dcs-b { gap: 6px; font-size: 13px; }\n.wy .wy-dcs-b:focus-visible { outline: none; }\n.wy .wy-dcs-b:focus-visible > .wy-dcs-k { outline: 2px solid var(--wy-accent); outline-offset: 3px; }\n.wy-dcs-k { position: relative; display: grid; place-items: center; width: 60px; height: 60px; }\n.wy-dcs-k > svg { grid-area: 1 / 1; width: 100%; height: 100%; }\n.wy-dcs-k > svg + svg { position: relative; width: 24px; height: 24px; }\n.wy-cs-on .wy-dcs-k { width: 54px; height: 54px; }\n.wy-dcs .wy-callscr-who { max-width: calc(100% - 8px); }\n.wy-cs-head.wy-dcs-head { flex-direction: row; align-items: center; justify-content: flex-start; gap: 10px; padding: 16px 18px 8px; text-align: left; }\n.wy-dcs-head .wy-dcs-face { margin: 0; }\n.wy-dcs-head .wy-cs-who { flex: 1 1 auto; align-items: flex-start; }\n.wy-dcs-mode { flex: none; font-size: 12px; letter-spacing: 2px; white-space: nowrap; }\n.wy-dcs .wy-cs-foot { gap: 10px; padding: 6px 16px 18px; }\n/* K2C (stage-2 second opinion #1, spec §4.4 call live): his line is written in the chat's own writing place — crystal: the rune ring around the\n   row (.wy-dcs-ring = the ring art's box; the field is light in its middle, the send stone on its band); scroll: the ruled paper slip with the\n   brush (.wy-dcs-desk) and his seal beside it. The real input underneath keeps its input method; it is one line and never cut. */\n.wy-cs-inrow.wy-dcs-ring { position: relative; gap: 4px; min-height: 64px; margin: 0 -6px; padding: 8px 6px; }\n.wy-dcs-ring > .wy-send { position: relative; z-index: 1; }\n:host([data-wy-look=\"crystal\"]) .wy-dcs-ring .wy-ring-f > .wy-cs-in { min-height: 26px; height: 26px; }\n.wy-cs-inrow.wy-dcs-desk { gap: 8px; }\n:host([data-wy-look=\"scroll\"]) .wy-dcs-desk > .wy-slip { padding-top: 4px; padding-bottom: 4px; }\n:host([data-wy-look=\"scroll\"]) .wy-dcs-desk > .wy-slip > .wy-cs-in { min-height: 32px; height: 32px; line-height: 31px; color: var(--wy-sc-ink); background: linear-gradient(0deg, var(--wy-sc-rule) 0 1px, transparent 1px); }\n:host([data-wy-look=\"scroll\"]) .wy-dcs-desk > .wy-slip > .wy-cs-in::placeholder { color: var(--wy-sc-sub); }\n.wy-dcs .wy-cs-ended { padding: 3px 12px; font-size: 15px; letter-spacing: 2px; }\n.wy-calllog-ic.wy-dglyph { width: 26px; height: 26px; }\n.wy-calllog-ic.wy-dglyph > .wy-dglyph-art > svg { display: block; width: 100%; height: 100%; }\n.wy-calllog-ic.wy-dglyph > svg { grid-area: 1 / 1; position: relative; width: 14px; height: 14px; }\n/* crystal */\n.wy-callscr.wy-dcs-crystal { background: radial-gradient(circle at 50% 38%, var(--wy-cr-tal) 0, var(--wy-callscr-bg) 62%, var(--wy-cr-pool)); color: var(--wy-cr-ink); }\n.wy-dcs-crystal .wy-callscr-nm, .wy-dcs-crystal .wy-cs-nm { letter-spacing: 2px; text-shadow: 0 0 10px var(--wy-cr-glow); }\n.wy-dcs-crystal .wy-callscr-st, .wy-dcs-crystal .wy-callscr-mode, .wy-dcs-crystal .wy-cs-time, .wy-dcs-crystal .wy-dcs-mode, .wy-dcs-crystal .wy-cs-ended { color: var(--wy-cr-mark); }\n.wy-dcs-crystal .wy-callscr-mode { letter-spacing: 4px; }\n.wy-dcs-crystal .wy-cs-why, .wy-dcs-crystal .wy-cs-note, .wy-dcs-crystal .wy-cs-snd, .wy-dcs-crystal .wy-cs-act { color: var(--wy-cr-sub); }\n.wy-dcs-crystal .wy-dcs-reso > i { border: 2px solid var(--wy-cr-mark); box-shadow: 0 0 12px var(--wy-cr-glow), inset 0 0 10px var(--wy-cr-glow); }\n.wy .wy-dcs-crystal .wy-dcs-b { color: var(--wy-cr-ink); }\n.wy-dcs-crystal .wy-dcs-hang > .wy-dcs-k { color: var(--wy-cr-alert); filter: drop-shadow(0 0 8px var(--wy-cr-alert)); }\n.wy-dcs-crystal .wy-dcs-yes > .wy-dcs-k { color: var(--wy-cr-go); filter: drop-shadow(0 0 8px var(--wy-cr-glow)); }\n.wy-dcs-crystal .wy-dcs-quiet > .wy-dcs-k { color: var(--wy-cr-stone-hi); }\n.wy-dcs-crystal .wy-dcs-k > svg + svg { color: var(--wy-cr-ink); }\n.wy-dcs-crystal .wy-cs-l { color: var(--wy-cr-ink); text-shadow: 0 0 8px var(--wy-cr-glow); }\n.wy-dcs-crystal .wy-cs-tag { border-radius: 0; background: var(--wy-cr-stain); color: var(--wy-cr-mark); }\n.wy-dcs-crystal .wy-cs-me { border: 1px solid var(--wy-cr-edge); border-radius: 0; background: var(--wy-cr-slip); color: var(--wy-cr-ink); clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px); }\n.wy .wy-dcs-crystal .wy-cs-redo, .wy .wy-dcs-crystal .wy-cs-again { border-radius: 0; background: var(--wy-cr-stain); color: var(--wy-cr-mark); clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 8px 100%, 0 50%); }\n.wy .wy-dcs-crystal .wy-cs-again { min-height: 36px; padding: 0 16px; }\n.wy-dcs-crystal .wy-cs-speaking { color: var(--wy-cr-mark); }\n.wy-dcs-crystal .wy-cs-speaking .wy-dots i { background: var(--wy-cr-mark); }\n.wy-dcs-crystal .wy-cs-cam { background: radial-gradient(circle at 50% 45%, var(--wy-cr-tal), var(--wy-cr-pool)); }\n.wy-dcs-crystal .wy-cs-scene-t { color: var(--wy-cr-ink); }\n.wy-dcs-crystal .wy-cs-self { background: var(--wy-cr-pool); box-shadow: 0 0 10px var(--wy-cr-glow); }\n.wy-dcs-crystal[data-wy-phase=\"end\"] .wy-dcs-glow { opacity: 0.12; }\n.wy-dcs[data-wy-phase=\"end\"] .wy-dcs-face { opacity: 0.55; }\n/* scroll */\n.wy-callscr.wy-dcs-scroll { padding: 64px 36px 44px; background: var(--wy-scrim); color: var(--wy-sc-ink); }\n.wy-cs.wy-cs-on.wy-dcs-scroll { padding: 22px 16px 6px; }\n.wy-callscr.wy-dcs-scroll::before { content: \"\"; position: absolute; top: 10px; right: 8px; bottom: 0; left: 8px; z-index: -1; background: var(--wy-sc-tal); box-shadow: inset 0 0 0 6px var(--wy-sc-tal), inset 0 0 0 7.5px var(--wy-sc-mark), inset 0 0 0 10px var(--wy-sc-tal), inset 0 0 0 11px var(--wy-sc-rule), 0 6px 16px var(--wy-sc-pool); pointer-events: none; }\n.wy-dcs-scroll > .wy-dcs-art { bottom: auto; height: 20px; overflow: hidden; color: var(--wy-sc-wood); }\n.wy-dcs-scroll > .wy-dcs-art > svg { display: block; width: 100%; height: 330px; }\n.wy-dcs-scroll .wy-callscr-nm { font-size: 26px; font-weight: 400; letter-spacing: 3px; }\n.wy-dcs-scroll .wy-callscr-st, .wy-dcs-scroll .wy-cs-time, .wy-dcs-scroll .wy-cs-why, .wy-dcs-scroll .wy-cs-note, .wy-dcs-scroll .wy-cs-snd, .wy-dcs-scroll .wy-cs-act { color: var(--wy-sc-sub); }\n.wy-dcs-scroll .wy-callscr-who > .wy-callscr-mode { position: absolute; top: 34px; right: 22px; writing-mode: vertical-rl; color: var(--wy-sc-ink); font-size: 21px; letter-spacing: 6px; }\n.wy-dcs-scroll .wy-callscr-who > .wy-callscr-mode::after { content: \"\"; display: block; width: 2px; height: 28px; margin: 8px auto 0; background: var(--wy-sc-mark); }\n.wy-dcs-scroll .wy-dcs-mode { color: var(--wy-sc-mark); }\n.wy-dcs-scroll .wy-dcs-reso > i { border: 1.5px solid var(--wy-sc-dim); }\n.wy .wy-dcs-scroll .wy-dcs-b { color: var(--wy-sc-ink); }\n.wy-dcs-scroll .wy-dcs-hang > .wy-dcs-k { color: var(--wy-sc-ink); filter: drop-shadow(1px 3px 0 var(--wy-sc-glow)); }\n.wy-dcs-scroll .wy-dcs-yes > .wy-dcs-k { border-radius: 6px; background: var(--wy-sc-go); color: var(--wy-sc-seal-ink); transform: rotate(4deg); box-shadow: 1px 3px 0 var(--wy-sc-glow); }\n.wy-dcs-scroll .wy-dcs-quiet > .wy-dcs-k { color: var(--wy-sc-sub); }\n.wy-dcs-scroll .wy-dcs-yes > .wy-dcs-k > svg + svg { color: var(--wy-sc-seal-ink); }\n.wy-dcs-scroll .wy-dcs-quiet > .wy-dcs-k > svg + svg { color: var(--wy-sc-ink); }\n.wy-dcs-scroll .wy-cs-l { color: var(--wy-sc-ink); }\n.wy-dcs-scroll .wy-cs-tag { border-radius: 0; background: none; color: var(--wy-sc-mark); box-shadow: inset 0 0 0 1px var(--wy-sc-mark); }\n.wy-dcs-scroll .wy-cs-me { border-radius: 0; background: var(--wy-sc-slip); color: var(--wy-sc-ink); box-shadow: inset 0 0 0 1px var(--wy-sc-edge), 1px 2px 0 var(--wy-sc-glow); }\n.wy .wy-dcs-scroll .wy-cs-redo, .wy .wy-dcs-scroll .wy-cs-again { border-radius: 2px; background: none; color: var(--wy-sc-mark); box-shadow: inset 0 0 0 1px var(--wy-sc-mark); }\n.wy .wy-dcs-scroll .wy-cs-again { min-height: 36px; padding: 0 14px; }\n.wy-dcs-scroll .wy-cs-speaking { color: var(--wy-sc-sub); }\n.wy-dcs-scroll .wy-cs-speaking .wy-dots i { background: var(--wy-sc-mark); }\n.wy-dcs-scroll .wy-cs-ended { border: 2px solid var(--wy-sc-mark); color: var(--wy-sc-mark); transform: rotate(-4deg); }\n.wy-dcs-scroll .wy-cs-cam { background: var(--wy-sc-desk); }\n.wy-dcs-scroll .wy-cs-cam .wy-cs-head, .wy-dcs-scroll .wy-cs-cam .wy-cs-time, .wy-dcs-scroll .wy-cs-cam .wy-dcs-mode, .wy-dcs-scroll .wy-cs-scene-t { color: var(--wy-sc-desk-ink); }\n.wy-dcs-scroll .wy-cs-self { background: var(--wy-sc-desk); }\n.wy-dcs-scroll[data-wy-phase=\"end\"] .wy-cs-log { opacity: 0.6; }\n/* the transcript sheet's lines on the device (the sheet itself is Task 5's .wy-dsheet) */\n:host([data-wy-look=\"crystal\"]) .wy-dsheet.wy-calllog .wy-calllog-n { color: var(--wy-cr-mark); }\n:host([data-wy-look=\"crystal\"]) .wy-dsheet.wy-calllog .wy-cs-tag { border-radius: 0; background: var(--wy-cr-stain); color: var(--wy-cr-mark); }\n:host([data-wy-look=\"scroll\"]) .wy-dsheet.wy-calllog .wy-calllog-n { color: var(--wy-sc-mark); }\n:host([data-wy-look=\"scroll\"]) .wy-dsheet.wy-calllog .wy-cs-tag { border-radius: 0; background: none; color: var(--wy-sc-mark); box-shadow: inset 0 0 0 1px var(--wy-sc-mark); }\n/* the call screens' motion (动画 开 only) */\n.wy[data-wy-motion=\"on\"] .wy-callscr.wy-dcs-crystal:not(.wy-dcs-cont) { animation: wy-lk-cs-open 0.3s ease both; }\n.wy[data-wy-motion=\"on\"] .wy-callscr.wy-dcs-scroll:not(.wy-dcs-cont) { animation: wy-lk-cs-unroll 0.5s cubic-bezier(0.3, 0.6, 0.3, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-dcs-crystal .wy-dcs-glow { transition: opacity 0.6s ease; animation: wy-lk-cs-glow 2.6s ease-in-out infinite alternate; }\n.wy[data-wy-motion=\"on\"] .wy-dcs-crystal[data-wy-phase=\"in\"] .wy-dcs-glow, .wy[data-wy-motion=\"on\"] .wy-dcs-crystal[data-wy-phase=\"ring\"] .wy-dcs-glow { animation: wy-lk-cs-glow 1.05s ease-in-out infinite alternate; }\n.wy[data-wy-motion=\"on\"] .wy-dcs-crystal[data-wy-phase=\"end\"] .wy-dcs-glow { animation: none; }\n.wy[data-wy-motion=\"on\"] .wy-dcs[data-wy-phase=\"in\"] .wy-dcs-reso > i, .wy[data-wy-motion=\"on\"] .wy-dcs[data-wy-phase=\"ring\"] .wy-dcs-reso > i { animation: wy-lk-cs-reso 1.8s ease-out infinite; }\n.wy[data-wy-motion=\"on\"] .wy-dcs-scroll[data-wy-phase=\"in\"] .wy-dcs-reso > i, .wy[data-wy-motion=\"on\"] .wy-dcs-scroll[data-wy-phase=\"ring\"] .wy-dcs-reso > i { animation: wy-lk-cs-reso 2.6s ease-out infinite; }\n.wy[data-wy-motion=\"on\"] .wy-dcs[data-wy-phase] .wy-dcs-reso > i:nth-child(2) { animation-delay: 0.6s; }\n.wy[data-wy-motion=\"on\"] .wy-dcs[data-wy-phase] .wy-dcs-reso > i:nth-child(3) { animation-delay: 1.2s; }\n.wy[data-wy-motion=\"on\"] .wy-dcs-scroll[data-wy-phase] .wy-dcs-reso > i:nth-child(2) { animation-delay: 0.87s; }\n.wy[data-wy-motion=\"on\"] .wy-dcs-scroll[data-wy-phase] .wy-dcs-reso > i:nth-child(3) { animation-delay: 1.73s; }\n.wy[data-wy-motion=\"on\"] .wy-dcs-face, .wy[data-wy-motion=\"on\"] .wy-dcs-scroll .wy-cs-log { transition: opacity 0.6s ease; }\n.wy[data-wy-motion=\"on\"] .wy-dcs-crystal .wy-cs-her.wy-dcs-in > * { animation: wy-lk-cs-gather 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; animation-delay: calc(var(--wy-dcs-i, 0ms) - var(--wy-dcs-t, 0ms)); }\n.wy[data-wy-motion=\"on\"] .wy-dcs-scroll .wy-cs-her.wy-dcs-in > * { animation: wy-lk-cs-soak 0.8s cubic-bezier(0.3, 0.5, 0.3, 1) both; animation-delay: calc(var(--wy-dcs-i, 0ms) - var(--wy-dcs-t, 0ms)); }\n.wy-dcs-in > :nth-child(2) { --wy-dcs-i: 160ms; }\n.wy-dcs-in > :nth-child(3) { --wy-dcs-i: 320ms; }\n.wy-dcs-in > :nth-child(n+4) { --wy-dcs-i: 440ms; }\n.wy[data-wy-motion=\"on\"] .wy-dcs-scroll .wy-cs-ended:not([hidden]) { animation: wy-lk-cs-stamp 0.42s cubic-bezier(0.3, 0.6, 0.3, 1.2) both; }\n.wy[data-wy-motion=\"on\"] .wy-dcs-crystal .wy-cs-ended:not([hidden]) { animation: wy-lk-cs-open 0.5s ease both; }\n/* the start-up as the device (Task 11; spec §4.4, §13.10, §14.8): the empty page (.wy-dempty: the dormant gem / the rolled scroll under its\n   paper seal 封), the 开机 overlay (.wy-dboot: crystal = the gem's edge drawn in light, a core of light, 微谕 forming out of light; scroll = the\n   seal tears, the paper unrolls from its roller, 微谕 soaks in, his seal is stamped), the contacts gathering (.wy-dboot-mote) and flying to the\n   rows, the rows glowing in / dropping onto the rack, the failure (.wy-dboot-fail). Static without 动画: the device at rest, every word shown. */\n.wy-dempty-art { position: relative; display: block; flex: none; }\n.wy-dempty-art > svg { display: block; width: 100%; height: 100%; }\n.wy-dempty-crystal .wy-dempty-art { width: 92px; height: 166px; margin-bottom: 6px; color: var(--wy-cr-edge); opacity: 0.75; }\n.wy-dempty-crystal .wy-empty-name { color: var(--wy-cr-ink); letter-spacing: 6px; text-indent: 6px; text-shadow: 0 0 10px var(--wy-cr-glow); }\n.wy-dempty-scroll .wy-dempty-art { width: 220px; height: 40px; margin: 26px 0 14px; color: var(--wy-sc-edge); }\n.wy-dempty-seal { position: absolute; top: -14px; left: 50%; width: 30px; height: 68px; margin-left: -15px; color: var(--wy-sc-slip); filter: drop-shadow(0 1px 1px var(--wy-sc-glow)); }\n.wy-dempty-seal > svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }\n.wy-dempty-seal-ch { position: absolute; top: 50%; right: 0; left: 0; margin-top: -10px; color: var(--wy-sc-mark); font-size: 17px; line-height: 20px; text-align: center; }\n.wy-dempty-scroll .wy-empty-name { font-size: 30px; font-weight: 400; letter-spacing: 4px; text-indent: 4px; }\n.wy .wy-dbootbtn { gap: 8px; padding: 0 24px 0 12px; }\n.wy-dbootbtn-gl.wy-dglyph { width: 30px; height: 30px; }\n.wy-dbootbtn-gl.wy-dglyph > .wy-dglyph-art > svg { display: block; width: 100%; height: 100%; }\n.wy-dbootbtn-gl.wy-dglyph > svg { grid-area: 1 / 1; position: relative; width: 16px; height: 16px; }\n:host([data-wy-look=\"crystal\"]) .wy .wy-dbootbtn { border-radius: 0; background: linear-gradient(150deg, var(--wy-cr-stone), var(--wy-cr-seal)); color: var(--wy-cr-ink); box-shadow: 0 0 16px var(--wy-cr-glow); clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 50%, calc(100% - 14px) 100%, 14px 100%, 0 50%); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-dbootbtn { border-radius: 4px; background: var(--wy-sc-seal); color: var(--wy-sc-seal-ink); box-shadow: inset 0 0 0 2px var(--wy-sc-seal), inset 0 0 0 3px var(--wy-sc-seal-ink), 1px 3px 0 var(--wy-sc-glow); }\n:host([data-wy-look=\"scroll\"]) .wy-dbootbtn .wy-dglyph { color: var(--wy-sc-seal-ink); }\n.wy-boot.wy-dboot { background: var(--wy-boot-bg); }\n.wy-dboot-art { position: absolute; pointer-events: none; }\n.wy-dboot-art svg { display: block; width: 100%; height: 100%; }\n/* K2C (stage-2 second opinion #5): the gem's box (.wy-dboot-gem) holds the art, the core and the gathered contacts, so they stay inside the gem:\n   two rows of three sigils between the core and the lower facets; more than six → five and a 「+N」 (.wy-dboot-more); a counted-only mote is\n   not drawn (.wy-dboot-hid) */\n.wy-dboot-crystal .wy-dboot-gem { position: absolute; top: 6%; left: 50%; width: 56%; max-width: 230px; aspect-ratio: 200 / 360; transform: translateX(-50%); pointer-events: none; }\n.wy-dboot-crystal .wy-dboot-art { top: 0; right: 0; bottom: 0; left: 0; color: var(--wy-cr-mark); filter: drop-shadow(0 0 8px var(--wy-cr-glow)); }\n.wy-dboot-gem > .wy-dboot-motes { top: 55%; right: 12%; bottom: 18%; left: 12%; align-content: center; gap: 4px 2px; max-height: none; }\n.wy-dboot-gem .wy-dboot-mote { width: 44px; }\n.wy-dboot-gem .wy-dboot-mote > .wy-spk { width: 24px; height: 24px; }\n.wy-dboot-gem .wy-dboot-mote .wy-boot-cn { max-width: 44px; color: var(--wy-cr-ink); font-size: 10px; }\n.wy-dboot-mote.wy-dboot-hid { display: none; }\n.wy-dboot-more { display: flex; align-items: center; justify-content: center; width: 44px; height: 24px; color: var(--wy-cr-mark); font-size: 13px; letter-spacing: 1px; text-shadow: 0 0 6px var(--wy-cr-glow); }\n.wy-dboot-core { position: absolute; top: 40%; left: 50%; width: 130px; height: 130px; margin: -65px 0 0 -65px; border-radius: 50%; background: radial-gradient(circle, var(--wy-cr-ink) 0, var(--wy-cr-mark) 14%, var(--wy-cr-glow) 36%, transparent 70%); pointer-events: none; }\n.wy-dboot .wy-boot-text { bottom: 8%; }\n.wy-dboot-crystal .wy-boot-name { color: var(--wy-cr-ink); font-size: 30px; letter-spacing: 10px; text-indent: 10px; text-shadow: 0 0 14px var(--wy-cr-glow); }\n.wy-dboot-crystal .wy-boot-line { color: var(--wy-cr-mark); letter-spacing: 2px; }\n.wy-dboot-motes { position: absolute; top: 45%; right: 16px; left: 16px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 10px; max-height: 30%; overflow: hidden; pointer-events: none; }\n.wy-dboot-mote { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 52px; }\n.wy-dboot-mote > .wy-spk, .wy-spk.wy-fly { position: relative; width: 30px; height: 30px; margin: 0; cursor: default; }\n.wy-spk.wy-fly { position: absolute; }\n.wy-dboot-mote .wy-boot-cn { max-width: 52px; }\n.wy-dboot-mote.wy-boot-flown { visibility: hidden; }\n.wy-dboot-crystal .wy-dboot-mote > .wy-spk { filter: drop-shadow(0 0 5px var(--wy-cr-glow)); }\n.wy-boot.wy-dboot-scroll { background: var(--wy-sc-desk); }\n.wy-dboot-scroll::before { content: \"\"; position: absolute; top: 16px; right: 12px; bottom: 10px; left: 12px; background: var(--wy-sc-boot-bg); box-shadow: inset 0 0 0 1px var(--wy-sc-edge), 0 6px 14px var(--wy-sc-pool); }\n.wy-dboot-scroll .wy-dboot-art { top: 6px; right: 4px; left: 4px; height: 22px; color: var(--wy-sc-wood); }\n.wy-dboot-rod { display: block; width: 100%; height: 100%; }\n.wy-dboot-seal { position: absolute; top: 2px; left: 50%; width: 44px; height: 88px; margin-left: -22px; color: var(--wy-sc-slip); opacity: 0; pointer-events: none; }\n.wy-dboot-seal-h { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }\n.wy-dboot-seal-h > svg { display: block; width: 100%; height: 100%; }\n.wy-dboot-seal-a { clip-path: inset(0 50% 0 0); }\n.wy-dboot-seal-b { clip-path: inset(0 0 0 50%); }\n.wy-dboot-seal-ch { position: absolute; top: 50%; right: 0; left: 0; margin-top: -12px; color: var(--wy-sc-mark); font-size: 22px; line-height: 24px; text-align: center; }\n.wy-dboot-scroll .wy-boot-text { top: 20%; bottom: auto; }\n.wy-dboot-scroll .wy-boot-name { color: var(--wy-sc-ink); font-size: 54px; font-weight: 400; letter-spacing: 6px; text-indent: 6px; line-height: 1.15; }\n.wy-dboot-scroll .wy-boot-line { color: var(--wy-sc-sub); letter-spacing: 1px; }\n.wy-dboot-me.wy-spk { width: 40px; height: 40px; margin: 4px 0 12px; transform: rotate(-3deg); cursor: default; }\n.wy-dboot-me.wy-spk-seal { border-radius: 4px; background: var(--wy-sc-seal); color: var(--wy-sc-seal-ink); }\n.wy-dboot-me .wy-spk-ch { font-size: 22px; }\n.wy-dboot-scroll .wy-dboot-motes { top: 58%; }\n.wy-dboot-scroll .wy-boot-cn { color: var(--wy-sc-ink); }\n.wy-dboot-crystal .wy-boot-fail { border: 1px solid var(--wy-cr-edge); border-radius: 0; background: var(--wy-cr-panel); color: var(--wy-cr-ink); box-shadow: 0 0 18px var(--wy-cr-glow); clip-path: polygon(12px 0, calc(100% - 12px) 0, 100% 12px, 100% calc(100% - 12px), calc(100% - 12px) 100%, 12px 100%, 0 calc(100% - 12px), 0 12px); }\n.wy-dboot-crystal .wy-boot-fail-why { color: var(--wy-cr-sub); }\n.wy .wy-dboot-crystal .wy-boot-back, .wy .wy-dboot-crystal .wy-boot-retry { border-radius: 0; clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 10px 100%, 0 50%); }\n.wy .wy-dboot-crystal .wy-boot-back { background: var(--wy-cr-stone); color: var(--wy-cr-ink); }\n.wy .wy-dboot-crystal .wy-boot-retry { background: var(--wy-cr-mark); color: var(--wy-cr-on-fill); }\n.wy-dboot-scroll .wy-boot-fail { border-radius: 0; background: var(--wy-sc-slip); color: var(--wy-sc-ink); box-shadow: inset 0 0 0 1px var(--wy-sc-edge), inset 0 0 0 4px var(--wy-sc-slip), inset 0 0 0 5px var(--wy-sc-rule), 2px 3px 0 var(--wy-sc-glow); }\n.wy-dboot-scroll .wy-boot-fail-why { color: var(--wy-sc-sub); }\n.wy .wy-dboot-scroll .wy-boot-back { border-radius: 2px; background: none; color: var(--wy-sc-ink); box-shadow: inset 0 0 0 1px var(--wy-sc-edge); }\n.wy .wy-dboot-scroll .wy-boot-retry { border-radius: 3px; background: var(--wy-sc-seal); color: var(--wy-sc-seal-ink); }\n/* the start-up's motion (动画 开 only; the overlay is built only while 开机 runs) */\n.wy[data-wy-motion=\"on\"] .wy-dboot-crystal .wy-dboot-art { animation: wy-cs-fade 0.3s ease both; }\n.wy[data-wy-motion=\"on\"] .wy-dboot-crystal .wy-dboot-art path { stroke-dasharray: 1600; animation: wy-lk-boot-draw 1.4s cubic-bezier(0.4, 0, 0.2, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-dboot-core { animation: wy-lk-boot-core 1.4s cubic-bezier(0.3, 0.6, 0.3, 1) 0.6s both, wy-lk-boot-breath 2.6s ease-in-out 2s infinite alternate; }\n.wy[data-wy-motion=\"on\"] .wy-dboot-crystal.wy-boot-out .wy-dboot-core { animation: wy-lk-boot-burst 0.7s ease-in both; }\n.wy[data-wy-motion=\"on\"] .wy-dboot-crystal .wy-boot-name { animation: wy-lk-boot-form 1s ease 1.2s both; }\n.wy[data-wy-motion=\"on\"] .wy-dboot-mote { animation: wy-lk-boot-mote 0.5s ease-out both; }\n.wy[data-wy-motion=\"on\"] .wy-dboot-more { animation: wy-cs-fade 0.4s ease both; }\n.wy[data-wy-motion=\"on\"] .wy-dboot-scroll::before { animation: wy-lk-cs-unroll 0.9s cubic-bezier(0.3, 0.6, 0.3, 1) 0.55s both; }\n.wy[data-wy-motion=\"on\"] .wy-dboot-scroll .wy-dboot-seal { animation: wy-lk-boot-sealgo 0.9s ease 0.1s both; }\n.wy[data-wy-motion=\"on\"] .wy-dboot-scroll .wy-dboot-seal-a { animation: wy-lk-boot-teara 0.55s ease-in 0.45s both; }\n.wy[data-wy-motion=\"on\"] .wy-dboot-scroll .wy-dboot-seal-b { animation: wy-lk-boot-tearb 0.55s ease-in 0.45s both; }\n.wy[data-wy-motion=\"on\"] .wy-dboot-scroll .wy-boot-name { animation: wy-lk-cs-soak 0.9s cubic-bezier(0.3, 0.5, 0.3, 1) 1.2s both; }\n.wy[data-wy-motion=\"on\"] .wy-dboot-scroll .wy-dboot-me { animation: wy-lk-boot-stamp 0.42s cubic-bezier(0.3, 0.6, 0.3, 1.2) 1.9s both; }\n.wy[data-wy-motion=\"on\"] .wy-dboot-scroll .wy-boot-line, .wy[data-wy-motion=\"on\"] .wy-dboot-scroll .wy-dboot-motes { animation: wy-cs-fade 0.4s ease 1s both; }\n.wy[data-wy-motion=\"on\"] .wy-boot-in .wy-drow[data-wy-dev=\"crystal\"] { animation: wy-lk-boot-glowin 0.5s ease both; animation-delay: calc(var(--wy-i, 0) * 110ms + 120ms); }\n.wy[data-wy-motion=\"on\"] .wy-boot-in .wy-drow[data-wy-dev=\"scroll\"] { animation: wy-lk-boot-drop 0.55s cubic-bezier(0.3, 0.6, 0.3, 1.25) both; animation-delay: calc(var(--wy-i, 0) * 110ms + 120ms); }\n/* looks Task 13: every other page on the device's surface (spec §4.4 / §5) — contacts, profile, 我, group info, pick, search, add / find\n   people, the 世界用语 editor: today's rows and forms on the gem's glass (crystal: a faint light from the top facet, rows on dark glass with a\n   light edge, the type etched in light) or on the paper (scroll: plain paper with darker edges, rows written on it over ink rules, brush type,\n   red headings). Controls in the device's form: the switch (crystal: a cut socket with a sliding diamond stone; scroll: a paper strip with\n   his seal sliding across, reading 开 / 关 — span.wy-sw-k), the seg rows (crystal: cut facets, the chosen one a lit stone; scroll: words on\n   a ruled line, the chosen one in red, underlined), chips, check marks, fields, the 完成 / 保存 button. Movement only under 动画 开. */\n.wy-dtop.wy-srchtop { display: flex; align-items: center; gap: 6px; padding: 6px 4px 6px 12px; }\n.wy-foot.wy-bgnote { padding: 4px 16px 10px; font-size: 12px; line-height: 1.4; text-align: left; }\n.wy-pcard .wy-spk-ch { font-size: 28px; }\n.wy-mcell .wy-spk-ch, .wy-prow .wy-spk-ch, .wy-pick .wy-spk-ch { font-size: 18px; }\n.wy-pickstrip .wy-spk-ch { font-size: 14px; }\n:host([data-wy-look=\"crystal\"]) .wy-tabs-contacts > .wy-scroll, :host([data-wy-look=\"crystal\"]) .wy-tabs-me > .wy-scroll, :host([data-wy-look=\"crystal\"]) .wy-info > .wy-scroll,\n:host([data-wy-look=\"crystal\"]) .wy-profile > .wy-scroll, :host([data-wy-look=\"crystal\"]) .wy-pickpage > .wy-scroll, :host([data-wy-look=\"crystal\"]) .wy-search > .wy-scroll,\n:host([data-wy-look=\"crystal\"]) .wy-words > .wy-scroll, :host([data-wy-look=\"crystal\"]) .wy-ac > .wy-scroll { background: radial-gradient(120% 50% at 50% 0, var(--wy-cr-stain), transparent 70%), var(--wy-cr-chat-bg); }\n:host([data-wy-look=\"crystal\"]) .wy-scroll .wy-card, :host([data-wy-look=\"crystal\"]) .wy-scroll .wy-prow, :host([data-wy-look=\"crystal\"]) .wy-scroll .wy-setrow,\n:host([data-wy-look=\"crystal\"]) .wy-scroll .wy-kv, :host([data-wy-look=\"crystal\"]) .wy .wy-scroll .wy-btnrow, :host([data-wy-look=\"crystal\"]) .wy-scroll .wy-words-form,\n:host([data-wy-look=\"crystal\"]) .wy-scroll .wy-ac-intro { background: linear-gradient(100deg, var(--wy-cr-hover), transparent 60%), var(--wy-cr-panel); }\n:host([data-wy-look=\"crystal\"]) .wy-scroll .wy-prow:hover { background: var(--wy-cr-pin-bg); }\n:host([data-wy-look=\"crystal\"]) .wy-scroll .wy-setrow, :host([data-wy-look=\"crystal\"]) .wy-scroll .wy-kv { border-bottom-color: var(--wy-cr-rule); }\n:host([data-wy-look=\"crystal\"]) .wy-scroll .wy-prow::after { background: var(--wy-cr-rule); }\n:host([data-wy-look=\"crystal\"]) .wy-scroll .wy-gap { background: none; }\n:host([data-wy-look=\"crystal\"]) .wy-scroll .wy-card.wy-pcard { box-shadow: inset 0 0 0 1px var(--wy-cr-edge), inset 0 0 18px var(--wy-cr-stain); }\n:host([data-wy-look=\"crystal\"]) .wy-pname { letter-spacing: 1.5px; text-shadow: 0 0 10px var(--wy-cr-glow); }\n:host([data-wy-look=\"crystal\"]) .wy-sechead, :host([data-wy-look=\"crystal\"]) .wy-ac-sechead { color: var(--wy-cr-mark); letter-spacing: 2px; text-shadow: 0 0 6px var(--wy-cr-glow); }\n:host([data-wy-look=\"crystal\"]) .wy-bgnote, :host([data-wy-look=\"crystal\"]) .wy-scroll .wy-foot { color: var(--wy-cr-sub); }\n:host([data-wy-look=\"crystal\"]) .wy-sq { border-radius: 0; background: var(--wy-cr-stone); color: var(--wy-cr-mark); clip-path: polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%); }\n:host([data-wy-look=\"crystal\"]) .wy-sq-observed { background: var(--wy-cr-seal); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-done { border-radius: 0; background: var(--wy-cr-stone); color: var(--wy-cr-ink); box-shadow: inset 0 0 0 1px var(--wy-cr-edge), 0 0 8px var(--wy-cr-glow); clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 8px 100%, 0 50%); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-chip { border-color: var(--wy-cr-edge); border-radius: 0; background: var(--wy-cr-panel); color: var(--wy-cr-ink); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-chip.wy-on { border-color: var(--wy-cr-mark); background: var(--wy-cr-stone); color: var(--wy-cr-ink); box-shadow: 0 0 8px var(--wy-cr-glow); }\n:host([data-wy-look=\"crystal\"]) .wy-ck { position: relative; isolation: isolate; border: 0; border-radius: 0; background: var(--wy-cr-sub); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }\n:host([data-wy-look=\"crystal\"]) .wy-ck::before { content: \"\"; position: absolute; top: 2.5px; right: 2.5px; bottom: 2.5px; left: 2.5px; z-index: -1; background: var(--wy-cr-pool); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-pick.wy-on .wy-ck::before { content: none; }\n:host([data-wy-look=\"crystal\"]) .wy .wy-pick.wy-on .wy-ck { border-color: var(--wy-cr-mark); background: var(--wy-cr-mark); color: var(--wy-cr-on-fill); }\n:host([data-wy-look=\"crystal\"]) .wy-words-in, :host([data-wy-look=\"crystal\"]) .wy .wy-ac-in, :host([data-wy-look=\"crystal\"]) .wy .wy-ac-ta, :host([data-wy-look=\"crystal\"]) .wy-gname input,\n:host([data-wy-look=\"crystal\"]) .wy-srchf { border-color: var(--wy-cr-edge); border-radius: 0; background: var(--wy-cr-pool); color: var(--wy-cr-ink); }\n:host([data-wy-look=\"crystal\"]) .wy-srchf { box-shadow: inset 0 0 0 1px var(--wy-cr-edge); }\n/* the crystal switch: the cut socket is the knob span (the button keeps its round hit area, never clipped); the diamond = its ::after */\n:host([data-wy-look=\"crystal\"]) .wy .wy-switch { border-radius: 0; background: none; }\n:host([data-wy-look=\"crystal\"]) .wy .wy-switch::after { content: none; }\n:host([data-wy-look=\"crystal\"]) .wy .wy-switch .wy-sw-k { position: absolute; top: 1px; right: 0; bottom: 1px; left: 0; background: var(--wy-cr-sub); clip-path: polygon(9px 0, calc(100% - 9px) 0, 100% 50%, calc(100% - 9px) 100%, 9px 100%, 0 50%); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-switch .wy-sw-k::before { content: \"\"; position: absolute; top: 1.5px; right: 1.5px; bottom: 1.5px; left: 1.5px; background: var(--wy-cr-pool); clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 8px 100%, 0 50%); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-switch .wy-sw-k::after { content: \"\"; position: absolute; top: 50%; left: 11px; width: 13px; height: 13px; margin-top: -6.5px; background: var(--wy-cr-sub); transform: rotate(45deg); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-switch.wy-on .wy-sw-k { background: linear-gradient(90deg, var(--wy-cr-mark), var(--wy-cr-stone-hi)); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-switch.wy-on .wy-sw-k::before { background: linear-gradient(90deg, var(--wy-cr-own), var(--wy-cr-stone)); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-switch.wy-on .wy-sw-k::after { background: var(--wy-cr-own-ink); box-shadow: 0 0 8px var(--wy-cr-mark); transform: translateX(20px) rotate(45deg); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-switch:disabled .wy-sw-k { opacity: 0.45; }\n/* the crystal seg row: cut facets on dark glass, the chosen one a lit stone */\n:host([data-wy-look=\"crystal\"]) .wy-seg { border-radius: 0; background: var(--wy-cr-pool); box-shadow: inset 0 0 0 1px var(--wy-cr-edge); clip-path: polygon(8px 0, calc(100% - 8px) 0, 100% 50%, calc(100% - 8px) 100%, 8px 100%, 0 50%); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-seg-i { border-radius: 0; color: var(--wy-cr-sub); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-seg-i.wy-on { background: var(--wy-cr-stone); color: var(--wy-cr-ink); box-shadow: inset 0 0 0 1px var(--wy-cr-mark), 0 0 8px var(--wy-cr-glow); clip-path: polygon(6px 0, calc(100% - 6px) 0, 100% 50%, calc(100% - 6px) 100%, 6px 100%, 0 50%); }\n:host([data-wy-look=\"scroll\"]) .wy-tabs-contacts > .wy-scroll, :host([data-wy-look=\"scroll\"]) .wy-tabs-me > .wy-scroll, :host([data-wy-look=\"scroll\"]) .wy-info > .wy-scroll,\n:host([data-wy-look=\"scroll\"]) .wy-profile > .wy-scroll, :host([data-wy-look=\"scroll\"]) .wy-pickpage > .wy-scroll, :host([data-wy-look=\"scroll\"]) .wy-search > .wy-scroll,\n:host([data-wy-look=\"scroll\"]) .wy-words > .wy-scroll, :host([data-wy-look=\"scroll\"]) .wy-ac > .wy-scroll { background: linear-gradient(90deg, var(--wy-sc-glow), transparent 16px, transparent calc(100% - 16px), var(--wy-sc-glow)), var(--wy-sc-panel); }\n:host([data-wy-look=\"scroll\"]) .wy-scroll .wy-card, :host([data-wy-look=\"scroll\"]) .wy-scroll .wy-prow, :host([data-wy-look=\"scroll\"]) .wy-scroll .wy-setrow,\n:host([data-wy-look=\"scroll\"]) .wy-scroll .wy-kv, :host([data-wy-look=\"scroll\"]) .wy .wy-scroll .wy-btnrow, :host([data-wy-look=\"scroll\"]) .wy-scroll .wy-words-form,\n:host([data-wy-look=\"scroll\"]) .wy-scroll .wy-ac-intro { background: none; }\n:host([data-wy-look=\"scroll\"]) .wy-scroll .wy-prow:hover { background: var(--wy-sc-hover); }\n:host([data-wy-look=\"scroll\"]) .wy-scroll .wy-setrow, :host([data-wy-look=\"scroll\"]) .wy-scroll .wy-kv { border-bottom-color: var(--wy-sc-line); }\n:host([data-wy-look=\"scroll\"]) .wy-scroll .wy-prow::after { background: var(--wy-sc-line); transform: none; }\n:host([data-wy-look=\"scroll\"]) .wy-scroll .wy-gap { background: none; }\n:host([data-wy-look=\"scroll\"]) .wy-scroll .wy-card.wy-pcard { border-bottom: 1px solid var(--wy-sc-edge); box-shadow: 0 1px 0 var(--wy-sc-slip); }\n:host([data-wy-look=\"scroll\"]) .wy-pname { font-size: 24px; font-weight: 400; letter-spacing: 2px; }\n:host([data-wy-look=\"scroll\"]) .wy-sechead, :host([data-wy-look=\"scroll\"]) .wy-ac-sechead { color: var(--wy-sc-mark); font-size: 15px; letter-spacing: 3px; }\n:host([data-wy-look=\"scroll\"]) .wy-bgnote, :host([data-wy-look=\"scroll\"]) .wy-scroll .wy-foot { color: var(--wy-sc-sub); }\n:host([data-wy-look=\"scroll\"]) .wy-sq { border-radius: 3px; background: var(--wy-sc-seal); color: var(--wy-sc-seal-ink); transform: rotate(-3deg); }\n:host([data-wy-look=\"scroll\"]) .wy-sq-observed { background: var(--wy-sc-stone); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-done { border-radius: 3px; background: var(--wy-sc-seal); color: var(--wy-sc-seal-ink); box-shadow: inset 0 0 0 1.5px var(--wy-sc-glow); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-chip { border-color: var(--wy-sc-edge); border-radius: 1px; background: var(--wy-sc-slip); color: var(--wy-sc-ink); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-chip.wy-on { border-color: var(--wy-sc-mark); background: var(--wy-sc-slip); color: var(--wy-sc-mark); box-shadow: inset 0 0 0 1px var(--wy-sc-mark); }\n:host([data-wy-look=\"scroll\"]) .wy-ck { border-color: var(--wy-sc-sub); border-radius: 2px; }\n:host([data-wy-look=\"scroll\"]) .wy .wy-pick.wy-on .wy-ck { border-color: var(--wy-sc-seal); background: var(--wy-sc-seal); color: var(--wy-sc-seal-ink); }\n:host([data-wy-look=\"scroll\"]) .wy-words-in, :host([data-wy-look=\"scroll\"]) .wy .wy-ac-in, :host([data-wy-look=\"scroll\"]) .wy .wy-ac-ta, :host([data-wy-look=\"scroll\"]) .wy-gname input,\n:host([data-wy-look=\"scroll\"]) .wy-srchf { border: 0; border-bottom: 1px solid var(--wy-sc-edge); border-radius: 0; background: var(--wy-sc-slip); color: var(--wy-sc-ink); }\n/* the scroll switch: a paper strip ruled through the middle; his seal (span.wy-sw-k, 关 grey ink → 开 red) slides across */\n:host([data-wy-look=\"scroll\"]) .wy .wy-switch { width: 56px; border-radius: 1px; background: var(--wy-sc-slip); box-shadow: inset 0 0 0 1px var(--wy-sc-sub); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-switch::after { top: 50%; right: 6px; left: 6px; width: auto; height: 1px; border-radius: 0; background: var(--wy-sc-line); box-shadow: none; transform: none; }\n:host([data-wy-look=\"scroll\"]) .wy .wy-switch.wy-on { background: var(--wy-sc-slip); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-switch.wy-on::after { transform: none; }\n:host([data-wy-look=\"scroll\"]) .wy .wy-switch .wy-sw-k { position: absolute; top: 3px; left: 3px; z-index: 1; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 3px; background: var(--wy-sc-stone-hi); color: var(--wy-sc-seal-ink); font-size: 14px; line-height: 1; box-shadow: inset 0 0 0 1.5px var(--wy-sc-glow); transform: rotate(-3deg); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-switch.wy-on .wy-sw-k { background: var(--wy-sc-seal); transform: translateX(26px) rotate(-3deg); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-switch:disabled .wy-sw-k { opacity: 0.45; }\n/* the scroll seg row: the choices written on a ruled line; the chosen one in red, underlined */\n/* K2C (stage-2 second opinion #7): at 360 px a long choice (跟随世界用语) no longer touches its neighbour — the choices are sized by their\n   words with room between them, and wrap onto a second ruled line when they must */\n:host([data-wy-look=\"scroll\"]) .wy-seg { flex-wrap: wrap; gap: 2px 8px; border-radius: 0; background: none; box-shadow: inset 0 -1px 0 var(--wy-sc-edge); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-seg-i { flex: 1 1 auto; padding: 0 6px; border-radius: 0; color: var(--wy-sc-sub); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-seg-i.wy-on { background: none; color: var(--wy-sc-mark); box-shadow: inset 0 -2px 0 var(--wy-sc-mark); }\n/* the switches' slide (动画 开 only) */\n:host([data-wy-look=\"crystal\"]) .wy[data-wy-motion=\"on\"] .wy-switch .wy-sw-k::after { transition: transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.25s ease; }\n:host([data-wy-look=\"scroll\"]) .wy[data-wy-motion=\"on\"] .wy-switch .wy-sw-k { transition: transform 0.25s cubic-bezier(0.3, 0.6, 0.3, 1.2), background 0.25s ease; }\n/* ---- the device's OUTLINE (KF, looks frame round 2026-11-24; Prince: \"still a reskinned phone / a skin inside a phone frame\") ----\n   Under a device the phone column has no screen of its own (.wy is see-through; the outer frame in style.css is only a dark backdrop) and\n   every page draws the device's outline itself:\n   crystal = the page's top + scroll (grid rows 1–2) are a tall hexagonal gem — ::before = its glowing rim, ::after = the glass (the same cut\n   1.5 px in); the top is etched on the top facet (its marks sit inside the facet's slant); the bottom row (the chat's writing place / the\n   list's stones) lies OUTSIDE the gem, on the rune ring below it. Pages with no bottom row are the gem whole.\n   scroll = a hanging scroll — ::before = the cord + the top roller (wider than the paper, ivory end caps); the top = the brocade band with\n   the pasted title slip; the scroll = the paper between green silk borders; ::after (or the chat's .wy-lk-rod) = the bottom roller; the bottom\n   row = the desk, its own dark wooden block below. The chat list / groups list = the rack (no rollers).\n   Every cut is on a backdrop layer (a pseudo-element, never a control), so no hit area is clipped; nothing here matches the phone look. */\n/* the phone column is its own layer under a device, so every overlay it draws (a call, a sheet, the wake cover) stays UNDER the frame's ✕ and readout */\n:host([data-wy-look]) .wy { isolation: isolate; background: none; }\n/* crystal */\n:host([data-wy-look=\"crystal\"]) .wy > .wy-page { background: none; isolation: isolate; }\n:host([data-wy-look=\"crystal\"]) .wy > .wy-page::before, :host([data-wy-look=\"crystal\"]) .wy > .wy-page::after,\n:host([data-wy-look=\"crystal\"]) .wy-callscr.wy-dcs-crystal::before, :host([data-wy-look=\"crystal\"]) .wy-callscr.wy-dcs-crystal::after {\n    content: \"\"; position: absolute; z-index: -1; grid-row: 1 / 3; grid-column: 1; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none;\n    clip-path: polygon(15% 0, 85% 0, 100% 52px, 100% calc(100% - 40px), 57% 100%, 43% 100%, 0 calc(100% - 40px), 0 52px);\n}\n:host([data-wy-look=\"crystal\"]) .wy > .wy-page::before, :host([data-wy-look=\"crystal\"]) .wy-callscr.wy-dcs-crystal::before { z-index: -2; background: linear-gradient(170deg, var(--wy-cr-spark) 0, var(--wy-cr-mark) 8%, var(--wy-cr-rim-a) 30%, var(--wy-cr-rim-b) 56%, var(--wy-cr-rim-a) 80%, var(--wy-cr-mark) 100%); }   /* looks polish: a white-hot corner */\n:host([data-wy-look=\"crystal\"]) .wy > .wy-page::after, :host([data-wy-look=\"crystal\"]) .wy-callscr.wy-dcs-crystal::after {\n    top: 1.5px; right: 1.5px; bottom: 1.5px; left: 1.5px;\n    /* looks polish: cut facets first — bevelled sides, a lit upper-left plane, a shaded lower-right plane */\n    background: linear-gradient(90deg, var(--wy-cr-facet-a) 0, transparent 16px, transparent calc(100% - 16px), var(--wy-cr-facet-b) 100%),\n        linear-gradient(152deg, var(--wy-cr-facet-a) 0 24%, transparent 24.15%), linear-gradient(208deg, transparent 0 74%, var(--wy-cr-facet-b) 74.15%),\n        linear-gradient(112deg, transparent 0 33%, var(--wy-cr-sheen) 33.2% 33.6%, transparent 33.8%), linear-gradient(68deg, transparent 0 66%, var(--wy-cr-sheen) 66.2% 66.6%, transparent 66.8%),\n        radial-gradient(90% 45% at 20% 8%, var(--wy-cr-tint-a), transparent 70%), radial-gradient(80% 50% at 90% 85%, var(--wy-cr-tint-b), transparent 70%),\n        radial-gradient(50% 24% at 50% 98%, var(--wy-cr-sheen), transparent 70%), linear-gradient(180deg, var(--wy-cr-body-a), var(--wy-cr-body-b) 48%, var(--wy-cr-body-c));\n}\n:host([data-wy-look=\"crystal\"]) .wy > .wy-page.wy-chat, :host([data-wy-look=\"crystal\"]) .wy > .wy-page.wy-tabs,\n:host([data-wy-look=\"crystal\"]) .wy-callscr.wy-dcs-crystal { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; }\n:host([data-wy-look=\"crystal\"]) .wy > .wy-page > .wy-dtop { grid-row: 1; grid-column: 1; height: 52px; min-height: 52px; margin: 0; padding: 4px 14% 0; border: 0; background: none; box-shadow: none; }\n:host([data-wy-look=\"crystal\"]) .wy > .wy-page > .wy-dtop::before { clip-path: polygon(15% 0, 85% 0, 100% 100%, 0 100%); background: linear-gradient(180deg, var(--wy-cr-lit) 0 1px, transparent 1px), linear-gradient(180deg, var(--wy-cr-sheen), transparent 90%), linear-gradient(0deg, var(--wy-cr-edge) 0 1px, transparent 1px); }\n/* crystal-ui round (2026-11-26, Prince's shot 11): the scroll sits INSIDE the rim (1.5 px = the glass's own inset) — full-width rows / cards\n   painted over the rim and left it only beside the gaps; and it ends where the lower facets start (40 px = the cut's calc(100% - 40px)) */\n:host([data-wy-look=\"crystal\"]) .wy > .wy-page > .wy-scroll { grid-row: 2; grid-column: 1; margin: 0 1.5px 40px; background: none; }\n:host([data-wy-look=\"crystal\"]) .wy > .wy-page > .wy-chatfoot, :host([data-wy-look=\"crystal\"]) .wy > .wy-page > .wy-tabbar { grid-row: 3; grid-column: 1; position: relative; z-index: 0; border-top: 0; background: none; box-shadow: none; }\n/* the list's stones stand on the same rune ring as the writing place */\n:host([data-wy-look=\"crystal\"]) .wy > .wy-page > .wy-tabbar { margin-top: 6px; padding: 10px 0 8px; }\n:host([data-wy-look=\"crystal\"]) .wy > .wy-page > .wy-tabbar::after { content: \"\"; position: absolute; z-index: -1; top: 8px; right: 30px; bottom: 4px; left: 30px; border: 1.5px solid var(--wy-cr-rim-b); border-radius: 50%; background: radial-gradient(closest-side, var(--wy-cr-stone), transparent); box-shadow: 0 0 10px var(--wy-cr-glow), inset 0 0 14px var(--wy-cr-glow); opacity: 0.8; pointer-events: none; }\n/* her call: the call screen is the gem too (the page under it is not drawn, so the night shows round the gem); her ring's stones / his\n   writing place sit below it */\n:host([data-wy-look=\"crystal\"]) .wy:has(> .wy-layer > .wy-dcs:not([hidden])) > .wy-page { visibility: hidden; }\n:host([data-wy-look=\"crystal\"]) .wy-layer > .wy-pop-wrap:has(~ .wy-dcs:not([hidden])) { visibility: hidden; }\n:host([data-wy-look=\"crystal\"]) .wy-pickpage > .wy-setrow { margin: 0 10px; }\n:host([data-wy-look=\"crystal\"]) .wy-callscr.wy-dcs-crystal { justify-items: stretch; padding: 0; background: none; }\n:host([data-wy-look=\"crystal\"]) .wy-callscr.wy-dcs-crystal::before { z-index: -3; }\n:host([data-wy-look=\"crystal\"]) .wy-callscr.wy-dcs-crystal::after { z-index: -2; }\n:host([data-wy-look=\"crystal\"]) .wy-dcs-crystal > .wy-dcs-art { grid-row: 1 / 3; grid-column: 1; clip-path: polygon(15% 0, 85% 0, 100% 52px, 100% calc(100% - 40px), 57% 100%, 43% 100%, 0 calc(100% - 40px), 0 52px); }\n:host([data-wy-look=\"crystal\"]) .wy-dcs-crystal > .wy-cs-head { grid-row: 1; grid-column: 1; padding: 22px 15% 8px; }\n:host([data-wy-look=\"crystal\"]) .wy-dcs-crystal > .wy-cs-log { grid-row: 2; grid-column: 1; margin-bottom: 36px; padding-right: 18px; padding-left: 18px; }\n:host([data-wy-look=\"crystal\"]) .wy-dcs-crystal > .wy-callscr-who { grid-row: 2; grid-column: 1; align-self: center; justify-self: center; margin-bottom: 36px; }\n:host([data-wy-look=\"crystal\"]) .wy-dcs-crystal > .wy-cs-foot, :host([data-wy-look=\"crystal\"]) .wy-dcs-crystal > .wy-callscr-foot { grid-row: 3; grid-column: 1; padding-top: 8px; }\n:host([data-wy-look=\"crystal\"]) .wy-dcs-crystal > .wy-callscr-foot { justify-self: center; }\n/* the auto-reply switch stops being a phone bar: one small line UNDER the ring / the desk's things (same controls, same acts) */\n:host([data-wy-look]) .wy-dfoot > .wy-ar-row { order: 9; justify-content: center; gap: 12px; min-height: 30px; margin: -4px 0 0; }\n:host([data-wy-look]) .wy .wy-dfoot .wy-ar-tg { padding: 0 6px; background: none; font-size: 12px; }\n:host([data-wy-look]) .wy .wy-dfoot .wy-ar-go { position: relative; isolation: isolate; margin-left: 0; min-height: 30px; padding: 0 14px; border: 0; border-radius: 0; background: none; font-size: 12px; }\n:host([data-wy-look]) .wy .wy-dfoot .wy-ar-go::before { content: \"\"; position: absolute; z-index: -1; top: 0; right: 0; bottom: 0; left: 0; pointer-events: none; }\n:host([data-wy-look=\"crystal\"]) .wy .wy-dfoot .wy-ar-tg { color: var(--wy-cr-sub); -webkit-text-fill-color: var(--wy-cr-sub); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-dfoot .wy-ar-tg.wy-ar-off { color: var(--wy-cr-warn-ink); -webkit-text-fill-color: var(--wy-cr-warn-ink); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-dfoot .wy-ar-go { color: var(--wy-cr-ink); }\n:host([data-wy-look=\"crystal\"]) .wy .wy-dfoot .wy-ar-go::before { background: linear-gradient(150deg, var(--wy-cr-stone), var(--wy-cr-seal)); box-shadow: inset 0 0 8px var(--wy-cr-glow); clip-path: polygon(10px 0, calc(100% - 10px) 0, 100% 50%, calc(100% - 10px) 100%, 10px 100%, 0 50%); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-dfoot .wy-ar-go { color: var(--wy-ink); }\n:host([data-wy-look=\"scroll\"]) .wy .wy-dfoot .wy-ar-go::before { border-radius: 1px; background: var(--wy-sc-slip); box-shadow: inset 0 0 0 1px var(--wy-sc-edge), 1px 2px 0 var(--wy-sc-pool); transform: rotate(-1.5deg); }\n/* scroll */\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page { background: none; isolation: isolate; padding-top: 34px; padding-bottom: 24px; }\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page::before, :host([data-wy-look=\"scroll\"]) .wy > .wy-page::after { content: \"\"; position: absolute; z-index: 3; right: 0; left: 0; pointer-events: none; }\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page::before {\n    top: 0; height: 40px;\n    background: linear-gradient(90deg, var(--wy-sc-cap-lo), var(--wy-sc-cap) 45%, var(--wy-sc-cap-lo)) left 0 top 15px / 14px 24px no-repeat,\n        linear-gradient(90deg, var(--wy-sc-cap-lo), var(--wy-sc-cap) 45%, var(--wy-sc-cap-lo)) right 0 top 15px / 14px 24px no-repeat,\n        linear-gradient(180deg, var(--wy-sc-rim-a), var(--wy-sc-wood-hi) 30%, var(--wy-sc-wood) 68%, var(--wy-sc-rim-b)) center top 19px / calc(100% - 12px) 16px no-repeat,\n        radial-gradient(30px 22px at 50% 100%, transparent 88%, var(--wy-sc-mark) 91% 98%, transparent 100%) center top 0 / 64px 24px no-repeat;\n}\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page::after {\n    bottom: 0; height: 26px;\n    background: linear-gradient(90deg, var(--wy-sc-cap-lo), var(--wy-sc-cap) 45%, var(--wy-sc-cap-lo)) left 0 top 1px / 14px 24px no-repeat,\n        linear-gradient(90deg, var(--wy-sc-cap-lo), var(--wy-sc-cap) 45%, var(--wy-sc-cap-lo)) right 0 top 1px / 14px 24px no-repeat,\n        linear-gradient(180deg, var(--wy-sc-rim-a), var(--wy-sc-wood-hi) 30%, var(--wy-sc-wood) 68%, var(--wy-sc-rim-b)) center top 5px / calc(100% - 12px) 16px no-repeat;\n}\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page.wy-chat, :host([data-wy-look=\"scroll\"]) .wy > .wy-page.wy-tabs { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; padding-bottom: 4px; }\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page.wy-chat::after, :host([data-wy-look=\"scroll\"]) .wy > .wy-page.wy-tabs::after { grid-row: 3; grid-column: 1; top: -6px; bottom: auto; }\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page:has(> .wy-lk-rod)::after { content: none; }\n/* the brocade band (天头) with its two hanging strips; the title slip sits on it (the slip is .wy-dtop-c, above) */\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page > .wy-dtop {\n    grid-row: 1; grid-column: 1; min-height: 54px; margin: 0 14px; padding: 6px 6px; border: 0;\n    /* looks polish: silk sheen + a gold-leaf cloud-scallop trim (祥云) along its foot (the cross-hatch read as a wire mesh) */\n    background: radial-gradient(circle at 50% 100%, transparent 4.5px, var(--wy-sc-gold) 5px 6px, transparent 6.5px) left 0 bottom 3px / 13px 7px repeat-x,\n        linear-gradient(0deg, transparent 0 2px, var(--wy-sc-gold) 2px 3px, transparent 3px), repeating-linear-gradient(60deg, var(--wy-sc-sheen) 0 1px, transparent 1px 7px),\n        linear-gradient(90deg, transparent 23%, var(--wy-sc-cap-lo) 23% 25%, transparent 25% 75%, var(--wy-sc-cap-lo) 75% 77%, transparent 77%), linear-gradient(180deg, var(--wy-sc-body-a), var(--wy-sc-body-b));\n    box-shadow: inset 0 -2px 0 var(--wy-sc-glow);\n}\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page > .wy-dtop .wy-dtop-b, :host([data-wy-look=\"scroll\"]) .wy > .wy-page > .wy-dtop .wy-ib,\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page > .wy-dtop .wy-dtop-n, :host([data-wy-look=\"scroll\"]) .wy > .wy-page > .wy-dtop .wy-srch-x { color: var(--wy-sc-desk-ink); }\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page > .wy-dtop .wy-dtop-c { box-shadow: inset 0 0 0 1px var(--wy-sc-edge), inset 0 0 0 3px var(--wy-sc-slip), inset 0 0 0 4px var(--wy-sc-tint-a), 0 1px 3px var(--wy-sc-pool); }\n/* the paper (画心) between green silk borders, a faint red margin rule each side */\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page > .wy-scroll, :host([data-wy-look=\"scroll\"]) .wy-pickpage > .wy-pickstrip, :host([data-wy-look=\"scroll\"]) .wy-pickpage > .wy-gname,\n:host([data-wy-look=\"scroll\"]) .wy-pickpage > .wy-len, :host([data-wy-look=\"scroll\"]) .wy-pickpage > .wy-setrow {\n    margin: 0 14px; padding-right: 8px; padding-left: 8px;\n    background: linear-gradient(90deg, var(--wy-sc-body-b) 0 5px, transparent 5px calc(100% - 5px), var(--wy-sc-body-b) calc(100% - 5px)),\n        linear-gradient(90deg, transparent 13px, var(--wy-sc-tint-a) 13px 14px, transparent 14px calc(100% - 14px), var(--wy-sc-tint-a) calc(100% - 14px) calc(100% - 13px), transparent calc(100% - 13px)),\n        radial-gradient(120% 70% at 50% 40%, transparent 55%, var(--wy-sc-tint-b)), var(--wy-sc-body-c);\n}\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page > .wy-scroll { grid-row: 2; grid-column: 1; }\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page > .wy-lk-rod { grid-row: 3; grid-column: 1; align-self: start; height: 16px; margin: -1px 6px 0; border-radius: 3px; background: linear-gradient(180deg, var(--wy-sc-rim-a), var(--wy-sc-wood-hi) 30%, var(--wy-sc-wood) 68%, var(--wy-sc-rim-b)); box-shadow: 0 3px 6px var(--wy-sc-pool); }\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page > .wy-lk-rod::before, :host([data-wy-look=\"scroll\"]) .wy > .wy-page > .wy-lk-rod::after { content: \"\"; position: absolute; top: -4px; bottom: -4px; width: 14px; border-radius: 4px; background: linear-gradient(90deg, var(--wy-sc-cap-lo), var(--wy-sc-cap) 45%, var(--wy-sc-cap-lo)); }\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page > .wy-lk-rod::before { left: -6px; }\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page > .wy-lk-rod::after { right: -6px; }\n/* the desk: its own dark wooden block under the scroll */\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page > .wy-chatfoot, :host([data-wy-look=\"scroll\"]) .wy > .wy-page > .wy-tabbar {\n    grid-row: 3; grid-column: 1; margin: 24px 3px 0; border-top: 0; border-radius: 8px;\n    background: repeating-linear-gradient(178.5deg, transparent 0 4px, var(--wy-sc-glow) 4px 5px, transparent 5px 11px, var(--wy-sc-glow) 11px 11.5px, transparent 11.5px 19px), linear-gradient(180deg, var(--wy-sc-desk), var(--wy-sc-base));   /* looks polish: wood grain */ box-shadow: inset 0 1px 0 var(--wy-sc-sheen), 0 6px 14px var(--wy-sc-pool);\n}\n/* the rack (chat list / groups list): no rollers; a dark wooden top with the title slip, the rolls on the rack, the desk below */\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page.wy-tabs-chats, :host([data-wy-look=\"scroll\"]) .wy > .wy-page.wy-sublist { padding-top: 0; }\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page.wy-tabs-chats::before, :host([data-wy-look=\"scroll\"]) .wy > .wy-page.wy-tabs-chats::after,\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page.wy-sublist::before, :host([data-wy-look=\"scroll\"]) .wy > .wy-page.wy-sublist::after { content: none; }\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page.wy-tabs-chats > .wy-dtop, :host([data-wy-look=\"scroll\"]) .wy > .wy-page.wy-sublist > .wy-dtop { margin: 0; border-radius: 6px 6px 0 0; background: linear-gradient(180deg, var(--wy-sc-desk), var(--wy-sc-base)); box-shadow: 0 3px 6px var(--wy-sc-pool); }\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page.wy-tabs-chats > .wy-scroll, :host([data-wy-look=\"scroll\"]) .wy > .wy-page.wy-sublist > .wy-scroll { margin: 0 6px; padding: 0; background: linear-gradient(90deg, var(--wy-sc-base) 0 7px, transparent 7px calc(100% - 7px), var(--wy-sc-base) calc(100% - 7px)), var(--wy-sc-desk); }\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page.wy-tabs-chats > .wy-tabbar { margin-top: 8px; }\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page.wy-sublist { padding-bottom: 0; }\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page.wy-tabs-chats > .wy-dtop, :host([data-wy-look=\"scroll\"]) .wy > .wy-page.wy-sublist > .wy-dtop { padding-top: 34px; background: linear-gradient(180deg, var(--wy-sc-rim-a) 0, var(--wy-sc-wood-hi) 6px, var(--wy-sc-wood) 18px, var(--wy-sc-rim-b) 28px, transparent 28px), linear-gradient(180deg, var(--wy-sc-desk), var(--wy-sc-base)); }\n/* before 开机 the scroll is the paper between the two rollers (its things — the rolled scroll and the seal — lie on it) */\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page.wy-empty { padding: 34px 14px 24px; background: linear-gradient(90deg, var(--wy-sc-body-b) 0 5px, transparent 5px calc(100% - 5px), var(--wy-sc-body-b) calc(100% - 5px)), radial-gradient(120% 70% at 50% 40%, transparent 55%, var(--wy-sc-tint-b)), var(--wy-sc-body-c); background-clip: content-box; background-origin: content-box; }\n/* a top with no title (a contact's profile) shows no empty slip / plate */\n:host([data-wy-look]) .wy-dtop-c:has(> .wy-dtop-ttl:empty:only-child) { visibility: hidden; }\n/* 开机 as the device: crystal = the dark gem drawing itself in light on the night (the empty page's gem steps aside while it runs);\n   scroll = the paper between the two rollers of the empty page (the overlay is laid on that paper, not over the whole column) */\n:host([data-wy-look=\"crystal\"]) .wy:has(> .wy-layer > .wy-dboot) > .wy-page { visibility: hidden; }\n:host([data-wy-look=\"crystal\"]) .wy-boot.wy-dboot { background: none; }\n:host([data-wy-look=\"scroll\"]) .wy-boot.wy-dboot { top: 34px; right: 14px; bottom: 24px; left: 14px; }\n/* ---- looks polish (2026-11-26; polish/plan.md in the crystal-ui ledger): the press (.wy-pl-dn still · .wy-pl-up release · the burst span),\n   the send heroes, arrivals, sheets, the desk's lamplight. The wy-pl classes / spans exist only under a device (soWyLkPress); still state = no\n   movement (shows with 动画 关); everything that moves is under .wy[data-wy-motion=\"on\"]. The materials are edited in their own rules above. */\n:host([data-wy-look=\"crystal\"]) .wy-ln > .wy-spk { isolation: isolate; }\n:host([data-wy-look=\"crystal\"]) .wy-ln > .wy-spk-sig::before { content: \"\"; position: absolute; top: -4px; right: -4px; bottom: -4px; left: -4px; z-index: -1; background: radial-gradient(closest-side, var(--wy-cr-stain), transparent); clip-path: polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%); pointer-events: none; }\n:host([data-wy-look=\"crystal\"]) .wy-ring.wy-has-text .wy-ring-art { filter: drop-shadow(0 0 8px var(--wy-cr-glow)) brightness(1.15); }\n:host([data-wy-look=\"scroll\"]) .wy > .wy-page > .wy-scroll {\n    background: repeating-linear-gradient(90deg, transparent 0 27px, var(--wy-sc-fibre) 27px 28px), radial-gradient(38% 16% at 24% 28%, var(--wy-sc-fibre), transparent), radial-gradient(30% 12% at 76% 66%, var(--wy-sc-fibre), transparent),\n        linear-gradient(90deg, var(--wy-sc-body-b) 0 5px, transparent 5px calc(100% - 5px), var(--wy-sc-body-b) calc(100% - 5px)),\n        linear-gradient(90deg, transparent 13px, var(--wy-sc-tint-a) 13px 14px, transparent 14px calc(100% - 14px), var(--wy-sc-tint-a) calc(100% - 14px) calc(100% - 13px), transparent calc(100% - 13px)),\n        radial-gradient(120% 70% at 50% 40%, transparent 55%, var(--wy-sc-tint-b)), var(--wy-sc-body-c);\n}\n/* the desk's objects in one light: a lamplight pool under each, a lit top edge, a contact shadow (the painted book gets an all-round edge) */\n.wy-dtabs[data-wy-dev=\"scroll\"] > .wy-dtab > .wy-dtab-art { isolation: isolate; }\n.wy-dtabs[data-wy-dev=\"scroll\"] > .wy-dtab > .wy-dtab-art::before { content: \"\"; position: absolute; top: 34%; right: -24%; bottom: -28%; left: -24%; z-index: -1; border-radius: 50%; background: radial-gradient(closest-side, var(--wy-sc-lamp), transparent); pointer-events: none; }\n:host([data-wy-look=\"scroll\"]) .wy-dtab-contacts > .wy-dtab-art > :is(svg, .wy-lk-pic) { filter: drop-shadow(0 -1px 0 var(--wy-sc-lit)) drop-shadow(0 3px 2px var(--wy-sc-pool)); }\n:host([data-wy-look=\"scroll\"]) .wy-dtab-contacts > .wy-dtab-art > .wy-lk-pic { filter: drop-shadow(0 0 0.8px var(--wy-sc-lit)) drop-shadow(0 -1px 0 var(--wy-sc-lit)) drop-shadow(0 3px 2px var(--wy-sc-pool)); }\n:host([data-wy-look=\"scroll\"]) .wy-desk.wy-has-text .wy-send-seal > .wy-spk { translate: 0 -2px; box-shadow: inset 0 1px 0 var(--wy-sc-lit), inset 0 -2px 0 var(--wy-sc-seal-lo), 0 5px 0 var(--wy-sc-pool), 0 7px 10px var(--wy-sc-glow); }\n/* press · still */\n:host([data-wy-look]) .wy-mo-rip { display: none; }\n:host([data-wy-look=\"crystal\"]) :is(.wy-ring > .wy-pl-dn, .wy-dtop-b.wy-pl-dn, .wy-dtop .wy-ib.wy-pl-dn, .wy-dtab.wy-pl-dn > .wy-dtab-art, .wy-att.wy-pl-dn .wy-att-i, .wy-cs-foot .wy-pl-dn, .wy-callscr-foot .wy-pl-dn, .wy-ar-go.wy-pl-dn) { filter: brightness(1.5) drop-shadow(0 0 8px var(--wy-cr-glow)); }\n:host([data-wy-look=\"crystal\"]) .wy-drow.wy-pl-dn .wy-drow-art { filter: drop-shadow(0 0 6px var(--wy-cr-glow)); }\n:host([data-wy-look=\"crystal\"]) .wy-drow.wy-pl-dn .wy-drow-art::before { opacity: 1; background: linear-gradient(100deg, var(--wy-cr-spark), var(--wy-cr-mark) 40%, var(--wy-cr-stone-hi)); }\n/* the phone's own row press tint (.wy-mo-press, motion on) fills the row's whole box; under a device the box is bare (the shard / roll IS the row),\n   so a held row showed a band out to the gem's edge — the box stays bare, crystal takes the tint inside the shard's own clip (::after), scroll\n   none (its slip already lights). The hit area (the row) is untouched. */\n.wy[data-wy-motion=\"on\"] .wy-row.wy-drow.wy-mo-press { background: transparent; }\n:host([data-wy-look=\"crystal\"]) .wy[data-wy-motion=\"on\"] .wy-drow.wy-mo-press .wy-drow-art::after { box-shadow: inset 0 0 0 100px var(--wy-cr-hl); }\n/* the phone's press also dips .wy-avw to .93; under a device that wrapper is static, so a transform there made it the containing block of the\n   absolutely placed unread rune / seal (and the reply motes) and pulled them onto the sigil. Device rows: the wrapper stays put, the mark dips. */\n.wy[data-wy-motion=\"on\"] .wy-drow .wy-avw > .wy-spk { transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] .wy-row.wy-drow.wy-mo-press .wy-avw { transform: none; }\n.wy[data-wy-motion=\"on\"] .wy-row.wy-drow.wy-mo-press .wy-avw > .wy-spk { transform: scale(0.93); }\n:host([data-wy-look=\"crystal\"]) .wy :is(.wy-setrow, .wy-prow, .wy-sheet-i, .wy-mi).wy-pl-dn { background: linear-gradient(100deg, var(--wy-cr-hl), transparent 75%), var(--wy-cr-panel); box-shadow: inset 2px 0 0 var(--wy-cr-mark); }\n:host([data-wy-look=\"crystal\"]) .wy :is(.wy-switch.wy-pl-dn .wy-sw-k, .wy-seg-i.wy-pl-dn, .wy-chip.wy-pl-dn, .wy-re-q.wy-pl-dn) { filter: brightness(1.35); }\n:host([data-wy-look=\"scroll\"]) :is(.wy-desk > .wy-pl-dn, .wy-dtab.wy-pl-dn > .wy-dtab-art, .wy-att.wy-pl-dn, .wy-dtop-b.wy-pl-dn, .wy-dtop .wy-ib.wy-pl-dn, .wy-cs-foot .wy-pl-dn, .wy-callscr-foot .wy-pl-dn) { translate: 0 2px; filter: brightness(0.92); }\n:host([data-wy-look=\"scroll\"]) .wy-send-seal.wy-pl-dn > .wy-spk { box-shadow: inset 0 1px 0 var(--wy-sc-lit), 0 1px 0 var(--wy-sc-pool), 0 1px 2px var(--wy-sc-glow); }\n:host([data-wy-look=\"scroll\"]) .wy-drow.wy-pl-dn .wy-drow-in { background: var(--wy-sc-panel); }\n:host([data-wy-look=\"scroll\"]) .wy-drow.wy-pl-dn .wy-drow-art { translate: 0 1px; box-shadow: 0 1px 2px var(--wy-sc-pool); }\n:host([data-wy-look=\"scroll\"]) .wy :is(.wy-setrow, .wy-prow, .wy-sheet-i, .wy-mi, .wy-seg-i, .wy-chip, .wy-re-q).wy-pl-dn { background: var(--wy-sc-quote); }\n/* press · movement: a 70 ms squash, a release follow-through, the burst */\n.wy[data-wy-motion=\"on\"] :is(.wy-dk-dev, .wy-send-dev, .wy-dtab-art, .wy-dsheet .wy-att-i, .wy-dtop-b, .wy-dtop .wy-ib, .wy-drow-in, .wy-drow-art) { transition: scale 0.07s ease-out, translate 0.07s ease-out, filter 0.07s ease-out; }\n.wy[data-wy-motion=\"on\"] :is(.wy-pl-dn.wy-dk-dev, .wy-pl-dn.wy-send-dev, .wy-dtab.wy-pl-dn > .wy-dtab-art, .wy-att.wy-pl-dn .wy-att-i, .wy-dtop-b.wy-pl-dn, .wy-dtop .wy-ib.wy-pl-dn) { scale: 0.88; }\n.wy[data-wy-motion=\"on\"] .wy-drow.wy-pl-dn :is(.wy-drow-in, .wy-drow-art) { scale: 0.985; }\n:host([data-wy-look=\"crystal\"]) .wy[data-wy-motion=\"on\"] :is(.wy-pl-up.wy-dk-dev, .wy-pl-up.wy-send-dev, .wy-dtab.wy-pl-up > .wy-dtab-art, .wy-pl-up.wy-dtop-b, .wy-dtop .wy-pl-up.wy-ib) { animation: wy-pl-cr-pop 0.3s cubic-bezier(0.2, 1.4, 0.4, 1) both; }\n:host([data-wy-look=\"scroll\"]) .wy[data-wy-motion=\"on\"] :is(.wy-pl-up.wy-dk-dev, .wy-dtab.wy-pl-up > .wy-dtab-art, .wy-pl-up.wy-dtop-b, .wy-dtop .wy-pl-up.wy-ib) { animation: wy-pl-sc-set 0.3s cubic-bezier(0.3, 0.6, 0.3, 1.3) both; }\n:host([data-wy-look=\"crystal\"]) .wy[data-wy-motion=\"on\"] .wy-switch.wy-pl-up .wy-sw-k::after { animation: wy-pl-cr-flare 0.42s ease-out both; }\n:host([data-wy-look=\"scroll\"]) .wy[data-wy-motion=\"on\"] .wy-switch.wy-pl-up .wy-sw-k { animation: wy-pl-sc-stamp 0.36s cubic-bezier(0.4, 0, 0.6, 1) both; }\n.wy .wy-layer > .wy-pl-burst, .wy .wy-layer > .wy-pl-mote { position: absolute; z-index: 70; pointer-events: none; }\n.wy-pl-burst-crystal { background: radial-gradient(closest-side, var(--wy-cr-spark) 0 8%, var(--wy-cr-glow) 26%, transparent 70%); opacity: 0; }\n.wy-pl-burst-crystal::before, .wy-pl-burst-crystal::after { content: \"\"; position: absolute; top: 18%; right: 18%; bottom: 18%; left: 18%; border: 1.5px solid var(--wy-cr-mark); }\n.wy-pl-burst-crystal::after { top: 0; right: 0; bottom: 0; left: 0; border: 0; background: radial-gradient(circle, var(--wy-cr-mark) 0 1.5px, transparent 2px) 50% 0 / 6px 6px no-repeat, radial-gradient(circle, var(--wy-cr-mark) 0 1.5px, transparent 2px) 100% 50% / 6px 6px no-repeat, radial-gradient(circle, var(--wy-cr-mark) 0 1.5px, transparent 2px) 50% 100% / 6px 6px no-repeat, radial-gradient(circle, var(--wy-cr-mark) 0 1.5px, transparent 2px) 0 50% / 6px 6px no-repeat; }\n.wy-pl-burst-scroll { --wy-pl-ink: var(--wy-sc-glow); border-radius: 50%; background: radial-gradient(42% 38% at 46% 52%, var(--wy-pl-ink) 0 60%, transparent 100%), radial-gradient(30% 34% at 64% 40%, var(--wy-pl-ink) 0 50%, transparent 100%), radial-gradient(26% 24% at 34% 34%, var(--wy-pl-ink) 0 45%, transparent 100%); opacity: 0; }\n.wy-pl-burst-scroll.wy-pl-red { --wy-pl-ink: var(--wy-sc-rule); }\n.wy[data-wy-motion=\"on\"] .wy-layer > .wy-pl-burst-crystal { animation: wy-pl-cr-burst 0.42s ease-out both; }\n.wy[data-wy-motion=\"on\"] .wy-layer > .wy-pl-burst-crystal::before { animation: wy-pl-cr-ring 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-layer > .wy-pl-burst-crystal::after { animation: wy-pl-cr-motes 0.44s ease-out both; }\n.wy[data-wy-motion=\"on\"] .wy-layer > .wy-pl-burst-scroll { animation: wy-pl-sc-blot 0.46s cubic-bezier(0.2, 0.7, 0.3, 1) both; }\n.wy-pl-mote { width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(closest-side, var(--wy-cr-spark) 0 34%, var(--wy-cr-mark) 50%, transparent); box-shadow: 0 0 14px var(--wy-cr-mark); }\n/* sheets: the 「+」 things / the call choice arrive one after another (stones rise from the ring; slips are dealt, settling at a tilt) */\n.wy-dsheet.wy-attach .wy-att:nth-child(2), .wy-dsheet.wy-callsheet > :nth-child(2) { --wy-pl-n: 1; }\n.wy-dsheet.wy-attach .wy-att:nth-child(3), .wy-dsheet.wy-callsheet > :nth-child(3) { --wy-pl-n: 2; }\n.wy-dsheet.wy-attach .wy-att:nth-child(4) { --wy-pl-n: 3; }\n.wy-dsheet.wy-attach .wy-att:nth-child(5) { --wy-pl-n: 4; }\n.wy-dsheet.wy-attach .wy-att:nth-child(6) { --wy-pl-n: 5; }\n.wy-dsheet.wy-attach .wy-att:nth-child(n+7) { --wy-pl-n: 6; }\n:host([data-wy-look=\"crystal\"]) .wy[data-wy-motion=\"on\"] :is(.wy-dsheet.wy-attach .wy-att, .wy-dsheet.wy-callsheet > .wy-sheet-i:not(.wy-sheet-c)) { animation: wy-pl-cr-rise 0.46s cubic-bezier(0.2, 1.25, 0.4, 1) both; animation-delay: calc(var(--wy-pl-n, 0) * 38ms + 40ms); }\n:host([data-wy-look=\"scroll\"]) .wy[data-wy-motion=\"on\"] :is(.wy-dsheet.wy-attach .wy-att, .wy-dsheet.wy-callsheet > .wy-sheet-i:not(.wy-sheet-c)) { animation: wy-pl-sc-deal 0.42s cubic-bezier(0.25, 0.8, 0.3, 1.1) both; animation-delay: calc(var(--wy-pl-n, 0) * 40ms + 60ms); }\n:host([data-wy-look=\"scroll\"]) .wy-dsheet.wy-attach .wy-att:nth-child(odd) { rotate: -1.2deg; }\n:host([data-wy-look=\"scroll\"]) .wy-dsheet.wy-attach .wy-att:nth-child(even) { rotate: 0.9deg; }\n:host([data-wy-look]) .wy[data-wy-motion=\"on\"] .wy-pop .wy-mi { animation: wy-pl-item 0.22s ease-out both; }\n:host([data-wy-look]) .wy[data-wy-motion=\"on\"] .wy-pop .wy-mi:nth-child(2) { animation-delay: 25ms; }\n:host([data-wy-look]) .wy[data-wy-motion=\"on\"] .wy-pop .wy-mi:nth-child(3) { animation-delay: 50ms; }\n:host([data-wy-look]) .wy[data-wy-motion=\"on\"] .wy-pop .wy-mi:nth-child(n+4) { animation-delay: 75ms; }\n/* arrivals (.wy-lk-in-<dev> while soWyLkMoChat moves a line; --wy-pl-t = time already played when a refresh rebuilt the line, soWyLkHeroKeep) */\n.wy[data-wy-motion=\"on\"] .wy-ln.wy-lk-in-crystal > .wy-mb::before { content: \"\"; position: absolute; left: 0; right: 0; bottom: -2px; height: 1.5px; background: linear-gradient(90deg, var(--wy-cr-spark), var(--wy-cr-mark) 30%, transparent); transform-origin: 0 50%; pointer-events: none; animation: wy-pl-cr-thread 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(0.1s + var(--wy-pl-t, 0ms)); }\n.wy[data-wy-motion=\"on\"] .wy-ln-me.wy-lk-in-crystal > .wy-mb::before { background: linear-gradient(270deg, var(--wy-cr-spark), var(--wy-cr-mark) 30%, transparent); transform-origin: 100% 50%; }\n.wy[data-wy-motion=\"on\"] .wy-ln.wy-lk-in-crystal:not(.wy-ln-me) > .wy-spk { animation: wy-pl-cr-throb 0.6s ease-out both; }\n.wy[data-wy-motion=\"on\"] .wy-ln.wy-lk-in-scroll .wy-lt { animation: wy-pl-sc-soak 0.7s cubic-bezier(0.3, 0.5, 0.3, 1) both; animation-delay: var(--wy-pl-t, 0ms); }\n.wy[data-wy-motion=\"on\"] .wy-ln-me.wy-lk-in-scroll .wy-lt { animation-delay: calc(0.2s + var(--wy-pl-t, 0ms)); }\n.wy[data-wy-motion=\"on\"] .wy-ln.wy-lk-in-scroll:not(.wy-ln-me) > .wy-spk { animation: wy-pl-sc-press 0.42s cubic-bezier(0.4, 0, 0.6, 1) 0.1s both; }\n.wy[data-wy-motion=\"on\"] .wy-ln > .wy-spk.wy-pl-bleed { animation: wy-pl-sc-bleed 0.9s ease-out both; animation-delay: calc(0.38s + var(--wy-pl-t, 0ms)); }\n/* the send heroes: the ring ignites; the desk holds his seal (in place of the stop stone) for the lift-and-slam */\n.wy-ring-art::before { content: \"\"; position: absolute; top: 14%; right: 4%; bottom: 14%; left: 4%; border-radius: 50%; opacity: 0; pointer-events: none; }\n.wy[data-wy-motion=\"on\"] .wy-ring.wy-pl-ignite .wy-ring-art::before { border: 2px solid var(--wy-cr-spark); box-shadow: 0 0 14px var(--wy-cr-mark), inset 0 0 14px var(--wy-cr-mark); animation: wy-pl-cr-ignite 0.62s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: var(--wy-pl-t, 0ms); }\n:host([data-wy-look=\"scroll\"]) .wy[data-wy-motion=\"on\"] .wy-desk.wy-pl-slam > .wy-send-seal { display: inline-flex; }\n:host([data-wy-look=\"scroll\"]) .wy[data-wy-motion=\"on\"] .wy-desk.wy-pl-slam > .wy-stopsq { display: none; }\n.wy[data-wy-motion=\"on\"] .wy-desk.wy-pl-slam > .wy-send-seal > .wy-spk { filter: none; animation: wy-pl-sc-slam 0.34s cubic-bezier(0.3, 0.2, 0.2, 1) both; animation-delay: var(--wy-pl-t, 0ms); }\n/* idle (opacity only): the ring's glow breathes; with words typed the send stone shimmers */\n:host([data-wy-look=\"crystal\"]) .wy[data-wy-motion=\"on\"] .wy-ring-art::after { animation: wy-pl-breath 3.6s ease-in-out infinite alternate; }\n.wy[data-wy-motion=\"on\"] .wy-ring.wy-has-text .wy-send-stone > .wy-dk-art { animation: wy-pl-primed 1.4s ease-in-out infinite alternate; }\n/* ====== /LOOKS ====== */\n/* ---- @keyframes ------------------------------------------------------------------------------------------------------ */\n@keyframes wy-fadeup { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }\n@keyframes wy-drop { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }\n@keyframes wy-rise { from { transform: translateY(100%); } to { transform: none; } }\n@keyframes wy-dots { 0%, 80%, 100% { opacity: 0.35; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }\n@keyframes wy-spin { to { transform: rotate(360deg); } }\n@keyframes wy-spin-rev { to { transform: rotate(-360deg); } }\n@keyframes wy-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }\n@keyframes wy-logo-in { from { opacity: 0; } to { opacity: 1; } }\n@keyframes wy-pop { from { opacity: 0; transform: scale(0.4); } to { opacity: 1; transform: none; } }\n@keyframes wy-fade-out { from { opacity: 1; } to { opacity: 0; } }\n@keyframes wy-fly { from { opacity: 1; transform: translate(var(--wy-fx), var(--wy-fy)); } to { opacity: 0.15; transform: translate(var(--wy-tx), var(--wy-ty)) scale(var(--wy-ts)); } }\n@keyframes wy-fly-fade { from { opacity: 1; transform: translate(var(--wy-fx), var(--wy-fy)); } to { opacity: 0; transform: translate(var(--wy-fx), var(--wy-fy)) scale(0.6); } }\n@keyframes wy-row-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }\n@keyframes wy-cs-fade { from { opacity: 0; } to { opacity: 1; } }\n/* looks Task 10: the device call screens (used only by rules under the 动画 flag in LOOKS) */\n@keyframes wy-lk-cs-open { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: none; } }\n@keyframes wy-lk-cs-unroll { from { clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 0 0); } }\n@keyframes wy-lk-cs-glow { from { opacity: 0.35; } to { opacity: 1; } }\n@keyframes wy-lk-cs-reso { from { opacity: 0.8; transform: scale(1); } to { opacity: 0; transform: scale(2.4); } }\n@keyframes wy-lk-cs-gather { from { opacity: 0; transform: translateY(-18px) scale(0.7); filter: blur(5px) brightness(1.8); } to { opacity: 1; transform: none; filter: none; } }\n@keyframes wy-lk-cs-soak { from { opacity: 0; filter: blur(3px); } 60% { opacity: 0.85; filter: blur(0.6px); } to { opacity: 1; filter: none; } }\n@keyframes wy-lk-cs-stamp { from { opacity: 0; transform: scale(1.8) rotate(-12deg); } to { opacity: 1; transform: rotate(-4deg); } }\n/* looks Task 11: the device start-up (used only by rules under the 动画 flag in LOOKS) */\n@keyframes wy-lk-boot-draw { from { stroke-dashoffset: 1600; } to { stroke-dashoffset: 0; } }\n@keyframes wy-lk-boot-core { 0% { opacity: 0; transform: scale(0); } 70% { opacity: 1; transform: scale(1.12); } 100% { opacity: 1; transform: scale(0.9); } }\n@keyframes wy-lk-boot-breath { from { transform: scale(0.9); } to { transform: scale(1); } }\n@keyframes wy-lk-boot-burst { 0% { opacity: 1; transform: scale(0.9); } 35% { opacity: 1; transform: scale(1.45); } 100% { opacity: 0; transform: scale(0.15); } }\n@keyframes wy-lk-boot-form { from { opacity: 0; filter: blur(8px); letter-spacing: 22px; } to { opacity: 1; filter: none; letter-spacing: 10px; } }\n@keyframes wy-lk-boot-mote { from { opacity: 0; transform: translateY(-36px) scale(0.3); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }\n@keyframes wy-lk-boot-sealgo { 0% { opacity: 1; } 55% { opacity: 1; } 100% { opacity: 0; } }\n@keyframes wy-lk-boot-teara { from { transform: none; } to { transform: translate(-16px, 10px) rotate(-16deg); } }\n@keyframes wy-lk-boot-tearb { from { transform: none; } to { transform: translate(16px, 12px) rotate(14deg); } }\n@keyframes wy-lk-boot-stamp { from { opacity: 0; transform: scale(1.8) rotate(-12deg); } to { opacity: 1; transform: rotate(-3deg); } }\n@keyframes wy-lk-boot-glowin { from { opacity: 0; filter: brightness(2.2) blur(2px); } to { opacity: 1; filter: none; } }\n@keyframes wy-lk-boot-drop { from { opacity: 0; transform: translateY(-34px); } to { opacity: 1; transform: none; } }\n/* looks polish (2026-11-26): the press / burst / hero / idle motion (used only by rules under the 动画 flag in LOOKS) */\n@keyframes wy-pl-cr-pop { 0% { scale: 0.88; filter: brightness(1.8) drop-shadow(0 0 10px var(--wy-cr-glow)); } 55% { scale: 1.08; } 100% { scale: 1; filter: none; } }\n@keyframes wy-pl-sc-set { 0% { translate: 0 2px; } 60% { translate: 0 -1.5px; } 100% { translate: 0 0; } }\n@keyframes wy-pl-cr-flare { 0% { filter: brightness(2.2); box-shadow: 0 0 16px var(--wy-cr-spark); } 100% { filter: none; } }\n@keyframes wy-pl-sc-stamp { 0% { scale: 1.35; } 55% { scale: 0.9; } 100% { scale: 1; } }\n@keyframes wy-pl-sc-slam { 0% { translate: 0 0; } 30% { translate: 0 -6px; rotate: -5deg; scale: 1.06; } 55% { translate: 0 3px; rotate: 1deg; scale: 1.12 0.82; } 75% { translate: 0 1px; scale: 0.97 1.02; } 100% { translate: 0 0; rotate: 0deg; scale: 1; } }\n@keyframes wy-pl-cr-burst { 0% { opacity: 0.95; transform: scale(0.35); } 100% { opacity: 0; transform: scale(1.25); } }\n@keyframes wy-pl-cr-ring { 0% { opacity: 1; transform: rotate(45deg) scale(0.3); } 100% { opacity: 0; transform: rotate(45deg) scale(1.35); } }\n@keyframes wy-pl-cr-motes { 0% { opacity: 1; transform: scale(0.3) rotate(0deg); } 100% { opacity: 0; transform: scale(1.5) rotate(25deg); } }\n@keyframes wy-pl-sc-blot { 0% { opacity: 0.95; transform: scale(0.25); } 45% { opacity: 0.8; } 100% { opacity: 0; transform: scale(1.1); } }\n@keyframes wy-pl-cr-rise { 0% { opacity: 0; transform: translateY(46px) scale(0.4) rotate(-40deg); filter: brightness(2.4); } 70% { opacity: 1; filter: brightness(1.4); } 100% { opacity: 1; transform: none; filter: none; } }\n@keyframes wy-pl-sc-deal { 0% { opacity: 0; transform: translate(-46px, 34px) rotate(-14deg) scale(0.7); } 100% { opacity: 1; transform: none; } }\n@keyframes wy-pl-item { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }\n@keyframes wy-pl-cr-thread { 0% { opacity: 1; transform: scaleX(0); } 55% { opacity: 1; transform: scaleX(1); } 100% { opacity: 0; transform: scaleX(1); } }\n@keyframes wy-pl-cr-throb { 0% { scale: 1; filter: brightness(1); } 35% { scale: 1.22; filter: brightness(2); } 100% { scale: 1; filter: none; } }\n@keyframes wy-pl-cr-ignite { 0% { opacity: 1; transform: scale(0.82, 0.7); } 100% { opacity: 0; transform: scale(1.12, 1.5); } }\n@keyframes wy-pl-sc-soak { 0% { opacity: 0.15; filter: blur(1.6px); } 55% { opacity: 0.85; filter: blur(0.4px); } 100% { opacity: 1; filter: none; } }\n@keyframes wy-pl-sc-bleed { 0% { box-shadow: 0 0 0 0 var(--wy-sc-rule); } 100% { box-shadow: 0 0 0 7px transparent; } }\n@keyframes wy-pl-sc-press { 0% { scale: 1.25; opacity: 0.4; } 60% { scale: 0.94; opacity: 1; } 100% { scale: 1; } }\n@keyframes wy-pl-breath { from { opacity: 0.38; } to { opacity: 0.7; } }\n@keyframes wy-pl-primed { from { opacity: 0.55; } to { opacity: 1; } }\n\n/* ====== MOTION (lane M) ====== */\n/* The phone's motion (designer's mock-up 2026-11-16 §3, the MOTION table; JS in ui-core.js under \"MOTION (lane M)\"). Every rule that moves\n   something is scoped .wy[data-wy-motion=\"on\"] — 关 never even matches it, and the zeroing rule below still covers anything left.\n   Only transform / opacity animate. Sits BEFORE the reduced-motion fallback + zeroing rule (they stay the last two rules, pinned).\n   Override of an existing rule (noted): the hold fill's snap-back (.wy-hold-fill has no transition) → a 200 ms drain while on. */\n\n/* Tier 1 · push / back: the page that is leaving stays, absolute and inert (soWyMoKeep); the slide is Web Animations (soWyMoSlide).\n   push: leaving page z 1 < dim 2 < arriving page z 3 (its left edge casts a shadow); back: arriving page < dim 2 < leaving page z 3. */\n.wy > .wy-page.wy-mo-ghost { position: absolute; inset: 0; z-index: 1; pointer-events: none; }\n.wy > .wy-page.wy-mo-ghost.wy-mo-over { z-index: 3; box-shadow: -10px 0 28px var(--wy-shadow); }\n.wy > .wy-page.wy-mo-top { z-index: 3; box-shadow: -10px 0 28px var(--wy-shadow); }\n.wy > .wy-mo-dim { position: absolute; inset: 0; z-index: 2; background: var(--wy-frame); opacity: 0; pointer-events: none; }\n\n/* Tier 1 · the top bar lies over its scroller (content scrolls under it) and condenses after 4 px: translucent + blur + a hairline; the\n   list title shrinks a touch. Padding = the bar's height, --wy-top-h (border-box: its bottom line is inside it; integration 2026-11-17 —\n   was 48 / 49 px, the bar's height before the refined list's 52). */\n.wy[data-wy-motion=\"on\"] .wy-mo-ovl > .wy-top { position: absolute; top: 0; left: 0; right: 0; transition: background-color 0.2s ease, box-shadow 0.2s ease; }\n.wy[data-wy-motion=\"on\"] .wy-mo-ovl > .wy-scroll { padding-top: var(--wy-top-h); scroll-padding-top: var(--wy-top-h); }\n.wy[data-wy-motion=\"on\"] .wy-mo-ovl > .wy-top.wy-mo-cond { box-shadow: 0 0.5px 0 var(--wy-line); }\n/* playtest 2026-11-19 A1: at 76% + 14 px the lines under the bar read through it (an avatar, a bubble's text behind ‹ and the title — it looked\n   like content spilling over the bar); 92% + 24 px keeps the frosted look (a soft tint of what passes under) without legible content */\n@supports (color: color-mix(in srgb, red 50%, blue)) {\n    .wy[data-wy-motion=\"on\"] .wy-mo-ovl > .wy-top.wy-mo-cond { background: color-mix(in srgb, var(--wy-panel) 92%, transparent); -webkit-backdrop-filter: blur(24px) saturate(1.4); backdrop-filter: blur(24px) saturate(1.4); }\n    .wy[data-wy-motion=\"on\"] .wy-chat.wy-mo-ovl:not(.wy-has-bg) > .wy-top.wy-mo-cond { background: color-mix(in srgb, var(--wy-chat-bg) 92%, transparent); }\n}\n.wy[data-wy-motion=\"on\"] .wy-mo-ovl > .wy-top .wy-ttl { transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] .wy-tabs.wy-mo-ovl > .wy-top.wy-mo-cond .wy-ttl { transform: scale(0.94); }\n\n/* Tier 1 · row press on pointer-down (not release): tint 120 ms, the picture dips to .93 */\n.wy[data-wy-motion=\"on\"] .wy-row, .wy[data-wy-motion=\"on\"] .wy-prow { transition: background-color 0.12s ease; }\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-press, .wy[data-wy-motion=\"on\"] .wy-prow.wy-mo-press { background: var(--wy-hover); }\n@supports (color: color-mix(in srgb, red 50%, blue)) {\n    .wy[data-wy-motion=\"on\"] .wy-row.wy-mo-press, .wy[data-wy-motion=\"on\"] .wy-prow.wy-mo-press { background: color-mix(in srgb, var(--wy-ink) 9%, var(--wy-panel)); }\n}\n.wy[data-wy-motion=\"on\"] .wy-row .wy-avw, .wy[data-wy-motion=\"on\"] .wy-prow > .wy-av { transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-press .wy-avw, .wy[data-wy-motion=\"on\"] .wy-prow.wy-mo-press > .wy-av { transform: scale(0.93); }\n\n/* Tier 1 · a line arrives (soWyMoChat marks the new ones): own = rises from its tail with a slight overshoot; incoming = from the top-left */\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new[data-wy-side=\"me\"] > .wy-mb { transform-origin: 100% 100%; animation: wy-mo-own 0.26s cubic-bezier(0.2, 1.15, 0.4, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new:not([data-wy-side=\"me\"]) { transform-origin: 0 0; animation: wy-mo-inc 0.28s cubic-bezier(0.2, 1.1, 0.4, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-line-mid.wy-mo-new { animation: wy-mo-fadein 0.25s ease both; }\n\n/* Tier 1 · the ⊕ menu springs from the ⊕; sheets rise; the dim fades in; a closing one fades out in 140 ms (soWyMoClosePop) */\n.wy[data-wy-motion=\"on\"] .wy-pop-plus { transform-origin: calc(100% - 20px) -6px; animation: wy-mo-spring 0.22s cubic-bezier(0.2, 1.3, 0.4, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-sheet { animation: wy-mo-sheet 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-backdrop.wy-dim { animation: wy-mo-fadein 0.2s ease both; }\n.wy .wy-layer > .wy-mo-gone { position: absolute; inset: 0; pointer-events: none; animation: wy-mo-fadeout 0.14s ease both; }\n\n/* Tier 1 · the hold: pressed .97; the fill charges for --wy-hold-ms (linear, predictable) and DRAINS in 200 ms on an early release\n   (overrides today's snap-back); on completion a pop (.97 → 1.06 → 1) while the full fill fades */\n.wy[data-wy-motion=\"on\"] [data-wy-hold] { transition: transform 0.14s cubic-bezier(0.2, 0.8, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] [data-wy-hold].holding { transform: scale(0.97); }\n.wy[data-wy-motion=\"on\"] [data-wy-hold] .wy-hold-fill { transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] [data-wy-hold].holding .wy-hold-fill { transition: transform var(--wy-hold-ms, 2000ms) linear; }\n.wy[data-wy-motion=\"on\"] [data-wy-hold].wy-mo-fired { animation: wy-mo-hdone 0.42s cubic-bezier(0.2, 1.5, 0.4, 1); }\n.wy[data-wy-motion=\"on\"] [data-wy-hold].wy-mo-fired .wy-hold-fill { animation: wy-mo-hfill 0.42s ease-out; }\n\n/* Tier 1 · the tab bar's tab: nothing here (the content cross-fade and the icon pop are Web Animations, soWyMoTab) */\n\n/* Tier 2 · bubbles settle in when a chat opens (the last 8 items, bottom first) */\n.wy[data-wy-motion=\"on\"] .wy-mo-si { animation: wy-mo-stag 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(var(--wy-mo-i, 0) * 28ms + 80ms); }\n/* Tier 2 · ripple from the press point (a child of the row; rows clip it) */\n.wy[data-wy-motion=\"on\"] .wy-row { overflow: hidden; }\n.wy[data-wy-motion=\"on\"] .wy-mo-rip { position: absolute; z-index: 0; border-radius: 50%; background: var(--wy-accent); opacity: 0.18; transform: scale(0); pointer-events: none; animation: wy-mo-rip 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }\n/* Tier 2 · edge swipe: horizontal moves reach the page (vertical scrolling and pinch stay the browser's) */\n.wy[data-wy-motion=\"on\"] > .wy-page { touch-action: pan-y pinch-zoom; }\n/* Tier 2 · rows reveal once (first time a row scrolls into view; remembered per chat) */\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-pre { opacity: 0; transform: translateY(16px); }\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-rv { transition: opacity 0.32s ease, transform 0.38s cubic-bezier(0.2, 0.8, 0.2, 1), background-color 0.12s ease; }\n/* Tier 2 · a reply moves its row: the row glows, its preview swaps in, the badge pops (the slide itself is a FLIP, soWyMoRows) */\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-glow::before { content: \"\"; position: absolute; inset: 0; background: var(--wy-accent); opacity: 0; pointer-events: none; animation: wy-mo-glow 0.9s ease; }\n.wy[data-wy-motion=\"on\"] .wy-row .wy-pv.wy-mo-swap { animation: wy-mo-pvswap 0.3s ease both; }\n.wy[data-wy-motion=\"on\"] .wy-badge.wy-mo-pop { animation: wy-mo-bpop 0.34s cubic-bezier(0.2, 1.6, 0.4, 1) both; }\n/* Tier 2 · the tab bar lifts (a soft shadow above it) while there is list under it */\n.wy[data-wy-motion=\"on\"] .wy-tabbar { position: relative; }\n.wy[data-wy-motion=\"on\"] .wy-tabbar::before { content: \"\"; position: absolute; left: 0; right: 0; top: -14px; height: 14px; background: linear-gradient(to top, var(--wy-shadow), transparent); opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }\n.wy[data-wy-motion=\"on\"] .wy-tabbar.wy-mo-lift::before { opacity: 0.7; }\n/* Tier 2 · per kind: a voice bar stretches to its length; its text drops in when opened; a photo / video develops under a paper veil\n   (900 ms, deliberate, non-blocking) while its caption rises; a recall folds a phantom bubble away into the grey line */\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new .wy-voice { transform-origin: 0 50%; animation: wy-mo-vgrow 0.32s cubic-bezier(0.2, 1.1, 0.4, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new[data-wy-side=\"me\"] .wy-voice { transform-origin: 100% 50%; }\n.wy[data-wy-motion=\"on\"] .wy-mo-vt { transform-origin: 50% 0; animation: wy-mo-vt 0.24s cubic-bezier(0.2, 0.8, 0.2, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new .wy-pic::after { content: \"\"; position: absolute; inset: 0; background: var(--wy-bubble); opacity: 0; pointer-events: none; animation: wy-mo-dev 0.9s cubic-bezier(0.3, 0.6, 0.3, 1); }\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new .wy-em { animation: wy-mo-devem 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }\n.wy[data-wy-motion=\"on\"] .wy-m.wy-mo-new .wy-cap { animation: wy-mo-capup 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) 0.45s both; }\n.wy[data-wy-motion=\"on\"] .wy-line-mid.wy-recall.wy-mo-new { position: relative; animation-delay: 0.16s; }\n.wy[data-wy-motion=\"on\"] .wy-mo-phantom { position: absolute; top: 50%; left: 61px; width: min(46%, 180px); height: 36px; margin-top: -18px; border-radius: 6px; background: var(--wy-bubble); transform-origin: 0 50%; pointer-events: none; animation: wy-mo-fold 0.22s cubic-bezier(0.4, 0, 1, 1) 0.06s both; }\n.wy[data-wy-motion=\"on\"] .wy-mo-phantom.wy-mo-phantom-me { left: auto; right: 61px; background: var(--wy-own); transform-origin: 100% 50%; }\n.wy[data-wy-motion=\"on\"] .wy-mo-folding { position: absolute; left: 0; right: 0; z-index: 0; pointer-events: none; }\n/* Tier 2 · the pressed bubble dips (the menu then rises from it — soWyMoMenu) */\n.wy[data-wy-motion=\"on\"] .wy-bubble, .wy[data-wy-motion=\"on\"] .wy-big, .wy[data-wy-motion=\"on\"] .wy-frame { transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1); }\n.wy[data-wy-motion=\"on\"] .wy-mo-lp { transform: scale(0.96); }\n/* Tier 2 · helpers: a scroller that holds a folding copy; a row sliding up over the others */\n.wy[data-wy-motion=\"on\"] .wy-scroll.wy-mo-rel { position: relative; }\n.wy[data-wy-motion=\"on\"] .wy-row.wy-mo-up { z-index: 2; }\n\n/* Tier 3 · the chat header's picture (24 px, beside the title — the shared element's landing place; soWyMoHeadAv) */\n/* Integration 2026-11-17: the picture IS the list row's 48 px picture at half size (soWyMoHeadAv) — same label, gradient, mosaic rows and\n   corner as the row (7 px), so the flying copy lands on exactly it; the ::after spacer (its width) keeps the title text centred. */\n.wy[data-wy-motion=\"on\"] .wy-ttl.wy-mo-ttl { display: flex; align-items: center; justify-content: center; gap: 7px; }\n.wy[data-wy-motion=\"on\"] .wy-ttl.wy-mo-ttl::after { content: \"\"; flex: none; width: 24px; }\n.wy[data-wy-motion=\"on\"] .wy-mo-tt { min-width: 0; overflow: hidden; text-overflow: ellipsis; }\n.wy-mo-hav { display: inline-flex; flex: none; align-items: flex-start; width: 24px; height: 24px; }\n.wy-mo-hav > * { transform: scale(0.5); transform-origin: 0 0; }\n.wy-mo-hav > .wy-av, .wy-mo-hav > .wy-mos, .wy .wy-layer > .wy-mo-fly.wy-av, .wy .wy-layer > .wy-mo-fly.wy-mos { border-radius: 7px; }\n/* Tier 3 · the flying copies (picture + name) in the layer */\n.wy .wy-layer > .wy-mo-fly { position: absolute; z-index: 61; margin: 0; transform-origin: 0 0; pointer-events: none; }\n/* Tier 3 · power-on: black → a green bloom from the centre (600 ms, deliberate) */\n.wy > .wy-mo-pwr { position: absolute; inset: 0; z-index: 60; background: var(--wy-frame); pointer-events: none; animation: wy-mo-pwr 0.55s cubic-bezier(0.3, 0.6, 0.3, 1) 0.1s both; }\n.wy > .wy-mo-pwr::after { content: \"\"; position: absolute; left: 50%; top: 46%; width: 260px; height: 260px; margin: -130px 0 0 -130px; border-radius: 50%; background: radial-gradient(circle, var(--wy-tile-a), transparent 65%); animation: wy-mo-bloom 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }\n\n@keyframes wy-mo-fadein { from { opacity: 0; } }\n@keyframes wy-mo-fadeout { to { opacity: 0; } }\n@keyframes wy-mo-own { from { opacity: 0; transform: translateY(14px) scale(0.9); } }\n@keyframes wy-mo-inc { from { opacity: 0; transform: translateY(8px) scale(0.94); } }\n@keyframes wy-mo-spring { from { opacity: 0; transform: scale(0.6); } }\n@keyframes wy-mo-sheet { from { transform: translateY(100%); } }\n@keyframes wy-mo-hdone { 0% { transform: scale(0.97); } 45% { transform: scale(1.06); } }\n@keyframes wy-mo-hfill { from { transform: scaleX(1); } to { transform: scaleX(1); opacity: 0; } }\n@keyframes wy-mo-stag { from { opacity: 0; transform: translateY(18px); } }\n@keyframes wy-mo-rip { to { transform: scale(1); opacity: 0; } }\n@keyframes wy-mo-glow { 0%, 30% { opacity: 0.16; } to { opacity: 0; } }\n@keyframes wy-mo-pvswap { from { opacity: 0; transform: translateY(5px); } }\n@keyframes wy-mo-bpop { from { transform: scale(0); } }\n@keyframes wy-mo-vgrow { from { opacity: 0.4; transform: scaleX(0.3); } }\n@keyframes wy-mo-vt { from { opacity: 0; transform: translateY(-4px) scaleY(0.9); } }\n@keyframes wy-mo-dev { from { opacity: 1; } to { opacity: 0; } }\n@keyframes wy-mo-devem { from { transform: translate(-50%, -62%) scale(1.25); } }\n@keyframes wy-mo-capup { from { transform: translateY(100%); } }\n@keyframes wy-mo-fold { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(0.55) translateY(-6px); } }\n@keyframes wy-mo-pwr { to { opacity: 0; } }\n@keyframes wy-mo-bloom { from { opacity: 0.8; transform: scale(0.15); } to { opacity: 0; transform: scale(1.8); } }\n/* looks Task 6: the devices' CSS motion (the line motion itself is JS, ui-core soWyLkMoChat): the crystal's motes over an arriving line,\n   the typing rune / paper tag throbbing, the device sheets rising (crystal: stones beside the ring) / laid out (scroll: from the inkstone) */\n.wy[data-wy-motion=\"on\"] .wy-ln.wy-lk-in-crystal > .wy-mb::after { content: \"\"; position: absolute; top: -6px; right: -6px; bottom: -6px; left: -6px; background: radial-gradient(circle, var(--wy-cr-mark) 0 1px, transparent 1.5px) 0 0 / 9px 9px; pointer-events: none; animation: wy-lk-motes 0.6s ease-out both; }\n.wy[data-wy-motion=\"on\"] .wy-lk-typing .wy-lk-ty-art { animation: wy-pulse 1.2s ease-in-out infinite; }\n.wy[data-wy-motion=\"on\"] .wy-dsheet { animation: var(--wy-lk-sheet-anim, wy-lk-sheet) 0.26s cubic-bezier(0.2, 0.8, 0.2, 1) both; }\n@keyframes wy-lk-motes { from { opacity: 0.9; transform: scale(1.3); } to { opacity: 0; transform: scale(0.9); } }\n@keyframes wy-lk-sheet { from { opacity: 0; transform: translateY(24px) scale(0.96); } }\n@keyframes wy-lk-slip { from { opacity: 0; transform: scale(0.2, 0.6); } }\n/* ====== /MOTION ====== */\n\n/* No motion =the phone's root flag (动画 setting, redesign slice 1): soWyApplyMotion resolves 跟随系统 / 开 / 关 with the system's\n   reduced-motion setting into .wy[data-wy-motion=\"on|off\"]. The media query is only the fallback for a phone with no flag yet. */\n@media (prefers-reduced-motion: reduce) {\n    .wy:not([data-wy-motion]) *, .wy:not([data-wy-motion]) *::before, .wy:not([data-wy-motion]) *::after {\n        animation-duration: 0.001ms !important;\n        animation-delay: 0s !important;\n        animation-iteration-count: 1 !important;\n        transition-duration: 0.001ms !important;\n        transition-delay: 0s !important;\n        scroll-behavior: auto !important;\n    }\n}\n.wy[data-wy-motion=\"off\"] *, .wy[data-wy-motion=\"off\"] *::before, .wy[data-wy-motion=\"off\"] *::after {\n    animation-duration: 0.001ms !important;\n    animation-delay: 0s !important;\n    animation-iteration-count: 1 !important;\n    transition-duration: 0.001ms !important;\n    transition-delay: 0s !important;\n    scroll-behavior: auto !important;\n}\n";
 /* <</WEIYU:css>> */
 /* <<WEIYU:ui-core>> */
 // [WEIYU] ui-core — spliced verbatim into index.js by the join plan; edit HERE, re-splice, never hand-edit the copy.
@@ -24337,14 +25911,33 @@ function soWyFit(width) {
 //                                          root flag .wy[data-wy-motion] (soWyApplyMotion; a matchMedia change re-applies it)
 //   onMotion?(flag: 'on'|'off'): void      MOTION (lane M): the resolved 动画 flag, reported on mount and on every change (the join
 //                                          mirrors it onto the frame, #so-thr-weiyu-card[data-wy-motion]); optional
-//   stages: {sync: boolean, tell: boolean, more?: boolean} the Stage 2 / Stage 3 flags; false = that row never renders; more =
-//                                          ENABLE_THR_WEIYU_MORE (more functions phase 1: every entry point; absent = off);
-//                                          events? = ENABLE_THR_WEIYU_EVENTS (phase 2: the call / transfer tiles, 回拨, 当作已收 / 已退;
-//                                          absent = off — stored calls / transfers still render and an open transfer to him stays answerable)
-//                                          callscene? = ENABLE_THR_WEIYU_CALLSCENE (∧ events; the live call scene: ringing = the START
-//                                          request, the call panel, the transcript; absent = off — today's ring → 已取消 + one send)
-//                                          add? = ENABLE_THR_WEIYU_ADD (adding contacts by hand: the 「+」 menu's 添加朋友, the form, the
-//                                          profile's 人物说明 card / 编辑资料; absent = off) · find? = ENABLE_THR_WEIYU_FIND (∧ add: 从故事里找人)
+//   stages: {sync, tell, more, events, callscene, mem: boolean, …optional keys} — the phone's stage flags (the join's soThrWeiyuEnv).
+//                                          The six base keys are always there (booleans; false = that part never renders):
+//                                          sync = ENABLE_THR_WEIYU_SYNC (跟着剧情更新) · tell = ENABLE_THR_WEIYU_TELL (让主线知道; also the
+//                                          世界用语 note stage) · more = ENABLE_THR_WEIYU_MORE (more functions phase 1: every entry point) ·
+//                                          events = ENABLE_THR_WEIYU_EVENTS (phase 2: the call / transfer tiles, 回拨, 当作已收 / 已退; off —
+//                                          stored calls / transfers still render and an open transfer to him stays answerable) · callscene =
+//                                          ENABLE_THR_WEIYU_CALLSCENE (∧ events; the live call scene: ringing = the START request, the call
+//                                          panel, the transcript; off — today's ring → 已取消 + one send) · mem = ENABLE_THR_WEIYU_MEMORY
+//                                          (the 我 page's 记忆与长度, the size sheet).
+//                                          Optional keys — present (= true) only while their flag is on, ABSENT otherwise (never false):
+//                                          add = ENABLE_THR_WEIYU_ADD (adding contacts by hand: the 「+」 menu's 添加朋友, the form, the
+//                                          profile's 人物说明 card / 编辑资料) · find = ENABLE_THR_WEIYU_FIND (∧ add: 从故事里找人) · autoReply =
+//                                          ENABLE_THR_WEIYU_AUTOREPLY (the row above the field + AI 现在回复) · syncEvery =
+//                                          ENABLE_THR_WEIYU_SYNC_EVERY (每几次回复更新一次) · stickers = ENABLE_THR_WEIYU_STICKERS (表情包) ·
+//                                          react = ENABLE_THR_WEIYU_REACT (表情回应) · incall = ENABLE_THR_WEIYU_INCALL (∧ callscene; 来电) ·
+//                                          sound = ENABLE_THR_WEIYU_SOUND (声音) · status = ENABLE_THR_WEIYU_STATUS (∧ sync; 状态 / 签名) ·
+//                                          versions = ENABLE_THR_WEIYU_VERSIONS (回复的几个版本) · looks = ENABLE_THR_WEIYU_LOOKS (外观: 水晶 /
+//                                          卷轴 and the 我 page's 外观 row; plan 2026-11-23-phone-looks.md) · peekGroup =
+//                                          ENABLE_THR_WEIYU_PEEKGROUP (「我不进群」 on 发起群聊; plan 2026-11-24-phone-peek-group.md) · catchup =
+//                                          ENABLE_THR_WEIYU_CATCHUP (∧ syncEvery; 立即跟上剧情 in the 「+」 menu + the 「没跟上」 strip; with env.catchup). Read them through soWyUpOn(phone, key)
+//                                          (`=== true`) or the per-feature gate fns.
+//   stk?: {load(): Promise<{ok, from?, why?}>, pool(): Sticker[], image(id): Promise<url|null>}   the sticker service (with stickers only)
+//   ringStart?(info): void                 incoming calls: the rings a phone's own request brought back, one by one (with incall only)
+//   sound?: {on(): boolean, set(on): void, play(name): void, ring(start): void}   the sound service (with sound only; made in code)
+//   close?(): void                         the looks build: close the phone from inside (= the join's soThrWeiyuClose; with looks only)
+//   catchup?(): Promise<result>            立即跟上剧情 (with stages.catchup only): ONE story sync over every reply the phone has not followed →
+//                                          {ok, delta?} | {done} (nothing to follow) | {busy} | a soWyCall result ({wait} / {failed} / {error} / {aborted} / {stale})
 //   words?: {store(): raw|null, save(store): boolean, ready(): Ready}   世界用语 (ENABLE_THR_WEIYU_WORDS; present ONLY while that flag is
 //                                          on, never inside `stages`): store() = settings.weiyuWords as stored (the UI normalises it,
 //                                          soWyWordsStoreNorm; a newer-build store = no entry point); save(store) persists the WHOLE store it
@@ -24355,15 +25948,18 @@ function soWyFit(width) {
 //                                          (1b, ENABLE_THR_WEIYU_WORDS_AI only) ai: true · lore(): Promise<Lore> — the own-world editor's
 //                                          「✨ 让 AI 按这个世界起名」 shows only when ai === true ∧ lore is a function; lore() is never called
 //                                          by the UI itself (the request reads it: env.call('words', …) → deps.wordsLore).
+//                                          (step 2, ENABLE_THR_WEIYU_WORDS_PHONE only) phone: true — the phone stage is active (soWyWordsActive).
 //   holdMs?: number · longPressMs?: number · ringMs?: number   test seams; defaults THEATER_WEIYU_TIMING.holdMs / .longPress / .ringMs
+//                                          (the join passes holdMs / longPressMs from window seams only; never ringMs)
 // Pictures in the UI: soWyPicsView(phone) → {store, key, pics: this card's entry|null, me: the player's file|null};
 //   avatars = soWyAvatarOf(state, view.pics, pid, env.pic, view.me); a write works on soWyPicCard(view.store, view.key) /
 //   soWyPicMeSet(view.store, …) and then env.commitPics(view.store) — never when view.store is null.
 //
 // Phone (soWyMount) = { host, shadow, root, layer, env, stack, notes, drafts, refresh(), refreshTheme(), go(page), back(), home(tab),
-//   toast(text, opts?), banner(info), later(fn, ms), destroy() }. Pages: {k:'empty'} | {k:'tabs', tab} | {k:'chat', cid} |
-//   {k:'info', cid} | {k:'profile', pid} | {k:'pick', mode, cid?} | {k:'sublist', f} | {k:'search'} (more functions phase 1; mode 'fwd' on
-//   the pick page) | {k:'words'} (世界用语: the editor; its draft lives on phone.words). A page builder (soWyScreen…, later blocks) returns
+//   toast(text, opts?), banner(info), later(fn, ms), destroy() } (+ ringIn(info) / ringEnd() with stages.incall). Pages: {k:'empty'} |
+//   {k:'tabs', tab} | {k:'chat', cid} | {k:'info', cid} | {k:'profile', pid} | {k:'pick', mode, cid?} | {k:'sublist', f} | {k:'search'}
+//   (more functions phase 1; mode 'fwd' on the pick page) | {k:'words'} (世界用语: the editor; its draft lives on phone.words) |
+//   {k:'acform', mode, pid?, f} · {k:'acfind'} (adding contacts by hand: the form, 从故事里找人). A page builder (soWyScreen…) returns
 //   an element, or null when its target is gone (the stack then falls back). Later blocks hook in through soWyScreensAct /
 //   soWyBootAct (data-wy-act taps), soWyScreensEvent / soWyBootEvent (other events) and soWyAfterRender — all typeof-guarded.
 
@@ -24489,6 +26085,11 @@ const THEATER_WEIYU_TEXT = Object.freeze({
     pickTwo: '选两个人以上',
     gname: '群名',
     gnameHint: '可不填（不填就用大家的名字）',
+    // 「我不进群」 (peeking group 2026-11-24, ENABLE_THR_WEIYU_PEEKGROUP → env.stages.peekGroup): the switch on 发起群聊 — its title is the
+    // owner's own words (accepted); its line and the empty chat's hint are DRAFT (WORDING.md, 「我不进群」 section)
+    pkNoMe: '我不进群',
+    pkNoMeDesc: '只看他们聊，你不在群里',   // DRAFT
+    pkNoMeHint: '他们还没开口。按住下面那一行，让他们聊起来。',   // DRAFT
     sig: '个性签名',
     dm: '发消息',   // A13 (2026-11-19): was 「💬 发消息」 — the profile draws the phone's own line icon in front of it instead
     idLine: '微谕号：',
@@ -24545,6 +26146,25 @@ const THEATER_WEIYU_TEXT = Object.freeze({
     menuMore: '点 ⋯',
     menuHold: '长按气泡',
     menuDesc: '对一条消息做编辑、删除、重新生成的入口。',
+    // 外观 (looks build 2026-11-24, ENABLE_THR_WEIYU_LOOKS → env.stages.looks): the 我 page's look row. Title and the four choices accepted
+    // (plan Global Constraints); the description is DRAFT (WORDING.md, 「微谕 外观」 section)
+    lookTitle: '外观',
+    lookFollow: '跟随世界用语',
+    lookPhone: '手机',
+    lookCrystal: '水晶',
+    lookScroll: '卷轴',
+    lookDesc: '只换手机的样子，不影响聊天。跟随世界用语：魔法奇幻是水晶，古风仙侠是卷轴。',   // DRAFT
+    lookTypingCr: '正在凝语',   // DRAFT (looks Task 6: the crystal's typing hint — no speaker named, spec §13.8)
+    lookTypingSc: '正在落笔',   // DRAFT (looks Task 6: the scroll's typing hint, a paper tag on the roller)
+    lookTabChatsCr: '对话',   // DRAFT (looks Task 8 + list round: the middle of the crystal's rune ring = the chat list; 联系人 / 我 stones on its two ends)
+    lookTabChatsSc: '书信',   // DRAFT (looks Task 8 + list round: the middle of the scroll's desk = the chat list; its picture = the painted letter scroll, pick F 2026-11-26)
+    lookTabContacts: '联系人',   // DRAFT (looks Task 8 + list round: the leftmost control — the crystal's stone on the ring's left end / the scroll's stitched book = 通讯录)
+    lookListHintCr: '轻触一行，打开对话',   // DRAFT (list round: inside the crystal's rune ring under the chat list, between 联系人 and 我)
+    lookListHintSc: '轻触一卷，展开对话',   // DRAFT (list round: on the scroll's desk under the chat list, beside the brush on its rest)
+    lookSwOn: '开',   // DRAFT (looks Task 13: the scroll switch — his seal on the paper strip reads 开 / 关; spec §4.4)
+    lookSwOff: '关',   // DRAFT
+    lookBgNote: '只在手机外观下显示',   // DRAFT (looks Task 13, spec §13.11: the one line under 聊天背景 under a device)
+    lookReadyStats: '{n} 位联系人 · {g} 个{group} · {d} 个{dm}',   // DRAFT (K2C: the ready toast's counts in the set's words under a device)
     foot: '两个开关都关着时，微谕 只活在小剧场里，主线完全不知道这里发生的事。',
     hostClose: '关闭',
     // 删除聊天 / 删除联系人 (owner's requests 2026-11-16/17) — DRAFT
@@ -24770,6 +26390,7 @@ const THEATER_WEIYU_TEXT = Object.freeze({
     wordsMore: '更多用语',
     wordsSetDef: '以后新开机的手机默认用这一套',
     wordsHint: '只改 AI 读到的说法，手机界面不变；已有的聊天内容不会改写。',
+    wordsHintLook: '改的是 AI 读到的说法；用水晶或卷轴外观时，屏幕上的这些词也跟着换。已有的聊天内容不会改写。',   // DRAFT (looks Task 14, spec §14.11: wordsHint under a device look)
     wordsSetNoteOnly: '这一套暂时只改主线读到的说法。',
     wordsBad: '这个词里有不能用的符号',
     wordsClash: '这个词和「{other}」太像，AI 写回来时会分不清',
@@ -24801,6 +26422,54 @@ const THEATER_WEIYU_TEXT = Object.freeze({
     wordsAiUndo: '撤销建议',
     wordsAiPrivacy: '世界书和角色描述只发给你给小剧场选的模型，和别的请求一样；不会发到别处，也不会存下来。',
     wordsAiNoPreset: '起名不走小剧场的预设，只发这段说明和设定（和角色工坊的锻造一样）。',
+    // phone upgrades (2026-11-22; spec docs/superpowers/specs/2026-11-22-phone-upgrades-design.md §12 — ✅ = the first candidate, accepted by
+    // Prince (spec §18); DRAFT = a string §12 does not list, written Chinese-first; every row in WORDING.md). The 我 page's three switches:
+    upStk: '表情包',   // ✅
+    upStkDesc: '开启后可收发表情包。图片首次使用时联网下载，之后保存在本机。',   // ✅
+    upNoRing: '来电免打扰',   // ✅
+    upNoRingDesc: '开启后来电不再响铃，直接计入未接来电。',   // ✅
+    upSound: '声音',   // ✅
+    upSoundDesc: '提示音和来电铃声，所有故事通用。',   // DRAFT
+    // 一键进手机 on the 我 page (2026-11-26, Prince: the two switches belong in the phone, not in ⚙ 外观 → 窗口与按钮; env.stages.quick =
+    // the join's ENABLE_THR_WEIYU_QUICK). Title + description = the old one-line labels split at their bracket (same words); the note is new.
+    qkBar: '输入栏放一个 💬 微谕按钮',   // DRAFT (was the ⚙ row's label, words unchanged)
+    qkBarDesc: '点一下直接打开手机',   // DRAFT (the old label's bracket)
+    qkFloat: '屏幕上放一个微谕悬浮按钮',   // DRAFT (was the ⚙ row's label, words unchanged)
+    qkFloatDesc: '可拖动，点一下直接打开手机',   // DRAFT (the old label's bracket)
+    qkNote: '这两项对所有故事都生效',   // DRAFT (new: the rest of the page is per story)
+    // the sticker panel and bubble (Task 16)
+    upStkOpen: '表情',   // DRAFT — the dock's smiley (screen readers / tooltip)
+    upStkRecent: '最近使用',   // DRAFT — the panel's first row
+    upStkWords: '文字表情',   // DRAFT — the word stickers' group (the pack's group is headed upStk)
+    upStkLoading: '正在加载…',   // DRAFT — the pack's place while the list comes
+    upStkFail: '表情包加载失败，请稍后重试',   // ✅ — nothing loadable
+    // the reaction row, the picker, the chips' list (Task 17) — all DRAFT (spec §12 lists none of them)
+    upReMore: '更多表情',   // DRAFT — the row's 「+」 (screen readers / tooltip)
+    upRePick: '选一个表情',   // DRAFT — the picker's title
+    upRePickPh: '输入一个表情',   // DRAFT — its field
+    upReOk: '确定',   // DRAFT — its button
+    upReBad: '只能放一个表情',   // DRAFT — the refusal line (two emojis, words, nothing)
+    upReRm: '移除我的',   // DRAFT — the chip list's row when he is in it
+    // the incoming call screens (Task 18)
+    upInWait: '邀请你{mode}',   // ✅ — the call card's line without the name (the screen shows the name above it); {mode} = 语音通话 / 视频通话
+    upInYes: '接听',   // ✅
+    upInNo: '拒绝',   // ✅
+    upInJoin: '正在接通…',   // DRAFT — picked up, her first words still being written (a call with no words of hers stored)
+    upVm: '语音留言',   // ✅ — her voice message under her missed / declined call
+    // status on screen and the versions pager (Task 19)
+    upStatus: '状态',   // DRAFT — the profile card's label above 个性签名
+    upVersPrev: '上一版',   // DRAFT — the pager's ‹ (screen readers / tooltip; the brief's words)
+    upVersNext: '下一版',   // DRAFT — the pager's ›
+    upVersFull: '最多保留 {n} 个版本',   // ✅ — at the ceiling; {n} = THEATER_WEIYU_VERS_MAX (5)
+    lookSealCh: '封',   // DRAFT (looks Task 11: the one character on the paper seal across the rolled scroll — the empty page and 开机)
+});
+
+// looks Task 11 (spec §4.4, §13.10, §14.8): the start-up's status lines in the device's voice — DRAFT, Prince's veto (WORDING.md looks section).
+// Four per device over today's five phases (THEATER_WEIYU_BOOT_PHASES: splash · contacts · groups · chats · landing — landing keeps the last), in
+// the order of the real steps (read the story · the contacts · the groups · the chat history). The pinned T.bootLines stay the phone's.
+const THEATER_WEIYU_BOOT_LINES_LOOK = Object.freeze({
+    crystal: Object.freeze(['正在唤醒…', '正在寻回往来…', '正在聚起众人…', '正在映回旧日传讯…']),   // DRAFT
+    scroll: Object.freeze(['正在研墨…', '正在寻回故人…', '正在召集众人…', '正在寻回往来书信…']),   // DRAFT
 });
 
 // Timings (plan decision; the hold numbers equal the scene runtime's). toastMs is a plan-added key.
@@ -24988,6 +26657,7 @@ function soWyTopBar(phone, o) {
     const d = phone.host.ownerDocument;
     const T = THEATER_WEIYU_TEXT;
     const x = soWyIsObj(o) ? o : {};
+    if (x.dev && soWyLookDev(phone)) return soWyLkTopBar(phone, x);   // looks Task 8: the list pages' top under a device
     let back = null;
     if (x.back) {
         const n = typeof x.back === 'number' && x.back > 0 ? (x.back > 99 ? '99+' : String(x.back)) : '';
@@ -25000,9 +26670,55 @@ function soWyTopBar(phone, o) {
         soWyEl(d, 'div', { class: 'wy-top-r' }, x.right || null));
 }
 
+// looks Task 8 (spec §4.4, §14.1): the top of the list pages (the chat list, 通讯录, 我, the sublists) under a device — crystal: the name etched
+// on the top facet; scroll: a title slip on the rack's wooden top. [back mark (x.back; aria x.backLabel) | the title | x.right (the 「+」)].
+// looks Task 13: x.surf = a surface page (profile, group info, pick, 世界用语, add / find people) — the same parts on the device's surface
+// (crystal: the facet; scroll: the pasted title slip over a ruled edge — the chat's top form, not the rack's wood).
+function soWyLkTopBar(phone, x) {
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    const label = typeof x.backLabel === 'string' && x.backLabel ? x.backLabel : T.back;
+    const left = x.back
+        ? soWyEl(d, 'button', { type: 'button', class: ['wy-dtop-b', 'wy-dtop-back'], data: { 'wy-act': 'back' }, aria: { label }, title: label }, soWyIcon(d, 'back'))
+        : soWyEl(d, 'span', { class: 'wy-dtop-sp' });
+    return soWyEl(d, 'div', { class: ['wy-dtop', x.surf ? 'wy-dtop-surf' : 'wy-dtop-list'], data: { 'wy-dev': soWyLookDev(phone) } }, left,
+        soWyEl(d, 'div', { class: 'wy-dtop-c' }, soWyEl(d, 'div', { class: 'wy-dtop-ttl' }, x.title == null ? '' : x.title)),
+        x.right ? soWyEl(d, 'div', { class: 'wy-dtop-r' }, x.right) : soWyEl(d, 'span', { class: 'wy-dtop-sp' }));
+}
+
+// looks Task 8 (spec §14.1) + list round (2026-11-24, the demo's round three): the three root tabs as the device's bottom controls — the same
+// acts (tab, data-wy-tab chats | contacts | me) and the same unread total on the chats one, laid out the way the device holds them, left to
+// right: 联系人 · the chat list · 我. crystal = 联系人 and 我 are rune stones standing ON the ring's two ends (联系人 with the name-card glyph, 我
+// with his own mark), the chat list is the ring's middle; scroll = the desk: the stitched book 联系人, the painted letter scroll (2026-11-26,
+// pick F; was the brush on its rest) = the chat list,
+// his own seal 我 (his picture in the seal mount when he has one). On the chat list the middle shows the hint (轻触一行 / 一卷 …, DRAFT;
+// aria-hidden — the tab's own name stays 对话 / 书信), on 联系人 / 我 it reads 对话 / 书信 and leads back to the list (back does too).
+function soWyLkTabBar(phone, dev, tab, total) {
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    const n = Number(total) > 0 ? Number(total) : 0;
+    const me = () => (typeof soWyLookSpeaker === 'function' ? soWyLookSpeaker(phone, { u: THEATER_WEIYU_ME }) : null);
+    const tabs = [['contacts', T.lookTabContacts], ['chats', dev === 'scroll' ? T.lookTabChatsSc : T.lookTabChatsCr], ['me', T.tabMe]];
+    return soWyEl(d, 'div', { class: ['wy-tabbar', 'wy-dtabs'], role: 'tablist', data: { 'wy-dev': dev } }, tabs.map(([k, label]) => {
+        const on = k === tab;
+        let art = null;
+        if (k === 'chats') art = dev === 'scroll' ? (soWyLkPic(phone, 'sc-desk-letter') || soWyLkIcon(phone, 'brush')) : soWyEl(d, 'span', { class: 'wy-dtab-beam' });
+        else if (dev === 'scroll') art = k === 'me' ? me() : (soWyLkPic(phone, 'sc-desk-book') || soWyLkIcon(phone, 'book'));   // Prince's pick P: the painted book
+        else art = [soWyLkIcon(phone, 'rune-stone'), soWyEl(d, 'span', { class: 'wy-dtab-g' }, k === 'me' ? me() : soWyLkIcon(phone, 'cr-contact'))];
+        return soWyEl(d, 'button', {
+            type: 'button', role: 'tab', class: ['wy-tab', 'wy-dtab', 'wy-dtab-' + k, on ? 'wy-on' : ''], data: { 'wy-act': 'tab', 'wy-tab': k },
+            aria: { selected: on ? 'true' : 'false' },
+        }, soWyEl(d, 'span', { class: 'wy-dtab-art', aria: { hidden: 'true' } }, art), soWyEl(d, 'span', { class: 'wy-tab-label', text: label }),
+        k === 'chats' && on ? soWyEl(d, 'span', { class: 'wy-dtab-hint', aria: { hidden: 'true' }, text: dev === 'scroll' ? T.lookListHintSc : T.lookListHintCr }) : null,
+        k === 'chats' && n && typeof soWyBadgeEl === 'function' ? soWyBadgeEl(phone, n, false) : null);
+    }));
+}
+
 function soWyTabBar(phone, tab, total) {
     const d = phone.host.ownerDocument;
     const T = THEATER_WEIYU_TEXT;
+    const dev = soWyLookDev(phone);   // looks Task 8: the device's bottom controls
+    if (dev) return soWyLkTabBar(phone, dev, tab, total);
     const tabs = [['chats', T.tabChats], ['contacts', T.tabContacts], ['me', T.tabMe]];
     const n = Number(total) > 0 ? Number(total) : 0;
     return soWyEl(d, 'div', { class: 'wy-tabbar', role: 'tablist' }, tabs.map(([k, label]) => {
@@ -25066,6 +26782,7 @@ function soWyPageBuild(phone, page) {
 // Drafts live in phone.drafts[cid] (code-made ids only) so leaving a chat and coming back keeps the half-typed line too.
 function soWyRender(phone, keep) {
     if (phone.dead) return;
+    soWyApplyLook(phone);   // 外观 (looks build): a changed look shows with this render (draft, open chat, call panel and scroll kept)
     const old = phone.pageEl;
     const oldPage = phone.cur;
     // MOTION (lane M): the way soWyGo / soWyBack / soWyHome moved ('push' | 'back' | 'tab' | null), consumed by this render; a snapshot of
@@ -25105,6 +26822,7 @@ function soWyRender(phone, keep) {
             if (!phone.stack.length) phone.stack.push(soWyRootPage(phone));
         }
     }
+    if (phone.lkRead) phone.lkRead = null;   // looks m-1: soWyLook's read serves this render only (a page that never read the memo leaves it)
     const top = phone.stack[phone.stack.length - 1];
     if (!el) el = soWyStubPage(phone, top);
     el.setAttribute('data-wy-page', top.k);
@@ -25121,6 +26839,7 @@ function soWyRender(phone, keep) {
     } else phone.root.insertBefore(el, phone.layer);
     phone.pageEl = el;
     phone.cur = top;
+    if (same && phone.lkHero) soWyLkHeroKeep(phone, el);   // looks polish: a send's hero carries on across the refreshes that follow it
     const memo = phone.memo;   // the 动画 flag follows the stored option (this render's read of the state when the page made one)
     soWyApplyMotion(phone, memo && memo.n === phone.renders ? memo.state : undefined);
     if (mo) soWyMoPrep(phone, el, top);   // MOTION (lane M): layout classes BEFORE the scroll positions are restored
@@ -25164,6 +26883,105 @@ function soWyApplyTheme(phone) {
     else phone.host.removeAttribute('data-wy-wide');
 }
 
+// 外观 (looks build, plan 2026-11-23-phone-looks.md Task 2): the phone's look — soWyLookFor (model.js) over the stored override, the set
+// the phone's own screens read (soWyWordsOfPhone, stage 'note'; none without env.words) and the stage (env.stages.looks).
+// One read of the state (final fix wave m-1): the words read gets it as an argument, and phone.lkRead hands both to the render that follows
+// (soWyMemo reuses the state, soWyLkWords the set) — so the look costs no extra full clone of the phone per render, under any look.
+function soWyLook(phone) {
+    const on = typeof soWyUpOn === 'function' && soWyUpOn(phone, 'looks');
+    if (!on) return 'phone';
+    const st = soWyEnvState(phone);
+    const set = phone.env.words && typeof soWyWordsOfPhone === 'function' ? soWyWordsOfPhone(phone, st) : null;
+    phone.lkRead = { st, set };
+    return soWyLookFor(st, set, on);
+}
+
+// The set's words for the device labels (soWyLookText, soWyLkKindWord): one read per render (keyed on phone.renders; soWyMemo seeds it
+// from soWyLook's read), reused by what is built between renders (the sheets / menus) — final fix wave m-1. Null without env.words.
+function soWyLkWords(phone) {
+    const c = phone.lkWords;
+    if (c && c.n === phone.renders) return c.w;
+    let w = null;
+    if (phone.env && phone.env.words && typeof soWyWordsOfPhone === 'function') {
+        try { w = soWyWordsOfPhone(phone); } catch (e) { w = null; }
+    }
+    phone.lkWords = { n: phone.renders, w };
+    return w;
+}
+
+// The host carries data-wy-look = the look (reaching the shadow CSS as :host([data-wy-look=…]) and the outer frame in style.css), none under
+// the phone look. Called on mount and at the start of every render, so a change of look shows with the render that follows — the normal
+// refresh path, which keeps the draft, the open chat, a call panel and the scroll. Without the stage nothing is read or written. → the look.
+function soWyApplyLook(phone) {
+    if (phone.dead) return 'phone';
+    const h = phone.host;
+    const look = soWyLook(phone);
+    if (look === 'phone') {
+        if (h.hasAttribute('data-wy-look')) h.removeAttribute('data-wy-look');
+    } else if (h.getAttribute('data-wy-look') !== look) h.setAttribute('data-wy-look', look);
+    return look;
+}
+
+// The device the screens draw this render (looks Task 3): the host's data-wy-look as soWyApplyLook left it — 'crystal' | 'scroll' — or ''
+// under the phone look (no attribute; always '' without the stage). The device builders branch on it, so the phone look never changes.
+function soWyLookDev(phone) {
+    const v = phone && phone.host && typeof phone.host.getAttribute === 'function' ? phone.host.getAttribute('data-wy-look') : null;
+    return v === 'crystal' || v === 'scroll' ? v : '';
+}
+
+// looks Task 14 (spec §6, §13.4, §14.10): the set's words on screen under a device. A hand-picked map THEATER_WEIYU_TEXT key → the set's
+// term ('photo') or one of its phrases ('grammar.recallLine'), only MAP §9.1's short labels (L rows; never a compound / help / 世界用语 editor /
+// stored or model-facing string). 'cardLabel.<k>' = the card kinds' small label; a value starting '=' = the whole label becomes the set's
+// word (个人名片 → 引荐信 / 名帖, so no half-swapped compound). The DRAFT list with both devices' forms is in WORDING.md (「外观」 section).
+const THEATER_WEIYU_LOOK_LABELS = Object.freeze({
+    attPhoto: 'photo', attVideo: 'video', toVoice: 'voice', callVoice: 'voiceCall', callVideo: 'videoCall', mNudge: 'nudge', mRecall: 'recall',
+    peek: 'recall', attLoc: 'loc', attFile: 'file', attContact: 'contact', attLink: 'link', attMusic: 'music', attPay: 'pay', payLabel: 'pay',
+    payTo: 'pay', cGroups: 'group', recallLine: 'grammar.recallLine', callDur: 'grammar.stDur', callLive: 'grammar.stDur', emptyWho: 'device',
+    bootFail: 'device', 'cardLabel.loc': 'loc', 'cardLabel.file': 'file', 'cardLabel.link': 'link', 'cardLabel.music': 'music',
+    'cardLabel.contact': '=contact',
+});
+
+// soWyLookText(phone, key) → the label to draw: under a device look with a resolved set (soWyWordsOfPhone — the set the phone's own screens
+// read; none under 现代, so a device chosen by hand on a modern card keeps the modern words), the label with the modern word replaced by the
+// set's (a term the own set put in `off` is never swapped); otherwise THEATER_WEIYU_TEXT[key] exactly. Render-time only: no stored text, no
+// request and no model-facing helper ever reads it.
+function soWyLookText(phone, key) {
+    const T = THEATER_WEIYU_TEXT;
+    const path = String(key).split('.');
+    const def = path.length === 2 && soWyIsObj(T[path[0]]) ? T[path[0]][path[1]] : T[key];
+    const ref = soWyOwn(THEATER_WEIYU_LOOK_LABELS, key) ? THEATER_WEIYU_LOOK_LABELS[key] : '';
+    if (!ref || typeof def !== 'string' || !soWyLookDev(phone) || !phone.env || !phone.env.words || typeof soWyWordsOfPhone !== 'function') return def;
+    const w = soWyLkWords(phone);
+    if (!soWyIsObj(w) || !soWyIsObj(w.terms) || !soWyIsObj(w.grammar)) return def;
+    const whole = ref.charAt(0) === '=';
+    const g = ref.indexOf('grammar.') === 0;
+    const k = whole ? ref.slice(1) : g ? ref.slice(8) : ref;
+    if (!g && Array.isArray(w.off) && w.off.includes(k)) return def;
+    const to = (g ? w.grammar : w.terms)[k];
+    if (typeof to !== 'string' || !to) return def;
+    if (whole) return to;
+    const from = (g ? THEATER_WEIYU_WORD_SETS.modern.grammar : THEATER_WEIYU_WORD_SETS.modern.terms)[k];
+    return typeof from === 'string' && from && def.includes(from) ? def.split(from).join(to) : def;
+}
+
+// A piece of device art (the looks fold-in): soWyIcon with a fresh id suffix per copy (the artist's gradients use ids; many copies sit on one
+// page, some hidden), and — `fit` — a preserveAspectRatio for a stretchable silhouette placed in a box whose shape varies ('xMidYMid meet'
+// keeps the drawn ratio, so it never squashes past what the artist allows, ~1.3×).
+// A painted picture of the looks (switch-art round 2026-11-26: Prince's pick F, the scroll desk's 书信 = a letter scroll on rollers + brush +
+// seal): an <img> of the trusted generated constant THEATER_WEIYU_PICS (a WebP data URI — never model or player text), alt="" (the control
+// keeps its own name), not draggable. A build without the constant / key → null (the caller keeps its vector icon).
+function soWyLkPic(phone, name) {
+    if (typeof THEATER_WEIYU_PICS === 'undefined' || !soWyOwn(THEATER_WEIYU_PICS, name) || typeof THEATER_WEIYU_PICS[name] !== 'string') return null;
+    return soWyEl(phone.host.ownerDocument, 'img', { class: 'wy-lk-pic', src: THEATER_WEIYU_PICS[name], alt: '', draggable: 'false' });
+}
+
+function soWyLkIcon(phone, name, fit) {
+    phone.lkN = (Number(phone.lkN) || 0) + 1;
+    const el = soWyIcon(phone.host.ownerDocument, name, 'lk' + phone.lkN);
+    if (el && fit) el.setAttribute('preserveAspectRatio', fit);
+    return el;
+}
+
 function soWyGo(phone, page) {
     if (phone.dead || !soWyIsObj(page) || !THEATER_WEIYU_PAGES.includes(page.k) || soWyEnvForeign(phone)) return;
     const p = {};
@@ -25175,7 +26993,9 @@ function soWyGo(phone, page) {
 }
 
 function soWyBack(phone) {
-    if (phone.dead || phone.stack.length < 2) return;
+    if (phone.dead) return;
+    // looks Task 8 (spec §13.1 / §14.1): on a root page back means something only under a device (soWyLkRootBack); the phone: nothing
+    if (phone.stack.length < 2) return soWyLookDev(phone) ? soWyLkRootBack(phone) : undefined;
     // 从故事里找人: ‹ after an add = 完成 (→ 通讯录, where the new people carry 「新」); without an add it is today's back
     const top = phone.stack[phone.stack.length - 1];
     if (top && top.k === 'acfind' && Array.isArray(top.added) && top.added.length && typeof soWyAcFindDone === 'function') return soWyAcFindDone(phone);
@@ -25183,6 +27003,41 @@ function soWyBack(phone) {
     phone.stack.pop();
     phone.moNav = 'back';   // MOTION (lane M)
     soWyRender(phone, false);
+}
+
+// Back on a root page under a device: 通讯录 / 我 → the list; the list → close (soWyLkClose; only while env.close exists — the join's
+// soThrWeiyuClose, with the looks flag only). The empty page and a foreign phone: nothing.
+function soWyLkRootBack(phone) {
+    const top = phone.stack[0];
+    if (!top || top.k !== 'tabs' || soWyEnvForeign(phone)) return;
+    if (top.tab === 'contacts' || top.tab === 'me') return soWyHome(phone, 'chats');
+    if (typeof phone.env.close === 'function') soWyLkClose(phone);
+}
+
+// The list's back under a device (spec §13.1): the device's closing motion — crystal: the gem dims; scroll: the paper rolls up to the top roller —
+// then today's real close through env.close() (everything it does still happens: drafts, a live call, the frame's leave). No tap lands while it
+// closes; a second back meanwhile does nothing. Without motion: the close at once. A close that leaves the phone open (refused) puts it back.
+function soWyLkClose(phone) {
+    if (phone.lkClosing) return;
+    soWyMenuDrop(phone);
+    const el = phone.pageEl;
+    const run = () => {
+        phone.lkClosing = false;
+        try { phone.env.close(); } catch (e) { /* the frame stays open */ }
+        if (!phone.dead && el) {
+            for (const a of soWyMoAnims(el)) a.cancel();
+            el.removeAttribute('inert');
+        }
+    };
+    if (!soWyMoOn(phone) || !el) return run();
+    const N = THEATER_WEIYU_LK_NAV;
+    const scroll = soWyLookDev(phone) === 'scroll';
+    const ms = scroll ? N.rollUp : N.dim;
+    phone.lkClosing = true;
+    el.setAttribute('inert', '');
+    if (scroll) soWyMoAnim(el, [{ clipPath: 'inset(0 0 0 0)', transform: 'none' }, { clipPath: 'inset(0 0 100% 0)', transform: 'translateY(-6px)' }], { duration: ms, easing: N.ease, fill: 'forwards' });
+    else soWyMoAnim(el, [{ opacity: 1, filter: 'none' }, { opacity: 0.06, filter: 'brightness(.35) blur(2px)' }], { duration: ms, easing: 'cubic-bezier(.4,0,.6,1)', fill: 'forwards' });
+    soWyLater(phone, run, ms + 20);
 }
 
 function soWyHome(phone, tab) {
@@ -25219,7 +27074,12 @@ function soWyToast(phone, text, opts) {
         act = soWyEl(d, 'button', { type: 'button', class: 'wy-toast-act', data: { 'wy-act': 'toast-act' }, text: String(o.action.label == null ? '' : o.action.label) });
         act._wyFn = o.action.fn;
     }
-    const el = soWyEl(d, 'div', { class: ['wy-toast', o.so ? 'wy-so' : ''], role: 'status' }, soWyEl(d, 'span', { text: String(text == null ? '' : text) }), act);
+    // K2C (stage-2 second opinion #3): under a device the phone's own toasts are the device's — crystal: a band of light with a rune; scroll:
+    // a paper slip with a red seal (the mark is an <i>, so the words stay the first span). SO's own toasts (o.so) and the phone look: today's.
+    const dev = o.so ? '' : soWyLookDev(phone);
+    const mark = dev ? soWyEl(d, 'i', { class: 'wy-dtoast-mark', aria: { hidden: 'true' } }, soWyLkIcon(phone, dev === 'scroll' ? 'seal' : 'rune-unread')) : null;
+    const el = soWyEl(d, 'div', { class: ['wy-toast', o.so ? 'wy-so' : '', dev ? 'wy-dtoast' : '', dev ? 'wy-dtoast-' + dev : ''], role: 'status' },
+        mark, soWyEl(d, 'span', { text: String(text == null ? '' : text) }), act);
     phone.layer.appendChild(el);
     soWyLater(phone, () => el.remove(), o.ms || THEATER_WEIYU_TIMING.toastMs);
     return el;
@@ -25229,12 +27089,15 @@ function soWyBanner(phone, info) {
     if (phone.dead || !soWyIsObj(info)) return null;
     const d = phone.host.ownerDocument;
     for (const b of phone.layer.querySelectorAll('.wy-banner')) b.remove();
-    const el = soWyEl(d, 'div', { class: 'wy-banner', role: 'button', tabindex: '0', data: { 'wy-act': 'banner' } },
-        soWyEl(d, 'span', { class: 'wy-banner-logo' }, soWyIcon(d, 'logo-tile', 'bn')),
+    const dev = soWyLookDev(phone);   // looks Task 6: the device's own mark (crystal: a glowing rune; scroll: a red seal) instead of the app tile
+    const el = soWyEl(d, 'div', { class: ['wy-banner', dev ? 'wy-banner-dev' : ''], role: 'button', tabindex: '0', data: { 'wy-act': 'banner' } },
+        dev ? soWyEl(d, 'span', { class: 'wy-banner-mark' }, soWyIcon(d, dev === 'scroll' ? 'seal' : 'rune-unread', 'bn'))
+            : soWyEl(d, 'span', { class: 'wy-banner-logo' }, soWyIcon(d, 'logo-tile', 'bn')),
         soWyEl(d, 'span', { class: 'wy-banner-body' }, soWyEl(d, 'span', { class: 'wy-banner-who', text: String(info.who == null ? '' : info.who) }),
             soWyEl(d, 'span', { class: 'wy-banner-text', text: String(info.text == null ? '' : info.text) })));
     el._wyCid = typeof info.cid === 'string' ? info.cid : '';
     phone.layer.appendChild(el);
+    soWySoundPlay(phone, 'arrive');   // sound: the banner = a story sync's new line by somebody else (its only on-screen trigger)
     soWyLater(phone, () => el.remove(), THEATER_WEIYU_TIMING.bannerMs);
     return el;
 }
@@ -25286,6 +27149,7 @@ function soWyMount(hostEl, env) {
     phone.toast = (text, opts) => soWyToast(phone, text, opts);
     phone.banner = (info) => soWyBanner(phone, info);
     phone.later = (fn, ms) => soWyLater(phone, fn, ms);
+    if (typeof soWyInBind === 'function') soWyInBind(phone);   // phone upgrades: ringIn / ringEnd (env.stages.incall only; absent otherwise)
     // one delegated listener set on the shadow root, keyed by data-wy-act
     // MOTION (lane M): a page that is sliding away (.wy-mo-ghost, inert) never answers a tap or a key
     const actOf = (ev) => (ev.target && typeof ev.target.closest === 'function' && !ev.target.closest('.wy-mo-ghost') ? ev.target.closest('[data-wy-act]') : null);
@@ -25359,13 +27223,26 @@ function soWyMount(hostEl, env) {
         else shadow.replaceChildren();
     };
     soWyApplyTheme(phone);
+    soWyApplyLook(phone);   // 外观 (looks build): data-wy-look on the host (env.stages.looks only)
     soWyApplyMotion(phone);
     phone.stack = [soWyRootPage(phone)];
     soWyRender(phone, false);
     // the live call scene: a phone opened while this page still runs a live call goes straight to its panel (over that chat)
     if (typeof soWyCsResume === 'function') soWyCsResume(phone);
-    soWyMoPower(phone);   // MOTION (lane M): the screen wakes up (Tier 3)
+    // MOTION (lane M): the screen wakes up (Tier 3) — under a device its own short wake instead of the green bloom (looks Task 8)
+    if (soWyLookDev(phone)) soWyLkMoWake(phone);
+    else soWyMoPower(phone);
     return phone;
+}
+
+// Phone upgrades — sound (spec §8; plan Task 13): a phone sound through env.sound (the join's ENABLE_THR_WEIYU_SOUND; absent = no key = no
+// sound, nothing else changes). The engine itself decides whether anything is heard (its switch, a user gesture, an AudioContext);
+// a sound never breaks the phone. name = 'arrive' | 'send' | 'recall' | 'connect' | 'end' | 'tap' (looks polish: a press under a device —
+// only the device families have it, so the phone's own table answers 'tap' with silence).
+function soWySoundPlay(phone, name) {
+    const s = phone && phone.env ? phone.env.sound : null;
+    if (!s || typeof s.play !== 'function') return;
+    try { s.play(name); } catch (e) { /* a sound that could not play */ }
 }
 
 // The only path from the UI to env.call: refresh right after starting (the player's own line and the typing row show while the
@@ -25385,6 +27262,8 @@ async function soWyDo(phone, kind, args, onProgress) {
     } catch (e) {
         p = Promise.resolve({ error: soWyErrText(e) });
     }
+    // sound: his own line just landed (a send / put commits it before the request) → 'send'; a refused send (busy / wait / gone) lands none
+    if (had && (kind === 'send' || kind === 'put') && phone.env.sound && (soWyChat(soWyEnvState(phone), a.cid) || { msgs: [] }).msgs.some((m) => !had.has(m.id) && m.u === THEATER_WEIYU_ME)) soWySoundPlay(phone, 'send');
     phone.refresh();
     let r;
     try {
@@ -25393,6 +27272,7 @@ async function soWyDo(phone, kind, args, onProgress) {
         r = { error: soWyErrText(e) };
     }
     if (phone.dead) return r;
+    if (typeof soWyInRings === 'function') soWyInRings(phone, r);   // phone upgrades: a call of hers that just landed may ring (env.stages.incall)
     soWyNoteFor(phone, kind, key, r);
     if (soWyIsObj(r) && r.ok && had) soWyReveal(phone, a.cid, had);
     phone.refresh();
@@ -25420,12 +27300,15 @@ function soWyReveal(phone, cid, had) {
     const c = soWyChat(soWyEnvState(phone), cid);
     if (!c) return;
     const fresh = c.msgs.filter((m) => !had.has(m.id) && m.src !== 'me');
+    const content = (m) => !!m && m.t !== 'time' && m.t !== 'sys';
+    // sound: a line by somebody else arriving in the OPEN chat → 'arrive' (all at once = one sound; one by one = one per line)
+    const heard = (m) => content(m) && m.u !== THEATER_WEIYU_ME;
     if (!fresh.length || !soWyChatOpen(phone, cid) || soWyEnvReduced(phone)) {
         phone.reveal = null;
+        if (phone.env.sound && soWyChatOpen(phone, cid) && fresh.some(heard)) soWySoundPlay(phone, 'arrive');
         soWyReadOpen(phone, cid);
         return;
     }
-    const content = (m) => !!m && m.t !== 'time' && m.t !== 'sys';
     const dur = (m) => {
         const n = Array.from(String(m && m.v != null ? m.v : '')).length;
         return Math.max(TM.typeMin, Math.min(TM.typeMax, TM.typeMin + n * 45));
@@ -25437,7 +27320,11 @@ function soWyReveal(phone, cid, had) {
         if (phone.reveal !== rv) return;
         while (rv.ids.length) {
             const id = rv.ids.shift();
-            if (content(fresh.find((m) => m.id === id))) break;
+            const m = fresh.find((x) => x.id === id);
+            if (content(m)) {
+                if (heard(m)) soWySoundPlay(phone, 'arrive');
+                break;
+            }
         }
         if (!rv.ids.length) {
             phone.reveal = null;
@@ -25757,7 +27644,7 @@ function soWyMoKeep(phone, old, el, nav) {
     const hand = phone.moHand || null;   // the edge swipe hands over where its finger left the two pages (Tier 2)
     phone.moHand = null;
     phone.moGhost = {
-        el: old, inEl: el, nav, fresh: true, dim: null, timer: null,
+        el: old, inEl: el, nav, fresh: true, dim: null, timer: null, page: phone.cur,   // page: the one leaving (the device's back finds its roll)
         from: hand && hand.from ? hand.from : from && from !== 'none' ? from : null,
         prev: hand ? hand : prev && prev.nav === 'push' && nav === 'back' ? prev : null,
     };
@@ -25783,6 +27670,7 @@ function soWyMoDropGhost(phone, only) {
 // The slide itself (Tier 1): push = the new page comes in from the right over the old one, which drifts left under a dim; back = the
 // reverse (the leaving page on top). The dim is a sibling of the pages (between them), so a refresh of the arriving page never loses it.
 function soWyMoSlide(phone, el, nav) {
+    if (soWyLookDev(phone)) return soWyLkMoSlide(phone, el, nav);   // looks Task 9: a device moves its own way
     const M = THEATER_WEIYU_MO;
     const g = phone.moGhost;
     if (!g || !g.fresh) return;
@@ -25869,6 +27757,7 @@ function soWyMoAfter(phone, s, el, top, same, nav) {
 
 // Tab switch (Tier 1): the content cross-fades ±14 px toward the tab's side; the active icon pops .7 → 1.
 function soWyMoTab(phone, s, el, top) {
+    if (soWyLookDev(phone)) return soWyLkMoTab(phone, s, el, top);   // looks Task 9
     const M = THEATER_WEIYU_MO;
     const order = ['chats', 'contacts', 'me'];
     const a = order.indexOf(s.page && s.page.k === 'tabs' ? s.page.tab : '');
@@ -25907,12 +27796,16 @@ function soWyMoChat(phone, s, el) {
     }
     const d0 = shifts.length ? shifts[shifts.length - 1][1] : 0;
     const uniform = shifts.every(([, d]) => Math.abs(d - d0) < 1);
-    const grown = s.typing ? soWyMoGrow(phone, s, el, fresh, uniform ? d0 : 0) : null;   // Tier 3
-    for (const r of fresh.slice(-M.newMax)) if (r !== grown) r.classList.add('wy-mo-new');
+    const dev = soWyLookDev(phone);   // looks Task 6: a device plays its own arrival / send / recall (soWyLkMoChat), never the phone's
+    const grown = s.typing && !dev ? soWyMoGrow(phone, s, el, fresh, uniform ? d0 : 0) : null;   // Tier 3
+    // review B I-1: the column followed its end (uniform shift d0 within one screen) — the one case a whole-column motion plays
+    const follow = uniform && Math.abs(d0) >= 1 && Math.abs(d0) < sc.clientHeight;
+    const lifted = dev ? soWyLkMoChat(phone, el, fresh.slice(-M.newMax), follow ? d0 : 0) : false;
+    if (!dev) for (const r of fresh.slice(-M.newMax)) if (r !== grown) r.classList.add('wy-mo-new');
     const ty = el.querySelector('.wy-typing');
-    if (ty && !s.typing) ty.classList.add('wy-mo-new');
+    if (ty && !s.typing && !dev) ty.classList.add('wy-mo-new');
     if (uniform) {
-        if (Math.abs(d0) >= 1 && Math.abs(d0) < sc.clientHeight) soWyMoAnim(list, [{ transform: 'translateY(' + d0 + 'px)' }, { transform: 'none' }], { duration: M.glide, easing: M.glideEase });
+        if (follow && !lifted) soWyMoAnim(list, [{ transform: 'translateY(' + d0 + 'px)' }, { transform: 'none' }], { duration: M.glide, easing: M.glideEase });
     } else {
         const near = (y) => y > view.top - 200 && y < view.bottom + 200;
         for (const [r, d, o] of shifts) if (Math.abs(d) >= 1 && near(o.top)) soWyMoAnim(r, [{ transform: 'translateY(' + d + 'px)' }, { transform: 'none' }], { duration: M.glide, easing: M.glideEase });
@@ -25928,7 +27821,7 @@ function soWyMoChat(phone, s, el) {
     const msgOf = (id) => (chat ? chat.msgs.find((m) => m.id === id) : null);
     // his own 撤回 (the menu, lane D) changes the kind of a line that was already there: it arrives as a recall too (integration)
     const recalled = rows.filter((r) => r.classList.contains('wy-recall') && s.msgs.has(r.getAttribute('data-wy-msg')) && s.msgs.get(r.getAttribute('data-wy-msg')).t !== 'recall');
-    for (const r of recalled) r.classList.add('wy-mo-new');
+    for (const r of recalled) if (dev) soWyLkMoRecall(phone, r); else r.classList.add('wy-mo-new');
     for (const r of fresh.concat(recalled)) {
         // Tier 2: a recall folds a phantom bubble away into its grey line
         if (r.classList.contains('wy-recall') && r.classList.contains('wy-mo-new')) {
@@ -25940,7 +27833,7 @@ function soWyMoChat(phone, s, el) {
         // Tier 2: 拍一拍 — the nudged person's latest picture in this chat wobbles
         if (r.classList.contains('wy-nudge')) {
             const m = msgOf(r.getAttribute('data-wy-msg'));
-            const avs = m && m.to ? [...list.querySelectorAll('.wy-m > .wy-av')].filter((a) => a.getAttribute('data-wy-pid') === m.to) : [];
+            const avs = m && m.to ? [...list.querySelectorAll('.wy-m > .wy-av, .wy-m > .wy-spk')].filter((a) => a.getAttribute('data-wy-pid') === m.to) : [];
             const a = avs[avs.length - 1];
             if (a) soWyMoAnim(a, [{ transform: 'none' }, { transform: 'rotate(-12deg) translateX(-2px)', offset: 0.2 }, { transform: 'rotate(9deg)', offset: 0.45 },
                 { transform: 'rotate(-5deg)', offset: 0.7 }, { transform: 'rotate(2deg)', offset: 0.85 }, { transform: 'none' }], { duration: 460, easing: 'cubic-bezier(.3,.7,.4,1)' });
@@ -25974,6 +27867,192 @@ function soWyMoFold(phone, sc, view, o) {
     soWyLater(phone, () => c.remove(), 240);
 }
 
+// ---- looks Task 6 (spec §4.1 / §4.2 [P], §4.3): the chat's motion under a device — Web Animations through soWyMoAnim, so it runs only where
+// soWyMoChat runs (动画 on, Web Animations present; reduced motion / 动画 关 = nothing, every line at once). Budget: a line's total (delay +
+// duration) = soWyLkMoTime — a short line within ~1 s, any line within 2 s.
+const THEATER_WEIYU_LK_MO = Object.freeze({
+    gather: 420, unroll: 640, perChar: 2.5, max: 1300, glint: 380, pulse: 380, press: 260, dust: 520, wash: 620, ease: 'cubic-bezier(.2,.8,.2,1)',
+});
+
+// looks Tasks 8–9 (spec §4.4, §13.1): the device's closing, waking and moving between screens — timings in ms. Crystal: the gem turns to another
+// face (the old face narrows away, a band of light sweeps, the new face opens; ≈ 0.7 s with the stones). Scroll: the roll lifts off the rack
+// and unrolls from the top roller (≈ 0.85 s); back rolls it up and drops it onto the rack (≈ 0.8 s). Every one ≤ 1 s; nothing without motion.
+const THEATER_WEIYU_LK_NAV = Object.freeze({
+    dim: 420, rollUp: 480, wake: 900,
+    narrow: 240, sweep: 520, openAt: 140, open: 320,
+    lift: 260, unrollAt: 200, unroll: 640, rollBack: 500, dropAt: 440, drop: 320,
+    stoneAt: 140, stone: 340, stoneGap: 24, stoneMax: 8, tab: 300, tabUnroll: 380,
+    landFlash: 520, motes: 640, runeAt: 460, rune: 300, stamp: 380,
+    ease: 'cubic-bezier(.2,.8,.2,1)',
+});
+
+// Waking (spec §13.1): every mount under a device plays a short wake instead of the phone's green bloom (soWyMoPower) — crystal: the dark gem
+// lights up; scroll: the paper unrolls from the top roller. Under a device the phone column is see-through (the device is only its outline),
+// so the wake moves the column itself — never a filled cover, which would flash a rectangle on the night / the wall round the device (review F
+// minor 4). It survives a page change during it (the column stays); ~0.9 s; nothing without motion.
+function soWyLkMoWake(phone) {
+    if (!soWyMoOn(phone)) return;
+    const N = THEATER_WEIYU_LK_NAV;
+    if (soWyLookDev(phone) === 'scroll') soWyMoAnim(phone.root, [{ clipPath: 'inset(0 0 calc(100% - 40px) 0)' }, { clipPath: 'inset(0 0 0 0)' }], { duration: N.wake, easing: N.ease });
+    else soWyMoAnim(phone.root, [{ opacity: 0.15, filter: 'brightness(.25)' }, { opacity: 0.6, filter: 'brightness(.45)', offset: 0.25 }, { opacity: 1, filter: 'none' }], { duration: N.wake, easing: 'cubic-bezier(.4,0,.2,1)' });
+}
+
+// The crystal's band of light sweeping across the gem (fwd = left → right), a sibling of the pages above them; it goes after its sweep.
+function soWyLkMoBand(phone, fwd, ms, delay) {
+    for (const x of phone.root.querySelectorAll(':scope > .wy-lk-band')) x.remove();
+    const b = soWyEl(phone.host.ownerDocument, 'div', { class: 'wy-lk-band', aria: { hidden: 'true' } });
+    phone.root.insertBefore(b, phone.layer);
+    const p = fwd ? ['-100%', '20%', '130%', '250%'] : ['250%', '130%', '20%', '-100%'];
+    soWyMoAnim(b, [{ opacity: 0, transform: 'translateX(' + p[0] + ')' }, { opacity: 1, transform: 'translateX(' + p[1] + ')', offset: 0.3 },
+        { opacity: 1, transform: 'translateX(' + p[2] + ')', offset: 0.7 }, { opacity: 0, transform: 'translateX(' + p[3] + ')' }], { duration: ms, delay: delay || 0, easing: 'ease-in-out' });
+    soWyLater(phone, () => b.remove(), (delay || 0) + ms + 30);
+}
+
+// "The ring's stones change with the screen" (spec §4.4): the new page's bottom controls (the tabs / the writing place's controls) come in one
+// after another from `at` — crystal: stones turning into place; scroll: the desk's objects set down. → when the last one ends (0 = none).
+function soWyLkMoStones(phone, el, dev, at) {
+    const N = THEATER_WEIYU_LK_NAV;
+    const kids = [...el.querySelectorAll('.wy-tabbar > .wy-tab, .wy-chatfoot .wy-inrow > *')].slice(0, N.stoneMax);
+    const frames = dev === 'scroll' ? [{ opacity: 0, transform: 'translateY(10px)' }, { opacity: 1, transform: 'none' }]
+        : [{ opacity: 0, transform: 'scale(.5) rotate(-60deg)' }, { opacity: 1, transform: 'none' }];
+    kids.forEach((k, i) => soWyMoAnim(k, frames, { duration: N.stone, delay: at + i * N.stoneGap, easing: N.ease, fill: 'backwards' }));
+    return kids.length ? at + (kids.length - 1) * N.stoneGap + N.stone : 0;
+}
+
+// Push / back under a device (soWyMoSlide's place; the same kept page — phone.moGhost, inert .wy-mo-ghost — and the same hand-over to
+// soWyMoDropGhost when it ends). Crystal: the old face narrows away while a band of light sweeps across and the new face opens (push sweeps left
+// → right, back right → left). Scroll, push: the chat's roll lifts off the rack, then the new page unrolls from the top roller; back: the page
+// rolls up to the top roller and its roll drops back onto the rack. The new page is live from its first frame.
+function soWyLkMoSlide(phone, el, nav) {
+    const N = THEATER_WEIYU_LK_NAV;
+    const g = phone.moGhost;
+    if (!g || !g.fresh) return;
+    g.fresh = false;
+    const dev = soWyLookDev(phone);
+    const push = nav === 'push';
+    const rowIn = (page, cid) => (page && typeof cid === 'string' ? [...page.querySelectorAll('[data-wy-row]')].find((r) => r.getAttribute('data-wy-row') === cid) || null : null);
+    const ends = [];
+    if (push) el.classList.add('wy-mo-top');
+    if (dev === 'crystal') {
+        soWyMoAnim(g.el, [{ opacity: 1, transform: g.from || 'none' }, { opacity: 0, transform: 'scaleX(.18)' }], { duration: N.narrow, easing: 'cubic-bezier(.4,0,1,1)', fill: 'forwards' });
+        soWyLkMoBand(phone, push, N.sweep, 0);
+        soWyMoAnim(el, [{ opacity: 0, transform: 'scaleX(.18)' }, { opacity: 1, transform: 'none' }], { duration: N.open, delay: N.openAt, easing: N.ease, fill: 'backwards' });
+        ends.push(N.narrow, N.sweep, N.openAt + N.open, soWyLkMoStones(phone, el, dev, N.stoneAt));
+    } else if (push) {
+        const cur = phone.cur || {};
+        const row = rowIn(g.el, cur.cid);
+        if (row) soWyMoAnim(row, [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-14px) scale(1.02)' }], { duration: N.lift, easing: N.ease, fill: 'forwards' });
+        soWyMoAnim(el, [{ clipPath: 'inset(0 0 100% 0)' }, { clipPath: 'inset(0 0 0 0)' }], { duration: N.unroll, delay: N.unrollAt, easing: N.ease, fill: 'backwards' });
+        ends.push(N.lift, N.unrollAt + N.unroll, soWyLkMoStones(phone, el, dev, N.unrollAt));
+    } else {
+        soWyMoAnim(g.el, [{ clipPath: 'inset(0 0 0 0)' }, { clipPath: 'inset(0 0 100% 0)' }], { duration: N.rollBack, easing: 'cubic-bezier(.5,0,.6,1)', fill: 'forwards' });
+        const row = rowIn(el, g.page && g.page.cid);
+        if (row) soWyMoAnim(row, [{ opacity: 0, transform: 'translateY(-18px)' }, { opacity: 1, transform: 'translateY(3px)', offset: 0.7 }, { opacity: 1, transform: 'none' }], { duration: N.drop, delay: N.dropAt, easing: N.ease, fill: 'backwards' });
+        ends.push(N.rollBack, row ? N.dropAt + N.drop : 0, soWyLkMoStones(phone, el, dev, N.unrollAt));
+    }
+    g.timer = soWyLater(phone, () => soWyMoDropGhost(phone, g), Math.max(...ends) + 30);
+}
+
+// A tab switch under a device (soWyMoTab's place): crystal = the face turns (the content opens from the middle, a band sweeps toward the new
+// tab's side); scroll = the page unrolls from the top roller; the chosen stone / desk object answers.
+function soWyLkMoTab(phone, s, el, top) {
+    const N = THEATER_WEIYU_LK_NAV;
+    const dev = soWyLookDev(phone);
+    const order = ['contacts', 'chats', 'me'];   // left to right as the device holds them (soWyLkTabBar)
+    const a = order.indexOf(s && s.page && s.page.k === 'tabs' ? s.page.tab : '');
+    const b = order.indexOf(top && top.tab);
+    const sc = soWyMoKid(el, 'wy-scroll');
+    if (dev === 'scroll') {
+        if (sc) soWyMoAnim(sc, [{ clipPath: 'inset(0 0 100% 0)' }, { clipPath: 'inset(0 0 0 0)' }], { duration: N.tabUnroll, easing: N.ease });
+    } else {
+        if (sc) soWyMoAnim(sc, [{ opacity: 0, transform: 'scaleX(.7)' }, { opacity: 1, transform: 'none' }], { duration: N.tab, easing: N.ease });
+        soWyLkMoBand(phone, b >= a, N.tab + 120, 0);
+    }
+    const art = el.querySelector('.wy-dtab.wy-on > .wy-dtab-art');
+    if (art) {
+        soWyMoAnim(art, dev === 'scroll' ? [{ transform: 'translateY(6px)' }, { transform: 'translateY(-4px)', offset: 0.6 }, { transform: 'translateY(-2px)' }]
+            : [{ opacity: 0.4, transform: 'scale(.6) rotate(-40deg)' }, { opacity: 1, transform: 'none' }], { duration: N.tab, easing: N.ease });
+    }
+    if (top && top.tab === 'chats') soWyLkMoListIn(phone, el, dev);   // looks polish: the list's rows come in one after another
+}
+
+// → {d: delay before the line moves, a: the line's own motion, b: what follows it (the crystal's glint)} for a line of n characters.
+function soWyLkMoTime(dev, n, me) {
+    const L = THEATER_WEIYU_LK_MO;
+    const a = Math.min(L.max, (dev === 'scroll' ? L.unroll : L.gather) + Math.max(0, Number(n) || 0) * L.perChar);
+    if (dev === 'scroll') return { d: me ? Math.round(L.press * 0.6) : 0, a, b: 0 };
+    return { d: 0, a, b: me ? 0 : L.glint };
+}
+
+// The new lines of a render under a device. Others' lines: crystal = motes of light gather (.wy-lk-in-crystal draws them, CSS) while the
+// line comes out of a blur, then a glint passes (brightness); scroll = the scroll unrolls further and the line comes out from behind the
+// roller (clip-path from the top), already written. His own: crystal = the words rise from the ring into the crystal and the ring pulses;
+// scroll = the seal presses, then the line appears. A line that arrives recalled plays the recall.
+function soWyLkMoChat(phone, el, rows, d0) {
+    const L = THEATER_WEIYU_LK_MO;
+    const dev = soWyLookDev(phone);
+    const unroll = { a: 0 };
+    let hero = null;
+    for (const r of rows) {
+        if (r.classList.contains('wy-recall')) {
+            soWyLkMoRecall(phone, r);
+            continue;
+        }
+        const mb = r.querySelector('.wy-mb') || r;
+        const me = r.getAttribute('data-wy-side') === 'me';
+        const t = soWyLkMoTime(dev, Array.from(String(mb.textContent || '')).length, me);
+        r.classList.add('wy-lk-in', 'wy-lk-in-' + dev);
+        if (dev === 'crystal') {
+            if (me) {
+                soWyMoAnim(mb, [{ opacity: 0, transform: 'translateY(36px) scale(.92)', filter: 'blur(3px)' }, { opacity: 1, transform: 'none', filter: 'none' }], { duration: t.a, easing: L.ease, fill: 'backwards' });
+                const ring = el.querySelector('.wy-ring-art');   // polish K1P: the ring itself (around the whole row) pulses
+                if (ring) soWyMoAnim(ring, [{ transform: 'none', filter: 'brightness(1)' }, { transform: 'scale(1.04, 1.16)', filter: 'brightness(1.9)' }, { transform: 'none', filter: 'brightness(1)' }], { duration: L.pulse, easing: 'ease-out' });
+            } else {
+                soWyMoAnim(mb, [{ opacity: 0, transform: 'scale(.97)', filter: 'blur(6px)' }, { opacity: 1, transform: 'none', filter: 'none' }], { duration: t.a, easing: L.ease, fill: 'backwards' });
+                soWyMoAnim(mb, [{ filter: 'brightness(1)' }, { filter: 'brightness(1.7)' }, { filter: 'brightness(1)' }], { duration: t.b, delay: t.a, easing: 'ease-in-out' });
+            }
+        } else if (me) {
+            // looks polish: 2.4.0's seal dip is retired (unseen: the stop stone had taken the seal's place); the slam is soWyLkMoSendHero's
+            soWyMoAnim(mb, [{ opacity: 0, transform: 'translateY(18px)' }, { opacity: 1, transform: 'none' }], { duration: t.a, delay: t.d, easing: L.ease, fill: 'backwards' });
+        } else {
+            soWyMoAnim(r, [{ clipPath: 'inset(0 0 100% 0)' }, { clipPath: 'inset(0 0 0 0)' }], { duration: t.a, easing: L.ease, fill: 'backwards' });
+            unroll.a = Math.max(unroll.a, t.a);
+        }
+        soWyLater(phone, () => r.classList.remove('wy-lk-in', 'wy-lk-in-' + dev), t.d + t.a + t.b + 40);
+        if (me && !hero) hero = r;
+    }
+    if (hero) soWyLkMoSendHero(phone, el, hero, dev);   // looks polish: one hero per send (crystal: the ring ignites; scroll: the seal stamps)
+    // polish K1P (second opinion #5, spec §4.2 [P]) + review B I-1: the scroll unrolls further — ONLY when the column followed its end (d0 > 0,
+    // the shift soWyMoChat measured): the written paper (.wy-msgs) rises from where it stood (+ a 16 px lead from behind the roller at the
+    // paper's foot, .wy-lk-rod) while the roller turns, as the ONE animation of the column (soWyMoChat then skips the phone's glide). A reader
+    // scrolled up keeps a still view: only the arriving rows' own clip reveal plays. → true when the paper was lifted.
+    if (!(unroll.a > 0 && d0 > 0)) return false;
+    const feed = el.querySelector('.wy-msgs');
+    if (!feed) return false;
+    const rod = el.querySelector('.wy-lk-rod');
+    const h = Math.round(d0) + 16;
+    soWyMoAnim(feed, [{ transform: 'translateY(' + h + 'px)' }, { transform: 'none' }], { duration: unroll.a, easing: L.ease });
+    if (rod) soWyMoAnim(rod, [{ backgroundPosition: '0 0' }, { backgroundPosition: '0 ' + h + 'px' }], { duration: unroll.a, easing: L.ease });
+    return true;
+}
+
+// A line recalled where it stands (the row is swapped in place): crystal = the line breaks into dust (a ghost of motes scatters); scroll =
+// the ink washes away (a smudge blurs out) and the water stain (.wy-ln-stain) seeps in.
+function soWyLkMoRecall(phone, r) {
+    const L = THEATER_WEIYU_LK_MO;
+    const dev = soWyLookDev(phone);
+    const ghost = soWyEl(r.ownerDocument, 'span', { class: ['wy-lk-ghost', dev === 'scroll' ? 'wy-lk-wash' : 'wy-lk-dust'], aria: { hidden: 'true' } });
+    r.appendChild(ghost);
+    if (dev === 'scroll') {
+        soWyMoAnim(ghost, [{ opacity: 0.9, filter: 'none' }, { opacity: 0, filter: 'blur(6px)' }], { duration: L.wash, easing: 'ease-out', fill: 'forwards' });
+        const stain = r.querySelector('.wy-ln-stain');
+        if (stain) soWyMoAnim(stain, [{ opacity: 0 }, { opacity: 1 }], { duration: L.wash, easing: 'ease-in' });
+    } else {
+        soWyMoAnim(ghost, [{ opacity: 1, transform: 'none', filter: 'none' }, { opacity: 0, transform: 'scale(1.25) translateY(-6px)', filter: 'blur(5px)' }], { duration: L.dust, easing: 'ease-out', fill: 'forwards' });
+    }
+    soWyLater(phone, () => ghost.remove(), (dev === 'scroll' ? L.wash : L.dust) + 40);
+}
+
 // Tier 2 · the chat list after a render: on a refresh, a row that moved (a reply landed and sorted it to the top) slides from where it was
 // (FLIP, 340 ms), its preview swaps in and the row glows (900 ms), its badge pops; then the reveal-once of rows below the fold.
 function soWyMoRows(phone, s, el, sc) {
@@ -25983,16 +28062,20 @@ function soWyMoRows(phone, s, el, sc) {
     if (s && s.rows) {
         let view = null;
         try { view = sc.getBoundingClientRect(); } catch (e) { view = null; }
+        const dev = soWyLookDev(phone);
         for (const r of rows) {
             const o = s.rows.get(r.getAttribute('data-wy-row'));
             if (!o) continue;
             const pv = r.querySelector('.wy-pv');
-            if (pv && pv.textContent !== o.pv) {
-                r.classList.add('wy-mo-glow');
-                pv.classList.add('wy-mo-swap');
-            }
             const bd = r.querySelector('.wy-avw .wy-badge');
-            if (bd && (bd.textContent || '•') !== o.badge) bd.classList.add('wy-mo-pop');
+            if (pv && pv.textContent !== o.pv) {
+                if (dev) soWyLkMoRowLand(phone, r, dev, bd);   // polish K1P (spec §4.4): the device's own landing, not the phone's glow / pop
+                else {
+                    r.classList.add('wy-mo-glow');
+                    pv.classList.add('wy-mo-swap');
+                }
+            }
+            if (!dev && bd && (bd.textContent || '•') !== o.badge) bd.classList.add('wy-mo-pop');
             let d = 0;
             try { d = o.top - r.getBoundingClientRect().top; } catch (e) { d = 0; }
             if (Math.abs(d) >= 1 && view && o.top < view.bottom + 200) {
@@ -26003,6 +28086,173 @@ function soWyMoRows(phone, s, el, sc) {
         }
     }
     soWyMoReveal(phone, sc, rows);
+}
+
+// polish K1P (spec §4.4, missed in Task 8): a message lands in a chat shown in the list under a device (the row also slides to its new place
+// by the FLIP above). crystal = the shard flashes and motes of light fly into its unread rune, which then glows; scroll = the roll's slip
+// gains the red seal with a short stamp. ≤ 1 s; only where soWyMoRows runs (动画 on, Web Animations). List round: the rune sits at the
+// shard's lower right end, so the motes come in from the row's body (left / above it).
+function soWyLkMoRowLand(phone, r, dev, bd) {
+    const N = THEATER_WEIYU_LK_NAV;
+    if (dev === 'scroll') {
+        if (bd) soWyMoAnim(bd, [{ opacity: 0, transform: 'scale(1.9) rotate(-14deg)' }, { opacity: 1, transform: 'scale(.92) rotate(-3deg)', offset: 0.7 }, { opacity: 1, transform: 'none' }], { duration: N.stamp, easing: 'cubic-bezier(.3,.6,.3,1.2)' });
+        return;
+    }
+    soWyMoAnim(r.querySelector('.wy-drow-art') || r, [{ filter: 'brightness(1)' }, { filter: 'brightness(2.2)', offset: 0.3 }, { filter: 'brightness(1)' }], { duration: N.landFlash, easing: 'ease-out' });
+    const w = r.querySelector('.wy-avw');
+    if (!w) return;
+    const m = soWyEl(r.ownerDocument, 'span', { class: 'wy-lk-rmotes', aria: { hidden: 'true' } });
+    w.appendChild(m);
+    soWyMoAnim(m, [{ opacity: 0, transform: 'translate(-150px, -16px) scale(1.8)' }, { opacity: 1, offset: 0.35 }, { opacity: 0, transform: 'none' }], { duration: N.motes, easing: N.ease, fill: 'forwards' });
+    soWyLater(phone, () => m.remove(), N.motes + 40);
+    if (bd) soWyMoAnim(bd, [{ filter: 'brightness(1)' }, { filter: 'brightness(2.4)' }, { filter: 'brightness(1)' }], { duration: N.rune, delay: N.runeAt, easing: 'ease-out' });
+}
+
+// ---- looks polish (2026-11-26; polish/plan.md in the crystal-ui ledger) ----
+// Under a device every tappable thing answers on pointerdown: a still pressed state (.wy-pl-dn, also with 动画 关, held ≥ hold ms), the
+// look's press sound ('tap' — only the device families have one), and with 动画 开 a burst at the finger and a follow-through on release
+// (.wy-pl-up). The phone look gets none of it. move = px of travel that turns a press into a scroll.
+const THEATER_WEIYU_LK_PRESS = Object.freeze({
+    hold: 110, pop: 300, burst: 460, move: 10, beam: 420, ignite: 640, slam: 340, stampAt: 270, stamp: 380, bleed: 1200, rowIn: 340, rowGap: 45, rowMax: 8,
+});
+const THEATER_WEIYU_LK_TAP = 'button, [data-wy-act], [data-wy-row], .wy-setrow, .wy-switch, .wy-att, .wy-seg-i, .wy-chip, .wy-sheet-i, .wy-mi, .wy-re-q';
+const THEATER_WEIYU_LK_RED = '.wy-send-seal, .wy-dtab-me, .wy-switch, .wy-done, .wy-sq, .wy-stopsq, .wy-fbar-go';   // the scroll inks these red
+// his seal stamping itself beside his new line (scroll)
+const THEATER_WEIYU_LK_STAMP = [{ transform: 'scale(1.9) rotate(-16deg)', opacity: 0 }, { transform: 'scale(.9) rotate(-2deg)', opacity: 1, offset: 0.62 },
+    { transform: 'scale(1.03) rotate(-3deg)', offset: 0.82 }, { transform: 'none', opacity: 1 }];
+
+function soWyLkAt(phone, x, y) {
+    let r = null;
+    try { r = phone.root.getBoundingClientRect(); } catch (e) { r = null; }
+    return r ? { x: x - r.left, y: y - r.top } : { x, y };
+}
+function soWyLkBox(el) {
+    try { const b = el && el.getBoundingClientRect(); return b && b.width ? b : null; } catch (e) { return null; }
+}
+
+// The burst at a point: an aria-hidden span in the layer (pointer-events none), gone after it plays. crystal = a diamond of light + motes;
+// scroll = an ink blot (red paste under a seal).
+function soWyLkBurst(phone, dev, t, x, y) {
+    const P = THEATER_WEIYU_LK_PRESS;
+    const b = soWyLkBox(t);
+    if (!b) return;
+    const s = Math.max(36, Math.min(110, Math.max(b.width, b.height) * 1.25));
+    const p = soWyLkAt(phone, x, y);
+    const el = soWyEl(phone.host.ownerDocument, 'span', { class: ['wy-pl-burst', 'wy-pl-burst-' + dev, dev === 'scroll' && t.closest(THEATER_WEIYU_LK_RED) ? 'wy-pl-red' : ''], aria: { hidden: 'true' } });
+    Object.assign(el.style, { left: (p.x - s / 2) + 'px', top: (p.y - s / 2) + 'px', width: s + 'px', height: s + 'px' });
+    phone.layer.appendChild(el);
+    soWyLater(phone, () => el.remove(), P.burst + 60);
+}
+
+// pointerdown (soWyMoWire, before its motion check)
+function soWyLkPress(phone, ev) {
+    const dev = soWyLookDev(phone);
+    if (!dev || phone.dead || (ev.button != null && ev.button !== 0)) return;
+    const t = ev.target && typeof ev.target.closest === 'function' ? ev.target.closest(THEATER_WEIYU_LK_TAP) : null;
+    soWyLkUnpress(phone, false);
+    if (!t || !phone.root.contains(t) || t.disabled || t.closest('.wy-mo-ghost')) return;
+    phone.lkPress = { el: t, at: Date.now(), x: ev.clientX || 0, y: ev.clientY || 0 };
+    t.classList.add('wy-pl-dn');
+    soWySoundPlay(phone, 'tap');
+    if (soWyMoOn(phone)) soWyLkBurst(phone, dev, t, phone.lkPress.x, phone.lkPress.y);
+}
+
+// release (pop: a real pointerup → the follow-through) / cancel (a scroll, a move, pointercancel)
+function soWyLkUnpress(phone, pop) {
+    const p = phone.lkPress;
+    if (!p) return;
+    phone.lkPress = null;
+    const P = THEATER_WEIYU_LK_PRESS;
+    const el = p.el;
+    const end = () => {
+        el.classList.remove('wy-pl-dn');
+        if (!pop || !soWyMoOn(phone)) return;
+        el.classList.remove('wy-pl-up');
+        void el.offsetWidth;   // a second quick tap restarts it
+        el.classList.add('wy-pl-up');
+        soWyLater(phone, () => el.classList.remove('wy-pl-up'), P.pop + 40);
+    };
+    const wait = P.hold - (Date.now() - p.at);
+    if (wait > 0) soWyLater(phone, end, wait);
+    else end();
+}
+
+// The send's hero (soWyLkMoChat, his line just landed; 动画 开). crystal: the ring ignites, a mote rises from the send stone (or the ring, when
+// the stop stone has taken its place) to his line and his sigil ignites. scroll: the desk holds his seal for a lift-and-slam (a click and
+// Enter alike — every send lands here), red paste blooms, then his seal on the line stamps itself and its paste spreads.
+function soWyLkMoSendHero(phone, el, r, dev) {
+    const P = THEATER_WEIYU_LK_PRESS;
+    const spk = r.querySelector(':scope > .wy-spk');
+    phone.lkHero = { at: Date.now(), mid: r.getAttribute('data-wy-msg'), dev };
+    if (dev === 'crystal') {
+        const ring = el.querySelector('.wy-inrow.wy-ring');
+        if (ring) {
+            ring.classList.add('wy-pl-ignite');
+            soWyLater(phone, () => ring.classList.remove('wy-pl-ignite'), P.ignite + 40);
+        }
+        const a = soWyLkBox(el.querySelector('.wy-ring .wy-send-stone')) || soWyLkBox(el.querySelector('.wy-ring-f')) || soWyLkBox(ring);
+        const b = soWyLkBox(spk || r.querySelector('.wy-mb'));
+        if (!a || !b) return;
+        const p = soWyLkAt(phone, a.left + a.width / 2, a.top + a.height / 2);
+        const q = soWyLkAt(phone, b.left + b.width / 2, b.top + b.height / 2);
+        const m = soWyEl(phone.host.ownerDocument, 'span', { class: 'wy-pl-mote', aria: { hidden: 'true' } });
+        Object.assign(m.style, { left: (p.x - 9) + 'px', top: (p.y - 9) + 'px' });
+        phone.layer.appendChild(m);
+        const at = (k, s) => 'translate(' + ((q.x - p.x) * k) + 'px,' + ((q.y - p.y) * k) + 'px) scale(' + s + ')';
+        soWyMoAnim(m, [{ transform: at(0, 0.6), opacity: 0 }, { transform: at(0.15, 1.2), opacity: 1, offset: 0.2 }, { transform: at(1, 0.8), opacity: 1, offset: 0.92 },
+            { transform: at(1, 2.4), opacity: 0 }], { duration: P.beam, easing: 'cubic-bezier(.5,0,.3,1)', fill: 'forwards' });
+        soWyLater(phone, () => m.remove(), P.beam + 40);
+        if (spk) soWyMoAnim(spk, [{ transform: 'scale(.3) rotate(-90deg)', filter: 'brightness(3)', opacity: 0 }, { transform: 'scale(1.25) rotate(8deg)', filter: 'brightness(2.2)', opacity: 1, offset: 0.55 },
+            { transform: 'none', filter: 'none', opacity: 1 }], { duration: 420, delay: P.beam - 60, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' });
+        return;
+    }
+    const desk = el.querySelector('.wy-inrow.wy-desk');
+    const seal = desk && desk.querySelector('.wy-send-seal');
+    if (seal) {
+        desk.classList.add('wy-pl-slam');
+        soWyLater(phone, () => desk.classList.remove('wy-pl-slam'), P.slam + 40);
+        soWyLater(phone, () => { const b = seal.isConnected && soWyLkBox(seal); if (b) soWyLkBurst(phone, 'scroll', seal, b.left + b.width / 2, b.top + b.height / 2); }, Math.round(P.slam * 0.55));
+    }
+    if (spk) {
+        soWyMoAnim(spk, THEATER_WEIYU_LK_STAMP, { duration: P.stamp, delay: P.stampAt, easing: 'cubic-bezier(.4,0,.6,1)', fill: 'backwards' });
+        spk.classList.add('wy-pl-bleed');
+        soWyLater(phone, () => spk.classList.remove('wy-pl-bleed'), P.bleed);
+    }
+}
+
+// soWyRender, a refresh of the same page right after a send (each render builds the page anew): the hero's CSS parts go back on the new
+// page with --wy-pl-t = minus the time already played (they continue, never restart); his seal's stamp carries on from where it was.
+function soWyLkHeroKeep(phone, el) {
+    const h = phone.lkHero;
+    const P = THEATER_WEIYU_LK_PRESS;
+    const t = Date.now() - h.at;
+    if (t >= P.bleed) { phone.lkHero = null; return; }
+    const mark = (x, cls, ms) => {
+        if (!x || t >= ms) return;
+        x.classList.add(...cls);
+        x.style.setProperty('--wy-pl-t', -t + 'ms');
+        soWyLater(phone, () => x.classList.remove(...cls), ms - t + 40);
+    };
+    if (h.dev === 'crystal') mark(el.querySelector('.wy-inrow.wy-ring'), ['wy-pl-ignite'], P.ignite);
+    else mark(el.querySelector('.wy-inrow.wy-desk'), ['wy-pl-slam'], P.slam);
+    const r = [...el.querySelectorAll('[data-wy-msg]')].find((x) => x.getAttribute('data-wy-msg') === h.mid);
+    if (!r) return;
+    mark(r, ['wy-lk-in', 'wy-lk-in-' + h.dev], THEATER_WEIYU_LK_MO.max);
+    const spk = h.dev === 'scroll' ? r.querySelector(':scope > .wy-spk') : null;
+    if (!spk) return;
+    mark(spk, ['wy-pl-bleed'], P.bleed);
+    if (t < P.stampAt + P.stamp) soWyMoAnim(spk, THEATER_WEIYU_LK_STAMP, { duration: P.stamp, delay: P.stampAt - t, easing: 'cubic-bezier(.4,0,.6,1)', fill: 'backwards' });
+}
+
+// A tab switch to the chat list (soWyLkMoTab): its first rows come in one after another (crystal: shards light up; scroll: rolls set down).
+function soWyLkMoListIn(phone, el, dev) {
+    const P = THEATER_WEIYU_LK_PRESS;
+    const frames = dev === 'scroll'
+        ? [{ opacity: 0, transform: 'translateY(-16px)' }, { opacity: 1, transform: 'translateY(2px)', offset: 0.75 }, { opacity: 1, transform: 'none' }]
+        : [{ opacity: 0, transform: 'scaleX(.86)', filter: 'brightness(2)' }, { opacity: 1, transform: 'none', filter: 'none' }];
+    [...el.querySelectorAll('[data-wy-row]')].slice(0, P.rowMax).forEach((row, i) => {
+        soWyMoAnim(row, frames, { duration: P.rowIn, delay: 90 + i * P.rowGap, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'backwards' });
+    });
 }
 
 // Tier 2 · rows reveal once: a row that is below the fold the first time its list shows rises in (fade + 16 px) when it first scrolls into
@@ -26226,6 +28476,7 @@ function soWyMoWire(phone) {
     let raf = 0;
     const pending = new Set();
     const onDown = (ev) => {
+        soWyLkPress(phone, ev);   // looks polish (2026-11-26): the device's press — its still state runs with 动画 关 too, so it comes first
         if (!soWyMoOn(phone) || (ev.button != null && ev.button !== 0)) return;
         const t = ev.target && typeof ev.target.closest === 'function' ? ev.target : null;
         soWyMoUnpress(phone, false);
@@ -26239,7 +28490,7 @@ function soWyMoWire(phone) {
         }
         // Tier 2: a pressed bubble dips (the menu, if this becomes a long press, rises from it) — not under 消息菜单 = 长按气泡, where lane D's
         // lift (.wy-lp) is the press feedback and hands over to the rising menu by itself (integration: one motion per press)
-        const bub = t.closest('.wy-bubble, .wy-big, .wy-frame');
+        const bub = t.closest('.wy-bubble, .wy-lt, .wy-big, .wy-frame');
         if (bub && !bub.closest('[data-wy-hold], .wy-pop-wrap, .wy-typing, .wy-menu-hold') && phone.root.contains(bub)) {
             bub.classList.add('wy-mo-lp');
             phone.moLp = bub;
@@ -26248,10 +28499,13 @@ function soWyMoWire(phone) {
         soWyMoSwipeStart(phone, ev);   // Tier 2: from the left edge
     };
     const onUp = (ev) => {
+        soWyLkUnpress(phone, ev && ev.type === 'pointerup');
         soWyMoUnpress(phone, true);
         soWyMoSwipeEnd(phone, ev);
     };
     const onMove = (ev) => {
+        const q = phone.lkPress;
+        if (q && Math.hypot((ev.clientX || 0) - q.x, (ev.clientY || 0) - q.y) > THEATER_WEIYU_LK_PRESS.move) soWyLkUnpress(phone, false);
         const p = phone.moPressAt;
         if ((phone.moPress || phone.moLp) && p && Math.hypot((ev.clientX || 0) - p.x, (ev.clientY || 0) - p.y) > M.pressMove) soWyMoUnpress(phone, false);
         soWyMoSwipeMove(phone, ev);
@@ -26266,6 +28520,7 @@ function soWyMoWire(phone) {
     };
     const onScroll = (ev) => {
         const sc = ev.target;
+        if (phone.lkPress && sc && sc.classList && sc.classList.contains('wy-scroll')) soWyLkUnpress(phone, false);
         if (!soWyMoOn(phone) || !sc || !sc.classList || !sc.classList.contains('wy-scroll')) return;
         if (phone.moPress || phone.moLp) soWyMoUnpress(phone, false);
         pending.add(sc);
@@ -26318,10 +28573,10 @@ function soWyMoRipple(phone, row, ev) {
 // those have their own CSS) scales .82 → 1 in 200 ms from the pressed bubble's edge (the edge nearest the menu, at the bubble's centre).
 function soWyMoMenu(phone, wrap) {
     const pop = [...wrap.children].find((c) => !c.classList.contains('wy-backdrop'));
-    if (!pop || pop.classList.contains('wy-pop-plus') || pop.classList.contains('wy-sheet')) return;
+    if (!pop || pop.classList.contains('wy-pop-plus') || pop.classList.contains('wy-sheet') || pop.classList.contains('wy-dsheet')) return;
     const mid = phone.menu && phone.menu.mid;
     const row = mid && phone.pageEl ? [...phone.pageEl.querySelectorAll('[data-wy-msg]')].find((r) => r.getAttribute('data-wy-msg') === mid) : null;
-    const b = row ? row.querySelector('.wy-bubble, .wy-big, .wy-frame, .wy-sys-t') || row : phone.moLp;
+    const b = row ? row.querySelector('.wy-bubble, .wy-lt, .wy-big, .wy-frame, .wy-sys-t') || row : phone.moLp;
     let ox = '50%';
     let oy = '100%';
     try {
@@ -26442,9 +28697,12 @@ function soWyMoSwipeEnd(phone, ev) {
 
 // Tier 3 · rubber-band ends (wheel / trackpad): scrolling on past the top or the end stretches the list up to 60 px; 110 ms after the last
 // wheel step it springs back (420 ms). Touch ends are left to the platform (iOS bounces, Android stretches inner scrollers natively).
+// Not under a device (crystal-ui round 2026-11-26, Prince's shot 13): the stretch moves the scroller ITSELF, and a device's scroller sits
+// inside an outline drawn by the page (the gem / the paper) with the ring / desk right under it — moved, the list slid out over the gem's
+// point and onto the ring, leaving an empty band at the top. The device's list stops at its ends like a plain scroller.
 function soWyMoBand(phone, ev) {
     const M = THEATER_WEIYU_MO;
-    if (!soWyMoOn(phone) || !ev.deltaY) return;
+    if (!soWyMoOn(phone) || !ev.deltaY || soWyLookDev(phone)) return;
     const sc = ev.target && typeof ev.target.closest === 'function' ? ev.target.closest('.wy-scroll') : null;
     if (!sc || sc.closest('.wy-mo-ghost') || !phone.root.contains(sc)) return;
     const atTop = sc.scrollTop <= 0;
@@ -26481,7 +28739,7 @@ function soWyMoHalt(phone) {
         phone.moIO = null;
     }
     for (const a of soWyMoAnims(phone.root, true)) a.cancel();
-    for (const el of phone.root.querySelectorAll('.wy-mo-gone, .wy-mo-dim, .wy-mo-pwr, .wy-mo-fly, .wy-mo-folding, .wy-mo-phantom, .wy-mo-ghost')) el.remove();
+    for (const el of phone.root.querySelectorAll('.wy-mo-gone, .wy-mo-dim, .wy-mo-pwr, .wy-mo-fly, .wy-mo-folding, .wy-mo-phantom, .wy-mo-ghost, .wy-lk-band')) el.remove();
     for (const el of phone.root.querySelectorAll('.wy-mo-pre')) el.classList.remove('wy-mo-pre');
 }
 
@@ -26522,10 +28780,17 @@ function soWyMoPower(phone) {
 // ---- Task 14: avatars, rows, the chat list, contacts, the two short lists --------------------------------------------------
 
 // What a render reads, once per render (the state and the picture view); actions always re-read env.getState().
+// Looks (final fix wave m-1): the render's first memo takes over soWyLook's read of the state (phone.lkRead, made just before this render by
+// soWyApplyLook) and its set of words (soWyLkWords) instead of reading again; without the looks stage there is no phone.lkRead.
 function soWyMemo(phone) {
     const m = phone.memo;
     if (phone.rendering && m && m.n === phone.renders) return m;
-    const fresh = { n: phone.renders, state: soWyEnvState(phone), pics: soWyPicsView(phone) };
+    const seed = phone.rendering ? phone.lkRead : null;
+    if (seed) {
+        phone.lkRead = null;
+        phone.lkWords = { n: phone.renders, w: seed.set };
+    }
+    const fresh = { n: phone.renders, state: seed ? seed.st : soWyEnvState(phone), pics: soWyPicsView(phone) };
     if (phone.rendering) phone.memo = fresh;
     return fresh;
 }
@@ -26583,6 +28848,8 @@ function soWyLastTime(chat) {
 function soWyBadgeEl(phone, n, muted) {
     const d = phone.host.ownerDocument;
     if (!n) return null;
+    const dev = soWyLookDev(phone);   // looks Task 8: the device's unread mark (soWyLkUnreadEl)
+    if (dev) return soWyLkUnreadEl(phone, dev, n, muted);
     if (muted) return soWyEl(d, 'span', { class: ['wy-badge', 'wy-dot'] });
     return soWyEl(d, 'span', { class: 'wy-badge', text: n > 99 ? '99+' : String(n) });
 }
@@ -26605,6 +28872,7 @@ function soWyRowEl(phone, state, chat) {
     const rmore = soWyMoreOn(phone) && soWyMenuModeOpt(state) === 'more'
         ? soWyEl(d, 'button', { type: 'button', class: 'wy-rmore', data: { 'wy-act': 'row-more', 'wy-cid': chat.id }, aria: { label: T.msgMore }, title: T.msgMore }, soWyIcon(d, 'more'))
         : null;
+    if (soWyLookDev(phone)) return soWyLkRowEl(phone, state, chat, { n, muted, at, missed, time, isNew, rmore });   // looks Task 8
     return soWyEl(d, 'div', {
         class: ['wy-row', chat.dissolved ? 'wy-dis' : '', chat.pin === 1 ? 'wy-pin' : ''], role: 'button', tabindex: '0', data: { 'wy-row': chat.id, 'wy-act': 'open' },
     },
@@ -26621,6 +28889,108 @@ function soWyRowEl(phone, state, chat) {
                 muted && n ? soWyFmt(T.mutedPre, { n }) : null, soWyPreview(state, chat, soWyShownWord)),
             muted ? soWyEl(d, 'span', { class: 'wy-mute' }, soWyIcon(d, 'mute')) : null,
             rmore)));
+}
+
+// ---- looks Task 8 (spec §4.4 table, §14.6): the chat list under a device ---------------------------------------------------------
+
+// The scroll's counts in Chinese numerals: 一 … 九十九, above that 「多」; '' for anything that is not a count of 1 or more.
+function soWyCnNum(n) {
+    if (typeof n !== 'number' || !Number.isSafeInteger(n) || n < 1) return '';
+    if (n > 99) return '多';
+    const dg = Array.from('〇一二三四五六七八九');
+    const t = Math.floor(n / 10);
+    const u = n % 10;
+    return (t > 1 ? dg[t] : '') + (t > 0 ? '十' : '') + (u > 0 ? dg[u] : '');
+}
+
+// The device's unread mark (soWyBadgeEl's, under a device): crystal = a glowing rune (rune-unread) with the count; scroll = a red seal with
+// the count in Chinese numerals. Muted (spec §14.6): the mark WITHOUT a number — crystal a dim rune, scroll a small red dot. Keeps .wy-badge
+// (+ .wy-dot when muted), so the list's motion (soWyMoSnap, the badge pop) reads it as before.
+function soWyLkUnreadEl(phone, dev, n, muted) {
+    const d = phone.host.ownerDocument;
+    const num = dev === 'scroll' ? soWyCnNum(n) : n > 99 ? '99+' : String(n);
+    return soWyEl(d, 'span', { class: ['wy-badge', 'wy-lk-un', 'wy-lk-un-' + dev, muted ? 'wy-dot' : ''] },
+        dev === 'crystal' ? soWyLkIcon(phone, 'rune-unread') : null,
+        muted ? null : soWyEl(d, 'span', { class: 'wy-lk-un-n', text: num }));
+}
+
+// A stable colour index (0–11) for a name — the same hash soWyAvatarOf gives a contact's tile, so a private chat's silk matches her sigil.
+function soWyLkHue(name) {
+    let h = 7;
+    for (const c of Array.from(String(name == null ? '' : name).trim())) h = (h * 31 + c.codePointAt(0)) >>> 0;
+    return h % 12;
+}
+
+// The row's mark: a private chat of his = the other person's speaker mark (her picture in the device frame, else her sigil / name seal —
+// soWyLookSpeaker); a group or a watched pair = the chat's own sigil (crystal) / a seal with the chat name's first character (scroll).
+function soWyLkChatMark(phone, state, chat, title, hue) {
+    const d = phone.host.ownerDocument;
+    const members = Array.isArray(chat.members) ? chat.members : [];
+    if (chat.type === 'dm' && soWyIsMine(chat)) return soWyLookSpeaker(phone, { u: members.find((p) => p !== THEATER_WEIYU_ME) || THEATER_WEIYU_ME });
+    const dev = soWyLookDev(phone);
+    const el = dev === 'scroll'
+        ? soWyEl(d, 'span', { class: ['wy-spk', 'wy-spk-scroll', 'wy-spk-seal'] }, soWyLkIcon(phone, 'seal'), soWyEl(d, 'span', { class: 'wy-spk-ch', text: Array.from(String(title || '?'))[0] }))
+        : soWyEl(d, 'span', { class: ['wy-spk', 'wy-spk-crystal', 'wy-spk-sig'] }, soWyLkIcon(phone, 'sigil-' + hue));
+    el.style.setProperty('--wy-spk-c', 'var(--wy-hue-' + hue + ')');
+    return el;
+}
+
+// looks Task 14: a device row's last line — today's soWyPreview, except that a recalled last line reads in the set's phrase (the recall line's
+// label, THEATER_WEIYU_LOOK_LABELS); every other preview (stored text, system lines) is drawn as soWyPreview gives it.
+function soWyLkPreview(phone, state, chat) {
+    const ms = chat && !chat.dissolved && Array.isArray(chat.msgs) ? chat.msgs : [];
+    let last = null;
+    for (let i = ms.length - 1; i >= 0; i--) if (ms[i] && ms[i].t !== 'time' && ms[i].refused !== 1) { last = ms[i]; break; }
+    if (last && last.t === 'recall') return soWyFmt(soWyLookText(phone, 'recallLine'), { name: soWyShownWord(state, last.u, THEATER_WEIYU_TEXT.you) });
+    return soWyPreview(state, chat, soWyShownWord);
+}
+
+// The row's kind word (spec §14.6 / §13.4): the set's own 群聊 / 私聊 terms (magic 传讯圈 / 密语, xianxia 传音阵 / 密音, an own world's) — today's
+// 群聊 / 私聊 when no set is in force (现代; a device chosen by hand on a modern card). (These two terms can never be set to 无 — only card kinds
+// can, soWyWordsSetNorm.) One read of the word store per render.
+function soWyLkKindWord(phone, chat) {
+    const k = chat && chat.type === 'group' ? 'group' : 'dm';
+    const w = soWyLkWords(phone);
+    const v = w && soWyIsObj(w.terms) ? w.terms[k] : '';
+    return typeof v === 'string' && v ? v : THEATER_WEIYU_WORD_SETS.modern.terms[k];
+}
+
+// One row under a device (soWyRowEl's parts in the device's form; same acts and data): crystal = a full-width shard of light with pointed ends
+// that holds the row (--wy-row-silk = the chat's faint tint on its face, the crystal's twelve tints), scroll = a whole rolled scroll lying
+// across the rack (its silk = --wy-row-silk, the chat's colour index in the scroll's twelve silks; ivory rod ends with knobs on both sides) with a red-bordered paper slip pasted on it (.wy-drow-in). The shard / roll is drawn
+// by the CSS on .wy-drow-art (list round, 2026-11-24 — the stretched SVG art read as thin slanted lines / coloured blobs). The slip / face
+// holds the mark + unread mark, the name, 新 (as today), the pin mark (pinned), the time; then the kind word, 窥屏, the last line, the crossed
+// bell (muted), the ⋯.
+function soWyLkRowEl(phone, state, chat, o) {
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    const dev = soWyLookDev(phone);
+    const title = soWyChatTitle(state, chat, soWyShownWord);
+    const hue = soWyLkHue(title);
+    const row = soWyEl(d, 'div', {
+        class: ['wy-row', 'wy-drow', chat.dissolved ? 'wy-dis' : '', chat.pin === 1 ? 'wy-pin' : '', o.muted ? 'wy-drow-mute' : ''],
+        role: 'button', tabindex: '0', data: { 'wy-row': chat.id, 'wy-act': 'open', 'wy-dev': dev },
+    },
+    soWyEl(d, 'span', { class: 'wy-drow-art', aria: { hidden: 'true' } }),
+    soWyEl(d, 'div', { class: 'wy-drow-in' },
+        soWyEl(d, 'span', { class: 'wy-avw' }, soWyLkChatMark(phone, state, chat, title, hue), soWyBadgeEl(phone, o.n, o.muted)),
+        soWyEl(d, 'div', { class: 'wy-grow' },
+            soWyEl(d, 'div', { class: 'wy-t1' },
+                soWyEl(d, 'span', { class: 'wy-nm', text: title }),
+                o.isNew ? soWyEl(d, 'span', { class: 'wy-new', text: T.newTag }) : null,
+                chat.pin === 1 ? soWyEl(d, 'span', { class: 'wy-pinmark', aria: { hidden: 'true' } }, soWyLkIcon(phone, 'pin-mark')) : null,
+                o.time ? soWyEl(d, 'span', { class: 'wy-tm', text: o.time }) : null),
+            // review B M-2: the kind word and 窥屏 sit on the second line, before the last line, so the name keeps line 1 at 360 px
+            soWyEl(d, 'div', { class: ['wy-t2', o.rmore ? 'wy-t2-more' : ''] },
+                soWyEl(d, 'span', { class: 'wy-kind', text: soWyLkKindWord(phone, chat) }),
+                soWyIsMine(chat) ? null : soWyEl(d, 'span', { class: 'wy-obs', text: T.obsTag }),
+                soWyEl(d, 'span', { class: 'wy-pv' }, o.at ? soWyEl(d, 'span', { class: 'wy-at', text: T.atMe }) : null, o.at ? ' ' : null,
+                    o.missed ? soWyEl(d, 'span', { class: ['wy-at', 'wy-callmiss'], text: T.callMissed }) : null, o.missed ? ' ' : null,
+                    o.muted && o.n ? soWyFmt(T.mutedPre, { n: o.n }) : null, soWyLkPreview(phone, state, chat)),   // looks Task 14
+                o.muted ? soWyEl(d, 'span', { class: 'wy-mute' }, soWyIcon(d, 'mute')) : null,
+                o.rmore))));
+    row.style.setProperty('--wy-row-silk', 'var(--wy-' + (dev === 'scroll' ? 'sc' : 'cr') + '-silk-' + hue + ')');   // list round: each device's own twelve silks / tints
+    return row;
 }
 
 // The chat list as the screen shows it: pinned chats first (soWyScreenChats); prompts keep soWyChatList's order.
@@ -26644,11 +29014,11 @@ function soWyContactsBody(phone, state) {
         soWyEl(d, 'span', { class: ['wy-sq', 'wy-sq-' + f] }, soWyIcon(d, icon)), soWyEl(d, 'span', { class: 'wy-nm', text: label }),
         soWyEl(d, 'span', { class: 'wy-sub2', text: String(n) }));
     return [
-        shortcut('groups', 'group-add', T.cGroups, groups),
+        shortcut('groups', 'group-add', soWyLookText(phone, 'cGroups'), groups),   // looks Task 14: the set's word under a device
         shortcut('observed', 'observer', T.cObserved, observed),
         soWyEl(d, 'div', { class: 'wy-gap' }),
         people.map((p) => soWyEl(d, 'div', { class: 'wy-prow', role: 'button', tabindex: '0', data: { 'wy-act': 'profile', 'wy-pid': p.id } },
-            soWyAvatarEl(phone, p.id, 40), soWyEl(d, 'span', { class: 'wy-nm', text: soWyShownName(state, p.id) }),
+            soWyLkAv(phone, p.id, 40), soWyStName(phone, state, p.id),   // phone upgrades (Task 19): + the status line (stage status, when one); looks Task 13: the device's mark
             p.blocked === 1 ? soWyEl(d, 'span', { class: ['wy-obs', 'wy-blocktag'], text: T.blockedTag }) : null,
             // 从故事里找人: a person just added from the list wears 「新」 until his profile is opened (phone.acFresh, memory only)
             phone.acFresh && typeof phone.acFresh.has === 'function' && phone.acFresh.has(p.id) ? soWyEl(d, 'span', { class: 'wy-new', text: T.newTag }) : null)),
@@ -26673,16 +29043,20 @@ function soWyScreenTabs(phone, page) {
         const plusT = soWyAcOn(phone) ? T.plusAc : T.plus;
         right = soWyEl(d, 'button', { type: 'button', class: 'wy-ib', data: { 'wy-act': 'plus' }, aria: { label: plusT }, title: plusT }, soWyIcon(d, 'plus-circle'));
         // more functions phase 1: the familiar search field heads the list (it scrolls under the condensing top bar with the rows)
-        body = [soWyMoreOn(phone) ? soWySearchBar(phone) : null, soWyChatRows(phone, state, null)];
+        body = [soWyCuStrip(phone, state, 'list'), soWyMoreOn(phone) ? soWySearchBar(phone) : null, soWyChatRows(phone, state, null)];   // + 立即跟上剧情's 「没跟上」 strip (env.stages.catchup only)
     } else if (tab === 'contacts') {
-        title = T.tabContacts;
+        title = soWyLookDev(phone) ? T.lookTabContacts : T.tabContacts;   // K2C (second opinion #7): under a device the page reads like its stone
         body = soWyContactsBody(phone, state);
     } else {
         title = T.tabMe;
         body = typeof soWyMeBody === 'function' ? soWyMeBody(phone, state) : null;
     }
     return soWyEl(d, 'div', { class: ['wy-page', 'wy-tabs', 'wy-tabs-' + tab] },
-        soWyTopBar(phone, { title: soWyEl(d, 'span', null, title), right }),
+        // looks Task 8 (spec §13.1 / §14.1): under a device the top is the device's (soWyTopBar's dev form) and carries a back mark — on
+        // 通讯录 / 我 it returns to the list, on the list it closes the messenger (only while env.close exists; soWyBack); the phone: none
+        soWyTopBar(phone, soWyLookDev(phone)
+            ? { title: soWyEl(d, 'span', null, title), right, dev: true, back: tab !== 'chats' || typeof phone.env.close === 'function', backLabel: tab === 'chats' ? T.hostClose : T.back }
+            : { title: soWyEl(d, 'span', null, title), right }),
         soWyEl(d, 'div', { class: 'wy-scroll' }, body),
         soWyTabBar(phone, tab, total));
 }
@@ -26694,7 +29068,7 @@ function soWyScreenSublist(phone, page) {
     if (!state || !state.booted) return null;
     const groups = page.f !== 'observed';
     return soWyEl(d, 'div', { class: ['wy-page', 'wy-sublist'] },
-        soWyTopBar(phone, { back: true, line: true, title: groups ? T.cGroups : T.sublistObserved }),
+        soWyTopBar(phone, { back: true, line: true, title: groups ? soWyLookText(phone, 'cGroups') : T.sublistObserved, dev: true }),   // dev: the device's top (looks Task 8)
         soWyEl(d, 'div', { class: 'wy-scroll' }, soWyChatRows(phone, state, groups ? (c) => c.type === 'group' : (c) => !soWyIsMine(c))));
 }
 
@@ -26728,8 +29102,89 @@ function soWyPlusMenu(phone) {
             soWyEl(d, 'button', { type: 'button', role: 'menuitem', data: { 'wy-act': 'pick', 'wy-mode': 'create' } }, soWyIcon(d, 'group-add'), T.pickCreate),
             soWyEl(d, 'button', { type: 'button', role: 'menuitem', data: { 'wy-act': 'pick', 'wy-mode': 'dm' } }, soWyIcon(d, 'plus-circle'), T.pickDm),
             ac ? soWyEl(d, 'button', { type: 'button', role: 'menuitem', data: { 'wy-act': 'acform' } }, soWyIcon(d, 'person-add'), T.acAdd) : null,
-            find ? soWyEl(d, 'button', { type: 'button', role: 'menuitem', data: { 'wy-act': 'acfind' } }, soWyIcon(d, 'person-find'), T.acFind) : null));
+            find ? soWyEl(d, 'button', { type: 'button', role: 'menuitem', data: { 'wy-act': 'acfind' } }, soWyIcon(d, 'person-find'), T.acFind) : null,
+            soWyCuOn(phone) ? soWyEl(d, 'button', { type: 'button', role: 'menuitem', data: { 'wy-act': 'catchup' } }, soWyIcon(d, 'regenerate'), THEATER_WEIYU_CU_TEXT.menu) : null));
     phone.layer.appendChild(sheet);
+}
+
+// ---- 立即跟上剧情 (catch-up, 2026-11-27; brief .superpowers/sdd/2026-11-27-weiyu-catchup/brief.md) -----------------------------------------
+// Only with env.stages.catchup (the join's ENABLE_THR_WEIYU_CATCHUP); without it nothing here draws and the 「+」 menu is today's.
+//   · the 「+」 menu's last item 「立即跟上剧情」 (act catchup) — there whether 跟着剧情更新 is ticked or not;
+//   · the 「没跟上」 strip (state.syncMiss, written by the join when an automatic story sync was skipped or failed; shown only while 跟着剧情更新
+//     is ticked): the chat list's first row and a link line at the end of every open chat — a tap = the same catch-up;
+//   · one tap = env.catchup() (the join: ONE story sync over every reply the phone has not followed — the frozen sync request, no new
+//     model-visible text); the result is one short line (a toast). The words always name the app 微谕 (THEATER_WEIYU_TEXT.name — the chat list
+//     title under every look; Prince 2026-11-27: never the device word of a crystal / scroll look).
+// DRAFT (wording for Prince: tests/unit/_weiyu/WORDING.md 「立即跟上剧情」). {name} = THEATER_WEIYU_TEXT.name.
+const THEATER_WEIYU_CU_TEXT = Object.freeze({
+    menu: '立即跟上剧情',
+    miss: '这次{name}没跟上，点一下手动更新',
+    busy: '{name}正在忙，等一下再点',
+    done: '已经跟上了',
+    ok: '跟上剧情了',
+    fail: '这次没跟上，可以再点一次',
+});
+
+function soWyCuOn(phone) {
+    return !!(phone && phone.env && soWyIsObj(phone.env.stages) && phone.env.stages.catchup === true && typeof phone.env.catchup === 'function');
+}
+
+// The strip shows: the stage, 跟着剧情更新 ticked, a stored miss, and no catch-up / story sync running right now.
+function soWyCuMissed(phone, state) {
+    if (!soWyCuOn(phone) || phone.cuRun || !soWyIsObj(state) || !soWyIsObj(state.opts) || state.opts.sync !== true || !soWyIsObj(state.syncMiss)) return false;
+    const f = soWyEnvFlight(phone);
+    return !(f && f.at === '*sync');
+}
+
+// where = 'list' (the chat list's first row: a full-width strip) | 'chat' (the end of an open chat: a link line, like the 重新回复 note)
+function soWyCuStrip(phone, state, where) {
+    if (!soWyCuMissed(phone, state)) return null;
+    const d = phone.host.ownerDocument;
+    const text = soWyFmt(THEATER_WEIYU_CU_TEXT.miss, { name: THEATER_WEIYU_TEXT.name });
+    if (where === 'chat') {
+        return soWyEl(d, 'div', { class: 'wy-noteline' },
+            soWyEl(d, 'button', { type: 'button', class: ['wy-link', 'wy-note', 'wy-cu-note'], data: { 'wy-act': 'catchup' }, text }));
+    }
+    const dev = soWyLookDev(phone);
+    const mark = dev ? soWyEl(d, 'i', { class: 'wy-cu-mark', aria: { hidden: 'true' } }, soWyLkIcon(phone, dev === 'scroll' ? 'seal' : 'rune-unread'))
+        : soWyEl(d, 'i', { class: 'wy-cu-mark', aria: { hidden: 'true' } }, soWyIcon(d, 'warning'));
+    return soWyEl(d, 'button', { type: 'button', class: ['wy-custrip', dev ? 'wy-custrip-' + dev : ''], data: { 'wy-act': 'catchup' } },
+        mark, soWyEl(d, 'span', { class: 'wy-cu-t', text }), soWyIcon(d, 'regenerate'));
+}
+
+// A tap on the menu item or the strip: ONE env.catchup(), then one line. A tap while the phone's own request runs (or a catch-up is already on
+// its way) calls nothing and says so.
+async function soWyCuRun(phone) {
+    if (!soWyCuOn(phone) || phone.dead) return null;
+    const C = THEATER_WEIYU_CU_TEXT;
+    const name = THEATER_WEIYU_TEXT.name;
+    if (phone.cuRun || soWyEnvFlight(phone)) {
+        phone.toast(soWyFmt(C.busy, { name }));
+        return { busy: true };
+    }
+    phone.cuRun = true;
+    let r;
+    try {
+        const p = Promise.resolve(phone.env.catchup());
+        phone.refresh();
+        r = await p;
+    } catch (e) {
+        r = { error: soWyErrText(e) };
+    }
+    phone.cuRun = false;
+    if (phone.dead) return r;
+    phone.refresh();
+    const x = soWyIsObj(r) ? r : {};
+    if (x.ok) phone.toast(C.ok);
+    else if (x.done) phone.toast(C.done);
+    else if (x.busy) phone.toast(soWyFmt(C.busy, { name }));
+    else if (typeof x.wait === 'string' && x.wait) phone.toast(THEATER_WEIYU_TEXT.wait + x.wait);
+    else if (x.aborted) phone.toast(THEATER_WEIYU_TEXT.aborted);
+    else if (x.failed || x.error != null) {
+        const why = soWyCauseLine(x);
+        phone.toast(why ? C.fail + ' · ' + why : C.fail);
+    }
+    return r;
 }
 
 // Every data-wy-act tap of the screens in this block (ui-core handles back / tab / toast-act / banner first). Nothing here calls
@@ -26759,6 +29214,7 @@ function soWyScreensAct(phone, act, el, ev) {
     if (typeof act === 'string' && act.startsWith('words-')) return soWyWordsAct(phone, act, el);   // 世界用语 (the editor + its entry points)
     if (typeof soWyEvAct === 'function' && soWyEvAct(phone, act, el, cur)) return true;   // more functions phase 2 (calls / transfers)
     if (typeof soWyMoreAct === 'function' && soWyMoreAct(phone, act, el, cur)) return true;
+    if (soWyUpAct(phone, act, el, cur)) return true;   // phone upgrades (2026-11-22): only acts their own stage-gated controls carry
     switch (act) {
         case 'menu': {
             const r = cur.k === 'chat' ? el.closest('[data-wy-msg]') : null;
@@ -26773,6 +29229,7 @@ function soWyScreensAct(phone, act, el, ev) {
         case 'sublist': phone.go({ k: 'sublist', f: el.getAttribute('data-wy-f') === 'observed' ? 'observed' : 'groups' }); return true;
         case 'profile': soWyAvatarTap(phone, el, cur); return true;
         case 'plus': soWyPlusMenu(phone); return true;
+        case 'catchup': soWyMenuDrop(phone); soWyCuRun(phone); return true;   // 立即跟上剧情: the 「+」 item and the 「没跟上」 strip (env.stages.catchup only)
         // adding contacts by hand (env.stages.add): the 「+」 menu's 添加朋友, the form's choice and 添加 / 保存, the profile card's 编辑 ›
         case 'acform': soWyMenuDrop(phone); soWyAcFormOpen(phone); return true;
         case 'ac-kind': if (cur.k === 'acform') soWyAcKind(phone, cur, el.getAttribute('data-wy-v')); return true;
@@ -26829,12 +29286,14 @@ function soWyScreensAct(phone, act, el, ev) {
         case 'pic-reset': soWyPicReset(phone, soWyPicTarget(el)); return true;
         case 'pk': if (cur.k === 'pick') soWyPickToggle(phone, cur, el.getAttribute('data-wy-pid')); return true;
         case 'pick-done': if (cur.k === 'pick') { if (cur.mode === 'fwd') soWyFwdDone(phone, cur); else soWyPickDone(phone, cur); } return true;
+        case 'pick-peek': if (cur.k === 'pick') soWyPickPeek(phone, cur); return true;   // 「我不进群」 (the switch exists only with its stage)
         // Task 19: the 我 tab
         case 'opt-nosteal': soWyOptToggle(phone, 'steal'); return true; // shown as 防抢话 (inverted); flips opts.steal
         case 'opt-sync': soWyOptToggle(phone, 'sync'); return true;
         case 'opt-tell': soWyOptToggle(phone, 'tell'); return true;
         case 'opt-motion': soWyMotionPick(phone, el.getAttribute('data-wy-v')); return true;
         case 'opt-menu': soWyMenuModePick(phone, el.getAttribute('data-wy-v')); return true;
+        case 'opt-look': soWyLookPick(phone, el.getAttribute('data-wy-v')); return true;   // 外观 (looks build; the row exists only with its stage)
         case 'note-preview': soWyNotePreview(phone, soWyWordsOfPhone(phone)); return true;   // 世界用语: the set the note uses (null = today's)
         case 'sum': if (!soWyEnvFlight(phone)) { if (soWyMemOn(phone)) soWySumRun(phone); else soWyDo(phone, 'sum', {}); } return true;
         // the memory slice, UI: the size sheet (the 我 page's 对话长度 row; the island's tap comes through the join) + its two settings
@@ -26871,6 +29330,7 @@ function soWyScreensEvent(phone, type, ev) {
     if (typeof soWyEvEvent === 'function' && soWyEvEvent(phone, type, ev, cur)) return true;
     // more functions phase 1 (the card composer's fields, the remark editor, the search field, the @ picker, avatar / row long presses)
     if (typeof soWyMoreEvent === 'function' && soWyMoreEvent(phone, type, ev, cur)) return true;
+    if (soWyUpEvent(phone, type, ev)) return true;   // phone upgrades: the reaction picker's field (only exists with its stage)
     if (cur.k === 'chat' && soWyMenuEvent(phone, type, ev, cur)) return true;
     if (type === 'input' && t.matches('[data-wy-edit]') && soWyIsObj(phone.editing)) {
         phone.editing.v = t.value;
@@ -26976,11 +29436,12 @@ function soWyMsgRowEl(phone, state, chat, msg, base, sel, more, shown) {
     if (msg.t === 'recall') {
         const open = shown.has('p:' + msg.id);
         return soWyEl(d, 'div', { class: ['wy-line-mid', 'wy-recall', sel], data: Object.assign({ 'wy-side': 'mid' }, base) },
-            soWyEl(d, 'span', { class: 'wy-sys-t', tabindex: '0', text: soWyFmt(T.recallLine, { name: soWyShownWord(state, msg.u, T.you) }) }),
+            soWyEl(d, 'span', { class: 'wy-sys-t', tabindex: '0', text: soWyFmt(soWyLookText(phone, 'recallLine'), { name: soWyShownWord(state, msg.u, T.you) }) }),   // looks Task 14
             soWyEl(d, 'button', { type: 'button', class: 'wy-peek', data: { 'wy-act': 'peek', 'wy-mid': msg.id }, aria: { expanded: open ? 'true' : 'false' },
                 text: open ? T.peekHide : T.peekShow }),
             more,
-            open ? soWyEl(d, 'span', { class: ['wy-so', 'wy-peekpill'], text: T.peek + String(msg.v == null ? '' : msg.v) }) : null);
+            soWyLookDev(phone) === 'scroll' ? soWyEl(d, 'span', { class: 'wy-ln-stain', aria: { hidden: 'true' } }, soWyLkIcon(phone, 'stain')) : null,   // looks: the water stain
+            open ? soWyEl(d, 'span', { class: ['wy-so', 'wy-peekpill'], text: soWyLookText(phone, 'peek') + String(msg.v == null ? '' : msg.v) }) : null);
     }
     const side = msg.u === THEATER_WEIYU_ME ? 'me' : 'them';
     const showName = side === 'them' && (chat.type === 'group' || !soWyIsMine(chat));
@@ -26991,8 +29452,8 @@ function soWyMsgRowEl(phone, state, chat, msg, base, sel, more, shown) {
         const sec = Number(msg.sec) > 0 ? Math.floor(Number(msg.sec)) : 1;
         const open = shown.has('v:' + msg.id);
         const bar = soWyEl(d, 'div', {
-            class: ['wy-bubble', 'wy-voice'], role: 'button', tabindex: '0', data: { 'wy-act': 'voice', 'wy-mid': msg.id }, aria: { expanded: open ? 'true' : 'false' },
-        }, soWyIcon(d, 'voice'), soWyEl(d, 'span', { class: 'wy-sec', text: soWyFmt(T.voiceSec, { n: sec }) }));
+            class: [soWyBubK(phone), 'wy-voice', soWyLookDev(phone) ? 'wy-dcard' : ''], role: 'button', tabindex: '0', data: { 'wy-act': 'voice', 'wy-mid': msg.id }, aria: { expanded: open ? 'true' : 'false' },
+        }, soWyLookDev(phone) ? soWyLkGlyph(phone, 'wy-voice-ic', 'voice') : soWyIcon(d, 'voice'), soWyEl(d, 'span', { class: 'wy-sec', text: soWyFmt(T.voiceSec, { n: sec }) }));
         bar.style.setProperty('--wy-voice-w', Math.min(200, 76 + sec * 6) + 'px');
         body = [bar, open ? soWyEl(d, 'div', { class: 'wy-vtext', text: String(msg.v == null ? '' : msg.v) }) : null];
     } else if (msg.t === 'photo' || msg.t === 'video') {
@@ -27006,26 +29467,161 @@ function soWyMsgRowEl(phone, state, chat, msg, base, sel, more, shown) {
             soWyEl(d, 'span', { class: 'wy-cap', text: String(msg.v == null ? '' : msg.v) }));
     } else if (msg.t === 'text' && typeof soWyEvKind === 'function' && soWyEvKind(msg)) {
         body = soWyEvEl(phone, state, chat, msg, side, shown);   // more functions phase 2: a call record / a transfer / its answer
+    } else if (msg.t === 'text' && soWyStkOn(phone) && soWyStkNorm(msg.stk)) {
+        body = soWyStkBox(phone, soWyStkNorm(msg.stk), true);   // phone upgrades (Task 16): a sticker (stage stickers; without it today's fallback bubble)
     } else if (msg.t === 'text' && soWyCardNorm(msg.card)) {
         body = soWyCardEl(phone, state, soWyCardNorm(msg.card));   // more functions phase 1: a card (位置 / 文件 / 名片 / 音乐 / 链接)
     } else if (msg.t === 'text' && soWyFwdNorm(msg.fwd)) {
         body = soWyFwdEl(phone, msg);   // more functions phase 1: a forwarded chat record
     } else {
-        body = soWyEl(d, 'div', { class: 'wy-bubble', tabindex: '0' }, soWyLeadTag(phone, msg.v));
+        body = soWyEl(d, 'div', { class: soWyBubK(phone), tabindex: '0' }, soWyLeadTag(phone, msg.v));
     }
     const q = soWyIsObj(msg.q) ? soWyEl(d, 'div', { class: 'wy-q', text: soWyShownWord(state, msg.q.u) + '：' + String(msg.q.v == null ? '' : msg.q.v) }) : null;
+    if (soWyLookDev(phone)) return soWyLnRowEl(phone, state, msg, base, sel, more, side, body, q);   // looks Task 4: the device's line
     const av = soWyAvatarEl(phone, msg.u, 40);
     av.setAttribute('data-wy-act', 'profile');
     av.setAttribute('role', 'button');
     return soWyEl(d, 'div', { class: ['wy-m', sel], data: Object.assign({ 'wy-side': side }, base) }, av,
-        soWyEl(d, 'div', { class: 'wy-mb' }, showName ? soWyEl(d, 'div', { class: 'wy-mn', text: soWyShownWord(state, msg.u) }) : null, body, q), more);
+        soWyEl(d, 'div', { class: 'wy-mb' }, showName ? soWyEl(d, 'div', { class: 'wy-mn', text: soWyShownWord(state, msg.u) }) : null, body, q, soWyReChips(phone, msg)), more);
 }
 
 function soWyTypingEl(phone) {
     const d = phone.host.ownerDocument;
+    const dev = soWyLookDev(phone);
+    // looks Task 6 (spec §4.1 / §4.2, §13.8): a neutral device form — nobody named (the speaker is not known until the reply lands): crystal =
+    // a rune throbbing in the crystal's tip with 正在凝语, scroll = a paper tag on the roller with 正在落笔 (both DRAFT); no avatar, no bubble
+    if (dev) {
+        const T = THEATER_WEIYU_TEXT;
+        return soWyEl(d, 'div', { class: ['wy-typing', 'wy-lk-typing'], data: { 'wy-side': 'them', 'wy-dev': dev }, aria: { label: T.typing } },
+            soWyEl(d, 'span', { class: 'wy-lk-ty-art', aria: { hidden: 'true' } }, soWyLkIcon(phone, dev === 'scroll' ? 'roller' : 'rune-unread')),
+            soWyEl(d, 'span', { class: 'wy-lk-ty-t', text: dev === 'scroll' ? T.lookTypingSc : T.lookTypingCr }));
+    }
     return soWyEl(d, 'div', { class: ['wy-m', 'wy-typing'], data: { 'wy-side': 'them' }, aria: { label: THEATER_WEIYU_TEXT.typing } },
         soWyEl(d, 'span', { class: ['wy-av', 'wy-av-ghost'] }), soWyEl(d, 'div', { class: 'wy-mb' },
             soWyEl(d, 'div', { class: ['wy-bubble', 'wy-dots'] }, soWyEl(d, 'i'), soWyEl(d, 'i'), soWyEl(d, 'i'))));
+}
+
+// ---- looks Task 4 (spec §4.1–§4.3, §14.9): the message rows under a device -----------------------------------------------------------
+// The class of a line's text body: the phone's bubble, or under a device a line of light / ink (no bubble chrome). Every reader of the
+// bubble class (THEATER_WEIYU_BUBBLES, the motion) knows both.
+// The class of a chat sheet (the 「+」 grid, composers, the call choice, the sticker panel, the reaction picker / list, the record sheets): the
+// phone's bottom sheet, or under a device its own panel .wy-dsheet (rune stones / paper slips, weiyu.css LOOKS) — same contents and acts.
+function soWySheetK(phone) {
+    return soWyLookDev(phone) ? 'wy-dsheet' : 'wy-sheet';
+}
+
+function soWyBubK(phone) {
+    return soWyLookDev(phone) ? 'wy-lt' : 'wy-bubble';
+}
+
+// polish K1P (stage-1 second opinion #2): a message card's mark under a device (transfer, the five cards, the call record, the voice note,
+// the forwarded record) on a rune stone (crystal) / inside a seal (scroll), never the phone's coloured tile. cls = the phone's slot class
+// (wy-card-ic / wy-pay-ic / …) so the card's layout keeps its place. K4 Step 0: `kind` names the card kind (THEATER_WEIYU_LK_MARKS); its
+// mark is the device's own drawing (crystal cr-<kind>, scroll sc-<kind>, weiyu-assets/looks/MANIFEST.md "Added"); a kind without a device
+// mark (the 开机 button's power) keeps its line icon.
+const THEATER_WEIYU_LK_MARKS = Object.freeze(['location', 'file', 'link', 'music', 'contact', 'transfer', 'transfer-taken', 'transfer-back', 'call',
+    'video', 'voice', 'record']);
+function soWyLkGlyph(phone, cls, kind) {
+    const d = phone.host.ownerDocument;
+    const dev = soWyLookDev(phone) || 'crystal';
+    const mark = THEATER_WEIYU_LK_MARKS.includes(kind) ? soWyLkIcon(phone, (dev === 'scroll' ? 'sc-' : 'cr-') + kind) : null;
+    return soWyEl(d, 'span', { class: [cls, 'wy-dglyph', 'wy-dglyph-' + dev], aria: { hidden: 'true' } },
+        soWyEl(d, 'span', { class: 'wy-dglyph-art' }, soWyLkIcon(phone, dev === 'scroll' ? 'seal' : 'rune-stone')), mark || soWyIcon(d, kind));
+}
+
+// The speaker's mark under a device, for message m (or {u: pid}): an imported picture / SillyTavern's own avatar (soWyAvatarOf 'img') in the
+// device's frame — crystal: an octagonal gem-cut frame (gem-frame), scroll: a seal-shaped mount (seal-mount); otherwise crystal = the sigil
+// of the contact's colour index (sigil-<hue>, 12), scroll = a name seal (the seal outline + one character of the name). The hue reaches CSS
+// as --wy-spk-c = var(--wy-hue-<n>) (a token, never a literal). Carries data-wy-pid like the phone's avatar.
+function soWyLookSpeaker(phone, m, noPic) {
+    const d = phone.host.ownerDocument;
+    const dev = soWyLookDev(phone) || 'crystal';
+    const mm = soWyMemo(phone);
+    const pid = soWyIsObj(m) && typeof m.u === 'string' ? m.u : '';
+    const a = soWyAvatarOf(mm.state, mm.pics.pics, pid, noPic ? null : phone.env.pic, noPic ? null : mm.pics.me);
+    // review L M-1: a picture that already failed on this phone is not asked for again — its mark is drawn at once (memory only, per phone)
+    if (a.kind === 'img' && phone.lkPicBad instanceof Set && phone.lkPicBad.has(a.src)) return soWyLookSpeaker(phone, m, true);
+    if (a.kind === 'img') {
+        const img = soWyEl(d, 'img', { src: a.src, alt: '', draggable: 'false' });
+        const el = soWyEl(d, 'span', { class: ['wy-spk', 'wy-spk-' + dev, 'wy-spk-img'], data: { 'wy-pid': pid } },
+            img, soWyLkIcon(phone, dev === 'scroll' ? 'seal-mount' : 'gem-frame'));
+        img.addEventListener('error', () => {
+            if (!(phone.lkPicBad instanceof Set)) phone.lkPicBad = new Set();
+            phone.lkPicBad.add(a.src);
+            soWyLkPicFail(phone, el, m);
+        }, { once: true });
+        return el;
+    }
+    const hue = Number.isSafeInteger(a.hue) && a.hue >= 0 ? a.hue % 12 : 0;
+    const el = dev === 'scroll'
+        ? soWyEl(d, 'span', { class: ['wy-spk', 'wy-spk-' + dev, 'wy-spk-seal'], data: { 'wy-pid': pid } },
+            soWyLkIcon(phone, 'seal'), soWyEl(d, 'span', { class: 'wy-spk-ch', text: Array.from(String(a.ch || '?'))[0] }))
+        : soWyEl(d, 'span', { class: ['wy-spk', 'wy-spk-' + dev, 'wy-spk-sig'], data: { 'wy-pid': pid } }, soWyLkIcon(phone, 'sigil-' + hue));
+    el.style.setProperty('--wy-spk-c', 'var(--wy-hue-' + hue + ')');
+    return el;
+}
+
+// list round (2026-11-24): a picture (imported, or SillyTavern's own avatar) that fails to load turns into the device's own mark — her sigil
+// (crystal) / name seal (scroll) — in place, keeping what the caller put on the mark (its classes, act / data attributes, size). Device looks
+// only: the phone look's avatar has no fallback of its own today and stays byte for byte as it is.
+function soWyLkPicFail(phone, el, m) {
+    if (phone.dead || !el || !el.parentNode) return;
+    let fb = null;
+    try { fb = soWyLookSpeaker(phone, m, true); } catch (e) { return; }
+    if (!fb || fb.classList.contains('wy-spk-img')) return;
+    for (const c of el.classList) if (c !== 'wy-spk-img') fb.classList.add(c);
+    for (const at of Array.from(el.attributes)) if (at.name !== 'class' && at.name !== 'style' && !fb.hasAttribute(at.name)) fb.setAttribute(at.name, at.value);
+    for (const p of ['width', 'height', 'margin']) { const v = el.style.getPropertyValue(p); if (v) fb.style.setProperty(p, v); }
+    el.replaceWith(fb);
+}
+
+// polish K1P (review A minor M-2): a small person mark inside a device chat's pickers and lists (the @ picker, the reaction list, the
+// transfer composer) — the device's own mark (soWyLookSpeaker) at size px; the phone's round avatar under the phone look.
+function soWyLkAv(phone, pid, size) {
+    if (!soWyLookDev(phone)) return soWyAvatarEl(phone, pid, size);
+    return soWyLkSized(soWyLookSpeaker(phone, { u: pid }), size);
+}
+
+function soWyLkSized(el, size) {
+    el.style.setProperty('width', size + 'px');
+    el.style.setProperty('height', size + 'px');
+    el.style.setProperty('margin', '0');
+    return el;
+}
+
+// looks Task 13: a chat's mark on the surface pages (the profile's shared groups, search, the forward targets) — the list's device mark
+// (soWyLkChatMark: her mark for his private chat, else the chat's sigil / name seal) at size px; the phone's mosaic under the phone look.
+function soWyLkMosaic(phone, state, chat, size) {
+    if (!soWyLookDev(phone) || !chat) return soWyMosaicEl(phone, chat, size);
+    const title = soWyChatTitle(state, chat);
+    return soWyLkSized(soWyLkChatMark(phone, state, chat, title, soWyLkHue(title)), size);
+}
+
+// One line under a device (soWyMsgRowEl's body / quote / chips, the phone's acts and data attributes): the speaker's mark (act profile:
+// a tap opens the profile, a double tap is 拍一拍, a long press in a group @-s them — the same handlers as the phone's avatar), the name on
+// EVERY other speaker's line (private chats too: Review Focus 3), the body; his lines (data-wy-side=me, on the right) carry the own-line
+// mark (crystal: his colour's light edge; scroll: the red margin mark) and his own mark.
+function soWyLnRowEl(phone, state, msg, base, sel, more, side, body, q) {
+    const d = phone.host.ownerDocument;
+    const me = side === 'me';
+    const spk = soWyLookSpeaker(phone, msg);
+    spk.setAttribute('data-wy-act', 'profile');
+    spk.setAttribute('role', 'button');
+    return soWyEl(d, 'div', { class: ['wy-m', 'wy-ln', me ? 'wy-ln-me' : '', sel], data: Object.assign({ 'wy-side': side }, base) }, spk,
+        soWyEl(d, 'div', { class: 'wy-mb' }, me ? null : soWyEl(d, 'div', { class: 'wy-mn', text: soWyShownWord(state, msg.u) }), body, q, soWyReChips(phone, msg)),
+        me ? soWyEl(d, 'span', { class: 'wy-ln-mark', aria: { hidden: 'true' } }) : null, more);
+}
+
+// The newest lines glow, older ones dim in steps (spec §4.1; the scroll's ink fades the same way): data-wy-age 0 (the last 3 lines) · 1 (the
+// 5 before) · 2 (the 8 before) · 3 (older) on the device lines, counted from the end; the CSS keeps every step readable.
+function soWyLnAges(rows) {
+    let k = 0;
+    for (let i = rows.length - 1; i >= 0; i--) {
+        const r = rows[i];
+        if (!r || !r.classList || !r.classList.contains('wy-ln')) continue;
+        r.setAttribute('data-wy-age', String(k < 3 ? 0 : k < 8 ? 1 : k < 16 ? 2 : 3));
+        k++;
+    }
 }
 
 function soWyNoteEl(phone, note, chat) {
@@ -27173,15 +29769,54 @@ function soWyChatFoot(phone, state, chat, flight) {
     const voice = !!(phone.voiceIn && phone.voiceIn[chat.id]);
     const running = !!flight && flight.at === chat.id && typeof phone.env.stop === 'function';
     const btn = (act, cls, label, icon) => soWyEl(d, 'button', { type: 'button', class: ['wy-dk', cls], data: { 'wy-act': act }, aria: { label }, title: label }, soWyIcon(d, icon));
+    if (soWyLookDev(phone)) return soWyDevFoot(phone, state, chat, flight, chip, voice, running);   // looks Task 5: the ring / the desk
     return soWyEl(d, 'div', { class: 'wy-chatfoot' }, soWyArRow(phone, state, chat, flight), chip,
         soWyEl(d, 'div', { class: ['wy-inrow', running ? 'wy-running' : ''] },
-            voice ? btn('mic', 'wy-mic', T.toKeys, 'keyboard') : btn('mic', 'wy-mic', T.toVoice, 'voice-input'),
+            voice ? btn('mic', 'wy-mic', T.toKeys, 'keyboard') : btn('mic', 'wy-mic', soWyLookText(phone, 'toVoice'), 'voice-input'),
             soWyEl(d, 'textarea', {
                 class: ['wy-input', voice ? 'wy-voicein' : ''], rows: '1', enterkeyhint: 'send', placeholder: voice ? T.voiceHint : null,
                 data: { 'wy-input': '' }, aria: { label: voice ? T.voiceHint : T.input },
             }),
+            soWyStkDockOn(phone, state) ? btn('stk-open', 'wy-stkbtn', T.upStkOpen, 'emoji') : null,   // phone upgrades (Task 16): the sticker panel
             btn('attach', 'wy-plus', T.attach, 'plus-circle'),
             soWyEl(d, 'button', { type: 'button', class: 'wy-send', data: { 'wy-act': 'send' }, disabled: true, text: T.send }),
+            running ? soWyEl(d, 'button', { type: 'button', class: 'wy-stopsq', data: { 'wy-act': 'stop' }, aria: { label: T.stop }, title: T.stop },
+                soWyEl(d, 'span', { class: 'wy-stopsq-i', aria: { hidden: 'true' } })) : null));
+}
+
+// looks Task 5 (spec §4.1 / §4.2, §14.5): the writing place under a device — the same controls, acts and hooks as the phone's dock
+// (.wy-chatfoot > auto-reply row, quote chip, .wy-inrow with mic, the real textarea [data-wy-input], stickers, 「+」, send, stop), so the
+// send / over-length / grow / input-method / draft paths are the phone's own. crystal = .wy-inrow.wy-ring: the field inside the rune ring
+// (.wy-ring-f, the ring's art behind it), the controls as rune stones; scroll = .wy-inrow.wy-desk: the field on a paper slip (.wy-slip),
+// 「+」 = the inkstone, send = the player's seal (soWyLookSpeaker of him). The field grows and is never length-limited.
+function soWyDevFoot(phone, state, chat, flight, chip, voice, running) {
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    const dev = soWyLookDev(phone);
+    const cr = dev === 'crystal';
+    const btn = (act, cls, label, icon) => soWyEl(d, 'button', { type: 'button', class: ['wy-dk', 'wy-dk-dev'].concat(cls.split(' ')), data: { 'wy-act': act }, aria: { label }, title: label },
+        cr ? soWyEl(d, 'span', { class: 'wy-dk-art', aria: { hidden: 'true' } }, soWyLkIcon(phone, 'rune-stone')) : null, soWyIcon(d, icon));
+    const field = soWyEl(d, 'textarea', {
+        class: ['wy-input', voice ? 'wy-voicein' : ''], rows: '1', enterkeyhint: 'send', placeholder: voice ? T.voiceHint : null,
+        data: { 'wy-input': '' }, aria: { label: voice ? T.voiceHint : T.input },
+    });
+    // polish K1P (second opinion #1): the crystal's ring is drawn around the WHOLE row (the art stretched, the field's own box gone: the
+    // typed line is light inside the ring, the real textarea underneath); the scroll's slip is ruled paper with a brush resting on it
+    const holder = cr
+        ? soWyEl(d, 'div', { class: 'wy-ring-f' }, soWyEl(d, 'span', { class: 'wy-ring-art', aria: { hidden: 'true' } }, soWyLkIcon(phone, 'rune-ring', 'none')), field)
+        : soWyEl(d, 'div', { class: 'wy-slip' }, field, soWyEl(d, 'span', { class: 'wy-slip-brush', aria: { hidden: 'true' } }, soWyLkIcon(phone, 'brush')));
+    const send = cr
+        ? soWyEl(d, 'button', { type: 'button', class: ['wy-send', 'wy-send-dev', 'wy-send-stone'], data: { 'wy-act': 'send' }, disabled: true, aria: { label: T.send }, title: T.send },
+            soWyEl(d, 'span', { class: 'wy-dk-art', aria: { hidden: 'true' } }, soWyLkIcon(phone, 'rune-stone')), soWyIcon(d, 'send'))
+        : soWyEl(d, 'button', { type: 'button', class: ['wy-send', 'wy-send-dev', 'wy-send-seal'], data: { 'wy-act': 'send' }, disabled: true, aria: { label: T.send }, title: T.send },
+            soWyLookSpeaker(phone, { u: THEATER_WEIYU_ME }));
+    return soWyEl(d, 'div', { class: ['wy-chatfoot', 'wy-dfoot', 'wy-dfoot-' + dev] }, soWyArRow(phone, state, chat, flight), chip,
+        soWyEl(d, 'div', { class: ['wy-inrow', cr ? 'wy-ring' : 'wy-desk', running ? 'wy-running' : ''] },
+            voice ? btn('mic', 'wy-mic', T.toKeys, 'keyboard') : btn('mic', 'wy-mic', soWyLookText(phone, 'toVoice'), 'voice-input'),
+            holder,
+            soWyStkDockOn(phone, state) ? btn('stk-open', 'wy-stkbtn', T.upStkOpen, 'emoji') : null,
+            btn('attach', cr ? 'wy-plus' : 'wy-plus wy-inkstone', T.attach, cr ? 'plus-circle' : 'inkstone'),
+            send,
             running ? soWyEl(d, 'button', { type: 'button', class: 'wy-stopsq', data: { 'wy-act': 'stop' }, aria: { label: T.stop }, title: T.stop },
                 soWyEl(d, 'span', { class: 'wy-stopsq-i', aria: { hidden: 'true' } })) : null));
 }
@@ -27206,14 +29841,19 @@ function soWyScreenChat(phone, page) {
     // a refused line (a blocked contact's, more functions phase 1) is never a bubble: one quiet line at the end counts them (☾ 偷看)
     const refused = chat.msgs.filter((m) => m && m.refused === 1);
     const msgs = chat.msgs.map((m, i) => (hidden && hidden.has(m.id) ? null : m && m.refused === 1 ? null : soWyMsgEl(phone, chat, m, i)));
+    if (soWyLookDev(phone)) soWyLnAges(msgs);   // looks Task 4: newest lines brighter, older a step dimmer
     const typing = (flight && flight.at === chat.id) || (hidden && hidden.size > 0);
     // wy-menu-hold: 消息菜单 = 长按气泡 (the hold lift / fill CSS hangs on it; redesign D2); wy-fselmode: picking lines to forward
-    const top = soWyTopBar(phone, { back: fsel ? null : others > 0 ? others : true, title, right });
-    if (fsel) top.querySelector('.wy-top-l').appendChild(soWyEl(d, 'button', { type: 'button', class: 'wy-fsel-x', data: { 'wy-act': 'fsel-x' }, text: T.cancel }));
+    // looks Task 3: under a device the top is the device's own (soWyDevTop: the crystal's top facet / the scroll's title slip), same acts
+    const dev = soWyLookDev(phone);
+    const top = dev ? soWyDevTop(phone, state, chat, title, fsel, others) : soWyTopBar(phone, { back: fsel ? null : others > 0 ? others : true, title: soWyStTitle(phone, state, chat, title), right });   // + her status (Task 19)
+    if (fsel && !dev) top.querySelector('.wy-top-l').appendChild(soWyEl(d, 'button', { type: 'button', class: 'wy-fsel-x', data: { 'wy-act': 'fsel-x' }, text: T.cancel }));
     const screen = soWyEl(d, 'div', { class: ['wy-page', 'wy-chat', soWyMenuModeOpt(state) === 'hold' ? 'wy-menu-hold' : '', fsel ? 'wy-fselmode' : ''] },
         top,
-        soWyEl(d, 'div', { class: 'wy-scroll' }, soWyEl(d, 'div', { class: 'wy-msgs' }, msgs, refused.length ? soWyRefusedLine(phone, refused.length) : null,
-            typing ? soWyTypingEl(phone) : null, soWyNoteEl(phone, phone.notes[chat.id], chat)), soWyHoldLine(phone, state, chat, flight)),
+        soWyEl(d, 'div', { class: 'wy-scroll' }, soWyEl(d, 'div', { class: 'wy-msgs' }, msgs, soWyVersPager(phone, state, chat, flight, hidden), refused.length ? soWyRefusedLine(phone, refused.length) : null,
+            soWyPeekHint(phone, state, chat, typing),   // 「我不进群」: an empty group he only watches (env.stages.peekGroup only)
+            typing ? soWyTypingEl(phone) : null, soWyNoteEl(phone, phone.notes[chat.id], chat), soWyCuStrip(phone, state, 'chat')), soWyHoldLine(phone, state, chat, flight)),   // + 立即跟上剧情 (env.stages.catchup only)
+        dev === 'scroll' ? soWyEl(d, 'span', { class: 'wy-lk-rod', aria: { hidden: 'true' } }) : null,   // polish K1P: the roller at the paper's foot
         soWyChatFoot(phone, state, chat, flight));
     soWyChatBg(phone, screen);
     return screen;
@@ -27411,14 +30051,14 @@ function soWyAttachSheet(phone, cid) {
     const st = soWyEnvState(phone);
     const chat = soWyChat(st, cid);
     const cards = soWyMoreOn(phone) ? THEATER_WEIYU_CARD_SHEET.map((k) => tile(k, THEATER_WEIYU_CARD_ICONS[k],
-        { loc: T.attLoc, contact: T.attContact, file: T.attFile, music: T.attMusic, link: T.attLink }[k])) : [];
+        { loc: soWyLookText(phone, 'attLoc'), contact: soWyLookText(phone, 'attContact'), file: soWyLookText(phone, 'attFile'), music: soWyLookText(phone, 'attMusic'), link: soWyLookText(phone, 'attLink') }[k])) : [];   // looks Task 14: the set's words under a device
     const call = typeof soWyCanCall === 'function' && soWyCanCall(st, chat, soWyEvOn(phone)) ? tile('call', 'call', T.attCall) : null;
-    const pay = typeof soWyCanPay === 'function' && soWyCanPay(st, chat, soWyEvOn(phone)) ? tile('pay', 'transfer', T.attPay) : null;
+    const pay = typeof soWyCanPay === 'function' && soWyCanPay(st, chat, soWyEvOn(phone)) ? tile('pay', 'transfer', soWyLookText(phone, 'attPay')) : null;
     const after = cards.length ? [cards[0], pay].concat(cards.slice(1)) : [pay];
     phone.layer.appendChild(soWyEl(d, 'div', { class: 'wy-pop-wrap' },
         soWyEl(d, 'div', { class: ['wy-backdrop', 'wy-dim'], data: { 'wy-act': 'pop-close' } }),
-        soWyEl(d, 'div', { class: ['wy-sheet', 'wy-attach'], role: 'menu', aria: { label: T.attach }, data: { 'wy-cid': cid } },
-            soWyEl(d, 'div', { class: 'wy-att-grid' }, tile('photo', 'image', T.attPhoto), tile('video', 'video', T.attVideo), call, after),
+        soWyEl(d, 'div', { class: [soWySheetK(phone), 'wy-attach'], role: 'menu', aria: { label: T.attach }, data: { 'wy-cid': cid } },
+            soWyEl(d, 'div', { class: 'wy-att-grid' }, tile('photo', 'image', soWyLookText(phone, 'attPhoto')), tile('video', 'video', soWyLookText(phone, 'attVideo')), call, after),
             soWyEl(d, 'button', { type: 'button', class: ['wy-sheet-i', 'wy-sheet-c'], data: { 'wy-act': 'pop-close' }, text: T.cancel }))));
 }
 
@@ -27431,11 +30071,11 @@ function soWyComposeOpen(phone, o) {
     const c = { cid: o.cid, t: video ? 'video' : 'photo', v: String(o.v == null ? '' : o.v), em: typeof o.em === 'string' ? o.em : '', dur: video ? (THEATER_WEIYU_VIDEO_LENS.includes(o.dur) ? o.dur : '0:10') : '' };
     soWyMenuDrop(phone);
     phone.compose = c;
-    const title = video ? T.attVideo : T.attPhoto;
+    const title = video ? soWyLookText(phone, 'attVideo') : soWyLookText(phone, 'attPhoto');   // looks Task 14
     const ta = soWyEl(d, 'textarea', { class: 'wy-cmp-in', rows: '2', placeholder: video ? T.videoHint : T.photoHint, data: { 'wy-cmp': '' }, aria: { label: video ? T.videoHint : T.photoHint } });
     ta.value = c.v;
     const radio = (act, v, text, on, cls) => soWyEl(d, 'button', { type: 'button', role: 'radio', class: cls, data: { 'wy-act': act, 'wy-v': v }, aria: { checked: on ? 'true' : 'false', label: text }, text });
-    const sheet = soWyEl(d, 'div', { class: ['wy-sheet', 'wy-compose'], role: 'dialog', aria: { label: title }, data: { 'wy-kind': c.t } },
+    const sheet = soWyEl(d, 'div', { class: [soWySheetK(phone), 'wy-compose'], role: 'dialog', aria: { label: title }, data: { 'wy-kind': c.t } },
         soWyEl(d, 'div', { class: 'wy-cmp-head' },
             soWyEl(d, 'button', { type: 'button', class: 'wy-cmp-x', data: { 'wy-act': 'pop-close' }, text: T.cancel }),
             soWyEl(d, 'span', { class: 'wy-cmp-t', text: title }),
@@ -27555,7 +30195,7 @@ function soWyNudge(phone, cid, pid) {
 // ---- Task 17: the message menu — quote, copy, edit, delete with undo, regenerate ------------------------------------------
 
 // What a long press / right click / Enter opens the menu on (the hold control and text boxes never).
-const THEATER_WEIYU_BUBBLES = '.wy-bubble, .wy-big, .wy-frame, .wy-sys-t, .wy-cardmsg, .wy-fwdmsg, .wy-paymsg';   // + the cards / chat records (more functions phase 1), transfers (phase 2; a call is a .wy-bubble)
+const THEATER_WEIYU_BUBBLES = '.wy-bubble, .wy-lt, .wy-big, .wy-frame, .wy-sys-t, .wy-cardmsg, .wy-fwdmsg, .wy-paymsg, .wy-stk';   // + the cards / chat records (more functions phase 1), transfers (phase 2; a call is a .wy-bubble), a sticker (phone upgrades; only drawn with its stage)
 
 // (pure) The menu of one message. quote: the player is a member, the chat is live and the line is something a person said; copy: such
 // a line; edit: soWyCanEdit; delete: always; regen (others' lines and lines the AI wrote for the player) / rereply (the player's own)
@@ -27631,10 +30271,11 @@ function soWyMenuOpen(phone, cid, mid, anchor) {
     const row = soWyEl(d, 'div', { class: 'wy-mi-row' }, items.map((x) => soWyEl(d, 'button', {
         type: 'button', role: 'menuitem', class: ['wy-mi', x.so ? 'wy-so' : ''], data: { 'wy-act': 'mi', 'wy-k': x.k },
         aria: { disabled: busy && (x.k === 'regen' || x.k === 'rereply') ? 'true' : null },
-    }, soWyIcon(d, THEATER_WEIYU_MENU_ICONS[x.k]), soWyEl(d, 'span', { text: x.label }))));
+    }, soWyIcon(d, THEATER_WEIYU_MENU_ICONS[x.k]), soWyEl(d, 'span', { text: x.k === 'nudge' ? soWyLookText(phone, 'mNudge') : x.k === 'recall' ? soWyLookText(phone, 'mRecall') : x.label }))));   // looks Task 14
     row.style.setProperty('--wy-mi-cols', String(soWyMenuCols(items.length)));
-    const pop = soWyEl(d, 'div', { class: ['wy-pop', 'wy-pop-msg'], role: 'menu' },
-        msg.ai ? soWyEl(d, 'div', { class: 'wy-pop-cap', text: T.aiWrote }) : null, row);
+    const re = soWyReRow(phone, msg);   // phone upgrades (Task 17): the quick reactions (stage react ∧ a line that takes one; else null)
+    const pop = soWyEl(d, 'div', { class: ['wy-pop', 'wy-pop-msg', re ? 'wy-pop-re' : ''], role: 'menu' },
+        msg.ai ? soWyEl(d, 'div', { class: 'wy-pop-cap', text: T.aiWrote }) : null, re, row);
     const wrap = soWyEl(d, 'div', { class: 'wy-pop-wrap' }, soWyEl(d, 'div', { class: ['wy-backdrop', 'wy-clear'], data: { 'wy-act': 'pop-close' } }), pop);
     phone.layer.appendChild(wrap);
     phone.menu = { cid, mid };
@@ -27689,6 +30330,7 @@ function soWyMenuAct(phone, k) {
         const c = soWyClone(state);
         if (!soWyRecallMsg(c, m.cid, m.mid)) return;
         phone.env.commit(c, 'recall');
+        soWySoundPlay(phone, 'recall');   // sound (plan Task 13): env.sound only
         if (soWyIsObj(phone.quote) && phone.quote.cid === m.cid && phone.quote.u === THEATER_WEIYU_ME && phone.quote.v === soWyQuoteText(msg)) phone.quote = null;
         phone.refresh();
     } else if (k === 'edit') {
@@ -27737,8 +30379,9 @@ function soWyMenuReveal(phone, cur, mid) {
 
 // 消息菜单 = 长按气泡: while held, the bubble lifts and a fill charges from the finger for the hold time (.wy-lp + --wy-lp-ms / -x / -y;
 // the CSS only acts under .wy[data-wy-motion="on"]); never added when the phone's motion flag is off — the menu still opens after the hold.
+// looks fold-in: under a device the line is marked with motion off too — its CSS then shows a still tint only (the lift / fill stay motion-only).
 function soWyLift(phone, b, ev, ms) {
-    if (!b || soWyEnvReduced(phone)) return;
+    if (!b || (soWyEnvReduced(phone) && !soWyLookDev(phone))) return;
     try {
         const r = b.getBoundingClientRect();
         if (r.width > 0 && r.height > 0) {
@@ -27906,11 +30549,16 @@ function soWyQuoteChip(phone, state, chat) {
 // ---- Task 18: group info, profile and pictures, the pick screen ------------------------------------------------------------
 
 // A switch row (role="switch", aria-checked); `act` is its data-wy-act. Shared with the 我 tab (Task 19).
+// looks Task 13 (spec §4.4): under a device the switch holds the device's knob (span.wy-sw-k, aria-hidden — the button keeps role=switch,
+// aria-checked and its label): crystal = a diamond stone sliding in a cut socket (CSS); scroll = the player's seal sliding along a paper
+// strip, reading 开 / 关. The phone look's switch stays an empty button, as today.
 function soWySwitchRow(phone, act, title, desc, on) {
     const d = phone.host.ownerDocument;
+    const dev = soWyLookDev(phone);
+    const knob = dev ? soWyEl(d, 'span', { class: ['wy-sw-k', 'wy-sw-k-' + dev], aria: { hidden: 'true' }, text: dev === 'scroll' ? (on ? THEATER_WEIYU_TEXT.lookSwOn : THEATER_WEIYU_TEXT.lookSwOff) : null }) : null;
     return soWyEl(d, 'div', { class: 'wy-setrow' },
         soWyEl(d, 'div', { class: 'wy-setrow-t' }, soWyEl(d, 'span', { class: 'wy-setrow-n', text: title }), desc ? soWyEl(d, 'span', { class: 'wy-setrow-d', text: desc }) : null),
-        soWyEl(d, 'button', { type: 'button', class: ['wy-switch', on ? 'wy-on' : ''], role: 'switch', data: { 'wy-act': act }, aria: { checked: on ? 'true' : 'false', label: title } }));
+        soWyEl(d, 'button', { type: 'button', class: ['wy-switch', on ? 'wy-on' : ''], role: 'switch', data: { 'wy-act': act }, aria: { checked: on ? 'true' : 'false', label: title } }, knob));
 }
 
 function soWyKvRow(phone, k, v, cls) {
@@ -27928,7 +30576,7 @@ function soWyScreenInfo(phone, page) {
     const group = chat.type === 'group';
     const n = chat.count || chat.members.length;
     const cells = chat.members.map((pid) => soWyEl(d, 'div', { class: 'wy-mcell', role: 'button', tabindex: '0', data: { 'wy-act': 'profile', 'wy-pid': pid } },
-        soWyAvatarEl(phone, pid, 48), soWyEl(d, 'span', { class: 'wy-mcell-n', text: soWyShownWord(state, pid) })));
+        soWyLkAv(phone, pid, 48), soWyEl(d, 'span', { class: 'wy-mcell-n', text: soWyShownWord(state, pid) })));
     const closed = soWyChatClosed(state, chat);
     if (group && mine && !chat.dissolved && !closed) {
         cells.push(soWyEl(d, 'div', { class: ['wy-mcell', 'wy-mcell-add'], role: 'button', tabindex: '0', data: { 'wy-act': 'invite' } },
@@ -27942,7 +30590,7 @@ function soWyScreenInfo(phone, page) {
     else if (!mine) end = soWyEl(d, 'div', { class: ['wy-btnrow', 'wy-muted-t'], text: T.infoObserved });
     else if (group) end = soWyEl(d, 'button', { type: 'button', class: ['wy-btnrow', 'wy-danger'], data: { 'wy-act': 'leave' }, text: T.leave });
     return soWyEl(d, 'div', { class: ['wy-page', 'wy-info'] },
-        soWyTopBar(phone, { back: true, line: true, title: T.info + '(' + n + ')' }),
+        soWyTopBar(phone, { back: true, line: true, title: T.info + '(' + n + ')', dev: true, surf: true }),   // dev: the device's top (looks Task 13)
         soWyEl(d, 'div', { class: 'wy-scroll' },
             soWyEl(d, 'div', { class: ['wy-card', 'wy-mgrid'] }, cells),
             chat.count ? soWyEl(d, 'div', { class: 'wy-countnote', text: soWyFmt(T.countNote, { n: chat.count }) }) : null,
@@ -28029,7 +30677,7 @@ function soWyScreenProfile(phone, page) {
     if (!state || !state.booted || !p) return null;
     const me = p.id === THEATER_WEIYU_ME;
     const gone = p.gone === 1;   // a removed contact, opened from one of their old lines: no 发消息, no 删除联系人, a tag
-    const av = soWyAvatarEl(phone, p.id, 64);
+    const av = soWyLkAv(phone, p.id, 64);   // looks Task 13: the device's mark (the phone's avatar under the phone look)
     const canPic = !!m.pics.store;
     if (canPic) {
         av.setAttribute('data-wy-act', 'pic');
@@ -28050,7 +30698,7 @@ function soWyScreenProfile(phone, page) {
     const acp = contact && soWyAcOn(phone) && soWyAcHas(p);
     if (contact && phone.acFresh && typeof phone.acFresh.delete === 'function') phone.acFresh.delete(p.id);
     return soWyEl(d, 'div', { class: ['wy-page', 'wy-profile'] },
-        soWyTopBar(phone, { back: true }),
+        soWyTopBar(phone, { back: true, dev: true, surf: true }),
         soWyEl(d, 'div', { class: 'wy-scroll' },
             soWyEl(d, 'div', { class: ['wy-card', 'wy-pcard'] }, soWyEl(d, 'span', { class: 'wy-avw' }, av),
                 soWyEl(d, 'div', { class: 'wy-grow' },
@@ -28063,12 +30711,13 @@ function soWyScreenProfile(phone, page) {
                     p.area ? soWyEl(d, 'div', { class: 'wy-meta', text: T.area + p.area }) : null)),
             more && contact ? soWyRemarkRow(phone, p) : null,
             soWyEl(d, 'div', { class: 'wy-gap' }),
+            soWyStCard(phone, state, p),   // phone upgrades (Task 19): 状态, right above the signature (stage status, when one)
             soWyEl(d, 'div', { class: ['wy-card', 'wy-sigcard'] }, soWyEl(d, 'div', { class: 'wy-k', text: T.sig }), soWyEl(d, 'div', { class: 'wy-sig', text: p.sig || T.unset })),
             acp ? soWyAcDescCard(phone, p) : null,
             soWyEl(d, 'div', { class: 'wy-sechead', text: (me ? T.myGroups : T.sharedGroups) + '（' + groups.length + '）' }),
             soWyEl(d, 'div', { class: 'wy-card' }, groups.length ? groups.map((c) => soWyEl(d, 'div', {
                 class: ['wy-prow', c.dissolved ? 'wy-dis' : ''], role: 'button', tabindex: '0', data: { 'wy-act': 'open', 'wy-row': c.id },
-            }, soWyMosaicEl(phone, c, 36), soWyEl(d, 'span', { class: 'wy-nm', text: soWyChatTitle(state, c) }))) : soWyEl(d, 'div', { class: 'wy-none', text: T.none })),
+            }, soWyLkMosaic(phone, state, c, 36), soWyEl(d, 'span', { class: 'wy-nm', text: soWyChatTitle(state, c) }))) : soWyEl(d, 'div', { class: 'wy-none', text: T.none })),
             me || gone ? null : soWyEl(d, 'div', { class: 'wy-gap' }),
             // more functions phase 1: a background person (arrived through a group) — 添加到通讯录 is the primary action instead of 发消息
             me || gone ? null : more && p.extra === 1
@@ -28100,7 +30749,7 @@ function soWyPersonSheet(phone, pid) {
     const tag = { 'wy-pid': pid };
     phone.layer.appendChild(soWyEl(d, 'div', { class: 'wy-pop-wrap' },
         soWyEl(d, 'div', { class: ['wy-backdrop', 'wy-dim'], data: { 'wy-act': 'pop-close' } }),
-        soWyEl(d, 'div', { class: 'wy-sheet', role: 'menu' },
+        soWyEl(d, 'div', { class: soWySheetK(phone), role: 'menu' },   // looks Task 13: the device's sheet
             soWyEl(d, 'div', { class: 'wy-sheet-t', text: soWyFmt(T.delPersonAsk, { name: p.name }) }),
             soWyEl(d, 'button', { type: 'button', role: 'menuitem', class: ['wy-sheet-i', 'wy-danger'], data: Object.assign({ 'wy-act': 'delperson-a' }, tag), text: T.delPersonOnly }),
             soWyEl(d, 'button', { type: 'button', role: 'menuitem', class: ['wy-sheet-i', 'wy-danger', 'wy-danger-all'], data: Object.assign({ 'wy-act': 'delperson-b' }, tag), text: T.delPersonAll }),
@@ -28159,7 +30808,7 @@ function soWyPicSheet(phone, target) {
     const has = !!soWyPicCurrent(phone, target);
     phone.layer.appendChild(soWyEl(d, 'div', { class: 'wy-pop-wrap' },
         soWyEl(d, 'div', { class: ['wy-backdrop', 'wy-dim'], data: { 'wy-act': 'pop-close' } }),
-        soWyEl(d, 'div', { class: 'wy-sheet', role: 'menu' },
+        soWyEl(d, 'div', { class: soWySheetK(phone), role: 'menu' },   // looks Task 13: the device's sheet
             soWyEl(d, 'div', { class: 'wy-sheet-t', text: target.bg ? T.bgTitle : T.changePic }),
             soWyEl(d, 'button', { type: 'button', role: 'menuitem', class: 'wy-sheet-i', data: Object.assign({ 'wy-act': 'pic-pick' }, tag), text: T.pickFile }),
             has ? soWyEl(d, 'button', { type: 'button', role: 'menuitem', class: 'wy-sheet-i', data: Object.assign({ 'wy-act': 'pic-reset' }, tag), text: target.bg ? T.bgReset : T.picReset }) : null,
@@ -28238,18 +30887,19 @@ function soWyScreenPick(phone, page) {
     const done = soWyEl(d, 'button', { type: 'button', class: 'wy-done', data: { 'wy-act': 'pick-done' }, disabled: sel.length < need,
         text: T.done + (sel.length ? '(' + sel.length + ')' : '') });
     return soWyEl(d, 'div', { class: ['wy-page', 'wy-pickpage'] },
-        soWyTopBar(phone, { back: true, line: true, title, right: done }),
-        soWyEl(d, 'div', { class: 'wy-pickstrip' }, sel.length ? sel.map((pid) => soWyAvatarEl(phone, pid, 32))
+        soWyTopBar(phone, { back: true, line: true, title, right: done, dev: true, surf: true }),
+        soWyEl(d, 'div', { class: 'wy-pickstrip' }, sel.length ? sel.map((pid) => soWyLkAv(phone, pid, 32))
             : soWyEl(d, 'span', { class: 'wy-ph', text: mode === 'create' ? T.pickTwo : T.pickOne })),
         mode === 'create' ? soWyEl(d, 'label', { class: 'wy-gname' }, soWyEl(d, 'span', { text: T.gname }),
             soWyEl(d, 'input', { type: 'text', placeholder: T.gnameHint, value: page.name || '', data: { 'wy-gname': '' } })) : null,
+        mode === 'create' && soWyPeekOn(phone) ? soWySwitchRow(phone, 'pick-peek', T.pkNoMe, T.pkNoMeDesc, page.peek === true) : null,   // 「我不进群」
         soWyEl(d, 'div', { class: 'wy-scroll' }, people.map((p) => {
             const locked = lock.includes(p.id);
             const on = locked || sel.includes(p.id);
             return soWyEl(d, 'div', {
                 class: ['wy-pick', on ? 'wy-on' : '', locked ? 'wy-lock' : ''], role: 'checkbox', tabindex: locked ? '-1' : '0',
                 data: { 'wy-act': 'pk', 'wy-pid': p.id }, aria: { checked: on ? 'true' : 'false', disabled: locked ? 'true' : null },
-            }, soWyEl(d, 'span', { class: 'wy-ck' }, soWyIcon(d, 'check')), soWyAvatarEl(phone, p.id, 40), soWyEl(d, 'span', { class: 'wy-nm', text: soWyShownName(state, p.id) }));
+            }, soWyEl(d, 'span', { class: 'wy-ck' }, soWyIcon(d, 'check')), soWyLkAv(phone, p.id, 40), soWyEl(d, 'span', { class: 'wy-nm', text: soWyShownName(state, p.id) }));
         })));
 }
 
@@ -28309,6 +30959,14 @@ function soWyPickDone(phone, page) {
         phone.env.commit(c, 'invite');
         soWyPickLeave(phone, { k: 'chat', cid: page.cid });
         soWyDo(phone, 'group', { cid: page.cid });
+    } else if (page.peek === true && soWyPeekOn(phone)) {
+        // 「我不进群」: a group without him, stored like a story-made one; its first talk = today's 「让他们接着聊」 (one 'more' call) — never
+        // the 'group' call, whose frozen prompt says the player made the group. Refused / busy → the chat stays empty with today's notice.
+        const cid = soWyCreatePeekGroup(c, sel, String(page.name || ''));
+        if (!cid) return;
+        phone.env.commit(c, 'create');
+        soWyPickLeave(phone, { k: 'chat', cid });
+        soWyDo(phone, 'more', { cid });
     } else {
         const cid = soWyCreateGroup(c, sel, String(page.name || ''));
         if (!cid) return;
@@ -28318,6 +30976,27 @@ function soWyPickDone(phone, page) {
     }
 }
 
+// ---- 「我不进群」 (peeking group, spec docs/superpowers/specs/2026-11-24-phone-hosted-group-design.md §5) -------------------------------
+// Everything here exists only with env.stages.peekGroup (the join's ENABLE_THR_WEIYU_PEEKGROUP); without it the 发起群聊 page and every
+// chat are today's, byte for byte. The switch's value lives on the pick page object (page.peek) — never in opts, never remembered.
+function soWyPeekOn(phone) {
+    return soWyUpOn(phone, 'peekGroup');
+}
+
+function soWyPickPeek(phone, page) {
+    if (!soWyPeekOn(phone) || page.mode !== 'create') return;
+    page.peek = page.peek !== true;
+    phone.refresh();
+}
+
+// An empty group he is not in, while no call writes there: one quiet line pointing at 「让他们接着聊」 (the hold line under it). Not a message
+// (no data-wy-msg; never stored); gone once any line exists. Shown for every such group with the stage, a story-made one too.
+function soWyPeekHint(phone, state, chat, typing) {
+    if (!soWyPeekOn(phone) || typing || chat.type !== 'group' || soWyIsMine(chat) || chat.dissolved || soWyChatClosed(state, chat) || chat.msgs.length) return null;
+    const d = phone.host.ownerDocument;
+    return soWyEl(d, 'div', { class: ['wy-line-mid', 'wy-peekhint'] }, soWyEl(d, 'span', { class: 'wy-sys-t', text: THEATER_WEIYU_TEXT.pkNoMeHint }));
+}
+
 // ---- Task 19: the 我 tab — options, size, summarise, background, reset -----------------------------------------------------
 // Part 3's soWyRenderNote / soWyNoteSize / soWyMeterState / soWySumPlan are later blocks → typeof-guarded: a row whose function is
 // not loaded does not render. (The period tick 「这个世界没有手机」 and its noteFlag chip were removed 2026-11-15.)
@@ -28325,6 +31004,7 @@ function soWyPickDone(phone, page) {
 // The chat background (this card's picture entry): class wy-has-bg + the picture as the page's background image (CSS lays a scrim
 // over it so bubbles and grey lines stay readable). The URL comes from the join's picIO for a checked file name.
 function soWyChatBg(phone, page) {
+    if (soWyLookDev(phone)) return;   // looks Task 6 (spec §13.11 / §14.13): under a device the glass / the paper is the background
     const pics = soWyMemo(phone).pics.pics;
     const file = pics && soWyPicFileOk(pics.bg) ? pics.bg : null;
     if (!file) return;
@@ -28432,6 +31112,33 @@ function soWyMotionRow(phone, cur) {
             }))));
 }
 
+// 外观 (looks build 2026-11-24; env.stages.looks only): 跟随世界用语 / 手机 / 水晶 / 卷轴 → opts.look (soWySetLookOpt; 跟随世界用语 deletes
+// the key) → commit 'opts' → refresh (the render re-applies the host's data-wy-look, soWyApplyLook). No request reads it.
+const THEATER_WEIYU_LOOK_CHOICES = Object.freeze(['follow', 'phone', 'crystal', 'scroll']);
+
+function soWyLookPick(phone, v) {
+    const st = soWyEnvState(phone);
+    if (!st || !THEATER_WEIYU_LOOK_CHOICES.includes(v) || (soWyLookOpt(st) || 'follow') === v) return;
+    const c = soWyClone(st);
+    if (soWySetLookOpt(c, v)) phone.env.commit(c, 'opts');
+    phone.refresh();
+}
+
+// The 外观 row: the 动画 row's family (setrow text + a radiogroup), four stops.
+function soWyLookRow(phone, cur) {
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    const label = { follow: T.lookFollow, phone: T.lookPhone, crystal: T.lookCrystal, scroll: T.lookScroll };
+    return soWyEl(d, 'div', { class: ['wy-setrow', 'wy-setrow-seg'] },
+        soWyEl(d, 'div', { class: 'wy-setrow-t' }, soWyEl(d, 'span', { class: 'wy-setrow-n', text: T.lookTitle }),
+            soWyEl(d, 'span', { class: 'wy-setrow-d', text: T.lookDesc })),
+        soWyEl(d, 'div', { class: 'wy-seg', role: 'radiogroup', aria: { label: T.lookTitle } },
+            ...THEATER_WEIYU_LOOK_CHOICES.map((v) => soWyEl(d, 'button', {
+                type: 'button', class: ['wy-seg-i', v === cur ? 'wy-on' : ''], role: 'radio',
+                data: { 'wy-act': 'opt-look', 'wy-v': v }, aria: { checked: v === cur ? 'true' : 'false' }, text: label[v],
+            }))));
+}
+
 // 消息菜单 (owner 2026-11-17, redesign D2): 点 ⋯ / 长按气泡 → opts.menu (soWySetMenuMode; 点 ⋯ deletes the key). DRAFT wording.
 function soWyMenuModePick(phone, v) {
     const st = soWyEnvState(phone);
@@ -28486,7 +31193,7 @@ function soWyMeBody(phone, state) {
     const me = soWyPerson(state, THEATER_WEIYU_ME) || { name: '' };
     const opts = soWyIsObj(state.opts) ? state.opts : soWyDefaultOpts();
     const stages = soWyIsObj(env.stages) ? env.stages : {};
-    const av = soWyAvatarEl(phone, THEATER_WEIYU_ME, 64);
+    const av = soWyLkAv(phone, THEATER_WEIYU_ME, 64);   // looks Task 13: the device's mark (the phone's avatar under the phone look)
     if (m.pics.store) {
         av.setAttribute('data-wy-act', 'pic');
         av.setAttribute('data-wy-pid', THEATER_WEIYU_ME);
@@ -28533,6 +31240,10 @@ function soWyMeBody(phone, state) {
         out.push(soWyEl(d, 'div', { class: 'wy-gap' }));
         if (words) out.push(words, soWyEl(d, 'div', { class: 'wy-gap' }));
     }
+    // phone upgrades (Task 15): 表情包 · 来电免打扰 · 声音 — a group of its own after 世界用语 / the story group, before 记忆与长度; each row only
+    // with its stage (none = this page of today, byte for byte)
+    const up = soWyUpMeRows(phone, state);
+    if (up.length) out.push(...(story ? [] : [soWyEl(d, 'div', { class: 'wy-gap' })]), ...up, soWyEl(d, 'div', { class: 'wy-gap' }));
     // the memory slice, UI: 「记忆与长度」 heads the size block — the counter's number (tap = its sheet) and the two settings; the
     // existing size row (主线每次多读 / 手机占) and 总结 follow, so the page reads as one block. Flag off (stages.mem) = none of it.
     if (soWyMemOn(phone)) out.push(...soWyMemRows(phone, state));
@@ -28562,8 +31273,12 @@ function soWyMeBody(phone, state) {
             soWyEl(d, 'span', { class: 'wy-nm', text: T.bgTitle }), m.pics.pics && soWyPicFileOk(m.pics.pics.bg) ? soWyEl(d, 'span', { class: 'wy-sub2', text: '✓' }) : null,
             soWyEl(d, 'span', { class: 'wy-chev' }, soWyIcon(d, 'chevron-right')))
         : soWyEl(d, 'div', { class: ['wy-prow', 'wy-dis'] }, soWyEl(d, 'span', { class: 'wy-nm', text: T.bgTitle })));
+    // looks Task 13 (spec §13.11): under a device the picture is not drawn (the glass / paper is the background) — one line says so
+    if (soWyLookDev(phone)) out.push(soWyEl(d, 'div', { class: ['wy-foot', 'wy-bgnote'], text: T.lookBgNote }));
+    if (soWyUpOn(phone, 'looks')) out.push(soWyLookRow(phone, soWyLookOpt(state) || 'follow'));   // 外观 (looks build): only with its stage
     out.push(soWyMotionRow(phone, soWyMotionOpt(state)));   // 动画, with the other look setting (owner 2026-11-17)
     out.push(soWyMenuModeRow(phone, soWyMenuModeOpt(state)));   // 消息菜单, the same family (redesign D2, owner 2026-11-17)
+    out.push(...soWyQkMeRows(phone));   // 一键进手机 (2026-11-26): SO's two quick buttons, global — only with env.stages.quick + env.quick
     out.push(soWyEl(d, 'div', { class: 'wy-gap' }));
     out.push(soWyEl(d, 'button', { type: 'button', class: ['wy-btnrow', 'wy-danger'], data: { 'wy-act': 'reset' } }, soWyIcon(d, 'power'), soWyEl(d, 'span', { text: T.reset })));
     if (!story) out.push(soWyEl(d, 'div', { class: 'wy-foot', text: T.foot }));
@@ -28582,7 +31297,7 @@ function soWyNotePreview(phone, words) {
     const title = String(T.notePreview).replace(/\s*›\s*$/, '');   // the link's arrow is the link's, not the sheet's title (playtest A9)
     phone.layer.appendChild(soWyEl(d, 'div', { class: 'wy-pop-wrap' },
         soWyEl(d, 'div', { class: ['wy-backdrop', 'wy-dim'], data: { 'wy-act': 'pop-close' } }),
-        soWyEl(d, 'div', { class: ['wy-sheet', 'wy-sheet-note'], role: 'dialog', aria: { label: title } },
+        soWyEl(d, 'div', { class: [soWySheetK(phone), 'wy-sheet-note'], role: 'dialog', aria: { label: title } },   // looks Task 13
             soWyEl(d, 'div', { class: 'wy-sheet-t', text: title }),
             soWyEl(d, 'pre', { class: 'wy-pre', text: text || T.none }),
             soWyEl(d, 'button', { type: 'button', class: ['wy-sheet-i', 'wy-sheet-c'], data: { 'wy-act': 'pop-close' }, text: T.cancel }))));
@@ -28667,7 +31382,7 @@ function soWyMeterSheet(phone) {
     soWyMenuDrop(phone);
     phone.layer.appendChild(soWyEl(d, 'div', { class: 'wy-pop-wrap' },
         soWyEl(d, 'div', { class: ['wy-backdrop', 'wy-dim'], data: { 'wy-act': 'pop-close' } }),
-        soWyEl(d, 'div', { class: ['wy-sheet', 'wy-msheet'], role: 'dialog', aria: { label: T.meterTitle }, data: { lv: v.level } },
+        soWyEl(d, 'div', { class: [soWySheetK(phone), 'wy-msheet'], role: 'dialog', aria: { label: T.meterTitle }, data: { lv: v.level } },   // looks Task 13
             soWyEl(d, 'div', { class: 'wy-sheet-t', text: T.meterTitle }),
             soWyEl(d, 'div', { class: ['wy-ms-num', 'wy-lv-' + v.level] }, v.level === 'red' ? soWyEl(d, 'span', { class: 'wy-ms-warn' }, soWyIcon(d, 'warning')) : null,
                 soWyEl(d, 'span', { text: soWyFmt(T.meterNum, { n: soWyKFmt(v.n) }) })),
@@ -28853,7 +31568,7 @@ function soWyMoreEvent(phone, type, ev, cur) {
         if ((ev.button != null && ev.button !== 0) || typeof t.closest !== 'function') return false;
         const ms = Number(phone.env.longPressMs) > 0 ? Number(phone.env.longPressMs) : THEATER_WEIYU_TIMING.longPress;
         const lp = { x: ev.clientX || 0, y: ev.clientY || 0, id: null };
-        const av = cur.k === 'chat' ? t.closest('.wy-m > .wy-av') : null;
+        const av = cur.k === 'chat' ? t.closest('.wy-m > .wy-av, .wy-m > .wy-spk') : null;
         if (av && !(soWyIsObj(phone.fsel) && phone.fsel.cid === cur.cid)) {
             const pid = av.getAttribute('data-wy-pid');
             const st = soWyEnvState(phone);
@@ -28917,13 +31632,15 @@ function soWyCardEl(phone, state, card) {
     const T = THEATER_WEIYU_TEXT;
     const p = card.k === 'contact' && card.pid ? soWyPerson(state, card.pid) : null;
     const live = !!p && p.gone !== 1;
-    const tile = p ? soWyAvatarEl(phone, card.pid, 42)
-        : soWyEl(d, 'span', { class: ['wy-card-ic', 'wy-card-ic-' + card.k] }, soWyIcon(d, THEATER_WEIYU_CARD_ICONS[card.k]));
-    return soWyEl(d, 'div', { class: ['wy-cardmsg', 'wy-card-' + card.k], tabindex: '0', role: live ? 'button' : null, data: { 'wy-k': card.k, 'wy-act': live ? 'card' : null, 'wy-pid': live ? card.pid : null } },
+    const dev = soWyLookDev(phone);
+    const tile = p ? (dev ? soWyLookSpeaker(phone, { u: card.pid }) : soWyAvatarEl(phone, card.pid, 42))
+        : dev ? soWyLkGlyph(phone, 'wy-card-ic', THEATER_WEIYU_CARD_ICONS[card.k])   // polish K1P: the device's mark, not the phone's coloured tile
+            : soWyEl(d, 'span', { class: ['wy-card-ic', 'wy-card-ic-' + card.k] }, soWyIcon(d, THEATER_WEIYU_CARD_ICONS[card.k]));
+    return soWyEl(d, 'div', { class: ['wy-cardmsg', 'wy-card-' + card.k, dev ? 'wy-dcard' : ''], tabindex: '0', role: live ? 'button' : null, data: { 'wy-k': card.k, 'wy-act': live ? 'card' : null, 'wy-pid': live ? card.pid : null } },
         soWyEl(d, 'div', { class: 'wy-card-main' },
             soWyEl(d, 'span', { class: 'wy-card-tx' }, soWyEl(d, 'span', { class: 'wy-card-t', text: card.title }), card.sub ? soWyEl(d, 'span', { class: 'wy-card-s', text: card.sub }) : null),
             soWyEl(d, 'span', { class: 'wy-card-i' }, tile)),
-        soWyEl(d, 'div', { class: 'wy-card-k', text: T.cardLabel[card.k] }));
+        soWyEl(d, 'div', { class: 'wy-card-k', text: soWyLookText(phone, 'cardLabel.' + card.k) }));   // looks Task 14: from the card's kind
 }
 
 function soWyCardOpen(phone, pid) {
@@ -28952,7 +31669,7 @@ function soWyCardCompose(phone, o) {
     const c = { cid: o.cid, t: 'card', k, title: String(o.title == null ? '' : o.title), sub: String(o.sub == null ? '' : o.sub), pid: typeof o.pid === 'string' ? o.pid : '' };
     soWyMenuDrop(phone);
     phone.compose = c;
-    const title = { loc: T.attLoc, file: T.attFile, contact: T.attContact, link: T.attLink, music: T.attMusic }[k];
+    const title = { loc: soWyLookText(phone, 'attLoc'), file: soWyLookText(phone, 'attFile'), contact: soWyLookText(phone, 'attContact'), link: soWyLookText(phone, 'attLink'), music: soWyLookText(phone, 'attMusic') }[k];   // looks Task 14
     const field = (f, lab, ph) => {
         const inp = soWyEl(d, 'input', { type: 'text', class: 'wy-cf-in', placeholder: ph, enterkeyhint: 'send', data: { 'wy-cf': f }, aria: { label: lab } });
         inp.value = f === 'sub' ? c.sub : c.title;
@@ -28967,11 +31684,11 @@ function soWyCardCompose(phone, o) {
             soWyEl(d, 'div', { class: 'wy-cmp-lab', text: T.cardPick }),
             soWyEl(d, 'div', { class: 'wy-cf-pick', role: 'radiogroup', aria: { label: T.cardPick } }, people.map((p) => soWyEl(d, 'div', {
                 class: 'wy-pick', role: 'radio', tabindex: '0', data: { 'wy-act': 'cmp-pid', 'wy-pid': p.id }, aria: { checked: 'false' },
-            }, soWyEl(d, 'span', { class: 'wy-ck' }, soWyIcon(d, 'check')), soWyAvatarEl(phone, p.id, 32), soWyEl(d, 'span', { class: 'wy-nm', text: soWyShownName(st, p.id) })))),
+            }, soWyEl(d, 'span', { class: 'wy-ck' }, soWyIcon(d, 'check')), soWyLkAv(phone, p.id, 32), soWyEl(d, 'span', { class: 'wy-nm', text: soWyShownName(st, p.id) })))),   // review C M-2: the device's mark under a device
             soWyEl(d, 'div', { class: 'wy-cmp-lab', text: T.cardOr }),
         ];
     }
-    const sheet = soWyEl(d, 'div', { class: ['wy-sheet', 'wy-compose', 'wy-cardcmp'], role: 'dialog', aria: { label: title }, data: { 'wy-kind': 'card', 'wy-k': k } },
+    const sheet = soWyEl(d, 'div', { class: [soWySheetK(phone), 'wy-compose', 'wy-cardcmp'], role: 'dialog', aria: { label: title }, data: { 'wy-kind': 'card', 'wy-k': k } },
         soWyEl(d, 'div', { class: 'wy-cmp-head' },
             soWyEl(d, 'button', { type: 'button', class: 'wy-cmp-x', data: { 'wy-act': 'pop-close' }, text: T.cancel }),
             soWyEl(d, 'span', { class: 'wy-cmp-t', text: title }),
@@ -29125,12 +31842,12 @@ function soWyScreenFwdPick(phone, page, state) {
     page.sel = page.sel.filter((cid) => targets.includes(cid)).slice(0, 1);
     const done = soWyEl(d, 'button', { type: 'button', class: 'wy-done', data: { 'wy-act': 'pick-done' }, disabled: !page.sel.length, text: T.fwdSend });
     return soWyEl(d, 'div', { class: ['wy-page', 'wy-pickpage', 'wy-fwdpick'] },
-        soWyTopBar(phone, { back: true, line: true, title: T.fwdPick, right: done }),
+        soWyTopBar(phone, { back: true, line: true, title: T.fwdPick, right: done, dev: true, surf: true }),
         soWyEl(d, 'div', { class: 'wy-pickstrip' }, soWyEl(d, 'span', { class: 'wy-ph', text: soWyFmt(T.fwdWhat, { n: f.ids.length }) })),
         soWyEl(d, 'div', { class: 'wy-scroll' }, targets.length ? targets.map((cid) => {
             const on = page.sel.includes(cid);
             return soWyEl(d, 'div', { class: ['wy-pick', on ? 'wy-on' : ''], role: 'radio', tabindex: '0', data: { 'wy-act': 'pkc', 'wy-cid': cid }, aria: { checked: on ? 'true' : 'false' } },
-                soWyEl(d, 'span', { class: 'wy-ck' }, soWyIcon(d, 'check')), soWyMosaicEl(phone, state.chats[cid], 40),
+                soWyEl(d, 'span', { class: 'wy-ck' }, soWyIcon(d, 'check')), soWyLkMosaic(phone, state, state.chats[cid], 40),
                 soWyEl(d, 'span', { class: 'wy-nm', text: soWyChatTitle(state, state.chats[cid], soWyShownWord) }));
         }) : soWyEl(d, 'div', { class: 'wy-none', text: T.fwdNone })));
 }
@@ -29156,8 +31873,9 @@ function soWyFwdEl(phone, msg) {
     const d = phone.host.ownerDocument;
     const T = THEATER_WEIYU_TEXT;
     const f = soWyFwdNorm(msg.fwd);
-    return soWyEl(d, 'div', { class: 'wy-fwdmsg', tabindex: '0', role: 'button', data: { 'wy-act': 'fwd-open', 'wy-mid': msg.id } },
-        soWyEl(d, 'div', { class: 'wy-fwd-t', text: f.from ? soWyFmt(T.fwdTitle, { from: f.from }) : T.fwdLabel }),
+    const title = soWyEl(d, 'div', { class: 'wy-fwd-t', text: f.from ? soWyFmt(T.fwdTitle, { from: f.from }) : T.fwdLabel });
+    return soWyEl(d, 'div', { class: ['wy-fwdmsg', soWyLookDev(phone) ? 'wy-dcard' : ''], tabindex: '0', role: 'button', data: { 'wy-act': 'fwd-open', 'wy-mid': msg.id } },
+        soWyLookDev(phone) ? soWyEl(d, 'div', { class: 'wy-fwd-h' }, soWyLkGlyph(phone, 'wy-fwd-ic', 'record'), title) : title,   // K4: the record's device mark
         soWyEl(d, 'div', { class: 'wy-fwd-ls' }, f.lines.slice(0, 3).map((l) => soWyEl(d, 'div', { class: 'wy-fwd-l', text: (l.name ? l.name + '：' : '') + l.v }))),
         soWyEl(d, 'div', { class: 'wy-fwd-k', text: T.fwdLabel }));
 }
@@ -29173,7 +31891,7 @@ function soWyFwdSheet(phone, cur, mid) {
     soWyMenuDrop(phone);
     phone.layer.appendChild(soWyEl(d, 'div', { class: 'wy-pop-wrap' },
         soWyEl(d, 'div', { class: ['wy-backdrop', 'wy-dim'], data: { 'wy-act': 'pop-close' } }),
-        soWyEl(d, 'div', { class: ['wy-sheet', 'wy-fwdsheet'], role: 'dialog', aria: { label: title } },
+        soWyEl(d, 'div', { class: [soWySheetK(phone), 'wy-fwdsheet'], role: 'dialog', aria: { label: title } },
             soWyEl(d, 'div', { class: 'wy-sheet-t', text: title }),
             soWyEl(d, 'div', { class: 'wy-fwd-list' }, f.lines.map((l) => soWyEl(d, 'div', { class: 'wy-fwd-row' },
                 soWyEl(d, 'span', { class: 'wy-fwd-n', text: l.name || '?' }), soWyEl(d, 'span', { class: 'wy-fwd-v', text: l.v })))),
@@ -29215,7 +31933,7 @@ function soWyAtSync(phone, cid, inp) {
             const shown = soWyShownName(st, pid);
             const real = soWyPerson(st, pid).name;
             return soWyEl(d, 'button', { type: 'button', class: 'wy-at-i', role: 'option', data: { 'wy-act': 'at-pick', 'wy-pid': pid } },
-                soWyAvatarEl(phone, pid, 28), soWyEl(d, 'span', { class: 'wy-nm', text: shown }), shown !== real ? soWyEl(d, 'span', { class: 'wy-at-real', text: real }) : null);
+                soWyLkAv(phone, pid, 28), soWyEl(d, 'span', { class: 'wy-nm', text: shown }), shown !== real ? soWyEl(d, 'span', { class: 'wy-at-real', text: real }) : null);
         })), foot.firstChild);
 }
 
@@ -29411,7 +32129,7 @@ function soWyRefusedSheet(phone, cid) {
     soWyMenuDrop(phone);
     phone.layer.appendChild(soWyEl(d, 'div', { class: 'wy-pop-wrap' },
         soWyEl(d, 'div', { class: ['wy-backdrop', 'wy-dim'], data: { 'wy-act': 'pop-close' } }),
-        soWyEl(d, 'div', { class: ['wy-sheet', 'wy-refsheet'], role: 'dialog', aria: { label: T.refusedTitle } },
+        soWyEl(d, 'div', { class: [soWySheetK(phone), 'wy-refsheet'], role: 'dialog', aria: { label: T.refusedTitle } },
             soWyEl(d, 'div', { class: 'wy-sheet-t', text: T.refusedTitle }),
             soWyEl(d, 'div', { class: 'wy-fwd-list' }, lines.map((m) => soWyEl(d, 'div', { class: ['wy-fwd-row', 'wy-ref-row'] },
                 soWyEl(d, 'span', { class: 'wy-fwd-n', text: soWyShownWord(st, m.u) }),
@@ -29449,7 +32167,7 @@ function soWyScreenSearch(phone) {
     const inp = soWyEl(d, 'input', { type: 'text', class: 'wy-srch-in', placeholder: T.search, enterkeyhint: 'search', data: { 'wy-sq': '' }, aria: { label: T.search } });
     inp.value = String(phone.sq == null ? '' : phone.sq);
     return soWyEl(d, 'div', { class: ['wy-page', 'wy-search'] },
-        soWyEl(d, 'div', { class: ['wy-top', 'wy-srchtop'] },
+        soWyEl(d, 'div', { class: soWyLookDev(phone) ? ['wy-dtop', 'wy-dtop-surf', 'wy-srchtop'] : ['wy-top', 'wy-srchtop'], data: { 'wy-dev': soWyLookDev(phone) || null } },   // looks Task 13
             soWyEl(d, 'label', { class: 'wy-srchf' }, soWyIcon(d, 'search'), inp),
             soWyEl(d, 'button', { type: 'button', class: 'wy-srch-x', data: { 'wy-act': 'back' }, text: T.cancel })),
         soWyEl(d, 'div', { class: ['wy-scroll', 'wy-srchres'] }, soWySearchBody(phone, state, phone.sq)));
@@ -29503,11 +32221,11 @@ function soWySearchBody(phone, state, query) {
     if (!r.people.length && !r.chats.length && !r.msgs.length) return [soWyEl(d, 'div', { class: 'wy-none', text: soWyFmt(T.searchNone, { q }) })];
     const group = (head, rows) => (rows.length ? soWyEl(d, 'div', { class: 'wy-srch-g' }, soWyEl(d, 'div', { class: 'wy-sechead', text: head }), soWyEl(d, 'div', { class: 'wy-card' }, rows)) : null);
     const people = r.people.map((x) => soWyEl(d, 'div', { class: 'wy-prow', role: 'button', tabindex: '0', data: { 'wy-act': 'profile', 'wy-pid': x.pid } },
-        soWyAvatarEl(phone, x.pid, 40),
+        soWyLkAv(phone, x.pid, 40),
         soWyEl(d, 'span', { class: 'wy-srch-tx' }, soWyEl(d, 'span', { class: 'wy-nm' }, soWyHitNodes(d, x.remark || x.name, q)),
             x.remark ? soWyEl(d, 'span', { class: 'wy-srch-sub' }, T.realName, soWyHitNodes(d, x.name, q)) : null)));
     const chats = r.chats.map((x) => soWyEl(d, 'div', { class: 'wy-prow', role: 'button', tabindex: '0', data: { 'wy-act': 'srch-chat', 'wy-cid': x.cid } },
-        soWyMosaicEl(phone, state.chats[x.cid], 40),
+        soWyLkMosaic(phone, state, state.chats[x.cid], 40),
         soWyEl(d, 'span', { class: 'wy-srch-tx' }, soWyEl(d, 'span', { class: 'wy-nm' }, soWyHitNodes(d, soWyChatTitle(state, state.chats[x.cid], soWyShownWord), q)))));
     const msgs = r.msgs.map((x) => {
         const chat = state.chats[x.cid];
@@ -29517,7 +32235,7 @@ function soWySearchBody(phone, state, query) {
         const f = m && m.t === 'text' ? soWyFwdNorm(m.fwd) : null;
         const text = f ? '[' + T.fwdLabel + '] ' + f.lines.map((l) => (l.name ? l.name + '：' : '') + l.v).join('／') : x.text;
         return soWyEl(d, 'div', { class: ['wy-prow', 'wy-srch-m'], role: 'button', tabindex: '0', data: { 'wy-act': 'srch-msg', 'wy-cid': x.cid, 'wy-mid': x.mid } },
-            soWyMosaicEl(phone, chat, 40),
+            soWyLkMosaic(phone, state, chat, 40),
             soWyEl(d, 'span', { class: 'wy-srch-tx' }, soWyEl(d, 'span', { class: 'wy-nm', text: soWyChatTitle(state, chat, soWyShownWord) }),
                 soWyEl(d, 'span', { class: 'wy-srch-sub' }, who, soWyHitNodes(d, text, q, true))));
     });
@@ -29559,15 +32277,18 @@ function soWyCallEl(phone, state, chat, msg, shown) {
     const T = THEATER_WEIYU_TEXT;
     const c = soWyCallNorm(msg.call);
     const view = soWyEvView(msg, msg.to);
-    const words = c.st === 'live' ? T.callLive : c.st === 'done' ? (c.dur ? soWyFmt(T.callDur, { dur: c.dur }) : T.callDone) : T.callSt[view][c.st];
+    const words = c.st === 'live' ? soWyLookText(phone, 'callLive') : c.st === 'done' ? (c.dur ? soWyFmt(soWyLookText(phone, 'callDur'), { dur: c.dur }) : T.callDone) : T.callSt[view][c.st];   // looks Task 14
     const back = soWyCanCall(state, chat, soWyEvOn(phone));
     const log = c.st === 'done' && Array.isArray(c.turns) && c.turns.length > 0;
     const act = c.st === 'live' ? (soWyCsOn(phone) ? 'call-open' : null) : log ? 'call-log' : back ? 'callback' : null;
     const b = soWyEl(d, 'div', {
-        class: ['wy-bubble', 'wy-callmsg', 'wy-call-' + c.st], tabindex: '0', role: act ? 'button' : null,
+        class: [soWyBubK(phone), 'wy-callmsg', 'wy-call-' + c.st, soWyLookDev(phone) ? 'wy-dcard' : ''], tabindex: '0', role: act ? 'button' : null,
         data: { 'wy-act': act, 'wy-mode': c.mode, 'wy-mid': act === 'call-log' || act === 'call-open' ? msg.id : null },
-    }, soWyIcon(d, c.mode === 'video' ? 'video' : 'call'), soWyEl(d, 'span', { class: 'wy-call-t', text: words }));
+    }, soWyLookDev(phone) ? soWyLkGlyph(phone, 'wy-call-ic', c.mode === 'video' ? 'video' : 'call') : soWyIcon(d, c.mode === 'video' ? 'video' : 'call'),
+    soWyEl(d, 'span', { class: 'wy-call-t', text: words }));
     if (c.why && view === 'me') return [b, soWyEl(d, 'div', { class: 'wy-callwhy', text: soWyFmt(T.callWhy, { why: c.why }) })];
+    const vm = soWyInVm(phone, msg, c, view, shown);   // phone upgrades (Task 18): her 语音留言 under her missed / declined call (stage incall)
+    if (vm) return [b, vm];
     if (!c.gist || soWyIsMine(chat)) return b;
     const open = !!shown && shown.has('c:' + msg.id);
     return [b,
@@ -29586,16 +32307,17 @@ function soWyPayCard(phone, o) {
     const view = ['me', 'them', 'peek'].includes(o.view) ? o.view : 'peek';
     const line = st === 'expired' ? T.payExpired : (st === 'open' ? T.payOpen : st === 'taken' ? T.payTaken : T.payBack)[view];
     return soWyEl(d, 'div', {
-        class: ['wy-paymsg', st === 'open' ? 'wy-pay-open' : 'wy-pay-closed', 'wy-pay-' + st, o.ans ? 'wy-pay-ans' : ''], tabindex: '0', role: o.act ? 'button' : null,
+        class: ['wy-paymsg', st === 'open' ? 'wy-pay-open' : 'wy-pay-closed', 'wy-pay-' + st, o.ans ? 'wy-pay-ans' : '', soWyLookDev(phone) ? 'wy-dcard' : ''], tabindex: '0', role: o.act ? 'button' : null,
         data: { 'wy-st': st, 'wy-act': o.act ? 'pay-open' : null, 'wy-mid': o.act || null },
     },
     soWyEl(d, 'div', { class: 'wy-pay-main' },
-        soWyEl(d, 'span', { class: 'wy-pay-ic' }, soWyIcon(d, st === 'taken' ? 'check' : st === 'back' ? 'recall' : 'transfer')),
+        soWyLookDev(phone) ? soWyLkGlyph(phone, 'wy-pay-ic', st === 'taken' ? 'transfer-taken' : st === 'back' ? 'transfer-back' : 'transfer')
+            : soWyEl(d, 'span', { class: 'wy-pay-ic' }, soWyIcon(d, st === 'taken' ? 'check' : st === 'back' ? 'recall' : 'transfer')),
         soWyEl(d, 'span', { class: 'wy-pay-tx' },
-            soWyEl(d, 'span', { class: 'wy-pay-amt', text: o.amt || T.payLabel }),
+            soWyEl(d, 'span', { class: 'wy-pay-amt', text: o.amt || soWyLookText(phone, 'payLabel') }),   // looks Task 14
             o.note ? soWyEl(d, 'span', { class: 'wy-pay-note', text: o.note }) : null,
             soWyEl(d, 'span', { class: 'wy-pay-st', text: line }))),
-    soWyEl(d, 'div', { class: 'wy-pay-k', text: T.payLabel }));
+    soWyEl(d, 'div', { class: 'wy-pay-k', text: soWyLookText(phone, 'payLabel') }));
 }
 
 function soWyPayEl(phone, state, chat, msg) {
@@ -29632,9 +32354,60 @@ function soWyCallSheetShow(phone) {
     const item = (mode, label) => soWyEl(d, 'button', { type: 'button', role: 'menuitem', class: 'wy-sheet-i', data: { 'wy-act': 'call-go', 'wy-v': mode }, text: label });
     phone.layer.appendChild(soWyEl(d, 'div', { class: 'wy-pop-wrap' },
         soWyEl(d, 'div', { class: ['wy-backdrop', 'wy-dim'], data: { 'wy-act': 'pop-close' } }),
-        soWyEl(d, 'div', { class: ['wy-sheet', 'wy-callsheet'], role: 'menu', aria: { label: T.attCall } },
-            item('voice', T.callVoice), item('video', T.callVideo),
+        soWyEl(d, 'div', { class: [soWySheetK(phone), 'wy-callsheet'], role: 'menu', aria: { label: T.attCall } },
+            item('voice', soWyLkCallWord(phone, 'voice')), item('video', soWyLkCallWord(phone, 'video')),
             soWyEl(d, 'button', { type: 'button', class: ['wy-sheet-i', 'wy-sheet-c'], data: { 'wy-act': 'pop-close' }, text: T.cancel }))));
+}
+
+// ---- looks Task 10 (spec §4.4, §13.2, §14.3, §14.7): the call screens as the device ---------------------------------------------------
+// Under a device the calling / incoming / live / ended screens keep every class, act and text the phone's handlers and tests read
+// (.wy-callscr / .wy-cs, data-wy-phase, .wy-callscr-nm / -st / -mode, .wy-cs-head / -log / -foot, the field and its send, .wy-cs-time) and
+// take the device's own form: .wy-dcs.wy-dcs-<dev> on the screen; its art (crystal: the resonating light; scroll: the talisman's own roller
+// over a strip of talisman paper); the caller's device mark (her picture in the gem / seal frame, else her sigil / name seal) with its
+// resonance rings, never the phone's round avatar; the device's buttons, never the phone's round red ones (crystal: the hang-up stone; scroll:
+// the black tablet; 接听 / 重拨 = a light stone / a jade seal; 关闭 and the failed screen's 取消 = a quiet stone / seal); the set's call words
+// where the phone writes 语音通话 / 视频通话 (§14.3 — a device picked by hand on a 现代 card keeps them). The phone look: today's DOM.
+
+// inMs: how long her newest turn counts as arriving (its gathering / soaking motion, weiyu.css: ≤ ~1 s a line, a long turn ≤ ~1.4 s).
+const THEATER_WEIYU_LK_CS = Object.freeze({ inMs: 1400 });
+
+// The call word on screen: the set's voiceCall / videoCall under a device with a resolved set, else T.callVoice / T.callVideo.
+function soWyLkCallWord(phone, mode) {
+    return soWyLookText(phone, mode === 'video' ? 'callVideo' : 'callVoice');   // looks Task 14: the one label path (THEATER_WEIYU_LOOK_LABELS)
+}
+
+// The screen's art (first child, behind everything): crystal = the resonating light; scroll = the talisman's roller (the talisman art,
+// cropped to its roller by CSS) — the paper itself is the screen's ::before.
+function soWyLkCsArt(phone, dev) {
+    const d = phone.host.ownerDocument;
+    return soWyEl(d, 'span', { class: 'wy-dcs-art', aria: { hidden: 'true' } },
+        dev === 'scroll' ? soWyLkIcon(phone, 'talisman', 'none') : soWyEl(d, 'span', { class: 'wy-dcs-glow' }));
+}
+
+// The caller's face: her device mark (size px) inside three resonance rings (they move only with 动画 on).
+function soWyLkCsFace(phone, pid, size) {
+    const d = phone.host.ownerDocument;
+    const face = soWyEl(d, 'span', { class: 'wy-dcs-face' },
+        soWyEl(d, 'span', { class: 'wy-dcs-reso', aria: { hidden: 'true' } }, soWyEl(d, 'i'), soWyEl(d, 'i'), soWyEl(d, 'i')), soWyLkAv(phone, pid, size));
+    face.style.setProperty('--wy-dcs-f', size + 'px');
+    return face;
+}
+
+// A call button as the device's: kind 'hang' (挂断 / 取消 while it rings / 拒绝) = the hang-up stone | the black tablet; 'yes' (接听 / 重拨)
+// = a light stone | a jade seal with the mode's icon; 'quiet' (关闭, the failed screen's 取消) = a quiet stone | seal with ✕. The art carries
+// data-wy-art = its name. cls = the phone's own extra classes (wy-cs-quiet / wy-cs-redial / wy-cs-accept), kept.
+function soWyLkCsBtn(phone, act, kind, label, icon, cls) {
+    const d = phone.host.ownerDocument;
+    const sc = soWyLookDev(phone) === 'scroll';
+    const art = kind === 'hang' ? (sc ? 'tablet' : 'hangup-stone') : sc ? 'seal' : 'rune-stone';
+    return soWyEl(d, 'button', { type: 'button', class: ['wy-callscr-end', 'wy-dcs-b', 'wy-dcs-' + kind].concat(cls || []), data: { 'wy-act': act }, aria: { label } },
+        soWyEl(d, 'span', { class: 'wy-dcs-k', aria: { hidden: 'true' }, data: { 'wy-art': art } }, soWyLkIcon(phone, art), kind === 'hang' ? null : soWyIcon(d, icon || 'close')),
+        soWyEl(d, 'span', { class: 'wy-callscr-l', text: label }));
+}
+
+// The screen's classes: the phone's + the device's (dev '' = the phone's only).
+function soWyLkCsCls(base, dev) {
+    return dev ? base.concat(['wy-dcs', 'wy-dcs-' + dev]) : base;
 }
 
 // A20 (owner 2026-11-19, the familiar messenger's profile): 音视频通话 under 发消息 on EVERY contact's profile (owner's ruling: with or
@@ -29702,7 +32475,17 @@ function soWyCallStart(phone, cid, mode) {
         if (!phone.dead) soWyKindSend(phone, cid, { t: 'call', mode });
     };
     const label = mode === 'video' ? T.callVideo : T.callVoice;
-    ring.el = soWyEl(d, 'div', { class: 'wy-callscr', role: 'dialog', aria: { label }, data: { 'wy-mode': mode } },
+    const dev = soWyLookDev(phone);
+    if (dev) {   // looks Task 10: the brief calling screen (call scene off) as the device — the same act, the device's form
+        const w = soWyLkCallWord(phone, mode);
+        ring.el = soWyEl(d, 'div', { class: soWyLkCsCls(['wy-callscr'], dev), role: 'dialog', aria: { label: w }, data: { 'wy-mode': mode, 'wy-phase': 'ring' } },
+            soWyLkCsArt(phone, dev),
+            soWyEl(d, 'div', { class: 'wy-callscr-who' }, soWyLkCsFace(phone, peer, 88),
+                soWyEl(d, 'span', { class: 'wy-callscr-nm', text: soWyShownWord(st, peer) }),
+                soWyEl(d, 'span', { class: 'wy-callscr-st', text: T.callWait }),
+                soWyEl(d, 'span', { class: 'wy-callscr-mode', text: w })),
+            soWyEl(d, 'div', { class: 'wy-callscr-foot' }, soWyLkCsBtn(phone, 'call-end', 'hang', T.cancel)));
+    } else ring.el = soWyEl(d, 'div', { class: 'wy-callscr', role: 'dialog', aria: { label }, data: { 'wy-mode': mode } },
         soWyEl(d, 'div', { class: 'wy-callscr-who' }, soWyAvatarEl(phone, peer, 88),
             soWyEl(d, 'span', { class: 'wy-callscr-nm', text: soWyShownWord(st, peer) }),
             soWyEl(d, 'span', { class: 'wy-callscr-st', text: T.callWait }),
@@ -29729,7 +32512,7 @@ function soWyPaySheet(phone, cid, mid) {
     const tag = { 'wy-mid': mid };
     phone.layer.appendChild(soWyEl(d, 'div', { class: 'wy-pop-wrap' },
         soWyEl(d, 'div', { class: ['wy-backdrop', 'wy-dim'], data: { 'wy-act': 'pop-close' } }),
-        soWyEl(d, 'div', { class: ['wy-sheet', 'wy-paysheet'], role: 'dialog', aria: { label: T.attPay } },
+        soWyEl(d, 'div', { class: [soWySheetK(phone), 'wy-paysheet'], role: 'dialog', aria: { label: soWyLookText(phone, 'attPay') } },
             soWyEl(d, 'div', { class: 'wy-sheet-t', text: soWyFmt(T.payWait, { name: soWyShownWord(st, m.u) }) }),
             p.amt ? soWyEl(d, 'div', { class: 'wy-paysheet-amt', text: p.amt }) : null,
             p.note ? soWyEl(d, 'div', { class: 'wy-paysheet-note', text: p.note }) : null,
@@ -29766,12 +32549,12 @@ function soWyPayCompose(phone, o) {
         inp.value = c[f];
         return soWyEl(d, 'label', { class: 'wy-cf' }, soWyEl(d, 'span', { class: 'wy-cf-l', text: lab }), inp);
     };
-    const sheet = soWyEl(d, 'div', { class: ['wy-sheet', 'wy-compose', 'wy-paycmp'], role: 'dialog', aria: { label: T.attPay }, data: { 'wy-kind': 'pay' } },
+    const sheet = soWyEl(d, 'div', { class: [soWySheetK(phone), 'wy-compose', 'wy-paycmp'], role: 'dialog', aria: { label: soWyLookText(phone, 'attPay') }, data: { 'wy-kind': 'pay' } },
         soWyEl(d, 'div', { class: 'wy-cmp-head' },
             soWyEl(d, 'button', { type: 'button', class: 'wy-cmp-x', data: { 'wy-act': 'pop-close' }, text: T.cancel }),
-            soWyEl(d, 'span', { class: 'wy-cmp-t', text: T.attPay }),
+            soWyEl(d, 'span', { class: 'wy-cmp-t', text: soWyLookText(phone, 'attPay') }),
             soWyEl(d, 'button', { type: 'button', class: 'wy-cmp-go', data: { 'wy-act': 'cmp-send' }, disabled: true, text: T.send })),
-        soWyEl(d, 'div', { class: 'wy-pay-to' }, soWyAvatarEl(phone, peer, 32), soWyEl(d, 'span', { class: 'wy-nm', text: soWyFmt(T.payTo, { name: soWyShownWord(st, peer) }) })),
+        soWyEl(d, 'div', { class: 'wy-pay-to' }, soWyLkAv(phone, peer, 32), soWyEl(d, 'span', { class: 'wy-nm', text: soWyFmt(soWyLookText(phone, 'payTo'), { name: soWyShownWord(st, peer) }) })),
         soWyEl(d, 'div', { class: 'wy-cmp-prev', aria: { hidden: 'true' } }),
         field('amt', T.payAmt, T.payAmtHint),
         field('note', T.payNote, T.payNoteHint),
@@ -29991,6 +32774,7 @@ function soWyCsStarted(phone, w, r0) {
     if (r.ok && typeof r.mid === 'string') w.mid = r.mid;
     if (r.ok && r.st === 'live') {
         w.phase = 'live';
+        soWySoundPlay(phone, 'connect');   // sound (plan Task 13): env.sound only
         soWyCsPaint(phone);
         soWyCsTick(phone, w);
         phone.refresh();
@@ -30010,6 +32794,11 @@ function soWyCsStarted(phone, w, r0) {
         phone.refresh();
         return;
     }
+    if (w.inc) {   // phone upgrades: her call could not be picked up — it stays missed; 重拨 would be HIS call, so just say so
+        soWyCsClose(phone);
+        phone.toast(T.csFail, { so: true });
+        return;
+    }
     w.phase = 'fail';
     w.note = soWyCauseLine(r);   // pt8: the real cause under 没接通 (an error, an empty / unreadable reply), '' when there is none
     soWyCsPaint(phone);
@@ -30026,6 +32815,7 @@ function soWyCsEnd(phone) {
     } else if (w.phase === 'live') {
         soWyCsHangOn(phone.env, w.cid, w.mid);
         soWyCsStop(phone);
+        soWySoundPlay(phone, 'end');   // sound (plan Task 13): his hang-up
     }
     soWyCsClose(phone);
 }
@@ -30041,6 +32831,7 @@ function soWyCsClose(phone) {
 // her last words, 「对方已挂断」, the clock frozen at the call's length, one 关闭 (cs-close → soWyCsClose) where the field and the red button were.
 function soWyCsEnded(phone, w) {
     w.phase = 'end';
+    soWySoundPlay(phone, 'end');   // sound (plan Task 13): env.sound only
     w.busy = false;
     soWyCsPaint(phone);
     phone.refresh();
@@ -30168,10 +32959,15 @@ function soWyCsSync(phone) {
 function soWyCsAfter(phone) {
     const w = phone.wyCall;
     if (w && (w.phase === 'live' || w.phase === 'end')) soWyCsPaint(phone);
+    // phone upgrades (stage incall): her call picked up outside the phone (the page card) goes to its panel on the next render
+    if (!w && soWyInOn(phone) && !phone.csResuming) {
+        phone.csResuming = true;
+        try { soWyCsResume(phone, true); } finally { phone.csResuming = false; }
+    }
 }
 
 // A live call of this page with no panel (the phone re-opened mid-call, or its 「通话中」 bubble tapped): back to its panel, over its chat.
-function soWyCsResume(phone) {
+function soWyCsResume(phone, hersOnly) {
     if (phone.dead || !soWyCsOn(phone)) return;
     if (phone.wyCall) {
         soWyCsPaint(phone);
@@ -30182,7 +32978,9 @@ function soWyCsResume(phone) {
     for (const cid of Object.keys(st.chats)) {
         const chat = soWyChat(st, cid);
         const i = soWyCallLiveIdx(chat);
-        if (i < 0 || chat.msgs[i].u !== THEATER_WEIYU_ME) continue;
+        // his own call; with the incoming stage also HER call he picked up (u = her, to = me) — hersOnly: only hers (soWyCsAfter)
+        const mine = i >= 0 && chat.msgs[i].u === THEATER_WEIYU_ME;
+        if (i < 0 || (!mine && !soWyInOn(phone)) || (mine && hersOnly === true)) continue;
         const m = chat.msgs[i];
         const c = soWyCallNorm(m.call);
         const top = phone.stack[phone.stack.length - 1] || {};
@@ -30191,7 +32989,7 @@ function soWyCsResume(phone) {
             phone.stack = [soWyRootPage(phone), { k: 'chat', cid }];
             soWyRender(phone, false);
         }
-        phone.wyCall = { cid, mode: c.mode, her: m.to, mid: m.id, at: 0, phase: 'live', busy: false, hung: false, note: '', el: null, inp: null };
+        phone.wyCall = { cid, mode: c.mode, her: mine ? m.to : m.u, mid: m.id, at: 0, phase: 'live', busy: false, hung: false, note: '', el: null, inp: null };
         soWyCsPaint(phone);
         soWyCsTick(phone, phone.wyCall);
         return;
@@ -30236,26 +33034,57 @@ function soWyCsPaint(phone) {
     const T = THEATER_WEIYU_TEXT;
     const st = soWyEnvState(phone);
     const name = soWyShownWord(st, w.her);
-    const label = w.mode === 'video' ? T.callVideo : T.callVoice;
+    const dev = soWyLookDev(phone);   // looks Task 10: '' under the phone look (today's DOM)
+    const label = soWyLkCallWord(phone, w.mode);
     if (!w.el) {
-        w.el = soWyEl(d, 'div', { class: ['wy-callscr', 'wy-cs'], role: 'dialog', aria: { label }, data: { 'wy-mode': w.mode } });
+        w.el = soWyEl(d, 'div', { class: soWyLkCsCls(['wy-callscr', 'wy-cs'], dev), role: 'dialog', aria: { label }, data: { 'wy-mode': w.mode } });
+        if (dev && w.inc) w.el.classList.add('wy-dcs-cont');   // her call picked up: the talisman / the light is already out (no second unroll)
         phone.layer.appendChild(w.el);
+        w.dev = dev;
+    } else if (w.dev !== dev) {
+        // looks Task 10 (Review Focus 2): the look changed while the call is on screen → the same panel redrawn as the new device; his
+        // half-typed line is carried into the new field
+        for (const c of ['wy-dcs', 'wy-dcs-crystal', 'wy-dcs-scroll']) w.el.classList.remove(c);
+        if (dev) w.el.classList.add('wy-dcs', 'wy-dcs-' + dev);
+        w.el.setAttribute('aria-label', label);
+        w.keep = w.inp ? w.inp.value : '';
+        w.built = false;
+        w.dev = dev;
     }
     const el = w.el;
     el.setAttribute('data-wy-phase', w.phase);
     // ringing / a START that did not get through: the familiar calling screen
+    if ((w.phase === 'ring' || w.phase === 'fail') && dev) {
+        // looks Task 10: the device's calling screen — the same acts (call-end; failed: call-end + cs-redial), the device's form
+        w.built = false;
+        el.classList.remove('wy-cs-on');
+        const fail = w.phase === 'fail';
+        const endL = w.inc ? T.csHang : T.cancel;
+        const icon = w.mode === 'video' ? 'video' : 'call';
+        el.replaceChildren(soWyLkCsArt(phone, dev),
+            soWyEl(d, 'div', { class: 'wy-callscr-who' }, soWyLkCsFace(phone, w.her, 88),
+                soWyEl(d, 'span', { class: 'wy-callscr-nm', text: name }),
+                soWyEl(d, 'span', { class: ['wy-callscr-st', fail ? 'wy-cs-failst' : ''], text: fail ? T.csFail : w.inc ? T.upInJoin : T.callWait }),
+                fail && w.note ? soWyEl(d, 'span', { class: 'wy-cs-why', text: w.note }) : null,
+                soWyEl(d, 'span', { class: 'wy-callscr-mode', text: label })),
+            soWyEl(d, 'div', { class: ['wy-callscr-foot', fail ? 'wy-cs-two' : ''] },
+                fail ? soWyLkCsBtn(phone, 'call-end', 'quiet', endL, 'close', ['wy-cs-quiet']) : soWyLkCsBtn(phone, 'call-end', 'hang', endL),
+                fail ? soWyLkCsBtn(phone, 'cs-redial', 'yes', T.csRedial, icon, ['wy-cs-redial']) : null));
+        return;
+    }
     if (w.phase === 'ring' || w.phase === 'fail') {
         w.built = false;
         el.classList.remove('wy-cs-on');
         const fail = w.phase === 'fail';
-        const end = soWyEl(d, 'button', { type: 'button', class: ['wy-callscr-end', fail ? 'wy-cs-quiet' : ''], data: { 'wy-act': 'call-end' }, aria: { label: T.cancel } },
-            soWyEl(d, 'span', { class: 'wy-callscr-x' }, soWyIcon(d, fail ? 'close' : 'call')), soWyEl(d, 'span', { class: 'wy-callscr-l', text: T.cancel }));
+        const endL = w.inc ? T.csHang : T.cancel;   // phone upgrades: picking up her call (w.inc) — the red button hangs up
+        const end = soWyEl(d, 'button', { type: 'button', class: ['wy-callscr-end', fail ? 'wy-cs-quiet' : ''], data: { 'wy-act': 'call-end' }, aria: { label: endL } },
+            soWyEl(d, 'span', { class: 'wy-callscr-x' }, soWyIcon(d, fail ? 'close' : 'call')), soWyEl(d, 'span', { class: 'wy-callscr-l', text: endL }));
         const redial = fail ? soWyEl(d, 'button', { type: 'button', class: ['wy-callscr-end', 'wy-cs-redial'], data: { 'wy-act': 'cs-redial' }, aria: { label: T.csRedial } },
             soWyEl(d, 'span', { class: 'wy-callscr-x' }, soWyIcon(d, w.mode === 'video' ? 'video' : 'call')), soWyEl(d, 'span', { class: 'wy-callscr-l', text: T.csRedial })) : null;
         el.replaceChildren(
             soWyEl(d, 'div', { class: 'wy-callscr-who' }, soWyAvatarEl(phone, w.her, 88),
                 soWyEl(d, 'span', { class: 'wy-callscr-nm', text: name }),
-                soWyEl(d, 'span', { class: ['wy-callscr-st', fail ? 'wy-cs-failst' : ''], text: fail ? T.csFail : T.callWait }),
+                soWyEl(d, 'span', { class: ['wy-callscr-st', fail ? 'wy-cs-failst' : ''], text: fail ? T.csFail : w.inc ? T.upInJoin : T.callWait }),
                 fail && w.note ? soWyEl(d, 'span', { class: 'wy-cs-why', text: w.note }) : null,
                 soWyEl(d, 'span', { class: 'wy-callscr-mode' }, soWyIcon(d, w.mode === 'video' ? 'video' : 'call'), label)),
             soWyEl(d, 'div', { class: ['wy-callscr-foot', fail ? 'wy-cs-two' : ''] }, end, redial));
@@ -30277,9 +33106,51 @@ function soWyCsPaint(phone) {
     el.classList.add('wy-cs-on');
     // the frame, built once per call: head · (video) camera · transcript · foot (field + 发送 · the red hang-up; ended: her hang-up line +
     // 关闭 — the quiet round button of the calling screen)
+    if (!w.built && dev) {
+        // looks Task 10: the device's live frame — the same parts and acts (the one-line field + cs-send · call-end · her hang-up line +
+        // cs-close); crystal: the field in the rune ring, 发送 a rune stone, 挂断 the hang-up stone; scroll: the paper slip, his seal,
+        // the black tablet. The art comes first (behind).
+        const keep = typeof w.keep === 'string' ? w.keep : '';
+        w.keep = '';
+        w.inp = soWyEl(d, 'input', { type: 'text', class: ['wy-input', 'wy-cs-in'], placeholder: T.csHint,
+            enterkeyhint: 'send', autocomplete: 'off', data: { 'wy-csin': '' }, aria: { label: T.csHint } });
+        if (keep) w.inp.value = keep;
+        const cr = dev === 'crystal';
+        const send = cr
+            ? soWyEl(d, 'button', { type: 'button', class: ['wy-send', 'wy-send-dev', 'wy-send-stone', 'wy-dcs-send'], data: { 'wy-act': 'cs-send' }, disabled: true, aria: { label: T.send }, title: T.send },
+                soWyEl(d, 'span', { class: 'wy-dk-art', aria: { hidden: 'true' } }, soWyLkIcon(phone, 'rune-stone')), soWyIcon(d, 'send'))
+            : soWyEl(d, 'button', { type: 'button', class: ['wy-send', 'wy-send-dev', 'wy-send-seal', 'wy-dcs-send'], data: { 'wy-act': 'cs-send' }, disabled: true, aria: { label: T.send }, title: T.send },
+                soWyLookSpeaker(phone, { u: THEATER_WEIYU_ME }));
+        send.addEventListener('pointerdown', (e) => { w.ptr = String(e.pointerType || ''); });   // finger or mouse (soWyCsSend's caret rule)
+        w.parts = {
+            head: soWyEl(d, 'div', { class: ['wy-cs-head', 'wy-dcs-head'] }),
+            cam: w.mode === 'video' ? soWyEl(d, 'div', { class: 'wy-cs-cam', role: 'img', aria: { label: T.csCam } }) : null,
+            log: soWyEl(d, 'div', { class: ['wy-cs-log', 'wy-scroll'], role: 'log', aria: { label: T.csLog } }),
+            // K2C (stage-2 second opinion #1, spec §4.4 call live): the chat's own writing place — crystal: the field inside the rune ring
+            // (.wy-ring-f + the stretched rune-ring art, the send stone on the ring); scroll: the field on the ruled paper slip with the brush,
+            // his seal beside it as cs-send. The same one-line field and acts; nothing new reads them.
+            row: cr
+                ? soWyEl(d, 'div', { class: ['wy-cs-inrow', 'wy-dcs-inrow', 'wy-dcs-ring'] },
+                    soWyEl(d, 'div', { class: 'wy-ring-f' }, soWyEl(d, 'span', { class: 'wy-ring-art', aria: { hidden: 'true' } }, soWyLkIcon(phone, 'rune-ring', 'none')), w.inp), send)
+                : soWyEl(d, 'div', { class: ['wy-cs-inrow', 'wy-dcs-inrow', 'wy-dcs-desk'] },
+                    soWyEl(d, 'div', { class: 'wy-slip' }, w.inp, soWyEl(d, 'span', { class: 'wy-slip-brush', aria: { hidden: 'true' } }, soWyLkIcon(phone, 'brush'))), send),
+            ended: soWyEl(d, 'div', { class: 'wy-cs-ended', role: 'status', text: T.csHungUp }),
+            end: soWyLkCsBtn(phone, 'call-end', 'hang', T.csHang),
+            close: soWyLkCsBtn(phone, 'cs-close', 'quiet', T.hostClose, 'close', ['wy-cs-quiet']),
+        };
+        w.parts.foot = soWyEl(d, 'div', { class: 'wy-cs-foot' }, w.parts.row, w.parts.ended, w.parts.end, w.parts.close);
+        w.scene = null;
+        // her turns already on screen at this build do not gather in again (a resumed call); a fresh call's pick-up turn does
+        w.lkSeen = (Array.isArray(call.turns) && call.turns.length > 1) ? call.turns.length : 0;
+        w.lkNew = {};
+        el.replaceChildren(...[soWyLkCsArt(phone, dev), w.mode === 'video' ? w.parts.cam : w.parts.head, w.parts.log, w.parts.foot].filter(Boolean));
+        w.built = true;
+        w.closeFocused = false;
+    }
     if (!w.built) {
         w.inp = soWyEl(d, 'input', { type: 'text', class: ['wy-input', 'wy-cs-in'], placeholder: T.csHint,
             enterkeyhint: 'send', autocomplete: 'off', data: { 'wy-csin': '' }, aria: { label: T.csHint } });
+        if (typeof w.keep === 'string' && w.keep) { w.inp.value = w.keep; w.keep = ''; }   // looks Task 10: a look change back to the phone
         const send = soWyEl(d, 'button', { type: 'button', class: 'wy-send', data: { 'wy-act': 'cs-send' }, disabled: true, text: T.send });
         send.addEventListener('pointerdown', (e) => { w.ptr = String(e.pointerType || ''); });   // finger or mouse (soWyCsSend's caret rule)
         w.parts = {
@@ -30301,9 +33172,16 @@ function soWyCsPaint(phone) {
     const P = w.parts;
     const ended = w.phase === 'end';
     const time = ended ? (call.dur || soWyCallDur(Date.now() - w.at)) : soWyCallDur(Date.now() - w.at);
-    // the head: her picture (voice), name, the timer
-    P.head.replaceChildren(...[w.mode === 'video' ? null : soWyAvatarEl(phone, w.her, 72),
-        soWyEl(d, 'div', { class: 'wy-cs-who' }, soWyEl(d, 'span', { class: 'wy-cs-nm', text: name }), soWyEl(d, 'span', { class: 'wy-cs-time', text: time }))].filter(Boolean));
+    // the head: her picture (voice), name, the timer — looks Task 10: under a device a small row (her device mark, her name and the timer,
+    // the set's call word)
+    if (dev) {
+        P.head.replaceChildren(...[w.mode === 'video' ? null : soWyLkCsFace(phone, w.her, 44),
+            soWyEl(d, 'div', { class: 'wy-cs-who' }, soWyEl(d, 'span', { class: 'wy-cs-nm', text: name }), soWyEl(d, 'span', { class: 'wy-cs-time', text: time })),
+            soWyEl(d, 'span', { class: 'wy-dcs-mode', text: label })].filter(Boolean));
+    } else {
+        P.head.replaceChildren(...[w.mode === 'video' ? null : soWyAvatarEl(phone, w.her, 72),
+            soWyEl(d, 'div', { class: 'wy-cs-who' }, soWyEl(d, 'span', { class: 'wy-cs-nm', text: name }), soWyEl(d, 'span', { class: 'wy-cs-time', text: time }))].filter(Boolean));
+    }
     const turns = Array.isArray(call.turns) ? call.turns : [];
     // VIDEO: her camera = the 画面 of her latest turn that has one (a soft cross-fade on a change, motion on), his own preview in a corner
     if (P.cam) {
@@ -30313,20 +33191,31 @@ function soWyCsPaint(phone) {
         w.scene = vis;
         P.cam.replaceChildren(
             soWyEl(d, 'div', { class: 'wy-cs-scene' }, vis ? soWyEl(d, 'span', { class: ['wy-cs-scene-t', fresh ? 'wy-cs-new' : ''], text: vis })
-                : soWyEl(d, 'span', { class: 'wy-cs-scene-av' }, soWyAvatarEl(phone, w.her, 72))),
+                : soWyEl(d, 'span', { class: 'wy-cs-scene-av' }, dev ? soWyLkAv(phone, w.her, 72) : soWyAvatarEl(phone, w.her, 72))),
             P.head,
-            soWyEl(d, 'div', { class: 'wy-cs-self', role: 'img', aria: { label: T.csSelf } }, soWyAvatarEl(phone, THEATER_WEIYU_ME, 40)));
+            soWyEl(d, 'div', { class: 'wy-cs-self', role: 'img', aria: { label: T.csSelf } }, dev ? soWyLkAv(phone, THEATER_WEIYU_ME, 40) : soWyAvatarEl(phone, THEATER_WEIYU_ME, 40)));
     }
     // the transcript so far: her lines large, his smaller on the right; 重说 on her latest turn (never the pick-up one); the speaking
     // indicator while a turn is written; 「没听清 · 再说一遍」 when it ends on his line and nothing is in flight
     const sc = P.log;
     const bottom = !sc.childNodes.length || sc.scrollHeight - sc.scrollTop - sc.clientHeight < 40;
     const last = turns.length - 1;
+    // looks Task 10: her newest turn gathers out of light from her mark (crystal) / soaks into the talisman as ink (scroll) — a class the CSS
+    // moves only under the 动画 flag; a repaint while it plays carries on from where it is (a negative delay), never replays it
+    const lkAt = Date.now();
+    if (dev && w.lkNew) {
+        if (turns.length > w.lkSeen) for (let i = w.lkSeen; i < turns.length; i++) if (turns[i].u !== THEATER_WEIYU_ME) w.lkNew[i] = lkAt;
+        w.lkSeen = turns.length;
+    }
     const rows = turns.map((t, i) => {
         if (t.u === THEATER_WEIYU_ME) return soWyEl(d, 'div', { class: ['wy-cs-turn', 'wy-cs-mine'] }, t.lines.map((l) => soWyEl(d, 'div', { class: 'wy-cs-me', text: l.text })));
         const redo = i === last && i > 0 && !ended && !w.busy
             ? soWyEl(d, 'button', { type: 'button', class: 'wy-cs-redo', data: { 'wy-act': 'cs-redo' }, title: T.csRedoTip, text: T.csRedo }) : null;
-        return soWyEl(d, 'div', { class: ['wy-cs-turn', 'wy-cs-her'] }, t.lines.map((l) => soWyCsLine(d, l, w.mode)), redo);
+        const gone = dev && w.lkNew && w.lkNew[i] ? lkAt - w.lkNew[i] : -1;
+        const gather = gone >= 0 && gone < THEATER_WEIYU_LK_CS.inMs && phone.motion === 'on';
+        const row = soWyEl(d, 'div', { class: ['wy-cs-turn', 'wy-cs-her', gather ? 'wy-dcs-in' : ''] }, t.lines.map((l) => soWyCsLine(d, l, w.mode)), redo);
+        if (gather) row.style.setProperty('--wy-dcs-t', gone + 'ms');
+        return row;
     });
     const tail = [];
     if (w.busy) {
@@ -30362,7 +33251,8 @@ function soWyCallLogSheet(phone, cid, mid) {
     const c = soWyCallNorm(chat.msgs[i].call);
     if (!c || !Array.isArray(c.turns) || !c.turns.length) return;
     soWyMenuDrop(phone);
-    const label = c.mode === 'video' ? T.callVideo : T.callVoice;
+    const label = soWyLkCallWord(phone, c.mode);   // looks Task 10: the set's call word under a device
+    const dev = soWyLookDev(phone);
     const two = (n) => (n < 10 ? '0' : '') + n;
     let at = '';
     if (typeof c.at === 'number' && c.at > 0) {
@@ -30380,14 +33270,14 @@ function soWyCallLogSheet(phone, cid, mid) {
     const back = soWyCanCall(st, chat, soWyEvOn(phone));
     phone.layer.appendChild(soWyEl(d, 'div', { class: 'wy-pop-wrap' },
         soWyEl(d, 'div', { class: ['wy-backdrop', 'wy-dim'], data: { 'wy-act': 'pop-close' } }),
-        soWyEl(d, 'div', { class: ['wy-sheet', 'wy-calllog'], role: 'dialog', aria: { label } },
+        soWyEl(d, 'div', { class: [soWySheetK(phone), 'wy-calllog'], role: 'dialog', aria: { label } },
             soWyEl(d, 'div', { class: 'wy-calllog-head' },
-                soWyEl(d, 'div', { class: 'wy-calllog-h' }, soWyIcon(d, c.mode === 'video' ? 'video' : 'call'),
-                    soWyEl(d, 'span', { text: label + ' · ' + (c.dur ? soWyFmt(T.callDur, { dur: c.dur }) : T.callDone) })),
+                soWyEl(d, 'div', { class: 'wy-calllog-h' }, dev ? soWyLkGlyph(phone, 'wy-calllog-ic', c.mode === 'video' ? 'video' : 'call') : soWyIcon(d, c.mode === 'video' ? 'video' : 'call'),
+                    soWyEl(d, 'span', { text: label + ' · ' + (c.dur ? soWyFmt(soWyLookText(phone, 'callDur'), { dur: c.dur }) : T.callDone) })),
                 at ? soWyEl(d, 'div', { class: 'wy-calllog-at', text: at }) : null),
             soWyEl(d, 'div', { class: 'wy-calllog-list' }, rows),
             back ? soWyEl(d, 'button', { type: 'button', class: ['wy-sheet-i', 'wy-calllog-back'], data: { 'wy-act': 'callback' } },
-                soWyIcon(d, c.mode === 'video' ? 'video' : 'call'), soWyEl(d, 'span', { text: T.callLogBack })) : null,
+                dev ? soWyLkGlyph(phone, 'wy-calllog-ic', c.mode === 'video' ? 'video' : 'call') : soWyIcon(d, c.mode === 'video' ? 'video' : 'call'), soWyEl(d, 'span', { text: T.callLogBack })) : null,
             soWyEl(d, 'button', { type: 'button', class: ['wy-sheet-i', 'wy-sheet-c'], data: { 'wy-act': 'pop-close' }, text: T.hostClose }))));
 }
 
@@ -30416,8 +33306,9 @@ function soWyWordsEnv(phone) {
     return soWyIsObj(w) && typeof w.store === 'function' && typeof w.save === 'function' && typeof w.ready === 'function' ? w : null;
 }
 
-// {raw, ready (a full Ready table), key, booted} read afresh from the env, or null without env.words
-function soWyWordsRead0(phone) {
+// {raw, ready (a full Ready table), key, booted} read afresh from the env, or null without env.words. `st` = a state the caller already
+// read (soWyLook, final fix wave m-1); absent = read it here, as before.
+function soWyWordsRead0(phone, st0) {
     const we = soWyWordsEnv(phone);
     if (!we) return null;
     let raw = null;
@@ -30426,7 +33317,7 @@ function soWyWordsRead0(phone) {
     try { raw = we.store(); } catch (e) { raw = null; }
     try { ready = we.ready(); } catch (e) { ready = null; }
     try { key = typeof phone.env.cardKey === 'function' ? String(phone.env.cardKey() || '') : ''; } catch (e) { key = ''; }
-    const st = soWyEnvState(phone);
+    const st = st0 !== undefined ? st0 : soWyEnvState(phone);
     return { raw, ready: soWyWordsReadyTable(ready), key, booted: !!(st && st.booted) };
 }
 
@@ -30463,8 +33354,8 @@ function soWyWordsShownName(phone) {
     return soWyWordsName(x.raw, soWyWordsShown(x.raw, x.ready, soWyWordsActive(phone), x.key, x.booted));
 }
 
-function soWyWordsOfPhone(phone) {
-    const x = soWyWordsRead0(phone);
+function soWyWordsOfPhone(phone, st) {
+    const x = soWyWordsRead0(phone, st);
     if (!x) return null;
     try { return soWyWordsFor(x.raw, x.key, 'note', x.booted, x.ready); } catch (e) { return null; }
 }
@@ -30634,7 +33525,8 @@ function soWyScreenWords(phone, page) {
     }
     body.push(soWyEl(d, 'label', { class: 'wy-words-def' },
         soWyEl(d, 'input', { type: 'checkbox', checked: w.def, data: { 'wy-act': 'words-def' } }), soWyEl(d, 'span', { text: T.wordsSetDef })));
-    body.push(soWyEl(d, 'div', { class: 'wy-words-hint', text: T.wordsHint }));
+    // looks Task 14 (spec §14.11): under a device look the set's words DO show on screen — the hint says so (DRAFT); the phone look: today's
+    body.push(soWyEl(d, 'div', { class: 'wy-words-hint', text: soWyLookDev(phone) ? T.wordsHintLook : T.wordsHint }));
     body.push(soWyEl(d, 'div', { class: 'wy-words-btns' },
         soWyEl(d, 'button', { type: 'button', class: 'wy-words-cancel', data: { 'wy-act': 'words-cancel' }, text: T.wordsCancel }),
         soWyEl(d, 'button', { type: 'button', class: 'wy-words-save', data: { 'wy-act': 'words-save' }, text: T.wordsSave })));
@@ -30643,7 +33535,7 @@ function soWyScreenWords(phone, page) {
         body.push(soWyEl(d, 'button', { type: 'button', class: ['wy-btnrow', 'wy-danger', 'wy-words-del'], data: { 'wy-act': 'words-del' }, text: T.wordsDel }));
     }
     return soWyEl(d, 'div', { class: ['wy-page', 'wy-words'] },
-        soWyTopBar(phone, { back: true, line: true, title: T.wordsTitle }),
+        soWyTopBar(phone, { back: true, line: true, title: T.wordsTitle, dev: true, surf: true }),
         soWyEl(d, 'div', { class: 'wy-scroll' }, body));
 }
 
@@ -31111,6 +34003,13 @@ function soWyAcOn(phone) {
     return soWyIsObj(s) && s.add === true;
 }
 
+// Status and signature (phone upgrades; env.stages.status ← the join's ENABLE_THR_WEIYU_STATUS): the add / edit / found reducers' trailing
+// option — {status: true} marks who wrote a signature (Person.sigBy); off → undefined, the reducers write the person as before the feature.
+function soWyAcSigOpt(phone) {
+    const s = phone && phone.env ? phone.env.stages : null;
+    return soWyIsObj(s) && s.status === true ? { status: true } : undefined;
+}
+
 // A hand-added / list-added person: origin or 人物说明 stored (the profile card and 编辑资料 exist only for them; 开机 people have neither).
 function soWyAcHas(p) {
     return soWyIsObj(p) && (p.origin === 'story' || p.origin === 'new' || (typeof p.about === 'string' && p.about.trim() !== ''));
@@ -31177,7 +34076,7 @@ function soWyScreenAcForm(phone, page) {
     }));
     const done = soWyEl(d, 'button', { type: 'button', class: 'wy-done', data: { 'wy-act': 'ac-save' }, disabled: !soWyAcValid(state, page), text: edit ? T.save : T.acSave });
     return soWyEl(d, 'div', { class: ['wy-page', 'wy-ac', edit ? 'wy-ac-edit' : ''] },
-        soWyTopBar(phone, { back: true, line: true, title: edit ? T.acEditTitle : T.acAdd, right: done }),
+        soWyTopBar(phone, { back: true, line: true, title: edit ? T.acEditTitle : T.acAdd, right: done, dev: true, surf: true }),
         soWyEl(d, 'div', { class: 'wy-scroll' },
             soWyEl(d, 'div', { class: 'wy-ac-sechead', text: T.acSecWho }),
             soWyEl(d, 'div', { class: 'wy-ac-sec' },
@@ -31305,7 +34204,7 @@ function soWyAcSave(phone, page) {
     if (!st || !soWyIsObj(page) || !soWyIsObj(page.f) || !soWyAcOn(phone)) return;
     const c = soWyClone(st);
     if (page.mode === 'edit') {
-        if (!soWyAcEdit(c, page.pid, soWyAcEditFields(page.f))) {
+        if (!soWyAcEdit(c, page.pid, soWyAcEditFields(page.f), soWyAcSigOpt(phone))) {
             soWyAcFormSync(phone);
             return;
         }
@@ -31313,7 +34212,7 @@ function soWyAcSave(phone, page) {
         phone.back();
         return;
     }
-    const r = soWyAcAdd(c, page.f);
+    const r = soWyAcAdd(c, page.f, soWyAcSigOpt(phone));
     if (!r) {
         soWyAcFormSync(phone);
         return;
@@ -31357,6 +34256,7 @@ function soWyAcFindTile(phone, name, size) {
     const d = phone.host.ownerDocument;
     const ch = soWyAvLabel(name);
     const hue = typeof soWyBootHue === 'function' ? soWyBootHue(name) : 0;
+    if (soWyLookDev(phone)) return soWyLkSized(soWyLkChatMark(phone, null, { type: 'person' }, name, hue), size);   // looks Task 13: the device's mark
     const av = soWyEl(d, 'span', { class: ['wy-av', 'wy-hue-' + hue, 'wy-av-t', Array.from(ch).length === 2 ? 'wy-av-two' : ''], text: ch });
     av.style.setProperty('--wy-av-size', size + 'px');
     return av;
@@ -31369,7 +34269,7 @@ function soWyAcFindRow(phone, state, page, r, i) {
     const now = soWyAcName(state, r.name, THEATER_WEIYU_AC_MAX.name);
     const done = r.add !== 'none' && (page.added.includes(r.name) || now.why === 'contact');
     const known = soWyFindPerson(state, r.name);
-    const av = known && known !== THEATER_WEIYU_ME ? soWyAvatarEl(phone, known, 44) : soWyAcFindTile(phone, r.name, 44);
+    const av = known && known !== THEATER_WEIYU_ME ? soWyLkAv(phone, known, 44) : soWyAcFindTile(phone, r.name, 44);
     const tag = (t) => {
         const warn = t.k === 'gone' || t.k === 'near';
         const text = t.k === 'extra' ? T.acTagExtra : t.k === 'gone' ? T.acTagGone : soWyFmt(T.acTagNear, { name: t.w });
@@ -31443,7 +34343,7 @@ function soWyScreenAcFind(phone, page) {
     }
     const right = page.added.length ? soWyEl(d, 'button', { type: 'button', class: 'wy-done', data: { 'wy-act': 'ac-done' }, text: T.done }) : null;
     return soWyEl(d, 'div', { class: ['wy-page', 'wy-ac', 'wy-ac-find', 'wy-ac-find-' + st] },
-        soWyTopBar(phone, { back: true, line: true, title: T.acFind, right }),
+        soWyTopBar(phone, { back: true, line: true, title: T.acFind, right, dev: true, surf: true }),
         soWyEl(d, 'div', { class: 'wy-scroll' }, body));
 }
 
@@ -31513,7 +34413,7 @@ function soWyAcFindAdd(phone, page, i) {
     const st = soWyEnvState(phone);
     if (!st) return;
     const c = soWyClone(st);
-    const pid = soWyAcAddFound(c, r);
+    const pid = soWyAcAddFound(c, r, soWyAcSigOpt(phone));
     if (!pid) {
         phone.refresh();
         return;
@@ -31529,6 +34429,624 @@ function soWyAcFindAdd(phone, page, i) {
 // 完成 (and ‹ after an add): the 通讯录 tab, where the people just added wear 「新」.
 function soWyAcFindDone(phone) {
     phone.home('contacts');
+}
+
+// ---- phone upgrades — the screens (2026-11-22; spec docs/superpowers/specs/2026-11-22-phone-upgrades-design.md §5–§10, §17; plan Tasks
+// 15–19). Every element here exists only with its stage key (env.stages.<key> === true, the join's flag; absent = today's DOM, byte for
+// byte — weiyu-up-off), checked by the tiny gates below. Text reaches the DOM only through soWyEl / textContent.
+
+function soWyUpOn(phone, key) {
+    return !!phone && !!phone.env && soWyIsObj(phone.env.stages) && phone.env.stages[key] === true;
+}
+function soWyStkOn(phone) { return soWyUpOn(phone, 'stickers'); }   // 表情包 (ENABLE_THR_WEIYU_STICKERS)
+function soWyInOn(phone) { return soWyUpOn(phone, 'incall'); }   // 来电 (ENABLE_THR_WEIYU_INCALL)
+function soWySndOn(phone) {   // 声音 (ENABLE_THR_WEIYU_SOUND) ∧ the join's sound service
+    const s = phone && phone.env ? phone.env.sound : null;
+    return soWyUpOn(phone, 'sound') && soWyIsObj(s) && typeof s.on === 'function' && typeof s.set === 'function';
+}
+
+// The 我 page's group (Task 15): 表情包 · 来电免打扰 (per phone: opts.stickers / opts.noRing, model.js soWySetStickers / soWySetNoRing) ·
+// 声音 (the browser-wide setting: env.sound.on() / set(), never a phone commit). → the rows that exist ([] = no group).
+function soWyUpMeRows(phone, state) {
+    const T = THEATER_WEIYU_TEXT;
+    const out = [];
+    if (soWyStkOn(phone)) out.push(soWySwitchRow(phone, 'opt-stickers', T.upStk, T.upStkDesc, soWyStickersOn(state)));
+    if (soWyInOn(phone)) out.push(soWySwitchRow(phone, 'opt-noring', T.upNoRing, T.upNoRingDesc, soWyNoRing(state)));
+    if (soWySndOn(phone)) {
+        let on = false;
+        try { on = phone.env.sound.on() === true; } catch (e) { on = false; }
+        out.push(soWySwitchRow(phone, 'opt-sound', T.upSound, T.upSoundDesc, on));
+    }
+    return out;
+}
+
+// 一键进手机 on the 我 page (2026-11-26, Prince: "they should be in the phone instead"): the two switches of Story Oracle's own quick buttons
+// (the input-bar 💬 button and the floating button) — moved here from SO's ⚙ 外观 → 窗口与按钮. They are GLOBAL settings (every story),
+// never in the phone's state: env.quick = {get() → {bar, float}, set(key 'bar' | 'float', on)} (the join writes its setting, saves, and puts
+// up / takes down the button). Only with env.stages.quick (the join's ENABLE_THR_WEIYU_QUICK) AND that service; else [] (today's page).
+// → a gap, the two switch rows (soWySwitchRow: the look's own switch) and one note that they hold for every story.
+function soWyQkOn(phone) {
+    const q = phone && phone.env ? phone.env.quick : null;
+    return soWyUpOn(phone, 'quick') && soWyIsObj(q) && typeof q.get === 'function' && typeof q.set === 'function';
+}
+function soWyQkNow(phone) {
+    let cur = null;
+    try { cur = phone.env.quick.get(); } catch (e) { cur = null; }
+    return { bar: soWyIsObj(cur) && cur.bar === true, float: soWyIsObj(cur) && cur.float === true };
+}
+function soWyQkMeRows(phone) {
+    if (!soWyQkOn(phone)) return [];
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    const cur = soWyQkNow(phone);
+    return [soWyEl(d, 'div', { class: 'wy-gap' }),
+        soWySwitchRow(phone, 'opt-qbar', T.qkBar, T.qkBarDesc, cur.bar),
+        soWySwitchRow(phone, 'opt-qfloat', T.qkFloat, T.qkFloatDesc, cur.float),
+        soWyEl(d, 'div', { class: ['wy-foot', 'wy-qknote'], text: T.qkNote })];
+}
+// A tap: the other value through the service (a failure writes nothing), then the page again.
+function soWyQkToggle(phone, key) {
+    if (!soWyQkOn(phone)) return;
+    const now = !soWyQkNow(phone)[key];
+    try { phone.env.quick.set(key, now); } catch (e) { /* a setting that could not be written */ }
+    phone.refresh();
+}
+
+// A per-phone switch of the group: one zero-call commit ('opts'), then the page again. 表情包 turned ON asks the sticker service for its
+// list (env.stk.load: once per page session, the last good copy otherwise — the join's business; a failure is the panel's notice).
+function soWyUpOptToggle(phone, key) {
+    const st = soWyEnvState(phone);
+    if (!st) return;
+    const c = soWyClone(st);
+    const now = key === 'stickers' ? !soWyStickersOn(st) : !soWyNoRing(st);
+    const changed = key === 'stickers' ? soWySetStickers(c, now) : soWySetNoRing(c, now);
+    if (changed) phone.env.commit(c, 'opts');
+    phone.refresh();
+    if (key === 'stickers' && now && soWyIsObj(phone.env.stk) && typeof phone.env.stk.load === 'function') {
+        try { Promise.resolve(phone.env.stk.load()).catch(() => {}); } catch (e) { /* a service that could not start */ }
+    }
+}
+
+function soWyUpSoundToggle(phone) {
+    if (!soWySndOn(phone)) return;
+    try { phone.env.sound.set(phone.env.sound.on() !== true); } catch (e) { /* a setting that could not be written */ }
+    phone.refresh();
+}
+
+// The acts of this section's controls (each control exists only with its stage, so an act arriving here was drawn by it).
+function soWyUpAct(phone, act, el, cur) {
+    switch (act) {
+        case 'opt-stickers': if (soWyStkOn(phone)) soWyUpOptToggle(phone, 'stickers'); return true;
+        case 'opt-noring': if (soWyInOn(phone)) soWyUpOptToggle(phone, 'noRing'); return true;
+        case 'opt-sound': soWyUpSoundToggle(phone); return true;
+        case 'opt-qbar': soWyQkToggle(phone, 'bar'); return true;
+        case 'opt-qfloat': soWyQkToggle(phone, 'float'); return true;
+        case 'stk-open': if (cur.k === 'chat' && !soWySendEcho(phone) && soWyStkDockOn(phone, soWyEnvState(phone))) soWyStkSheet(phone, cur.cid); return true;
+        case 'stk-send': soWyStkPick(phone, el.getAttribute('data-wy-id')); return true;
+        case 're': soWyReTap(phone, el.getAttribute('data-wy-v')); return true;
+        case 're-more': soWyRePickOpen(phone); return true;
+        case 're-pick': soWyRePickDo(phone); return true;
+        case 're-chip': soWyReChipTap(phone, el, cur); return true;
+        case 're-rm': soWyReRemove(phone); return true;
+        case 'in-yes': soWyInAccept(phone); return true;
+        case 'in-no': soWyInDecline(phone); return true;
+        case 'vers': soWyVersGo(phone, cur, Number(el.getAttribute('data-wy-v'))); return true;
+        default: return false;
+    }
+}
+
+// ---- the sticker panel and the sticker bubble (Task 16; spec §5.1) ----------------------------------------------------------------------
+// The dock's smiley needs the stage, the phone's 表情包 switch and the sticker service (env.stk = {load, pool, image}; the join hands it only
+// with the flag on — the send path refuses a sticker without it, flow.js). The panel (phone.stkSheet = {cid, el, st: 'load'|'ok'|'fail'})
+// is a sheet in the layer: 最近使用 (state.stkRecent → the pool's entries), the hosted pack, the word stickers. A tap = ONE send through
+// soWyKindSend (refused while a request is in flight, with that path's notice). Pictures: env.stk.image(id) → an object URL | null, asked
+// once per id per phone (phone.stkImg) and put into every box showing that id when it comes; a null is asked again once a list load
+// comes back ok (soWyStkImgRetry — a list that landed late); a word sticker never asks.
+
+function soWyStkDockOn(phone, state) {
+    return soWyStkOn(phone) && soWyStickersOn(state) && soWyIsObj(phone.env.stk) && typeof phone.env.stk.pool === 'function';
+}
+
+// A word sticker (drawn by the phone): one of THEATER_WEIYU_WORD_STICKERS, a retired one stored before 2026-11-23 (THEATER_WEIYU_WORD_RETIRED —
+// still a word tile with its name), or the id-less tile that unmatched model words became.
+function soWyStkIsWord(stk) {
+    return !stk.id || THEATER_WEIYU_WORD_STICKERS.some((w) => w.id === stk.id) || THEATER_WEIYU_WORD_RETIRED.includes(stk.id);
+}
+
+// The pool the panel offers now (the service's, filtered to usable entries; no service = the word stickers).
+function soWyStkPoolOf(phone) {
+    let pool = null;
+    try { pool = soWyIsObj(phone.env.stk) && typeof phone.env.stk.pool === 'function' ? phone.env.stk.pool() : null; } catch (e) { pool = null; }
+    return (Array.isArray(pool) ? pool : soWyStkPool(null)).filter((x) => soWyStkNorm(x));
+}
+
+// The picture of sticker `id`: a URL (string), null (none / it cannot load), undefined (asked, not here yet).
+function soWyStkImg(phone, id) {
+    if (!phone.stkImg) phone.stkImg = new Map();
+    const m = phone.stkImg;
+    if (m.has(id)) return m.get(id);
+    const s = phone.env.stk;
+    if (!soWyIsObj(s) || typeof s.image !== 'function') {
+        m.set(id, null);
+        return null;
+    }
+    m.set(id, undefined);
+    let p;
+    try { p = Promise.resolve(s.image(id)); } catch (e) { p = Promise.resolve(null); }
+    p.then((u) => {
+        const url = typeof u === 'string' && /^(blob:|https:)/.test(u) ? u : null;
+        m.set(id, url);
+        if (phone.dead || !url) return;
+        for (const el of phone.root.querySelectorAll('.wy-stk[data-wy-stk]')) if (el.getAttribute('data-wy-stk') === id && !el.querySelector('img')) soWyStkPicIn(el, url);
+    }, () => { m.set(id, null); });
+    return undefined;
+}
+
+function soWyStkPicIn(el, url) {
+    const d = el.ownerDocument;
+    el.classList.remove('wy-stk-tile');
+    el.replaceChildren(soWyEl(d, 'img', { class: 'wy-stk-img', src: url, alt: String(el._wyStkName || ''), draggable: 'false' }));
+}
+
+// Pictures that answered null are forgotten so the next draw asks again (a list that landed late, final review I-1). → whether any were.
+function soWyStkImgRetry(phone) {
+    const m = phone.stkImg;
+    if (!m) return false;
+    let n = 0;
+    for (const [id, v] of [...m]) if (v === null) { m.delete(id); n++; }
+    return n > 0;
+}
+
+// One sticker's box (the bubble, a panel cell): a word sticker = a plain white square with its name in bold black (Prince 2026-11-23);
+// a hosted one = its picture when here, else the name tile (and the picture is asked for). `focus` = the bubble (focusable: the menu's Enter / long press act on it).
+function soWyStkBox(phone, stk, focus) {
+    const d = phone.host.ownerDocument;
+    const word = soWyStkIsWord(stk);
+    const url = word ? null : soWyStkImg(phone, stk.id);
+    const el = soWyEl(d, 'div', {
+        // a word sticker = bold black characters on a plain white square (Prince 2026-11-23; no per-word tint); a long name sets smaller
+        class: ['wy-stk', word ? 'wy-stk-word' : '', word && Array.from(stk.name).length > 4 ? 'wy-stk-long' : '', !word && !url ? 'wy-stk-tile' : ''],
+        tabindex: focus ? '0' : null, data: { 'wy-stk': word ? null : stk.id },
+    });
+    el._wyStkName = stk.name;
+    if (url) soWyStkPicIn(el, url);
+    else el.appendChild(soWyEl(d, 'span', { class: 'wy-stk-n', text: stk.name }));
+    return el;
+}
+
+function soWyStkSheet(phone, cid) {
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    soWyMenuDrop(phone);
+    const el = soWyEl(d, 'div', { class: [soWySheetK(phone), 'wy-stksheet'], role: 'dialog', aria: { label: T.upStk }, data: { 'wy-cid': cid } });
+    phone.layer.appendChild(soWyEl(d, 'div', { class: 'wy-pop-wrap' }, soWyEl(d, 'div', { class: ['wy-backdrop', 'wy-dim'], data: { 'wy-act': 'pop-close' } }), el));
+    const sh = { cid, el, st: 'load' };
+    phone.stkSheet = sh;
+    soWyStkSheetPaint(phone);
+    let p;
+    try { p = Promise.resolve(phone.env.stk.load()); } catch (e) { p = Promise.resolve({ ok: false }); }
+    const done = (r) => {
+        if (phone.dead) return;
+        const ok = soWyIsObj(r) && r.ok;
+        // the list is here now: a picture that answered null before it (the id was not on a list yet) is asked again (final review I-1)
+        const retry = ok && soWyStkImgRetry(phone);
+        if (phone.stkSheet === sh) {
+            sh.st = ok ? 'ok' : 'fail';
+            soWyStkSheetPaint(phone);
+        }
+        if (retry) phone.refresh();
+    };
+    p.then(done, () => done(null));
+}
+
+function soWyStkSheetPaint(phone) {
+    const sh = phone.stkSheet;
+    if (!sh) return;
+    if (!sh.el.isConnected) {
+        phone.stkSheet = null;
+        return;
+    }
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    const norm = soWyStkPoolOf(phone).map((x) => soWyStkNorm(x));
+    const cell = (stk) => soWyEl(d, 'button', { type: 'button', class: 'wy-stk-cell', data: { 'wy-act': 'stk-send', 'wy-id': stk.id || null }, aria: { label: stk.name }, title: stk.name },
+        soWyStkBox(phone, stk, false));
+    const grid = (list) => soWyEl(d, 'div', { class: 'wy-stk-grid' }, list.map(cell));
+    const group = (g, head, kids) => soWyEl(d, 'div', { class: 'wy-stk-g', data: { 'wy-stkg': g } }, soWyEl(d, 'div', { class: 'wy-stk-h', text: head }), kids);
+    const recent = soWyStkRecent(soWyEnvState(phone)).map((id) => norm.find((x) => x.id === id)).filter(Boolean);
+    const hosted = norm.filter((x) => !soWyStkIsWord(x));
+    const words = norm.filter((x) => soWyStkIsWord(x) && x.id);
+    const pack = hosted.length ? grid(hosted)
+        : soWyEl(d, 'div', { class: sh.st === 'load' ? 'wy-stk-load' : 'wy-stk-fail', role: 'status', text: sh.st === 'load' ? T.upStkLoading : T.upStkFail });
+    const old = sh.el.querySelector('.wy-stk-body');
+    const top = old ? old.scrollTop : 0;
+    const body = soWyEl(d, 'div', { class: ['wy-stk-body', 'wy-scroll'] },
+        recent.length ? group('recent', T.upStkRecent, grid(recent)) : null,
+        group('pack', T.upStk, pack),
+        group('word', T.upStkWords, grid(words)));
+    sh.el.replaceChildren(body, soWyEl(d, 'button', { type: 'button', class: ['wy-sheet-i', 'wy-sheet-c'], data: { 'wy-act': 'pop-close' }, text: T.cancel }));
+    body.scrollTop = top;
+}
+
+// A cell tapped: the sheet closes → HIS SEND of that sticker (one request, or a zero-call put with the auto-reply switch off).
+function soWyStkPick(phone, id) {
+    const sh = phone.stkSheet;
+    if (!sh || typeof id !== 'string' || !id) return;
+    const stk = soWyStkPoolOf(phone).map((x) => soWyStkNorm(x)).find((x) => x.id === id);
+    if (!stk) return;
+    phone.stkSheet = null;
+    soWyMenuDrop(phone);
+    soWyKindSend(phone, sh.cid, { t: 'sticker', stk });
+}
+
+// ---- the reaction row and the chips (Task 17; spec §6.1, §17.13) ----------------------------------------------------------------------
+// env.stages.react (ENABLE_THR_WEIYU_REACT). The message menu of a line that can take one (model.js soWyReactable — a line with a bubble)
+// opens with THEATER_WEIYU_REACT_QUICK + 「+」 (a one-field picker: exactly one emoji, soWyOneEmoji; anything else → one visible line, the
+// typed text stays). A tap = soWyReact on a clone + ONE commit 'react' — no request, no auto-reply, not a waiting message; tapping the emoji
+// he already has takes it off (one per person). Chips: the last part of the bubble column (.wy-mb), one per emoji (soWyReactList order), a
+// count when more than one person; a chip that is only his → a tap removes it; any other → the list of who (phone.reList), with 「移除我的」
+// when he is in it.
+const THEATER_WEIYU_REACT_QUICK = Object.freeze(['👍', '❤️', '😂', '😮', '😢', '🙏']);
+
+function soWyReOn(phone) { return soWyUpOn(phone, 'react'); }
+
+// The menu's top row (soWyMenuOpen) — null where the line takes no reaction or without the stage.
+function soWyReRow(phone, msg) {
+    if (!soWyReOn(phone) || !soWyReactable(msg)) return null;
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    const mine = soWyIsObj(msg.re) && typeof msg.re[THEATER_WEIYU_ME] === 'string' ? msg.re[THEATER_WEIYU_ME] : '';
+    return soWyEl(d, 'div', { class: 'wy-re-row', role: 'group' },
+        THEATER_WEIYU_REACT_QUICK.map((em) => soWyEl(d, 'button', {
+            type: 'button', class: ['wy-re-q', mine === em ? 'wy-on' : ''], data: { 'wy-act': 're', 'wy-v': em }, aria: { label: em, pressed: mine === em ? 'true' : 'false' }, text: em,
+        })),
+        soWyEl(d, 'button', { type: 'button', class: 'wy-re-more', data: { 'wy-act': 're-more' }, aria: { label: T.upReMore }, title: T.upReMore, text: '+' }));
+}
+
+// The chips under a bubble (soWyMsgRowEl) — null without the stage or without reactions.
+function soWyReChips(phone, msg) {
+    if (!soWyReOn(phone)) return null;
+    const list = soWyReactList(msg);
+    if (!list.length) return null;
+    const d = phone.host.ownerDocument;
+    return soWyEl(d, 'div', { class: 'wy-re-chips' }, list.map((g) => soWyEl(d, 'button', {
+        type: 'button', class: ['wy-re-chip', g.pids.includes(THEATER_WEIYU_ME) ? 'wy-re-mine' : ''], data: { 'wy-act': 're-chip', 'wy-v': g.em },
+    }, g.em, g.pids.length > 1 ? soWyEl(d, 'span', { class: 'wy-re-n', text: String(g.pids.length) }) : null)));
+}
+
+// His reaction on one line: em = an emoji (toggle: the one he has already → off) or null (off). Zero calls, one commit.
+function soWyReSet(phone, cid, mid, em, toggle) {
+    const st = soWyEnvState(phone);
+    const m = soWyMsg(st, cid, mid);
+    if (!m || !soWyReactable(m)) return;
+    const had = soWyIsObj(m.re) && typeof m.re[THEATER_WEIYU_ME] === 'string' ? m.re[THEATER_WEIYU_ME] : null;
+    const next = toggle && em != null && had === em ? null : em;
+    if (next === had) return;
+    const c = soWyClone(st);
+    if (soWyReact(c, cid, mid, THEATER_WEIYU_ME, next).ok) phone.env.commit(c, 'react');
+    phone.refresh();
+}
+
+function soWyReTap(phone, em) {
+    const m = phone.menu;
+    soWyMenuClose(phone);
+    if (!soWyIsObj(m) || !THEATER_WEIYU_REACT_QUICK.includes(em)) return;
+    soWyReSet(phone, m.cid, m.mid, em, true);
+}
+
+function soWyRePickOpen(phone) {
+    const m = phone.menu;
+    soWyMenuClose(phone);
+    if (!soWyIsObj(m)) return;
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    phone.rePick = { cid: m.cid, mid: m.mid };
+    const inp = soWyEl(d, 'input', { type: 'text', class: ['wy-input', 'wy-re-in'], placeholder: T.upRePickPh, autocomplete: 'off', enterkeyhint: 'done',
+        data: { 'wy-repick': '' }, aria: { label: T.upRePick } });
+    const sheet = soWyEl(d, 'div', { class: [soWySheetK(phone), 'wy-repick'], role: 'dialog', aria: { label: T.upRePick } },
+        soWyEl(d, 'div', { class: 'wy-cmp-head' },
+            soWyEl(d, 'button', { type: 'button', class: 'wy-cmp-x', data: { 'wy-act': 'pop-close' }, text: T.cancel }),
+            soWyEl(d, 'span', { class: 'wy-cmp-t', text: T.upRePick }),
+            soWyEl(d, 'button', { type: 'button', class: 'wy-cmp-go', data: { 'wy-act': 're-pick' }, text: T.upReOk })),
+        inp);
+    phone.layer.appendChild(soWyEl(d, 'div', { class: 'wy-pop-wrap' }, soWyEl(d, 'div', { class: ['wy-backdrop', 'wy-dim'], data: { 'wy-act': 'pop-close' } }), sheet));
+    try { inp.focus(); } catch (e) { /* a box that cannot take focus */ }
+}
+
+// 确定 / Enter in the picker: exactly one emoji → his reaction (set, not toggled); anything else → the refusal line, the text stays.
+function soWyRePickDo(phone) {
+    const p = phone.rePick;
+    const sheet = phone.layer.querySelector('.wy-repick');
+    const inp = sheet ? sheet.querySelector('[data-wy-repick]') : null;
+    if (!soWyIsObj(p) || !inp) return;
+    const v = String(inp.value || '').trim();
+    if (!soWyOneEmoji(v)) {
+        if (!sheet.querySelector('.wy-re-bad')) inp.after(soWyEl(phone.host.ownerDocument, 'div', { class: 'wy-re-bad', role: 'status', text: THEATER_WEIYU_TEXT.upReBad }));
+        return;
+    }
+    phone.rePick = null;
+    soWyMenuDrop(phone);
+    soWyReSet(phone, p.cid, p.mid, v, false);
+}
+
+// The picker's field: typing clears the refusal line; Enter = 确定 (not while an IME is composing).
+function soWyUpEvent(phone, type, ev) {
+    const t = ev.target;
+    if (!t || typeof t.matches !== 'function' || !t.matches('[data-wy-repick]')) return false;
+    if (type === 'input') {
+        const bad = t.parentNode ? t.parentNode.querySelector('.wy-re-bad') : null;
+        if (bad) bad.remove();
+        return true;
+    }
+    if (type === 'keydown' && ev.key === 'Enter' && !ev.isComposing && ev.keyCode !== 229) {
+        ev.preventDefault();
+        soWyRePickDo(phone);
+        return true;
+    }
+    return false;
+}
+
+function soWyReChipTap(phone, el, cur) {
+    if (cur.k !== 'chat' || !soWyReOn(phone)) return;
+    const r = el.closest('[data-wy-msg]');
+    const mid = r ? r.getAttribute('data-wy-msg') : '';
+    const em = el.getAttribute('data-wy-v');
+    const st = soWyEnvState(phone);
+    const g = soWyReactList(soWyMsg(st, cur.cid, mid)).find((x) => x.em === em);
+    if (!g) return;
+    if (g.pids.length === 1 && g.pids[0] === THEATER_WEIYU_ME) return soWyReSet(phone, cur.cid, mid, null, false);
+    soWyReListOpen(phone, st, cur.cid, mid, g);
+}
+
+function soWyReListOpen(phone, st, cid, mid, g) {
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    soWyMenuDrop(phone);
+    phone.reList = { cid, mid, em: g.em };
+    const mine = g.pids.includes(THEATER_WEIYU_ME);
+    phone.layer.appendChild(soWyEl(d, 'div', { class: 'wy-pop-wrap' },
+        soWyEl(d, 'div', { class: ['wy-backdrop', 'wy-dim'], data: { 'wy-act': 'pop-close' } }),
+        soWyEl(d, 'div', { class: [soWySheetK(phone), 'wy-relist'], role: 'dialog', aria: { label: g.em } },
+            soWyEl(d, 'div', { class: ['wy-sheet-t', 'wy-re-em'], text: g.em }),
+            soWyEl(d, 'div', { class: 'wy-re-list' }, g.pids.map((pid) => soWyEl(d, 'div', { class: 'wy-re-who' },
+                soWyLkAv(phone, pid, 28), soWyEl(d, 'span', { class: 'wy-re-who-n', text: soWyShownWord(st, pid) })))),
+            mine ? soWyEl(d, 'button', { type: 'button', class: ['wy-sheet-i', 'wy-danger'], data: { 'wy-act': 're-rm' }, text: T.upReRm }) : null,
+            soWyEl(d, 'button', { type: 'button', class: ['wy-sheet-i', 'wy-sheet-c'], data: { 'wy-act': 'pop-close' }, text: T.cancel }))));
+}
+
+function soWyReRemove(phone) {
+    const l = phone.reList;
+    phone.reList = null;
+    soWyMenuDrop(phone);
+    if (soWyIsObj(l)) soWyReSet(phone, l.cid, l.mid, null, false);
+}
+
+// ---- the incoming call screens (Task 18; spec §7.2 / §7.3, §17.7 / §17.14) --------------------------------------------------------------
+// env.stages.incall (ENABLE_THR_WEIYU_INCALL ∧ the call scene). The join decides WHEN a call rings (soThrWeiyuRingStart: the 25 s timer, the
+// ring sound, the page card when the phone is not on screen) and hands an on-screen ring to the phone: phone.ringIn({cid, mid, mode}) →
+// the incoming screen (phone.inRing = {cid, mid, mode, her, el}) in the layer, carrying .wy-cs so no navigation drops it; phone.ringEnd()
+// takes it away (the join calls it on EVERY end — the record gone or answered, the timer, a chat change: safe twice, safe with nothing
+// ringing; it never touches a call already picked up). 接听 → env.call('answer', {cid, mid}) (flow.js soWyCallAnswer: her words stored = no
+// request; none = one request, she speaks first) and the live panel takes over through the call scene's own START handling
+// (soWyCsStarted); 拒绝 → env.call('decline') (zero calls; her words stay under the record as 语音留言). Neither stops the join's ring
+// timer directly: their commit does (the join's soThrWeiyuRingCheck sees the record no longer missed). The ring sound stops at once on 接听.
+
+function soWyInBind(phone) {
+    if (!soWyInOn(phone)) return;
+    phone.ringIn = (info) => soWyInRing(phone, info);
+    phone.ringEnd = () => soWyInRingEnd(phone);
+}
+
+// → true when the incoming screen shows (false: no stage, a dead phone, something already ringing or a call on screen, not her missed call).
+function soWyInRing(phone, info) {
+    if (!soWyInOn(phone) || phone.dead || !soWyIsObj(info) || phone.inRing || phone.wyCall || phone.ring) return false;
+    const cid = typeof info.cid === 'string' ? info.cid : '';
+    const mid = typeof info.mid === 'string' ? info.mid : '';
+    const st = soWyEnvState(phone);
+    const inc = soWyCallIncoming(st, cid, mid);
+    if (!inc) return false;
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    const dev = soWyLookDev(phone);   // looks Task 10 (spec §14.3): under a device the device's ring with the set's call words
+    const label = soWyLkCallWord(phone, inc.mode);
+    if (dev) {
+        const el = soWyEl(d, 'div', { class: soWyLkCsCls(['wy-callscr', 'wy-cs', 'wy-cs-inc'], dev), role: 'dialog', aria: { label: soWyShownWord(st, inc.her) + ' · ' + label },
+            data: { 'wy-mode': inc.mode, 'wy-phase': 'in' } },
+        soWyLkCsArt(phone, dev),
+        soWyEl(d, 'div', { class: 'wy-callscr-who' }, soWyLkCsFace(phone, inc.her, 88),
+            soWyEl(d, 'span', { class: 'wy-callscr-nm', text: soWyShownWord(st, inc.her) }),
+            soWyEl(d, 'span', { class: 'wy-callscr-st', text: soWyFmt(T.upInWait, { mode: label }) }),
+            // K2C (stage-2 second opinion #4): the crystal says the call word once (邀请你…); the scroll keeps it as the talisman's vertical title
+            dev === 'scroll' ? soWyEl(d, 'span', { class: 'wy-callscr-mode', text: label }) : null),
+        soWyEl(d, 'div', { class: ['wy-callscr-foot', 'wy-cs-two'] },
+            soWyLkCsBtn(phone, 'in-no', 'hang', T.upInNo),
+            soWyLkCsBtn(phone, 'in-yes', 'yes', T.upInYes, inc.mode === 'video' ? 'video' : 'call', ['wy-cs-accept'])));
+        phone.layer.appendChild(el);
+        phone.inRing = { cid, mid, mode: inc.mode, her: inc.her, el };
+        return true;
+    }
+    const btn = (act, cls, icon, text) => soWyEl(d, 'button', { type: 'button', class: ['wy-callscr-end', cls], data: { 'wy-act': act }, aria: { label: text } },
+        soWyEl(d, 'span', { class: 'wy-callscr-x' }, soWyIcon(d, icon)), soWyEl(d, 'span', { class: 'wy-callscr-l', text }));
+    const el = soWyEl(d, 'div', { class: ['wy-callscr', 'wy-cs', 'wy-cs-inc'], role: 'dialog', aria: { label: soWyShownWord(st, inc.her) + ' · ' + label },
+        data: { 'wy-mode': inc.mode, 'wy-phase': 'in' } },
+    soWyEl(d, 'div', { class: 'wy-callscr-who' }, soWyAvatarEl(phone, inc.her, 88),
+        soWyEl(d, 'span', { class: 'wy-callscr-nm', text: soWyShownWord(st, inc.her) }),
+        soWyEl(d, 'span', { class: 'wy-callscr-st', text: soWyFmt(T.upInWait, { mode: label }) }),
+        soWyEl(d, 'span', { class: 'wy-callscr-mode' }, soWyIcon(d, inc.mode === 'video' ? 'video' : 'call'), label)),
+    soWyEl(d, 'div', { class: ['wy-callscr-foot', 'wy-cs-two'] },
+        btn('in-no', '', 'call', T.upInNo),
+        btn('in-yes', 'wy-cs-accept', inc.mode === 'video' ? 'video' : 'call', T.upInYes)));
+    phone.layer.appendChild(el);   // over whatever is open (a half-written sheet stays under it)
+    phone.inRing = { cid, mid, mode: inc.mode, her: inc.her, el };
+    return true;
+}
+
+function soWyInRingEnd(phone) {
+    const r = phone.inRing;
+    phone.inRing = null;
+    if (r && r.el) r.el.remove();
+}
+
+// 接听: the ring screen goes; the call scene's calling screen (in its incoming words, 正在接通…) shows until the answer lands; its result is
+// a START result (soWyCsStarted: live → the panel + 'connect'; aborted by his red button → back to the chat, the call still missed).
+function soWyInAccept(phone) {
+    const r = phone.inRing;
+    if (!r) return;
+    if (soWyEnvFlight(phone)) {
+        phone.toast(THEATER_WEIYU_TEXT.writingElse, { so: true });   // another request is being written: it keeps ringing, 接听 can be tapped again
+        return;
+    }
+    soWyInRingEnd(phone);
+    const s = phone.env.sound;
+    if (soWyIsObj(s) && typeof s.ring === 'function') { try { s.ring(false); } catch (e) { /* a ring that could not stop */ } }
+    const w = { cid: r.cid, mode: r.mode, her: r.her, mid: r.mid, at: 0, phase: 'ring', inc: true, busy: false, hung: false, note: '', el: null, inp: null };
+    phone.wyCall = w;
+    soWyCsPaint(phone);
+    let p;
+    try {
+        p = Promise.resolve(phone.env.call('answer', { cid: r.cid, mid: r.mid }));
+    } catch (e) {
+        p = Promise.resolve({ error: soWyErrText(e) });
+    }
+    p.then((x) => soWyCsStarted(phone, w, x), (e) => soWyCsStarted(phone, w, { error: soWyErrText(e) }));
+}
+
+function soWyInDecline(phone) {
+    const r = phone.inRing;
+    if (!r) return;
+    soWyInRingEnd(phone);
+    let p;
+    try {
+        p = Promise.resolve(phone.env.call('decline', { cid: r.cid, mid: r.mid }));
+    } catch (e) {
+        p = Promise.resolve({ error: soWyErrText(e) });
+    }
+    p.then(() => { if (!phone.dead) phone.refresh(); }, () => { if (!phone.dead) phone.refresh(); });
+}
+
+// Her voice message under her missed / declined call (soWyCallEl's extra slot): 语音留言 + the voice bar of the call record ('v:' + its mid,
+// tap for the text — a call record never uses that key otherwise). null without the stage / her words.
+function soWyInVm(phone, msg, c, view, shown) {
+    if (!soWyInOn(phone) || view !== 'them' || (c.st !== 'missed' && c.st !== 'reject') || typeof c.say !== 'string' || !c.say) return null;
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    const sec = soWyVoiceSec(c.say);
+    const open = !!shown && shown.has('v:' + msg.id);
+    const bar = soWyEl(d, 'div', {
+        class: [soWyBubK(phone), 'wy-voice', soWyLookDev(phone) ? 'wy-dcard' : ''], role: 'button', tabindex: '0', data: { 'wy-act': 'voice', 'wy-mid': msg.id }, aria: { expanded: open ? 'true' : 'false', label: T.upVm },
+    }, soWyLookDev(phone) ? soWyLkGlyph(phone, 'wy-voice-ic', 'voice') : soWyIcon(d, 'voice'), soWyEl(d, 'span', { class: 'wy-sec', text: soWyFmt(T.voiceSec, { n: sec }) }));
+    bar.style.setProperty('--wy-voice-w', Math.min(200, 76 + sec * 6) + 'px');
+    return soWyEl(d, 'div', { class: 'wy-vm' }, soWyEl(d, 'span', { class: 'wy-vm-l', text: T.upVm }), bar,
+        open ? soWyEl(d, 'div', { class: 'wy-vtext', text: c.say }) : null);
+}
+
+// After each of the phone's own requests (soWyDo): the result's rings (flow.js — a new missed call of hers that may ring) go to the join's
+// env.ringStart, one by one until one rings. The join may have rung it already (it reads the same result) — then it refuses, harmlessly.
+function soWyInRings(phone, r) {
+    if (!soWyInOn(phone) || !soWyIsObj(r) || !Array.isArray(r.rings) || typeof phone.env.ringStart !== 'function') return;
+    for (const x of r.rings) {
+        let rang = false;
+        try { rang = phone.env.ringStart(x) === true; } catch (e) { rang = false; }
+        if (rang) return;
+    }
+}
+
+// ---- status on screen and the versions pager (Task 19; spec §9.3 / §10, §17.12 / §17.17) ------------------------------------------------
+// env.stages.status (ENABLE_THR_WEIYU_STATUS): a contact's current status (model.js soWyStatusOf at the story's floor now, env.floor() — it
+// reads as gone 6 floors after the floor that set it) shows in the contacts row, under a private chat's title and as a 状态 card above the
+// signature on the profile. No status → nothing added (today's DOM). env.stages.versions (ENABLE_THR_WEIYU_VERSIONS): the pager under the
+// last line of the chat's latest AI round (soWyVersInfo / soWyVersSwap; zero calls, one commit 'vers').
+
+function soWyStOn(phone) { return soWyUpOn(phone, 'status'); }
+function soWyVersOn(phone) { return soWyUpOn(phone, 'versions'); }
+
+// The status of pid shown now ('' without the stage / without one).
+function soWyStNow(phone, state, pid) {
+    if (!soWyStOn(phone)) return '';
+    let floor = null;
+    try { floor = typeof phone.env.floor === 'function' ? phone.env.floor() : null; } catch (e) { floor = null; }
+    return soWyStatusOf(state, pid, floor);
+}
+
+// The contacts row's name: today's span.wy-nm, or — with a status — a column of the name and the status line.
+function soWyStName(phone, state, pid) {
+    const d = phone.host.ownerDocument;
+    const nm = soWyEl(d, 'span', { class: 'wy-nm', text: soWyShownName(state, pid) });
+    const v = soWyStNow(phone, state, pid);
+    return v ? soWyEl(d, 'div', { class: 'wy-pcol' }, nm, soWyEl(d, 'span', { class: 'wy-pst', text: v })) : nm;
+}
+
+// A private chat's top-bar title: the string of today, or — with the other member's status — the title on one line and the status under it.
+function soWyStTitle(phone, state, chat, title) {
+    const v = soWyStOfChat(phone, state, chat);
+    if (!v) return title;
+    const d = phone.host.ownerDocument;
+    return soWyEl(d, 'span', { class: 'wy-ttl2' }, soWyEl(d, 'span', { class: 'wy-ttl-1', text: title }), soWyEl(d, 'span', { class: 'wy-ttl-st', text: v }));
+}
+
+// The status a private chat's top shows (the other member's current status), or '' — read by soWyStTitle and by the device top.
+function soWyStOfChat(phone, state, chat) {
+    if (!soWyStOn(phone) || !chat || chat.type !== 'dm' || !soWyIsMine(chat)) return '';
+    const her = (chat.members || []).find((p) => p !== THEATER_WEIYU_ME);
+    return her ? soWyStNow(phone, state, her) : '';
+}
+
+// looks Task 3 (spec §4.1 / §4.2): the chat's top under a device — no grid bar. [back mark (+ the other chats' unread) | the name + the
+// member line (a group's members) or her status (soWyStTitle's, a private chat) | the more mark]; crystal = etched on the top facet,
+// scroll = a pasted title slip (CSS, data-wy-dev). Same acts as the phone's bar: back, info; while he picks lines to forward: fsel-x only.
+function soWyDevTop(phone, state, chat, title, fsel, others) {
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    const n = others > 99 ? '99+' : others > 0 ? String(others) : '';
+    const left = fsel
+        ? soWyEl(d, 'button', { type: 'button', class: ['wy-dtop-b', 'wy-fsel-x'], data: { 'wy-act': 'fsel-x' }, text: T.cancel })
+        : soWyEl(d, 'button', { type: 'button', class: ['wy-dtop-b', 'wy-dtop-back'], data: { 'wy-act': 'back' }, aria: { label: T.back }, title: T.back },
+            soWyIcon(d, 'back'), n ? soWyEl(d, 'span', { class: 'wy-dtop-n', text: n }) : null);
+    const st = soWyStOfChat(phone, state, chat);
+    const sub = chat.type === 'group' ? (Array.isArray(chat.members) ? chat.members : []).map((p) => soWyShownWord(state, p)).join(' · ') : '';
+    const right = fsel ? soWyEl(d, 'span', { class: 'wy-dtop-sp' })
+        : soWyEl(d, 'button', { type: 'button', class: ['wy-dtop-b', 'wy-dtop-more'], data: { 'wy-act': 'info' }, aria: { label: T.info }, title: T.info }, soWyIcon(d, 'more'));
+    return soWyEl(d, 'div', { class: 'wy-dtop', data: { 'wy-dev': soWyLookDev(phone) } }, left,
+        soWyEl(d, 'div', { class: 'wy-dtop-c' }, soWyEl(d, 'div', { class: 'wy-dtop-ttl', text: title }),
+            st ? soWyEl(d, 'div', { class: ['wy-dtop-sub', 'wy-dtop-st'], text: st }) : sub ? soWyEl(d, 'div', { class: 'wy-dtop-sub', text: sub }) : null),
+        right);
+}
+
+// The profile's 状态 card (right above 个性签名), or null.
+function soWyStCard(phone, state, p) {
+    const v = p && p.id !== THEATER_WEIYU_ME ? soWyStNow(phone, state, p.id) : '';
+    if (!v) return null;
+    const d = phone.host.ownerDocument;
+    return soWyEl(d, 'div', { class: ['wy-card', 'wy-sigcard', 'wy-stcard'] }, soWyEl(d, 'div', { class: 'wy-k', text: THEATER_WEIYU_TEXT.upStatus }),
+        soWyEl(d, 'div', { class: 'wy-sig', text: v }));
+}
+
+// The pager ‹ i/n › under the chat's last line while its latest round has versions — not while this chat's request runs or lines of it are
+// still being revealed (the round is changing). It carries no data-wy-msg. null otherwise.
+function soWyVersPager(phone, state, chat, flight, hidden) {
+    if (!soWyVersOn(phone) || (flight && flight.at === chat.id) || (hidden && hidden.size > 0)) return null;
+    const info = soWyVersInfo(state, chat.id);
+    if (!info) return null;
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    const b = (dir, label, text, off) => soWyEl(d, 'button', { type: 'button', class: 'wy-vers-b', data: { 'wy-act': 'vers', 'wy-v': String(dir) }, aria: { label }, title: label, disabled: off, text });
+    return soWyEl(d, 'div', { class: 'wy-vers', role: 'group' },
+        b(-1, T.upVersPrev, '‹', info.cur <= 0),
+        soWyEl(d, 'span', { class: 'wy-vers-n', text: (info.cur + 1) + '/' + info.n }),
+        b(1, T.upVersNext, '›', info.cur >= info.n - 1),
+        info.full ? soWyEl(d, 'span', { class: 'wy-vers-full', text: soWyFmt(T.upVersFull, { n: THEATER_WEIYU_VERS_MAX }) }) : null);
+}
+
+function soWyVersGo(phone, cur, dir) {
+    if (cur.k !== 'chat' || !soWyVersOn(phone) || (dir !== 1 && dir !== -1)) return;
+    const st = soWyEnvState(phone);
+    const info = soWyVersInfo(st, cur.cid);
+    if (!info) return;
+    const f = soWyEnvFlight(phone);
+    if (f && f.at === cur.cid) return;
+    const c = soWyClone(st);
+    if (soWyVersSwap(c, cur.cid, info.cur + dir)) phone.env.commit(c, 'vers');
+    phone.refresh();
 }
 /* <</WEIYU:ui-screens>> */
 /* <<WEIYU:ui-boot>> */
@@ -31556,6 +35074,8 @@ function soWyScreenEmpty(phone, page) {
     }
     const running = !!(phone.boot && phone.boot.running);
     void page;
+    const dev = soWyLookDev(phone);   // looks Task 11: before 开机 the look follows the card's set alone (spec §14.2)
+    if (dev) return soWyLkBootEmpty(phone, dev, name, running);
     return soWyEl(d, 'div', { class: ['wy-page', 'wy-empty'] },
         soWyEl(d, 'div', { class: 'wy-empty-logo' }, soWyIcon(d, 'logo-tile', 'e')),
         soWyEl(d, 'div', { class: 'wy-empty-name', text: T.name }),
@@ -31579,9 +35099,111 @@ function soWyBootPhase(progress, done) {
     return 'splash';
 }
 
-// The status line of a phase (landing keeps the last line).
-function soWyBootLine(phase) {
-    const lines = THEATER_WEIYU_TEXT.bootLines;
+// ---- looks Task 11 (spec §4.4, §13.10, §14.2, §14.8): the start-up as the device ------------------------------------------------------
+// The empty page, the 开机 overlay, its contacts and landing, and the failure keep today's acts (boot · boot-back · boot-retry · words-open),
+// classes and texts, and take the device's form: crystal = the dormant gem → its edge draws itself in light, motes gather into a core, 微谕
+// forms out of light; scroll = the rolled scroll under a paper seal (封) → the seal tears, the paper unrolls from its roller, 微谕 soaks in as
+// ink and his seal is stamped under it. The contacts gather as motes (crystal) / small name seals (scroll) and fly to their rows at landing;
+// the rows glow in / drop onto the rack. It lasts as long as the request (no skip, no fixed length); 动画 关 = none of the motion.
+
+// The empty page as the device at rest (the phone's logo tile is not drawn).
+function soWyLkBootEmpty(phone, dev, name, running) {
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    const art = dev === 'scroll'
+        ? soWyEl(d, 'span', { class: 'wy-dempty-art', aria: { hidden: 'true' } }, soWyLkIcon(phone, 'roll', 'none'),
+            soWyEl(d, 'span', { class: 'wy-dempty-seal' }, soWyLkIcon(phone, 'paper-seal', 'none'), soWyEl(d, 'span', { class: 'wy-dempty-seal-ch', text: T.lookSealCh })))
+        : soWyEl(d, 'span', { class: 'wy-dempty-art', aria: { hidden: 'true' } }, soWyLkIcon(phone, 'crystal-gem', 'none'));
+    return soWyEl(d, 'div', { class: ['wy-page', 'wy-empty', 'wy-dempty', 'wy-dempty-' + dev] },
+        art,
+        soWyEl(d, 'div', { class: 'wy-empty-name', text: T.name }),
+        soWyEl(d, 'p', { class: 'wy-empty-who', text: soWyFmt(soWyLookText(phone, 'emptyWho'), { name }) }),   // looks Task 14: the set's device word
+        soWyEl(d, 'button', { type: 'button', class: ['wy-bootbtn', 'wy-dbootbtn'], data: { 'wy-act': 'boot' }, disabled: running },
+            soWyLkGlyph(phone, 'wy-dbootbtn-gl', 'power'), soWyEl(d, 'span', { text: T.bootBtn })),
+        soWyEl(d, 'p', { class: 'wy-boot-cost', text: T.bootCost }),
+        typeof soWyWordsEntryOn === 'function' && soWyWordsEntryOn(phone)
+            ? soWyEl(d, 'button', { type: 'button', class: ['wy-link', 'wy-words-boot'], data: { 'wy-act': 'words-open' }, text: soWyFmt(T.wordsBoot, { name: soWyWordsShownName(phone) }) })
+            : null);
+}
+
+// His seal on the scroll's start-up (stamped under 微谕): his picture in the seal mount when he has one, else a seal with his name's first
+// character (there is no story yet, so the name comes from the page: env.meName).
+function soWyLkBootMe(phone, name) {
+    const el = soWyLookSpeaker(phone, { u: THEATER_WEIYU_ME });
+    const ch = el.querySelector('.wy-spk-ch');
+    const first = Array.from(String(name || '').trim())[0];
+    if (ch && first) ch.textContent = first;
+    // K2C (stage-2 second opinion #7): his own colour — the hue his seal has in the chat and on the desk (the same hash of his name)
+    if (ch && first) el.style.setProperty('--wy-spk-c', 'var(--wy-hue-' + soWyBootHue(String(name).trim()) + ')');
+    el.classList.add('wy-dboot-me');
+    return el;
+}
+
+// The overlay as the device (data-wy-dev = the device; the status line reads the device's lines).
+function soWyLkBootOverlay(phone, dev) {
+    const d = phone.host.ownerDocument;
+    const T = THEATER_WEIYU_TEXT;
+    const reduced = soWyEnvReduced(phone);
+    const st = soWyEnvState(phone);
+    let name = st ? soWyPersonName(st, THEATER_WEIYU_ME) : '';
+    if (!name || name === '?') {
+        try { name = String(phone.env.meName() || ''); } catch (e) { name = ''; }
+    }
+    const sc = dev === 'scroll';
+    const motes = reduced ? null : soWyEl(d, 'div', { class: 'wy-dboot-motes' });
+    return soWyEl(d, 'div', { class: ['wy-boot', 'wy-dboot', 'wy-dboot-' + dev, reduced ? 'wy-boot-still' : ''], data: { 'wy-phase': 'splash', 'wy-dev': dev } },
+        sc ? soWyEl(d, 'span', { class: 'wy-dboot-art', aria: { hidden: 'true' } }, soWyEl(d, 'span', { class: 'wy-dboot-rod' }, soWyLkIcon(phone, 'roller', 'none')))
+            // K2C (stage-2 second opinion #5): the crystal's art, core and gathered contacts share ONE box the size of the gem
+            // (.wy-dboot-gem), so the contacts always sit inside it
+            : soWyEl(d, 'div', { class: 'wy-dboot-gem' }, soWyEl(d, 'span', { class: 'wy-dboot-art', aria: { hidden: 'true' } }, soWyLkIcon(phone, 'crystal-gem', 'none')),
+                soWyEl(d, 'span', { class: 'wy-dboot-core', aria: { hidden: 'true' } }), motes),
+        sc ? soWyEl(d, 'span', { class: 'wy-dboot-seal', aria: { hidden: 'true' } },
+            soWyEl(d, 'span', { class: ['wy-dboot-seal-h', 'wy-dboot-seal-a'] }, soWyLkIcon(phone, 'paper-seal', 'none')),
+            soWyEl(d, 'span', { class: ['wy-dboot-seal-h', 'wy-dboot-seal-b'] }, soWyLkIcon(phone, 'paper-seal', 'none')),
+            soWyEl(d, 'span', { class: 'wy-dboot-seal-ch', text: T.lookSealCh }))
+            : null,
+        sc ? motes : null,
+        soWyEl(d, 'div', { class: 'wy-boot-text' },
+            soWyEl(d, 'div', { class: 'wy-boot-name', text: T.name }),
+            sc ? soWyLkBootMe(phone, name) : null,
+            soWyEl(d, 'div', { class: 'wy-boot-line', role: 'status', aria: { live: 'polite' }, text: soWyBootLine('splash', dev) })));
+}
+
+// The contacts as they are reported: one mote (crystal: the person's sigil) / one small name seal (scroll) each, gathering in rows.
+function soWyLkBootMotes(phone, dev, box, names) {
+    const d = phone.host.ownerDocument;
+    const have = [...box.querySelectorAll('.wy-dboot-mote')].map((x) => x._wyName);
+    names.forEach((name, i) => {
+        if (typeof name !== 'string' || !name || have.includes(name) || i >= 24) return;
+        const hue = soWyBootHue(name);
+        const mark = dev === 'scroll'
+            ? soWyEl(d, 'span', { class: ['wy-spk', 'wy-spk-scroll', 'wy-spk-seal'] }, soWyLkIcon(phone, 'seal'), soWyEl(d, 'span', { class: 'wy-spk-ch', text: Array.from(name.trim())[0] || '?' }))
+            : soWyEl(d, 'span', { class: ['wy-spk', 'wy-spk-crystal', 'wy-spk-sig'] }, soWyLkIcon(phone, 'sigil-' + hue));
+        mark.style.setProperty('--wy-spk-c', 'var(--wy-hue-' + hue + ')');
+        const el = soWyEl(d, 'div', { class: 'wy-dboot-mote' }, mark, soWyEl(d, 'span', { class: 'wy-boot-cn', text: name }));
+        el._wyName = name;
+        box.appendChild(el);
+    });
+    // K2C (stage-2 second opinion #5): the gem holds two rows of three — with more than six contacts, five show and a 「+N」 mote counts
+    // the rest (they still came; only the shown ones fly to their rows at landing)
+    if (dev === 'scroll') return;
+    const CAP = 6;
+    const all = [...box.querySelectorAll('.wy-dboot-mote')];
+    const over = all.length > CAP;
+    all.forEach((el, i) => el.classList.toggle('wy-dboot-hid', over && i >= CAP - 1));
+    let more = box.querySelector('.wy-dboot-more');
+    if (!over) {
+        if (more) more.remove();
+        return;
+    }
+    if (!more) more = soWyEl(d, 'div', { class: 'wy-dboot-more' });
+    more.textContent = '+' + (all.length - (CAP - 1));
+    box.appendChild(more);
+}
+
+// The status line of a phase (landing keeps the last line); dev = 'crystal' | 'scroll' → the device's lines (looks Task 11).
+function soWyBootLine(phase, dev) {
+    const lines = dev === 'crystal' || dev === 'scroll' ? THEATER_WEIYU_BOOT_LINES_LOOK[dev] : THEATER_WEIYU_TEXT.bootLines;
     const i = Math.min(THEATER_WEIYU_BOOT_PHASES.indexOf(phase), lines.length - 1);
     return lines[Math.max(0, i)];
 }
@@ -31589,6 +35211,8 @@ function soWyBootLine(phase) {
 // The overlay: the splash art for the theme (its #ring / #contacts / #logo groups are the CSS hooks), the name, the status line;
 // with motion, an orbit that the reported contacts join one by one. Reduced motion: the splash and the status line only.
 function soWyBootOverlay(phone) {
+    const dev = soWyLookDev(phone);   // looks Task 11: the device's overlay
+    if (dev) return soWyLkBootOverlay(phone, dev);
     const d = phone.host.ownerDocument;
     const T = THEATER_WEIYU_TEXT;
     const dark = phone.host.getAttribute('data-wy-theme') === 'dark';
@@ -31626,6 +35250,8 @@ function soWyBootSpun(orbit) {
 // Re-spaces the orbit's contacts evenly (angle via --wy-a) and adds the new names.
 function soWyBootContacts(phone, ov, names) {
     const d = phone.host.ownerDocument;
+    const motes = ov.querySelector('.wy-dboot-motes');   // looks Task 11: the device gathers them as motes / small seals
+    if (motes) return soWyLkBootMotes(phone, ov.getAttribute('data-wy-dev'), motes, names);
     const orbit = ov.querySelector('.wy-boot-orbit');
     if (!orbit) return;
     // names stream in while the ring is already turning: a new tile's counter-turn (.wy-boot-unspin) must start from the RING's
@@ -31662,11 +35288,21 @@ function soWyBootClose(phone) {
     for (const f of phone.layer.querySelectorAll('.wy-fly')) f.remove();
 }
 
-function soWyBootStats(state) {
+// K2C (stage-2 second opinion #3): with a phone under a device whose set has its own words for 群聊 / 私聊 (magic 传讯圈 / 密语, xianxia
+// 传音阵 / 密音, an own world's), the counts name them (lookReadyStats, DRAFT); otherwise — the phone look, no phone, a device picked by hand
+// on a modern card — today's readyStats exactly.
+function soWyBootStats(state, phone) {
     const T = THEATER_WEIYU_TEXT;
     const people = Object.values(state && soWyIsObj(state.people) ? state.people : {}).filter((p) => p && p.id !== THEATER_WEIYU_ME && !p.extra).length;
     const chats = Object.values(state && soWyIsObj(state.chats) ? state.chats : {});
-    return soWyFmt(T.readyStats, { n: people, g: chats.filter((c) => c.type === 'group').length, d: chats.filter((c) => c.type === 'dm').length });
+    const v = { n: people, g: chats.filter((c) => c.type === 'group').length, d: chats.filter((c) => c.type === 'dm').length };
+    if (phone && soWyLookDev(phone) && typeof soWyLkKindWord === 'function') {
+        const M = THEATER_WEIYU_WORD_SETS.modern.terms;
+        const group = soWyLkKindWord(phone, { type: 'group' });
+        const dm = soWyLkKindWord(phone, { type: 'dm' });
+        if (group !== M.group || dm !== M.dm) return soWyFmt(T.lookReadyStats, Object.assign(v, { group, dm }));
+    }
+    return soWyFmt(T.readyStats, v);
 }
 
 // 开机: one call. ok → the list is built underneath, rows come in staggered while the contacts fly to their rows, the overlay fades,
@@ -31693,7 +35329,7 @@ async function soWyBootRun(phone) {
         run.phase = ph;
         ov.setAttribute('data-wy-phase', ph);
         const line = ov.querySelector('.wy-boot-line');
-        if (line) line.textContent = soWyBootLine(ph);
+        if (line) line.textContent = soWyBootLine(ph, ov.getAttribute('data-wy-dev') || '');   // looks Task 11: the device's lines
     };
     setPhase('splash');
     const onProgress = (p) => {
@@ -31707,7 +35343,7 @@ async function soWyBootRun(phone) {
     const st = soWyEnvState(phone);
     if (soWyIsObj(r) && r.ok && st && st.booted) {
         setPhase('landing');
-        const stats = soWyBootStats(st);
+        const stats = soWyBootStats(st, phone);
         if (soWyEnvReduced(phone)) {
             soWyBootClose(phone);
             phone.toast(T.ready + ' · ' + stats, { ms: TM.readyMs });
@@ -31728,8 +35364,8 @@ async function soWyBootRun(phone) {
         else if (r.aborted) why = T.aborted;
     }
     ov.classList.add('wy-boot-failed');
-    ov.appendChild(soWyEl(d, 'div', { class: 'wy-boot-fail', role: 'alert' },
-        soWyEl(d, 'div', { class: 'wy-boot-fail-t', text: T.bootFail }),
+    ov.appendChild(soWyEl(d, 'div', { class: ov.hasAttribute('data-wy-dev') ? ['wy-boot-fail', 'wy-dboot-fail'] : 'wy-boot-fail', role: 'alert' },
+        soWyEl(d, 'div', { class: 'wy-boot-fail-t', text: soWyLookText(phone, 'bootFail') }),   // looks Task 14 (the phone look: T.bootFail)
         why ? soWyEl(d, 'div', { class: 'wy-boot-fail-why', text: why }) : null,
         soWyEl(d, 'div', { class: 'wy-boot-fail-btns' },
             soWyEl(d, 'button', { type: 'button', class: 'wy-boot-back', data: { 'wy-act': 'boot-back' }, text: T.back }),
@@ -31749,12 +35385,14 @@ function soWyBootLand(phone, run) {
     const st = soWyEnvState(phone);
     let R0 = null;
     try { R0 = phone.root.getBoundingClientRect(); } catch (e) { R0 = null; }
-    for (const c of ov.querySelectorAll('.wy-boot-contact')) {
-        const av = c.querySelector('.wy-av');
+    const dev = ov.getAttribute('data-wy-dev') || '';   // looks Task 11: the device's motes / seals fly to the rows' device marks
+    for (const c of ov.querySelectorAll(dev ? '.wy-dboot-mote:not(.wy-dboot-hid)' : '.wy-boot-contact')) {   // K2C: a counted-only mote stays
+        const av = c.querySelector(dev ? '.wy-spk' : '.wy-av');
         if (!av || !R0) continue;
         const pid = soWyFindPerson(st, c._wyName);
         // the person's own tile (their private chat's row) first — the same label and gradient as the copy; else a mosaic tile of a group
-        const to = pid && page ? page.querySelector('[data-wy-row] .wy-avw > .wy-av[data-wy-pid="' + pid + '"]') || page.querySelector('[data-wy-row] .wy-av[data-wy-pid="' + pid + '"]') : null;
+        const to = !pid || !page ? null : dev ? page.querySelector('[data-wy-row] .wy-avw > .wy-spk[data-wy-pid="' + pid + '"]')
+            : page.querySelector('[data-wy-row] .wy-avw > .wy-av[data-wy-pid="' + pid + '"]') || page.querySelector('[data-wy-row] .wy-av[data-wy-pid="' + pid + '"]');
         const a = av.getBoundingClientRect();
         const fly = av.cloneNode(true);
         fly.classList.add('wy-fly');
@@ -31991,6 +35629,9 @@ function soThrWeiyuAfterCommit(why) {
     soThrWeiyuMeterPaint();   // 记忆片：岛上的计数器跟着每一次 commit 走（回复落地 / 删除 / 总结 / 同步 / 两个设置）——不轮询
     soThrWeiyuRefreshEntry();
     if (soThrWeiyuTellOn()) soThrWeiyuNoteSync();   // Stage 3：每次 commit 后主线知情那一格跟上（发送 / 同步 / 编辑 / 开关 / 清空）
+    if (soThrWeiyuIncallOn()) soThrWeiyuRingCheck();   // 💬 来电：在响的那一通的记录没了 / 不再是未接（划走、删掉、接了、拒了）→ 悄悄结束
+    if (soThrWeiyuLooksOn()) soWyQuickLookPaint();   // 💬 外观：「外观」那一行一改，两颗一键按钮立刻跟上（不等下一次同步）
+    if (soWyQuickOn()) soWyQuickBadgePaint();   // 💬 一键进手机 · 未读角标：读了 / 免打扰 / 关着时落地的一条 → 两颗按钮上的点和数当场跟上
 }
 
 /* —— 引擎桥（Task 3）——
@@ -32403,6 +36044,8 @@ function soThrWeiyuClose(o) {
     const view = win && win.querySelector('#so-thr-weiyu-view');
     if (!(o && o.instant) && view && view.classList.contains('open') && soThrWeiyuMotionOn()) soThrWeiyuLeave(view);   /* MOTION (lane M) */
     if (ph) { try { ph.destroy(); } catch (e) { /* ignore */ } }
+    if (soThrWeiyuStickersOn()) soThrWeiyuStk.release();   // 💬 表情包：收回交出去的图片 URL
+    if (soThrWeiyuIncallOn()) soThrWeiyuRingClosed(ph);   // 💬 来电：交给这部手机的那一通跟着手机收起（照旧是未接）
     if (view) view.classList.remove('open');
     if (!soThrWeiyuLive) soThrWeiyuWaitBox(null);
     if (soThrConcOn()) soThrMainWake();   // 排队中的那一趟立刻重问一次还要不要（同场景查看层）
@@ -32466,6 +36109,7 @@ async function soThrWeiyuOpen() {
     if (sh && !soThrWeiyuErrBound.has(sh)) { soThrWeiyuErrBound.add(sh); sh.addEventListener('error', soThrWeiyuImgError, true); }
     if (view.classList.contains('so-wy-leaving')) { clearTimeout(soThrWeiyuLeaveT); view.classList.remove('so-wy-leaving'); }   /* MOTION (lane M) */
     view.classList.add('open');
+    if (soThrWeiyuStickersOn()) soThrWeiyuStkMount();   // 💬 表情包：这部手机的开关开着 → 拿单子（这次页面载入里拿到过就不再问）
     soThrWeiyuMeterPaint();   // 记忆片：打开时画一次岛上的计数器（之后每次 commit 再画）
     const ph = soThrWeiyuPhone;
     loadPersonasModule().then(() => { if (soThrWeiyuPhone === ph) ph.refresh(); }).catch(() => {});   // 玩家头像要 personas 模块
@@ -32480,10 +36124,12 @@ async function soThrWeiyuCall(kind, args, onProgress) {
         commit0(st, why);
         if (soThrWeiyuPhone && soThrWeiyuPhone !== ph) soThrWeiyuPhone.refresh();
     };
+    if (soThrWeiyuCatchupOn() && kind === 'boot') soThrWeiyuCuBootWrap(deps);   // 💬 立即跟上剧情：开机落地时记下开机读到的最后一条故事回复（state.bootAt）。旗关 = 没有这一行。
     const mem = kind === 'sum' && soThrWeiyuMemoryOn();   // 记忆片：总结后的 toast 说大小从多少到多少
     let before = 0;
     if (mem) { try { before = soWyPhoneSize(soThrWeiyuState()); } catch (e) { before = 0; } }
     const r = await soWyCall(kind, args, deps);
+    if (soThrWeiyuIncallOn()) soThrWeiyuRingFrom(r);   // 💬 来电：手机自己的请求带回来的 rings（手机中途关了也照样响卡）
     const cur = soThrWeiyuPhone;
     if (kind === 'sum' && cur && r && typeof r === 'object') {
         if (r.failed && r.why === 'length') cur.toast(THEATER_WEIYU_JOIN_TEXT.sumCut);
@@ -32651,6 +36297,22 @@ function soThrWeiyuEnv() {
     if (soThrWeiyuFindOn()) env.stages.find = true;   // 💬 从故事里找人（ENABLE_THR_WEIYU_FIND）：「+」里的「从故事里找人」那一页。旗关 = 没有这个键。
     if (soThrWeiyuAutoReplyOn()) env.stages.autoReply = true;   // 💬 AI 自动回复开关（ENABLE_THR_WEIYU_AUTOREPLY）：输入框上方那一行 + 「AI 现在回复」。旗关 = 没有这个键。
     if (soThrWeiyuSyncEveryOn()) env.stages.syncEvery = true;   // 💬 每几次回复更新一次（ENABLE_THR_WEIYU_SYNC_EVERY）：「跟着剧情更新」下面那一行数字框。旗关 = 没有这个键。
+    if (soThrWeiyuStickersOn()) env.stages.stickers = true;   // 💬 表情包（ENABLE_THR_WEIYU_STICKERS）。旗关 = 没有这个键。
+    if (soThrWeiyuReactOn()) env.stages.react = true;   // 💬 表情回应（ENABLE_THR_WEIYU_REACT）。旗关 = 没有这个键。
+    if (soThrWeiyuIncallOn()) env.stages.incall = true;   // 💬 来电（ENABLE_THR_WEIYU_INCALL ∧ 通话现场）。旗关 = 没有这个键。
+    if (soThrWeiyuSoundOn()) env.stages.sound = true;   // 💬 声音（ENABLE_THR_WEIYU_SOUND）。旗关 = 没有这个键。
+    if (soThrWeiyuStatusOn()) env.stages.status = true;   // 💬 状态 / 签名（ENABLE_THR_WEIYU_STATUS ∧ 剧情同步）。旗关 = 没有这个键。
+    if (soThrWeiyuVersionsOn()) env.stages.versions = true;   // 💬 回复的几个版本（ENABLE_THR_WEIYU_VERSIONS）。旗关 = 没有这个键。
+    if (soThrWeiyuLooksOn()) env.stages.looks = true;   // 💬 外观（ENABLE_THR_WEIYU_LOOKS）：水晶 / 卷轴的样子 + 「我」页的「外观」一行。旗关 = 没有这个键。
+    if (soThrWeiyuLooksOn()) env.close = () => soThrWeiyuClose();   // 💬 外观：手机自己收起（聊天列表上「返回」），走今天的收起。旗关 = 没有这个键。
+    if (soThrWeiyuPeekGroupOn()) env.stages.peekGroup = true;   // 💬「我不进群」（ENABLE_THR_WEIYU_PEEKGROUP）：发起群聊上的那个开关。旗关 = 没有这个键。
+    if (soWyQuickOn()) env.stages.quick = true;   // 💬 一键进手机（ENABLE_THR_WEIYU_QUICK）：「我」页的两个开关（输入栏按钮 / 悬浮按钮，2026-11-26 从 ⚙ 挪进手机）。旗关 = 没有这个键。
+    if (soWyQuickOn()) env.quick = soWyQuickEnv();   // 💬 一键进手机：那两个开关读 / 写的全局设置（get / set）。旗关 = 没有这个键。
+    if (soThrWeiyuCatchupOn()) env.stages.catchup = true;   // 💬 立即跟上剧情（ENABLE_THR_WEIYU_CATCHUP）：「+」里那一项 + 「没跟上」那一条。旗关 = 没有这个键。
+    if (soThrWeiyuCatchupOn()) env.catchup = () => soThrWeiyuCatchup();   // 💬 立即跟上剧情：一次同步盖住手机还没跟上的回复（结果交回给手机说一句）。旗关 = 没有这个键。
+    if (soThrWeiyuStickersOn()) env.stk = { load: () => soThrWeiyuStk.load(), pool: () => soThrWeiyuStk.pool(), image: (id) => soThrWeiyuStk.image(id) };   // 💬 表情包服务：单子 / 能用的表情包 / 图片的 object URL。旗关 = 没有这个键。
+    if (soThrWeiyuIncallOn()) env.ringStart = (info) => soThrWeiyuRingStart(info);   // 💬 来电：手机自己的请求带回来的 rings 一条条交过来（响了没有）。旗关 = 没有这个键。
+    if (soThrWeiyuSoundOn()) env.sound = soThrWeiyuSoundEnv();   // 💬 声音：on / set（设置键 weiyuSound）/ play / ring，全在代码里合成。旗关 = 没有这个键。
     // 💬 世界用语（ENABLE_THR_WEIYU_WORDS）：store = 存着的表的副本（原样，可能是更新版本的）· save(整张表) → 存没存 · ready = 就绪表。旗关 = 没有这个键。
     if (soThrWeiyuWordsOn()) env.words = { store: () => { const w = soThrWeiyuWordsStore(); return w == null ? null : soWyClone(w); }, save: (store) => soThrWeiyuWordsSave(store), ready: () => soThrWeiyuWordsReady() };
     // 💬 世界用语 起名（ENABLE_THR_WEIYU_WORDS_AI）：ai = 有那个按钮 · lore() = 这一次会发的设定（soThrWeiyuWordsLore，每次现读；只在玩家看 / 按时调）。旗关 = 没有这两个键。
@@ -32694,6 +36356,11 @@ function soThrWeiyuDeps(o) {
     if (soThrWeiyuAddOn()) d.ac = true;   // 💬 手动添加联系人（ENABLE_THR_WEIYU_ADD）：【人】行带人物说明 +「还没在故事里出现过」（只在存了这两样的人身上）。旗关 = 没有这个键。
     if (soThrWeiyuFindOn()) d.findSource = () => soThrWeiyuFindSource();   // 💬 从故事里找人（ENABLE_THR_WEIYU_FIND）：块的 soWyFindCall 按一次读一次（这一趟发出去的故事楼层）。旗关 = 没有这个键。
     if (soThrWeiyuAutoReplyOn()) d.autoReply = true;   // 💬 AI 自动回复开关（ENABLE_THR_WEIYU_AUTOREPLY）：零调用的 put（只存玩家发的，不发请求）。旗关 = 没有这个键。
+    if (soThrWeiyuReactOn()) d.react = true;   // 💬 表情回应（ENABLE_THR_WEIYU_REACT）。旗关 = 没有这个键。
+    if (soThrWeiyuIncallOn()) d.incall = true;   // 💬 来电（ENABLE_THR_WEIYU_INCALL ∧ 通话现场）。旗关 = 没有这个键。
+    if (soThrWeiyuStatusOn()) d.status = true;   // 💬 状态 / 签名（ENABLE_THR_WEIYU_STATUS ∧ 剧情同步）。旗关 = 没有这个键。
+    if (soThrWeiyuVersionsOn()) d.versions = true;   // 💬 回复的几个版本（ENABLE_THR_WEIYU_VERSIONS）。旗关 = 没有这个键。
+    if (soThrWeiyuStickersOn()) d.stk = { pool: () => soThrWeiyuStk.pool() };   // 💬 表情包：这一趟能出的表情包（单子里的 + 文字表情）。旗关 = 没有这个键。
     return d;
 }
 // 💬 从故事里找人（ENABLE_THR_WEIYU_FIND；spec 2026-11-21-weiyu-add-contact-design.md §6）：这一趟 find 请求实际带上的文字，块拿它核对名单里的
@@ -33007,6 +36674,7 @@ function soThrWeiyuWork(fn) {
         const c = soWyClone(cur);
         if (chat) soThrWeiyuReconcile(c, chat);
         const r = typeof fn === 'function' ? fn(c, chat) : null;
+        if (soThrWeiyuCatchupOn()) soThrWeiyuCuTidy(c, chat);   // 💬 立即跟上剧情：「没跟上」那一条跟着最新的回复走；没东西要跟了 = 去掉。旗关 = 没有这一行。
         return { r, changed: soThrWeiyuSyncSave(cur, c) };
     } catch (e) {
         return none;
@@ -33155,6 +36823,7 @@ async function soThrWeiyuSyncStep(ctx, s, idx, o) {
                 const info = soWySyncBanner(soThrWeiyuState(), rr.delta);
                 if (info) ph.banner(info);
             }
+            if (soThrWeiyuIncallOn()) soThrWeiyuRingFrom(rr);   // 💬 来电：这一趟刚落地的、打给他的电话响起来（手机开着 = 手机的来电画面；关着 = 页面来电卡）
             return out(true, 'ok', { delta: rr.delta || '' });
         }
         const kind = rr.busy ? 'busy' : rr.wait ? 'wait' : rr.failed ? 'failed' : rr.aborted ? 'aborted' : rr.stale ? 'stale' : 'error';
@@ -33174,9 +36843,199 @@ async function soThrWeiyuScenesStep(ctx, s, idx, o) {
     let scenes = null;
     let err = null;
     try { scenes = await runAutoScenes(ctx, s, idx, { type: opt.type, mvuWait: opt.mvuWait }); } catch (e) { err = e; }
-    await soThrWeiyuSyncStep(ctx, s, idx, Object.assign({}, opt, { scenes }));
+    const sy = await soThrWeiyuSyncStep(ctx, s, idx, Object.assign({}, opt, { scenes }));
+    if (soThrWeiyuCatchupOn()) soThrWeiyuCuStep(sy, opt);   // 💬 立即跟上剧情：这一趟被跳过 / 失败了 → 手机上记「没跟上」。旗关 = 没有这一行。
     if (err) throw err;
     return scenes;
+}
+
+/* —— 💬 立即跟上剧情（ENABLE_THR_WEIYU_CATCHUP；brief .superpowers/sdd/2026-11-27-weiyu-catchup/brief.md）——
+ * 「还没跟上」从现有的记录算：手机的每份增量（活的 / 定稿的）记着它跟的那一楼。最新那条故事回复（最后一条可见 AI 回复）有一份属于它此刻显示的
+ * swipe 的增量（活的；或定稿的且正文 key 对得上 / ✨校正的 swipe）= 跟上了；否则从「有增量的最后一楼」之后数到最新那条（只数 AI 回复，同
+ * soThrWeiyuSyncAt 的数法）= 要盖的楼数 n；一份增量都没有 = 只跟最新那一条（n = 1）。
+ * 开机那一楼（2026-11-27 跟进，Prince 批）：开机那一趟发出时故事里最后一条回复记在 state.bootAt = {floor, key}（开机落地时写，soThrWeiyuCuBootWrap）——
+ * 开机读到了它，它和它之前的回复都算跟上了：从 max(有增量的最后一楼, 开机那一楼) 之后数。它跟着自己那条回复走（按正文 key 找最近的一楼，
+ * 同增量对楼号的办法）；那条回复显示的不是开机时那段正文（划出新的 / 改过 / 续写过 / 删了）= 保守：它那一楼也算没跟上（多盖一楼不要紧，
+ * 漏一楼才要紧）。这一版之前开的机 / 旗关时开的机没有这个键 = 照旧（n = 1）。它只是手机自己的记账：块从不读它，任何请求 / 主线备忘都没有它。
+ * 一趟 = 自动那一趟一模一样的请求：soWyCall('sync', soThrWeiyuSyncArgs(…, n), 回复后编排那一路的 deps)——n = 1 是今天的同步请求逐字节，n ≥ 2 是
+ * 冻结的多楼同步 + 分隔线（「读最近几楼」照多楼同步的规矩裁）。不加任何模型读得到的新字。
+ * 「没跟上」= state.syncMiss = {floor}（手机自己存着、关了再开照样在；任何请求 / 主线备忘都不读它）：自动那一趟被跳过 / 失败时记下（勾着「跟着剧情
+ * 更新」、确实有没跟上的回复）；任何一趟同步落在它那一楼或之后（块的落地）/ 再没有要跟的（回复删了…，soThrWeiyuCuTidy）= 去掉。 */
+function soThrWeiyuCatchupOn() { return ENABLE_THR_WEIYU_CATCHUP && soThrWeiyuSyncEveryOn(); }
+// （纯；st 只读、chat 只读）此刻要跟哪一条、盖几楼。→ null（没有故事回复 / 已经跟上）| {floor, swipe, key, n}。
+function soThrWeiyuCuNeed(st, chat) {
+    if (!soWyIsObj(st) || !Array.isArray(chat)) return null;
+    const last = soThrWeiyuLastAiFloor(chat);
+    if (last < 0) return null;
+    const msg = chat[last];
+    const swipe = soThrWeiyuSwipeOf(msg);
+    const key = soThrWeiyuReplyKey(msg, swipe);
+    const fix = soThrWeiyuSwipeIsFix(msg, swipe);
+    const ds = (Array.isArray(st.deltas) ? st.deltas : []).filter((d) => soWyIsObj(d) && Number.isInteger(Number(d.floor)) && Number(d.floor) >= 0);
+    if (ds.some((d) => Number(d.floor) === last && Array.isArray(d.swipes) && d.swipes.includes(swipe) && (!d.final || d.key === key || fix))) return null;
+    let from = -1;
+    for (const d of ds) { const f = Number(d.floor); if (f < last && f > from) from = f; }
+    let counted = from >= 0;
+    const boot = soThrWeiyuCuBootFrom(st, chat, last);   // 开机那一楼（没有 bootAt = null = 照旧）
+    if (boot !== null) {
+        if (boot >= last) return null;
+        if (boot > from) from = boot;
+        counted = true;
+    }
+    let n = 0;
+    if (counted) for (let i = from + 1; i <= last; i++) { const m = chat[i]; if (m && !m.is_user && !m.is_system) n++; }
+    return { floor: last, swipe, key, n: Math.max(1, n) };
+}
+// 此刻故事里最后一条回复（下标 + 它显示的那段正文的 key）；没有故事回复 = null。只读。
+function soThrWeiyuCuPoint() {
+    let chat = null;
+    try { const c = getCtx(); chat = c && Array.isArray(c.chat) ? c.chat : null; } catch (e) { chat = null; }
+    const floor = soThrWeiyuLastAiFloor(chat);
+    if (floor < 0) return null;
+    return { floor, key: soThrWeiyuReplyKey(chat[floor], soThrWeiyuSwipeOf(chat[floor])) };
+}
+// 开机那一趟（soThrWeiyuCall 里 kind 'boot' 的一行守卫）：请求发出之前记下故事里最后一条回复，开机落地（commit 'boot'）时写进那部新手机的
+// state.bootAt。只换 deps.commit（请求一个字节都不碰）；没有故事回复 = 什么都不换。→ 换了没有。
+function soThrWeiyuCuBootWrap(deps) {
+    const at = soThrWeiyuCuPoint();
+    if (!at || !deps || typeof deps.commit !== 'function') return false;
+    const c0 = deps.commit;
+    deps.commit = (st, why) => {
+        if (why === 'boot' && soWyIsObj(st)) st.bootAt = { floor: at.floor, key: at.key };
+        c0(st, why);
+    };
+    return true;
+}
+// （纯；chat 只读）state.bootAt 那条回复此刻在哪一楼：先看它自己的楼号，再由近到远找（一样近先往前——删掉更早的楼最常见）；它的任何一个
+// swipe 的正文 key 对得上就算（只认 AI / 隐藏的楼，不认玩家的）。找不到 = -1。
+function soThrWeiyuCuBootLocate(chat, b) {
+    const has = (i) => {
+        const m = chat[i];
+        if (!soWyIsObj(m) || m.is_user) return false;
+        const n = Math.max(Array.isArray(m.swipes) ? m.swipes.length : 0, soThrWeiyuSwipeOf(m) + 1);
+        for (let sw = 0; sw < n; sw++) if (soThrWeiyuKeyAt(m, sw) === b.key) return true;
+        return false;
+    };
+    const f = b.floor;
+    for (let d = 0; f - d >= 0 || f + d < chat.length; d++) {
+        if (f - d >= 0 && f - d < chat.length && has(f - d)) return f - d;
+        if (d > 0 && f + d < chat.length && has(f + d)) return f + d;
+    }
+    return -1;
+}
+// （纯）开机那一楼算到哪一楼为止跟上了：→ 楼号 i（i 和它之前的回复都跟上了；-1 = 一条都没跟上）| null（没有 bootAt / 坏的 = 照旧）。last = 最新那条故事回复的下标。
+// 找到它、显示的正是开机时那段（或 ✨校正写的 swipe，同增量的规矩）= 它那一楼；找到但显示的是别的版本 = 它前一楼；找不到 = min(它的楼号, last) 前一楼。
+function soThrWeiyuCuBootFrom(st, chat, last) {
+    const b = soWyIsObj(st) ? st.bootAt : null;
+    if (!soWyIsObj(b) || !Number.isSafeInteger(b.floor) || b.floor < 0 || typeof b.key !== 'string' || !Array.isArray(chat)) return null;
+    const at = soThrWeiyuCuBootLocate(chat, b);
+    if (at < 0) return Math.min(b.floor, last) - 1;
+    const m = chat[at];
+    const sw = soThrWeiyuSwipeOf(m);
+    return soThrWeiyuReplyKey(m, sw) === b.key || soThrWeiyuSwipeIsFix(m, sw) ? at : at - 1;
+}
+// （纯，改的是传进来的 st）bootAt 跟着它那条回复：挪了楼 = 跟着挪；找不到了 = 换成它（至多最新那条）前面最近的一条故事回复（算出来的楼数不变，
+// 之后不用每次再找）；前面一条都没有 = 原样留着（每次照样算，楼数一样）。→ 改了没有。
+function soThrWeiyuCuBootFollow(st, chat) {
+    const b = soWyIsObj(st) ? st.bootAt : null;
+    if (!soWyIsObj(b) || !Number.isSafeInteger(b.floor) || b.floor < 0 || typeof b.key !== 'string' || !Array.isArray(chat)) return false;
+    const at = soThrWeiyuCuBootLocate(chat, b);
+    if (at === b.floor) return false;
+    if (at >= 0) { b.floor = at; return true; }
+    const last = soThrWeiyuLastAiFloor(chat);
+    for (let i = Math.min(b.floor, last) - 1; i >= 0; i--) {
+        const m = chat[i];
+        if (m && !m.is_user && !m.is_system) { st.bootAt = { floor: i, key: soThrWeiyuReplyKey(m, soThrWeiyuSwipeOf(m)) }; return true; }
+    }
+    return false;
+}
+// （纯，改的是传进来的 st）开机那一楼跟着它的回复走（soThrWeiyuCuBootFollow）；「没跟上」那一条跟着此刻最新的那条回复（楼号挪了跟着挪）；
+// 已经跟上了 / 没有故事回复 = 去掉。
+function soThrWeiyuCuTidy(st, chat) {
+    if (!soWyIsObj(st) || !Array.isArray(chat)) return false;
+    const moved = soThrWeiyuCuBootFollow(st, chat);
+    if (!soWyOwn(st, 'syncMiss')) return moved;
+    const need = soThrWeiyuCuNeed(st, chat);
+    if (!need) { delete st.syncMiss; return true; }
+    if (soWyIsObj(st.syncMiss) && Number(st.syncMiss.floor) === need.floor) return moved;
+    st.syncMiss = { floor: need.floor };
+    return true;
+}
+// 记下「没跟上」：只在 chatKey 还是那个聊天（null = 不比）、勾着「跟着剧情更新」、确实有没跟上的回复时。→ 手机变了没有。零调用，绝不抛。
+function soThrWeiyuCuMark(chatKey) {
+    try {
+        if (!soThrWeiyuCatchupOn() || (chatKey != null && fixChatKey() !== chatKey)) return false;
+        return soThrWeiyuWork((c, chat) => {
+            if (!chat || !soWyIsObj(c.opts) || c.opts.sync !== true) return;
+            const need = soThrWeiyuCuNeed(c, chat);
+            if (need) c.syncMiss = { floor: need.floor };
+        }).changed;
+    } catch (e) {
+        return false;
+    }
+}
+// 自动那一趟（soThrWeiyuSyncStep 的结局 sy）没落地、也不是因为有更新的东西接替它：连接没跑成 / MVU 等超时 / 手机自己的请求在写 / 小剧场在排 / 失败 /
+// 出错 / 半路被掐（「继续」；玩家下一次发送 / 点了中断 = 新一轮会来，不记）→ 记「没跟上」。stale / no-sync / same / continue / nothing = 不记。
+const THEATER_WEIYU_CU_MISS_REASONS = Object.freeze(['conn', 'mvu-timeout', 'busy', 'wait', 'failed', 'error', 'aborted']);
+function soThrWeiyuCuStep(sy, o) {
+    const r = soWyIsObj(sy) ? sy : {};
+    if (!THEATER_WEIYU_CU_MISS_REASONS.includes(r.reason)) return false;
+    if (r.reason === 'aborted' && postReplyShouldStop()) return false;
+    return soThrWeiyuCuMark(soWyIsObj(o) && o.chatKey != null ? o.chatKey : null);
+}
+// 手机自己 / 主线 / 回复后编排 / 小剧场有一趟在写或在排 → 这次不发（手机说「…正在忙」）。
+function soThrWeiyuCuBusy() {
+    let mainGen = false;
+    try { mainGen = !!(document.body && document.body.dataset && document.body.dataset.generating); } catch (e) { mainGen = false; }
+    return !!wy_flightBox.cur || mainGen || !!isGenerating || !!postReplyBusy || !!activePostReplyRun || !!soThrSceneBusy || !!soThrMoreFlight
+        || soThrRunsList().length > 0;
+}
+// 手机「+」里的「立即跟上剧情」/ 点「没跟上」那一条（env.catchup）：一趟同步，盖住手机还没跟上的每一条故事回复——请求和自动那一趟一模一样
+// （回复后编排那一路的 deps：神谕路的历史是数组，分隔线才放得进去；主线一开始生成就掐掉）。跟没跟着剧情更新都能用。
+// → {busy} | {done}（已经跟上了）| {failed, why: 'gone'} | soWyCall 的结局（{ok, delta} / {wait} / {failed} / {error} / {aborted} / {stale}）。绝不抛。
+async function soThrWeiyuCatchup() {
+    try {
+        if (!soThrWeiyuCatchupOn() || !soThrWeiyuSyncState()) return { failed: true, why: 'gone' };
+        if (soThrWeiyuCuBusy()) return { busy: true };
+        let ctx = null;
+        try { ctx = getCtx(); } catch (e) { ctx = null; }
+        const s = getSettings();
+        // 先把手机对一遍楼号（零调用）；要落的那一楼还有一份活的增量（别的 swipe 的、碰过的）→ 先定稿（同 soThrWeiyuApplyOn：一楼只有一份活的）
+        const w = soThrWeiyuWork((c, chat) => {
+            const nd = chat ? soThrWeiyuCuNeed(c, chat) : null;
+            if (nd && soWyDeltaLive(c, nd.floor)) soWyDeltaFold(c, nd.floor + 1);
+            return nd;
+        });
+        const need = w.r;
+        if (!need) return { done: true };
+        if (ENABLE_MODE_CONN) {
+            const mc = soConn('theater', s);
+            if (mc.issue) return { error: soConnIssueText(mc) };
+        }
+        try { soThrWeiyuSc = await soThrModule('script', loadScriptCore); } catch (e) { soThrWeiyuSc = null; }
+        if (soThrWeiyuCuBusy()) return { busy: true };
+        const chatKey = fixChatKey();
+        const msg = ctx && Array.isArray(ctx.chat) ? ctx.chat[need.floor] : null;
+        const still = () => fixChatKey() === chatKey && !!ctx && (ctx.chat || [])[need.floor] === msg && soThrWeiyuSwipeOf(msg) === need.swipe;
+        const report = {};
+        const deps = soThrWeiyuDeps({ postReply: true, report });
+        deps.chatKey = () => (still() ? chatKey : chatKey + '::moved');
+        const res = await soWyCall('sync', soThrWeiyuSyncArgs(ctx, s, need.floor, need.swipe, need.key, need.n), deps);
+        const rr = soWyIsObj(res) ? res : {};
+        if (rr.ok) {
+            soThrWeiyuRefreshEntry();
+            const ph = soThrWeiyuPhone;
+            if (ph && rr.delta) {
+                const info = soWySyncBanner(soThrWeiyuState(), rr.delta);
+                if (info) ph.banner(info);
+            }
+            if (soThrWeiyuIncallOn()) soThrWeiyuRingFrom(rr);
+        }
+        return rr;
+    } catch (e) {
+        console.warn('[Story Oracle] 微谕：立即跟上剧情出错', e);
+        return { error: soWyErrText(e) };
+    }
 }
 /* 免费的路（Task 13）：换 swipe 的箭头 / 删楼 / 删 swipe / ✨校正写的新 swipe——一律零调用（从不读结果里的 sync），旗关 = 什么都不做。 */
 // 划回去的事件（MESSAGE_SWIPED / 删 swipe 之后 ST 显示的那个）。✨校正写出的 swipe 不按 key 丢暂存（见 soThrWeiyuSwipeIsFix）。
@@ -33333,6 +37192,744 @@ function soThrWeiyuAutoReplyOn() { return ENABLE_THR_WEIYU_AUTOREPLY && soThrWei
 function soThrWeiyuAddOn() { return ENABLE_THR_WEIYU_ADD && soThrWeiyuOn(); }
 // 从故事里找人（ENABLE_THR_WEIYU_FIND）：建在手动添加之上，所以也要 ENABLE_THR_WEIYU_ADD 开着。交给手机的 env.stages.find。
 function soThrWeiyuFindOn() { return ENABLE_THR_WEIYU_FIND && soThrWeiyuAddOn(); }
+// 💬 微谕 升级的六个开关（plan 2026-11-22-phone-upgrades.md）：每枚旗只在这里读。表情包 → env.stages.stickers（deps.stk 由表情包服务那一步加）。
+function soThrWeiyuStickersOn() { return ENABLE_THR_WEIYU_STICKERS && soThrWeiyuOn(); }
+// 表情回应 → env.stages.react + deps.react。
+function soThrWeiyuReactOn() { return ENABLE_THR_WEIYU_REACT && soThrWeiyuOn(); }
+// 来电 → env.stages.incall + deps.incall；建在通话现场之上（∧ ENABLE_THR_WEIYU_CALLSCENE）。
+function soThrWeiyuIncallOn() { return ENABLE_THR_WEIYU_INCALL && soThrWeiyuCallsceneOn(); }
+// 声音 → env.stages.sound + 设置键 weiyuSound（默认关）。
+function soThrWeiyuSoundOn() { return ENABLE_THR_WEIYU_SOUND && soThrWeiyuOn(); }
+// 状态 / 签名 → env.stages.status + deps.status；建在剧情同步之上（∧ ENABLE_THR_WEIYU_SYNC）。
+function soThrWeiyuStatusOn() { return ENABLE_THR_WEIYU_STATUS && soThrWeiyuSyncOn(); }
+// 回复的几个版本 → env.stages.versions + deps.versions。
+function soThrWeiyuVersionsOn() { return ENABLE_THR_WEIYU_VERSIONS && soThrWeiyuOn(); }
+// 💬 微谕 外观（水晶 / 卷轴）→ env.stages.looks + env.close（手机里在聊天列表上「返回」= 收起手机）。没有 deps 键：外观不改请求。
+function soThrWeiyuLooksOn() { return ENABLE_THR_WEIYU_LOOKS && soThrWeiyuOn(); }
+// 💬 微谕「我不进群」→ env.stages.peekGroup（发起群聊上的开关）。没有 deps 键：自动那一次就是今天的「让他们接着聊」请求。
+function soThrWeiyuPeekGroupOn() { return ENABLE_THR_WEIYU_PEEKGROUP && soThrWeiyuOn(); }
+// 💬 外观（looks Task 15）：这个故事的手机此刻是哪个样子——不用开手机（页面来电卡、两颗一键按钮、声音都问它）。
+// = 块的 soWyLookFor（存着的「外观」覆盖 > 世界用语那一套的样子），那一套 = 手机自己界面读的同一套（'note' 阶段，同 soWyWordsOfPhone）；
+// 世界用语旗关（手机没有 env.words）= 没有那一套 = 手机。st = 这个聊天存着的手机（null = 还没开机：只看那一套，spec §14.2）。只在有旗守着的行里调。
+function soThrWeiyuLookOf(st) {
+    const on = soThrWeiyuLooksOn();
+    let set = null;
+    if (on && soThrWeiyuWordsOn()) {
+        try { set = soWyWordsFor(soThrWeiyuWordsStore(), soThrWeiyuCardKey(), 'note', soWyIsObj(st) && st.booted === true, soThrWeiyuWordsReady()); } catch (e) { set = null; }
+    }
+    return soWyLookFor(st, set, on);
+}
+// 一个页面元素跟着样子挂 / 摘 data-so-wy-look（手机的样子 = 不挂）；没变 = 不碰 DOM。
+function soThrWeiyuLookAttr(el, look) {
+    if (!el) return;
+    if (look === 'crystal' || look === 'scroll') {
+        if (el.getAttribute('data-so-wy-look') !== look) el.setAttribute('data-so-wy-look', look);
+    } else if (el.hasAttribute('data-so-wy-look')) el.removeAttribute('data-so-wy-look');
+}
+/* —— 微谕 · 表情包服务（phone upgrades Task 12；spec 2026-11-22-phone-upgrades-design.md §5.2–5.3、§17.1）——
+ * 表情包的单子（pack.json）和图片只从 THEATER_WEIYU_STK_BASE 这一个地址取（整个微谕 join 里唯一的 fetch 目标）。块不碰网络：手机经 env.stk
+ * 拿 load / pool / image，请求那一侧经 deps.stk 拿 pool。单子：这次页面载入里从网上拿到过一次就不再问；拿不到 → 浏览器里存的上一份好的 →
+ * 内存里那一份 → {ok:false, why:'unreachable'}（同模板广场的失败梯子）。图片：第一次显示时取，存进浏览器自己的存储（IndexedDB），之后都从那里读；
+ * 交出去的是 object URL，关手机 / 换聊天时 release() 全部收回，换聊天前还在下载的那一张落地后不交给新聊天的手机。
+ * 从不进聊天元数据、设置文件或提示词。表情包那枚旗关着 = 没有 env.stk / deps.stk，load / image 什么都不取。 */
+const THEATER_WEIYU_STK_BASE = 'https://stickers.fabschoolcard.bid/';
+const THEATER_WEIYU_STK_TIMEOUT_MS = 10000;
+// 单子里的文件名：只许一个普通的相对文件名（不带斜杠、协议、查询串，不以点开头）——不合格的那一条整条丢掉，绝不去取。
+const THEATER_WEIYU_STK_FILE_RE = /^[A-Za-z0-9_-][A-Za-z0-9._-]*$/;
+// 浏览器存储：数据库 storyOracle_weiyu、表 blobs（键 → {blob | json, at}）；键 pack.json、img:<文件名>（以后的 ring:<文件名> 也放这里）。
+const THEATER_WEIYU_STORE_DB = 'storyOracle_weiyu';
+const THEATER_WEIYU_STORE_TABLE = 'blobs';
+// 测试接缝（产品代码从不写）：fetch 替身、存储替身（{get(key), set(key, value)}，一个 Map 就行）、超时毫秒。
+const soThrWeiyuStkTest = { fetch: null, store: null, timeoutMs: null };
+// 这次页面载入的状态：list = 现在用的单子（核过的）· net = 这次页面载入里从网上拿到过 · loading = 正在拿的那一趟 · urls = id → object URL ·
+// inflight = id → 正在取的那一张 · gen = release() 一次加一（取回来时 gen 变了 = 不交出去）。
+const soThrWeiyuStkS = { list: null, net: false, loading: null, tried: false, urls: new Map(), inflight: new Map(), gen: 0 };   // tried = 这次页面载入问过单子了
+let soThrWeiyuStoreDb = null;   // 打开数据库的那一个 promise（→ 数据库 | null）；打不开就这次页面载入都不再试
+
+// 核一份单子：{v: 1, rev, stickers: [{id, name, mood, desc, file, w, h, bytes}]} → {ok: true, stickers} | {ok: false, why: 'shape' | 'empty'}。
+// 一条缺字段 / 字段类型不对 / 名字或说明会被截短 / 文件名不是普通文件名 / id 或名字与前面的重复 / id 撞上文字表情的 id → 丢掉这一条（前面的留下）。
+function soThrWeiyuStkCheck(json) {
+    if (!json || typeof json !== 'object' || Array.isArray(json) || json.v !== 1 || !Array.isArray(json.stickers)) return { ok: false, why: 'shape' };
+    const words = new Set(THEATER_WEIYU_WORD_STICKERS.map((w) => w.id).concat(THEATER_WEIYU_WORD_RETIRED));   // + the ids retired 2026-11-23 (never reused)
+    const ids = new Set();
+    const names = new Set();
+    const out = [];
+    for (const e of json.stickers) {
+        if (!e || typeof e !== 'object' || Array.isArray(e)) continue;
+        if (!['id', 'name', 'mood', 'desc', 'file'].every((k) => typeof e[k] === 'string')) continue;
+        if (!['w', 'h', 'bytes'].every((k) => typeof e[k] === 'number' && Number.isFinite(e[k]) && e[k] > 0)) continue;
+        const n = soWyStkNorm(e);
+        if (!n || !e.id || n.id !== e.id || n.name !== e.name || n.mood !== e.mood || n.desc !== e.desc) continue;
+        if (!THEATER_WEIYU_STK_FILE_RE.test(e.file) || words.has(e.id) || ids.has(e.id) || names.has(e.name)) continue;
+        ids.add(e.id);
+        names.add(e.name);
+        out.push(Object.freeze({ id: e.id, name: e.name, mood: e.mood, desc: e.desc, file: e.file, w: e.w, h: e.h, bytes: e.bytes }));
+    }
+    return out.length ? { ok: true, stickers: out } : { ok: false, why: 'empty' };
+}
+
+// 浏览器存储的门（→ 数据库 | null）。没有 IndexedDB / 打不开 / 被挡住 = null（图片就每次从网上取，浏览器自己的缓存照样帮忙）。
+function soThrWeiyuStoreOpen() {
+    if (soThrWeiyuStoreDb) return soThrWeiyuStoreDb;
+    soThrWeiyuStoreDb = new Promise((res) => {
+        try {
+            const idb = typeof indexedDB !== 'undefined' ? indexedDB : null;
+            if (!idb || typeof idb.open !== 'function') { res(null); return; }
+            const rq = idb.open(THEATER_WEIYU_STORE_DB, 1);
+            rq.onupgradeneeded = () => {
+                try {
+                    const db = rq.result;
+                    if (!db.objectStoreNames.contains(THEATER_WEIYU_STORE_TABLE)) db.createObjectStore(THEATER_WEIYU_STORE_TABLE);
+                } catch (e) { /* the open then fails → null */ }
+            };
+            rq.onsuccess = () => res(rq.result || null);
+            rq.onerror = () => res(null);
+            rq.onblocked = () => res(null);
+        } catch (e) {
+            res(null);
+        }
+    });
+    return soThrWeiyuStoreDb;
+}
+// 读一格 → 值 | null（没有 / 存储用不了 / 出错）。绝不抛。
+async function soThrWeiyuStoreGet(key) {
+    const k = String(key);
+    try {
+        const t = soThrWeiyuStkTest.store;
+        if (t) { const v = await t.get(k); return v == null ? null : v; }
+        const db = await soThrWeiyuStoreOpen();
+        if (!db) return null;
+        return await new Promise((res) => {
+            try {
+                const rq = db.transaction(THEATER_WEIYU_STORE_TABLE, 'readonly').objectStore(THEATER_WEIYU_STORE_TABLE).get(k);
+                rq.onsuccess = () => res(rq.result == null ? null : rq.result);
+                rq.onerror = () => res(null);
+            } catch (e) {
+                res(null);
+            }
+        });
+    } catch (e) {
+        return null;
+    }
+}
+// 写一格 → 写成了没有。绝不抛。
+async function soThrWeiyuStorePut(key, value) {
+    const k = String(key);
+    try {
+        const t = soThrWeiyuStkTest.store;
+        if (t) { await t.set(k, value); return true; }
+        const db = await soThrWeiyuStoreOpen();
+        if (!db) return false;
+        return await new Promise((res) => {
+            try {
+                const tx = db.transaction(THEATER_WEIYU_STORE_TABLE, 'readwrite');
+                tx.oncomplete = () => res(true);
+                tx.onerror = () => res(false);
+                tx.onabort = () => res(false);
+                tx.objectStore(THEATER_WEIYU_STORE_TABLE).put(value, k);
+            } catch (e) {
+                res(false);
+            }
+        });
+    } catch (e) {
+        return false;
+    }
+}
+
+// 从表情包地址取一个文件（as = 'json' | 'blob'）→ 内容 | null（超时 / 断网 / 跨站被拦 / 非 2xx / 读不懂 / 文件名不合格）。绝不抛。
+async function soThrWeiyuStkGet(file, as) {
+    const name = String(file == null ? '' : file);
+    if (!THEATER_WEIYU_STK_FILE_RE.test(name)) return null;
+    const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+    const ms = typeof soThrWeiyuStkTest.timeoutMs === 'number' ? soThrWeiyuStkTest.timeoutMs : THEATER_WEIYU_STK_TIMEOUT_MS;
+    const timer = ctl ? setTimeout(() => { try { ctl.abort(); } catch (e) { /* ignore */ } }, ms) : null;
+    try {
+        const init = { cache: as === 'json' ? 'no-cache' : 'default', credentials: 'omit' };
+        if (ctl) init.signal = ctl.signal;
+        const t = soThrWeiyuStkTest.fetch;
+        const r = await (t ? t(THEATER_WEIYU_STK_BASE + name, init) : fetch(THEATER_WEIYU_STK_BASE + name, init));
+        if (!r || !r.ok) return null;
+        if (as === 'json') return await r.json();
+        const b = await r.blob();
+        return b && typeof b.size === 'number' && b.size > 0 ? b : null;
+    } catch (e) {
+        return null;
+    } finally {
+        if (timer) clearTimeout(timer);
+    }
+}
+
+// 交出一个 object URL（这个浏览器做不出来 = null）。
+function soThrWeiyuStkUrl(blob) {
+    try {
+        return typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function' ? URL.createObjectURL(blob) : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+// 拿单子那一趟（soThrWeiyuStk.load 用）：网上 → 存着的上一份好的 → 内存里那一份 → 拿不到。好的那份写进存储；坏的绝不覆盖存着的。
+async function soThrWeiyuStkFetchList() {
+    const S = soThrWeiyuStkS;
+    const net = await soThrWeiyuStkGet('pack.json', 'json');
+    const c = net == null ? null : soThrWeiyuStkCheck(net);
+    if (c && c.ok) {
+        S.list = c.stickers;
+        S.net = true;
+        await soThrWeiyuStorePut('pack.json', { json: { v: 1, rev: net.rev == null ? '' : String(net.rev), stickers: c.stickers.map((x) => Object.assign({}, x)) }, at: Date.now() });
+        return { ok: true, from: 'net' };
+    }
+    const kept = await soThrWeiyuStoreGet('pack.json');
+    const k = kept && kept.json ? soThrWeiyuStkCheck(kept.json) : null;
+    if (k && k.ok) {
+        S.list = k.stickers;
+        return { ok: true, from: 'store' };
+    }
+    if (S.list) return { ok: true, from: 'mem' };
+    return { ok: false, why: 'unreachable' };
+}
+
+// 取一张图（soThrWeiyuStk.image 用）：存储里有 → 用它；没有 → 网上取、存起来。gen 变了（中途 release 过）= 存照样存，URL 不做、不交出去。
+async function soThrWeiyuStkFetchImage(key, file, gen) {
+    const S = soThrWeiyuStkS;
+    const kept = await soThrWeiyuStoreGet('img:' + file);
+    let blob = kept && kept.blob && typeof kept.blob.size === 'number' && kept.blob.size > 0 ? kept.blob : null;
+    if (!blob) {
+        blob = await soThrWeiyuStkGet(file, 'blob');
+        if (blob) await soThrWeiyuStorePut('img:' + file, { blob, at: Date.now() });
+    }
+    if (!blob || gen !== S.gen) return null;
+    const url = soThrWeiyuStkUrl(blob);
+    if (!url) return null;
+    S.urls.set(key, url);
+    return url;
+}
+
+// 表情包服务（手机经 env.stk、请求那一侧经 deps.stk 用）。
+const soThrWeiyuStk = {
+    // → Promise<{ok: true, from: 'net' | 'store' | 'mem'} | {ok: false, why: 'unreachable' | 'off'}>。这次页面载入里网上拿到过 = 不再问；
+    // 没拿到过（上一次是存着的那份或者干脆没有）= 下一次打开手机再问一次。同一时刻只跑一趟。
+    load() {
+        const S = soThrWeiyuStkS;
+        if (!soThrWeiyuStickersOn()) return Promise.resolve({ ok: false, why: 'off' });
+        if (S.net && S.list) return Promise.resolve({ ok: true, from: 'net' });
+        if (S.loading) return S.loading;
+        S.tried = true;
+        const p = soThrWeiyuStkFetchList().catch(() => ({ ok: false, why: 'unreachable' })).finally(() => { if (S.loading === p) S.loading = null; });
+        S.loading = p;
+        return p;
+    },
+    // 现在能用的表情包：单子里的（带 file / w / h / bytes）+ 名字没被占的文字表情（soWyStkPool）。没有单子 = 只有文字表情。
+    pool() {
+        return soWyStkPool(soThrWeiyuStkS.list);
+    },
+    // id → Promise<object URL | null>（文字表情 / 不认识的 id / 取不到 = null，手机留着带名字的那一格）。同一个 id 同一时刻只取一趟。
+    image(id) {
+        const S = soThrWeiyuStkS;
+        if (!soThrWeiyuStickersOn()) return Promise.resolve(null);
+        const key = String(id == null ? '' : id);
+        if (S.urls.has(key)) return Promise.resolve(S.urls.get(key));
+        if (S.inflight.has(key)) return S.inflight.get(key);
+        // 单子还没到（打开手机那一趟还在路上，或这次页面载入还没问过而这部手机的「表情包」开着）：等那一趟落地再查一次（只查一次，不会循环）；
+        // 已经问过、没拿到 = 不为一张图再去问（下次打开手机会再问）。拆过（release）= 不再交出去。
+        if (!S.list) {
+            let on = false;
+            try { on = soWyStickersOn(soThrWeiyuState()); } catch (e) { on = false; }
+            if (S.loading || (on && !S.tried)) {
+                const gen = S.gen;
+                return soThrWeiyuStk.load().catch(() => null).then(() => (S.gen === gen && S.list ? soThrWeiyuStk.image(key) : null));
+            }
+        }
+        const stk = (S.list || []).find((x) => x.id === key);
+        if (!stk || !THEATER_WEIYU_STK_FILE_RE.test(stk.file)) return Promise.resolve(null);
+        const p = soThrWeiyuStkFetchImage(key, stk.file, S.gen).catch(() => null).finally(() => { if (S.inflight.get(key) === p) S.inflight.delete(key); });
+        S.inflight.set(key, p);
+        return p;
+    },
+    // 收回交出去的每一个 object URL；还在取的那几张落地后不再交出去（关手机 / 换聊天时调）。
+    release() {
+        const S = soThrWeiyuStkS;
+        S.gen++;
+        S.tried = false;   // 下次打开手机时单子再问一次（同 load() 的规矩）：那之前画出来的图也会等它，不会一直是名字方块
+        for (const u of S.urls.values()) { try { URL.revokeObjectURL(u); } catch (e) { /* ignore */ } }
+        S.urls.clear();
+        S.inflight.clear();
+    },
+};
+// 打开手机时（soThrWeiyuOpen 那一行有旗守着）：这部手机的「表情包」开着 → 拿单子（拿到之前手机只有文字表情）；关着 = 什么都不取。
+function soThrWeiyuStkMount() {
+    let st = null;
+    try { st = soThrWeiyuState(); } catch (e) { st = null; }
+    if (!soWyStickersOn(st)) return;
+    soThrWeiyuStk.load().catch(() => {});
+}
+// 测试接缝的复位（产品代码从不调）：这次页面载入的状态清零（收回 URL）。
+function soThrWeiyuStkReset() {
+    soThrWeiyuStk.release();
+    const S = soThrWeiyuStkS;
+    S.list = null;
+    S.net = false;
+    S.loading = null;
+    S.tried = false;
+}
+/* —— 微谕 · 表情包服务 end —— */
+
+/* —— 微谕 · 声音（phone upgrades Task 13 的 join 一半；spec §8 + §18：这一版没有铃声文件——铃声和提示音都在代码里合成，不取、不存任何东西）——
+ * env.sound = {on, set, play, ring}；开关 = getSettings().weiyuSound（浏览器 / 整个酒馆用户一个，默认关）。一个 AudioContext，在玩家碰过页面之后
+ * 第一次 play / ring 时才建（浏览器的规矩：之前建出来也是哑的，所以刷新后第一声可能不响）；每个声音都是振荡器经同一个低通（≤ 约 3 kHz、起音 ≥ 10 ms，
+ * 软）——性格参照 .superpowers/sdd/2026-11-22-phone-looks/demo-v2/index.html 的 phone 那一组，不是照抄它的代码。
+ * 开关关着 / 没有 AudioContext / 还没碰过页面 = play、ring 什么都不做。声音那枚旗关着 = 没有 env.sound、设置里没有 weiyuSound。 */
+const THEATER_WEIYU_RING_NOTES = Object.freeze([784, 659, 784, 988]);   // 铃声：四个柔和的正弦音，相隔 0.13 秒
+const THEATER_WEIYU_RING_EVERY_MS = 1600;                               // 每 1.6 秒响一遍
+const THEATER_WEIYU_SOUND_LP_HZ = 2800;                                 // 总低通：什么都不超过约 3 kHz
+// 五个提示音：[起点秒, 频率 Hz, {d 衰减秒, peak 峰值, f2 滑到的频率, fdur 滑多久, type}]。起音一律 ≥ 10 ms（soThrWeiyuSoundTone 兜底）。
+const THEATER_WEIYU_SOUNDS = Object.freeze({
+    arrive: [[0, 620, { d: 0.14, peak: 0.28, f2: 360, fdur: 0.1 }]],                               // 来消息：一声往下落的「嘟」
+    send: [[0, 700, { d: 0.07, peak: 0.16, f2: 940, fdur: 0.06, type: 'triangle' }]],            // 发出去：一声轻轻往上的「啵」
+    recall: [[0, 520, { d: 0.1, peak: 0.2 }], [0.08, 390, { d: 0.14, peak: 0.18 }]],               // 撤回：两个往下的音
+    connect: [[0, 523, { d: 0.12, peak: 0.18 }], [0.1, 784, { d: 0.2, peak: 0.18 }]],              // 接通：两个往上的音
+    end: [[0, 659, { d: 0.12, peak: 0.18 }], [0.12, 440, { d: 0.22, peak: 0.16 }]],                // 挂断：两个往下的音
+});
+// 引擎状态：ctx / lp = 那一个 AudioContext 和总低通 · touched = 碰过页面了 · armed = 「碰页面」的监听挂上了 · ringT = 铃声的计时器 ·
+// everyMs = 测试接缝（产品代码从不写；null = THEATER_WEIYU_RING_EVERY_MS）。
+const soThrWeiyuSoundS = { ctx: null, lp: null, touched: false, armed: false, ringT: null, everyMs: null };
+// 💬 外观（looks Task 15；spec §4.3 / §14.14）：水晶、卷轴各一组在代码里合成的声音，同一种写法、同一个低通——比手机那一组更轻
+//（Prince：第一版的水晶 / 卷轴声音「有点刺耳」）。水晶 = 玻璃似的、带一点空气感的轻铃（高一些的正弦 + 一个更轻的泛音、长而软的余音，峰值 ≤ 0.08）；
+// 卷轴 = 软的木头 / 纸 / 低沉的小钟（低处的三角波、音高很快落下 = 一声木叩；低处的正弦、长余音 = 小钟，峰值 ≤ 0.14）。
+// tap = 按下任何一个可点的东西（外观打磨 2026-11-26；只有这两组有它，手机那一组没有 = 手机样子按下不出声；声音开关关着照旧一声不响）。
+// ring = 铃声的一遍：notes 依次相隔 gap 秒，每个音 {d, peak}；循环间隔照旧 1.6 秒（一遍都在 1.4 秒内响完）。旗关 = 这一块从来不读。
+const THEATER_WEIYU_SOUND_LOOKS = Object.freeze({
+    crystal: Object.freeze({
+        sounds: Object.freeze({
+            arrive: [[0, 1568, { d: 0.45, peak: 0.08 }], [0, 2352, { d: 0.28, peak: 0.03 }], [0.1, 2093, { d: 0.5, peak: 0.06 }]],    // 来消息：两下轻铃，带一缕泛音
+            send: [[0, 1319, { d: 0.2, peak: 0.06, f2: 1760, fdur: 0.08 }], [0, 1976, { d: 0.16, peak: 0.025 }]],                       // 发出去：一声往上飘
+            recall: [[0, 2093, { d: 0.3, peak: 0.06 }], [0.11, 1568, { d: 0.4, peak: 0.05 }]],                                          // 收回：两下往下
+            connect: [[0, 1047, { d: 0.4, peak: 0.07 }], [0.13, 1568, { d: 0.5, peak: 0.07 }], [0.13, 2352, { d: 0.3, peak: 0.025 }]],  // 连上：往上亮起
+            end: [[0, 1568, { d: 0.35, peak: 0.06 }], [0.15, 1047, { d: 0.55, peak: 0.06 }]],                                           // 断开：往下暗去
+            tap: [[0, 2093, { d: 0.05, peak: 0.035 }], [0, 2794, { d: 0.035, peak: 0.012 }]],                                           // 按下（外观打磨 2026-11-26）：一声很轻的玻璃「叮」
+        }),
+        ring: Object.freeze({ notes: Object.freeze([1319, 1568, 1976, 1568]), gap: 0.16, d: 0.4, peak: 0.07 }),                          // 水晶在共鸣
+    }),
+    scroll: Object.freeze({
+        sounds: Object.freeze({
+            arrive: [[0, 392, { d: 0.07, peak: 0.14, f2: 262, fdur: 0.05, type: 'triangle' }], [0.06, 523, { d: 0.6, peak: 0.05 }]],    // 来信：一声木叩，跟一点钟声
+            send: [[0, 294, { d: 0.06, peak: 0.12, f2: 392, fdur: 0.05, type: 'triangle' }]],                                           // 发出去：提笔的一下
+            recall: [[0, 349, { d: 0.07, peak: 0.11, type: 'triangle' }], [0.09, 262, { d: 0.09, peak: 0.1, type: 'triangle' }]],       // 收回：两下往下的木叩
+            connect: [[0, 262, { d: 0.7, peak: 0.1 }], [0, 523, { d: 0.4, peak: 0.03 }], [0.15, 392, { d: 0.7, peak: 0.09 }]],          // 接上：低低的两声钟
+            end: [[0, 392, { d: 0.5, peak: 0.08 }], [0.17, 262, { d: 0.8, peak: 0.08 }]],                                               // 收了：钟声往下落
+            tap: [[0, 220, { d: 0.035, peak: 0.08, f2: 150, fdur: 0.03, type: 'triangle' }]],                                              // 按下（外观打磨 2026-11-26）：一声很轻的木 / 纸「嗒」
+        }),
+        ring: Object.freeze({ notes: Object.freeze([262, 330, 392, 330]), gap: 0.22, d: 0.6, peak: 0.11 }),                             // 小钟在响
+    }),
+});
+// ring = 正在响的这一圈铃声用哪个样子（'crystal' | 'scroll' | null = 手机）；只在开始响之前定一次，停了就清掉。
+const soThrWeiyuSoundLookS = { ring: null };
+
+// 玩家碰过页面没有：浏览器给 navigator.userActivation 就照它说的；不给 = 自己挂一次「按下 / 按键」监听记下来。
+function soThrWeiyuSoundGestured() {
+    try {
+        const ua = typeof navigator !== 'undefined' ? navigator.userActivation : null;
+        if (ua && typeof ua.hasBeenActive === 'boolean') return ua.hasBeenActive || soThrWeiyuSoundS.touched;
+    } catch (e) { /* fall through */ }
+    return soThrWeiyuSoundS.touched;
+}
+function soThrWeiyuSoundArm() {
+    const S = soThrWeiyuSoundS;
+    if (S.armed || S.touched || typeof document === 'undefined' || !document) return;
+    S.armed = true;
+    const once = () => {
+        S.touched = true;
+        S.armed = false;
+        document.removeEventListener('pointerdown', once, true);
+        document.removeEventListener('keydown', once, true);
+    };
+    document.addEventListener('pointerdown', once, true);
+    document.addEventListener('keydown', once, true);
+}
+// 能出声就交出 AudioContext（第一次建它和总低通；挂起了就叫醒），否则 null。
+function soThrWeiyuSoundCtx() {
+    const S = soThrWeiyuSoundS;
+    if (!soThrWeiyuSoundOn() || getSettings().weiyuSound !== true || !soThrWeiyuSoundGestured()) return null;
+    if (!S.ctx) {
+        const AC = typeof window !== 'undefined' ? (window.AudioContext || window.webkitAudioContext) : null;
+        if (typeof AC !== 'function') return null;
+        try {
+            const c = new AC();
+            const lp = c.createBiquadFilter();
+            lp.type = 'lowpass';
+            lp.frequency.value = THEATER_WEIYU_SOUND_LP_HZ;
+            lp.Q.value = 0.5;
+            lp.connect(c.destination);
+            S.ctx = c;
+            S.lp = lp;
+        } catch (e) {
+            S.ctx = null;
+            S.lp = null;
+            return null;
+        }
+    }
+    if (S.ctx.state === 'suspended' && typeof S.ctx.resume === 'function') {
+        try { const p = S.ctx.resume(); if (p && typeof p.catch === 'function') p.catch(() => {}); } catch (e) { /* ignore */ }
+    }
+    return S.ctx;
+}
+// 一个音：振荡器 → 包络 → 总低通。起音 ≥ 12 ms、指数起落（不咔哒）。
+function soThrWeiyuSoundTone(c, t, f, o) {
+    const a = 0.012;
+    const d = o.d || 0.15;
+    const peak = Math.min(o.peak || 0.2, 0.3);
+    const osc = c.createOscillator();
+    const g = c.createGain();
+    osc.type = o.type || 'sine';
+    osc.frequency.setValueAtTime(f, t);
+    if (o.f2) osc.frequency.exponentialRampToValueAtTime(o.f2, t + (o.fdur || d));
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(peak, t + a);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + a + d);
+    osc.connect(g);
+    g.connect(soThrWeiyuSoundS.lp);
+    osc.start(t);
+    osc.stop(t + a + d + 0.05);
+}
+// 铃声响一遍（四个音）。不能出声了（开关关了 / 旗关）= 顺手停掉循环。
+function soThrWeiyuSoundRingOnce() {
+    const c = soThrWeiyuSoundCtx();
+    if (!c) { soThrWeiyuSoundRingStop(); return; }
+    if (soThrWeiyuLooksOn()) return soThrWeiyuSoundRingPass(c);   // 💬 外观：这一圈铃声定下的样子（手机 = 与下面同一遍）
+    try {
+        const t = c.currentTime + 0.02;
+        THEATER_WEIYU_RING_NOTES.forEach((f, i) => soThrWeiyuSoundTone(c, t + i * 0.13, f, { d: 0.22, peak: 0.22 }));
+    } catch (e) { /* an audio hiccup never reaches the phone */ }
+}
+function soThrWeiyuSoundRingStop() {
+    const S = soThrWeiyuSoundS;
+    if (S.ringT) { clearInterval(S.ringT); S.ringT = null; }
+    if (soThrWeiyuLooksOn()) soThrWeiyuSoundLookS.ring = null;   // 💬 外观：停了 = 忘掉这一圈的样子
+}
+// 声音引擎（手机经 env.sound 用；以后页面上的来电卡也用它）。
+const soThrWeiyuSound = {
+    on() {
+        return soThrWeiyuSoundOn() && getSettings().weiyuSound === true;
+    },
+    set(on) {
+        if (!soThrWeiyuSoundOn()) return;
+        getSettings().weiyuSound = !!on;
+        save();
+        if (!on) soThrWeiyuSoundRingStop();
+    },
+    // name = 'arrive' | 'send' | 'recall' | 'connect' | 'end'；别的名字 = 什么都不做。
+    play(name) {
+        const spec = Object.prototype.hasOwnProperty.call(THEATER_WEIYU_SOUNDS, name) ? THEATER_WEIYU_SOUNDS[name] : null;
+        if (!spec) return;
+        const c = soThrWeiyuSoundCtx();
+        if (!c) return;
+        try {
+            const t = c.currentTime + 0.02;
+            for (const [at, f, o] of spec) soThrWeiyuSoundTone(c, t + at, f, o);
+        } catch (e) { /* an audio hiccup never reaches the phone */ }
+    },
+    // ring(true) = 开始循环（已经在响 = 不叠第二个）；ring(false) = 停。不能出声时 ring(true) 什么都不做。
+    ring(start) {
+        const S = soThrWeiyuSoundS;
+        if (!start) { soThrWeiyuSoundRingStop(); return; }
+        if (S.ringT || !soThrWeiyuSoundCtx()) return;
+        soThrWeiyuSoundRingOnce();
+        S.ringT = setInterval(soThrWeiyuSoundRingOnce, typeof S.everyMs === 'number' ? S.everyMs : THEATER_WEIYU_RING_EVERY_MS);
+    },
+};
+// 交给手机的 env.sound（soThrWeiyuEnv 那一行有旗守着）：顺手挂上「碰页面」的监听。
+function soThrWeiyuSoundEnv() {
+    soThrWeiyuSoundArm();
+    if (soThrWeiyuLooksOn()) return soThrWeiyuSoundLookEnv();   // 💬 外观：同样四个键，play / ring 跟着开着的手机的样子
+    return {
+        on: () => soThrWeiyuSound.on(),
+        set: (on) => soThrWeiyuSound.set(on),
+        play: (name) => soThrWeiyuSound.play(name),
+        ring: (start) => soThrWeiyuSound.ring(start),
+    };
+}
+// 测试接缝的复位（产品代码从不调）：停铃、丢掉 AudioContext、忘掉碰过页面；o.everyMs = 铃声间隔的替身。
+function soThrWeiyuSoundReset(o) {
+    soThrWeiyuSoundRingStop();
+    const S = soThrWeiyuSoundS;
+    S.ctx = null;
+    S.lp = null;
+    S.touched = false;
+    S.armed = false;
+    S.everyMs = o && typeof o.everyMs === 'number' ? o.everyMs : null;
+}
+// —— 💬 外观的声音（looks Task 15；下面几个只从有旗守着的行里进来）——
+// 一个样子的那一组声音（'crystal' | 'scroll'），别的（手机 / 乱值）= null = 手机那一组。
+function soThrWeiyuSoundFamily(look) {
+    return (look === 'crystal' || look === 'scroll') && soThrWeiyuLooksOn() ? THEATER_WEIYU_SOUND_LOOKS[look] : null;
+}
+// 手机的声音此刻用哪个样子：开着的那部手机画出来的样子（它宿主上的 data-wy-look；没有 = 手机）；没有开着的手机 = 这个聊天的样子。
+function soThrWeiyuSoundLook() {
+    try {
+        const h = soThrWeiyuPhone && soThrWeiyuPhone.host;
+        if (h && typeof h.getAttribute === 'function') {
+            const v = h.getAttribute('data-wy-look');
+            return v === 'crystal' || v === 'scroll' ? v : 'phone';
+        }
+    } catch (e) { /* fall through to the chat's look */ }
+    let st = null;
+    try { st = soThrWeiyuState(); } catch (e) { st = null; }
+    return soThrWeiyuLookOf(st);
+}
+// 一个提示音，按那个样子的那一组（手机 = THEATER_WEIYU_SOUNDS，与 play 一模一样）。别的名字 = 什么都不做。
+function soThrWeiyuSoundVoice(name, look) {
+    const fam = soThrWeiyuSoundFamily(look);
+    const table = fam ? fam.sounds : THEATER_WEIYU_SOUNDS;
+    const spec = Object.prototype.hasOwnProperty.call(table, name) ? table[name] : null;
+    if (!spec) return;
+    const c = soThrWeiyuSoundCtx();
+    if (!c) return;
+    try {
+        const t = c.currentTime + 0.02;
+        for (const [at, f, o] of spec) soThrWeiyuSoundTone(c, t + at, f, o);
+    } catch (e) { /* an audio hiccup never reaches the phone */ }
+}
+// 铃声开始响之前定下这一圈的样子；已经在响 = 不改（一圈铃声从头到尾一个样子）。
+function soThrWeiyuSoundRingLook(look) {
+    if (soThrWeiyuSoundS.ringT) return;
+    soThrWeiyuSoundLookS.ring = soThrWeiyuSoundFamily(look) ? look : null;
+}
+// 铃声响一遍，用这一圈定下的样子（null = 手机那一遍：同样的四个音、0.13 秒、{d: 0.22, peak: 0.22}）。
+function soThrWeiyuSoundRingPass(c) {
+    const fam = soThrWeiyuSoundFamily(soThrWeiyuSoundLookS.ring);
+    const r = fam ? fam.ring : { notes: THEATER_WEIYU_RING_NOTES, gap: 0.13, d: 0.22, peak: 0.22 };
+    try {
+        const t = c.currentTime + 0.02;
+        r.notes.forEach((f, i) => soThrWeiyuSoundTone(c, t + i * r.gap, f, { d: r.d, peak: r.peak }));
+    } catch (e) { /* an audio hiccup never reaches the phone */ }
+}
+// 外观开着时交给手机的 env.sound：同样的 on / set / play / ring 四个键；play 和 ring 用开着的手机的样子。
+function soThrWeiyuSoundLookEnv() {
+    return {
+        on: () => soThrWeiyuSound.on(),
+        set: (on) => soThrWeiyuSound.set(on),
+        play: (name) => soThrWeiyuSoundVoice(name, soThrWeiyuSoundLook()),
+        ring: (start) => { if (start) soThrWeiyuSoundRingLook(soThrWeiyuSoundLook()); soThrWeiyuSound.ring(start); },
+    };
+}
+/* —— 微谕 · sound end —— */
+
+/* —— 微谕 · 来电响铃（phone upgrades Task 14；spec §7.2–7.3、§17.7 / §17.14）——
+ * 「在响」只是这一页的状态，从不存：落地的那条记录本来就是「未接」（+ 她的话），刷新 / 超时 / 换聊天 = 它照旧是未接来电。
+ * 只有刚落地的那一条会响（剧情同步落地 soThrWeiyuSyncStep、手机自己的请求 soThrWeiyuCall / env.ringStart 交来的 rings），开机 / 读出来的旧记录永远不响。
+ * 手机开着 → 交给手机自己的来电画面（phone.ringIn；这个版本的手机还没有它 = 什么都不显示，照旧是未接）；手机关着 → 页面上一张来电卡
+ * （body 上、从顶部定位、压在神谕窗口之上）。计时器（25 秒）和铃声都在 join 里——手机关着时也得响。
+ * 每一种结束（接听 / 拒绝 / 响完 / 记录没了或不再是未接 / 换聊天）都停铃声、拆卡。来电那枚旗关着 = 这里一行都不跑。 */
+const THEATER_WEIYU_RING_IN_MS = 25000;   // 响多久（测试接缝 window.__soWyRingInMs，产品代码从不写）
+// 来电卡的字（spec §12 第一候选，Prince 2026-11-22 已定）；busy = DRAFT（手机正在写别的那一趟时点了接听）。
+const THEATER_WEIYU_CALLCARD_TEXT = Object.freeze({
+    line: '{name} 邀请你{mode}',
+    accept: '接听',
+    decline: '拒绝',
+    busy: '手机正忙，稍等再接',   // DRAFT
+});
+// cur = 正在响的那一通：{key（酒馆聊天）, cid, mid, mode, via: 'card' | 'phone', phone（交给的那部手机）, card, timer, accepting}
+const soThrWeiyuRingS = { cur: null };
+
+// 能不能直接把手机打开（不弹「切换会中止」、不 toast）：单聊、不在平行线里、要么已经在小剧场、要么切过去不用确认。
+function soThrWeiyuCanOpenDirect() {
+    if (!win || !soThrWeiyuOn()) return false;
+    let ctx = null;
+    try { ctx = getCtx(); } catch (e) { ctx = null; }
+    if (soThrGroupBlocked(ctx)) return false;
+    try { if (soThrWeiyuInIf()) return false; } catch (e) { return false; }
+    if (theaterMode) return true;
+    try {
+        return !roomSwapWouldAbort(isGenerating && !!abortCtl, !!(liveForge || liveCondense), convoStreamKeyForMode('theater', getSettings()), convoStreamKey);
+    } catch (e) {
+        return false;
+    }
+}
+// 直接打开手机（等到挂好）：→ 开了没有。不在小剧场 → 不问就切过去（只在 soThrWeiyuCanOpenDirect 说可以时）→ 场景页签 → soThrWeiyuOpen。
+async function soThrWeiyuOpenDirect() {
+    if (!soThrWeiyuCanOpenDirect()) return false;
+    if (!theaterMode) {
+        priorOracleMode = currentOracleMode();
+        setOracleMode('theater');
+        modeEntryNote(THEATER_ENTRY_NOTE);
+    }
+    const panel = win.querySelector('#so-settings');
+    if (panel && panel.classList.contains('open')) win.querySelector('#so-settings-btn')?.click();
+    getSettings().theaterTab = 'scenes';
+    save();
+    soThrRefreshBar();
+    if (win.style.display === 'none' || !windowIsReachable()) toggleWindow(true);   // 神谕窗口关着 / 拖出了屏 → 拉回眼前（同 soWyQuickTap）
+    return soThrWeiyuOpen();
+}
+
+// 一通落地的来电开始响。info = {cid, mid, mode}。→ 响了没有。拒绝（= 只是一通未接来电）：旗关、来电不响铃开着、记录不是一通能接的未接来电、
+// 已经有一通在响或正在通话（或他自己的那一通正在拨）、手机没法直接打开（群聊 / 平行线里 / 切过去要确认）、手机开着却还没有来电画面。
+function soThrWeiyuRingStart(info) {
+    try {
+        if (!soThrWeiyuIncallOn() || !soWyIsObj(info)) return false;
+        const S = soThrWeiyuRingS;
+        if (S.cur) return false;
+        const cid = String(info.cid == null ? '' : info.cid);
+        const mid = typeof info.mid === 'string' ? info.mid : '';
+        const st = soThrWeiyuState();
+        if (!st || soWyNoRing(st)) return false;
+        const inc = soWyCallIncoming(st, cid, mid);
+        if (!inc || soWyEvPeer(st, soWyChat(st, cid)) !== inc.her) return false;
+        const key = String(fixChatKey());
+        if (soWyCallLive(st, key)) return false;
+        if (wy_flightBox.cur && wy_flightBox.cur.kind === 'call') return false;
+        if (!soThrWeiyuCanOpenDirect()) return false;
+        // 手机「开着」= 真在眼前（窗口开着且在屏内、⚙ 收着、在小剧场、手机那一层开着）——只是对象还在（窗口藏了 / 离开了小剧场）不算 → 页面来电卡
+        const ph = soThrWeiyuPhone && soWyQuickPhoneShowing() ? soThrWeiyuPhone : null;
+        const cur = { key, cid, mid, mode: inc.mode, via: 'card', phone: null, card: null, timer: null, accepting: false };
+        S.cur = cur;
+        // 手机在眼前 → 先交给手机的来电画面；手机不肯（它自己有一个通话画面等着「关闭」、旧的拨号画面还在……ringIn 不是 true）→ 改用页面来电卡
+        // （终审 M-1：以前不看 ringIn 的回答，手机不肯也照响 25 秒、屏幕上什么都没有）
+        if (ph && typeof ph.ringIn === 'function') {
+            let shown = false;
+            try { shown = ph.ringIn({ cid, mid, mode: inc.mode }) === true; } catch (e) { shown = false; }
+            if (shown) { cur.via = 'phone'; cur.phone = ph; }
+        }
+        if (cur.via === 'card') cur.card = soThrWeiyuCallCard(st, cid, inc.mode);
+        const ms = typeof window.__soWyRingInMs === 'number' ? window.__soWyRingInMs : THEATER_WEIYU_RING_IN_MS;
+        cur.timer = setTimeout(() => { if (S.cur === cur) soThrWeiyuRingEnd(); }, ms);
+        if (soThrWeiyuLooksOn()) soThrWeiyuSoundRingLook(soThrWeiyuLookOf(st));   // 💬 外观：这一通的铃声用这个故事的样子（手机没开也一样）
+        if (soThrWeiyuSoundOn()) soThrWeiyuSound.ring(true);
+        return true;
+    } catch (e) {
+        console.warn('[Story Oracle] 微谕：来电响铃出错', e);
+        soThrWeiyuRingEnd();
+        return false;
+    }
+}
+// 一趟结果里的 rings（剧情同步 / 手机自己的请求）：一条一条试，响起一通就停（同一时刻只响一通）。
+function soThrWeiyuRingFrom(res) {
+    const rings = soWyIsObj(res) && Array.isArray(res.rings) ? res.rings : [];
+    for (const r of rings) if (soThrWeiyuRingStart(r)) return true;
+    return false;
+}
+// 结束这一通的响铃：停计时器、停铃声、拆卡、让手机收起来电画面（有 ringEnd 时）。存着的东西一样都不动。没在响 = 什么都不做。
+function soThrWeiyuRingEnd() {
+    const S = soThrWeiyuRingS;
+    const cur = S.cur;
+    if (!cur) return;
+    S.cur = null;
+    if (cur.timer) clearTimeout(cur.timer);
+    if (soThrWeiyuSoundOn()) soThrWeiyuSound.ring(false);
+    if (cur.card) { try { cur.card.remove(); } catch (e) { /* ignore */ } }
+    if (cur.phone && typeof cur.phone.ringEnd === 'function') { try { cur.phone.ringEnd(); } catch (e) { /* ignore */ } }
+}
+// 每次 commit 后 / 换聊天时：换了聊天、记录没了或不再是能接的未接来电（被划走、被删、接了、拒了）、来电不响铃刚打开 → 悄悄结束。
+function soThrWeiyuRingCheck() {
+    const cur = soThrWeiyuRingS.cur;
+    if (!cur) return;
+    let ok = false;
+    try {
+        const st = soThrWeiyuState();
+        ok = String(fixChatKey()) === cur.key && !!st && !soWyNoRing(st) && !!soWyCallIncoming(st, cur.cid, cur.mid);
+    } catch (e) {
+        ok = false;
+    }
+    if (!ok) soThrWeiyuRingEnd();
+}
+// 关手机时（soThrWeiyuClose 那一行有旗守着）：交给这部手机的来电画面跟着手机走 → 结束（照旧是未接）；页面来电卡不受影响。
+function soThrWeiyuRingClosed(ph) {
+    const cur = soThrWeiyuRingS.cur;
+    if (cur && cur.via === 'phone' && cur.phone === ph) soThrWeiyuRingEnd();
+}
+// 来电卡（手机关着时）：body 上一张从顶部定位的卡，全用 textContent 建。→ 卡。
+function soThrWeiyuCallCard(st, cid, mode) {
+    const T = THEATER_WEIYU_CALLCARD_TEXT;
+    const name = soWyChatTitle(st, soWyChat(st, cid));
+    const line = T.line.replace('{name}', () => name).replace('{mode}', () => soThrWeiyuRingWord(st, mode));
+    const old = document.getElementById('so-wy-callcard');
+    if (old) old.remove();
+    const card = document.createElement('div');
+    card.id = 'so-wy-callcard';
+    card.className = 'so-wy-callcard';
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-label', line);
+    const text = document.createElement('div');
+    text.className = 'so-wy-callcard-line';
+    text.textContent = line;
+    const note = document.createElement('div');
+    note.className = 'so-wy-callcard-note';
+    note.hidden = true;
+    const btns = document.createElement('div');
+    btns.className = 'so-wy-callcard-btns';
+    const no = document.createElement('button');
+    no.type = 'button';
+    no.className = 'so-wy-callcard-no';
+    no.textContent = T.decline;
+    const yes = document.createElement('button');
+    yes.type = 'button';
+    yes.className = 'so-wy-callcard-yes';
+    yes.textContent = T.accept;
+    no.addEventListener('click', () => { soThrWeiyuRingDecline(); });
+    yes.addEventListener('click', () => { soThrWeiyuRingAccept().catch((e) => console.warn('[Story Oracle] 微谕：接听失败', e)); });
+    btns.append(no, yes);
+    card.append(text, note, btns);
+    if (soThrWeiyuLooksOn()) soThrWeiyuLookAttr(card, soThrWeiyuLookOf(st));   // 💬 外观：卡跟着这个故事的样子（水晶 / 卷轴；手机 = 不挂，卡与 2.3.0 一样）
+    document.body.appendChild(card);
+    return card;
+}
+// 卡上「语音通话 / 视频通话」那个词：这部手机用的那一套世界用语里的词（没有 / 现代 = 今天的词）。
+function soThrWeiyuRingWord(st, mode) {
+    const key = mode === 'video' ? 'videoCall' : 'voiceCall';
+    let w = null;
+    try { w = soThrWeiyuWordsPhone(st); } catch (e) { w = null; }
+    const set = w && soWyIsObj(w.terms) ? soWyWordsSafe(w.terms[key]) : '';
+    return set || THEATER_WEIYU_CALL_KIND[mode === 'video' ? 'video' : 'voice'];
+}
+// 手机正忙（另一趟请求在写）：卡接着响，卡上说一句；按钮照常能点。
+function soThrWeiyuRingBusy(cur) {
+    cur.accepting = false;
+    const note = cur.card && cur.card.querySelector('.so-wy-callcard-note');
+    if (note) { note.textContent = THEATER_WEIYU_CALLCARD_TEXT.busy; note.hidden = false; }
+    if (soThrWeiyuLooksOn()) soThrWeiyuCallCardBusyLook(cur.card, note);   // 💬 外观：水晶 / 卷轴的卡上不说「手机」，说这一套里的那件东西
+}
+// 外观下的「正忙」：卡挂着 data-so-wy-look 才换（手机的样子 = 原话）；物件名取这部手机用的那一套（'phone' 阶段，同卡上的通话词）。
+const THEATER_WEIYU_CALLCARD_LOOK_TEXT = Object.freeze({
+    busy: '{device}正忙，稍等再接',   // DRAFT
+});
+function soThrWeiyuCallCardBusyLook(card, note) {
+    if (!card || !note || !card.hasAttribute('data-so-wy-look')) return;
+    let w = null;
+    try { w = soThrWeiyuWordsPhone(soThrWeiyuState()); } catch (e) { w = null; }
+    const dev = w && soWyIsObj(w.terms) ? soWyWordsSafe(w.terms.device) : '';
+    if (dev) note.textContent = THEATER_WEIYU_CALLCARD_LOOK_TEXT.busy.replace('{device}', () => dev);
+}
+// 接听：手机正忙 → 接着响 + 一句话；打开手机（等到挂好；打不开 = 结束，照旧是未接）→ 接起（她留了话 = 零调用，她的话就是第一句；没留 = 一趟
+// 「她先开口」的请求）→ 手机进到那个私聊（通话面板跟着通话走）。记录中途没了（gone）= 悄悄结束；接不起来的别的结果 = 照旧是未接。
+async function soThrWeiyuRingAccept() {
+    const S = soThrWeiyuRingS;
+    const cur = S.cur;
+    if (!cur || cur.accepting) return false;
+    if (wy_flightBox.cur) { soThrWeiyuRingBusy(cur); return false; }
+    cur.accepting = true;
+    const opened = await soThrWeiyuOpenDirect();
+    if (S.cur !== cur) return false;
+    if (!opened) { soThrWeiyuRingEnd(); return false; }
+    if (wy_flightBox.cur) { soThrWeiyuRingBusy(cur); return false; }
+    const p = soWyCallAnswer({ cid: cur.cid, mid: cur.mid }, soThrWeiyuDeps({}));   // 它的「正忙」检查在第一个 await 之前，上一行刚查过
+    soThrWeiyuRingEnd();
+    const ph = soThrWeiyuPhone;
+    if (ph && !ph.dead) { try { soWyOpenChat(ph, cur.cid); } catch (e) { /* ignore */ } }
+    const r = await p;
+    if (soThrWeiyuPhone && !soThrWeiyuPhone.dead) soThrWeiyuPhone.refresh();
+    if (r && r.error) console.warn('[Story Oracle] 微谕：接听出错', r.error);
+    return !!(r && r.ok);
+}
+// 拒绝：记录变成「已拒绝」（她的话留着当留言），零调用。
+function soThrWeiyuRingDecline() {
+    const cur = soThrWeiyuRingS.cur;
+    if (!cur) return false;
+    const r = soWyCallDecline({ cid: cur.cid, mid: cur.mid }, soThrWeiyuDeps({}));
+    soThrWeiyuRingEnd();
+    if (soThrWeiyuPhone && !soThrWeiyuPhone.dead) soThrWeiyuPhone.refresh();
+    return !!(r && r.ok);
+}
+/* —— 微谕 · 来电响铃 end —— */
 // 从故事里找人那一趟请求在跑时，手机顶上那一行（★ mock）。只经 soThrWeiyuFindIsland 用（soThrWeiyuGenerate 里那一行有旗守着）。
 const THEATER_WEIYU_FIND_ISLAND = '正在从故事里找人…';
 // 这一趟是 find → 顶上那一行换成 THEATER_WEIYU_FIND_ISLAND（不跳秒数；排队行收起后也回到它）；别的种类一个字节都不动（今天的「正在写…」）。
@@ -33490,6 +38087,15 @@ async function soSetV2WyOpen() {
     if (!ENABLE_SETTINGS_V2 || !win || !soThrWeiyuOn()) return false;
     const entry = win.querySelector('[data-thr-weiyu]');
     if (!entry || entry.getAttribute('aria-disabled') === 'true') return false;
+    return soThrWeiyuViaEntry();
+}
+// 「从窗口外去手机」的唯一一条路（设置里的「打开微谕 ›」与 💬 一键进手机 soWyQuickTap 共用）：不在小剧场 → soThrToggle（模式自己的切换：
+// 群聊拒绝并 toast、生成中先问一声、其余模式照常关掉）→ ⚙ 收起 → 场景页签 → 点场景行里那个 微谕 入口（真正开手机的是它自己的处理器
+// soThrWeiyuOpen：平行线里 / 没开机 / 读不懂的手机都由它和手机自己说）。→ 点到了入口没有。
+async function soThrWeiyuViaEntry() {
+    if (!win || !soThrWeiyuOn()) return false;
+    const entry = win.querySelector('[data-thr-weiyu]');
+    if (!entry) return false;
     if (!theaterMode) {
         await soThrToggle();
         if (!theaterMode) return false;
@@ -33515,6 +38121,190 @@ function soSetV2PaintWyEntry() {
     const t = off && entry ? String(entry.title || '') : '';
     if (why.textContent !== t) why.textContent = t;
     why.hidden = !t;
+}
+/* —— 💬 微谕 · 一键进手机（ENABLE_THR_WEIYU_QUICK；玩家请求，owner 2026-11-22）——
+ * 两个各自独立、默认关的入口：① 输入栏图标（#leftSendForm 里紧跟 🌙；🌙 关着时就站在 🌙 本来的位置）——注入 / 重挂与 🌙 完全同款
+ * （soEntryIsLive：恰好一颗且是我们亲手绑过的那颗 → 一个字节都不碰；否则拔光重建）；② 悬浮按钮（body 上一颗圆钮，makeDraggable 拖动：
+ * 过了按钮阈值才算拖、拖完吞掉补发的 click、松手存位置；载入 / 窗口尺寸变化时夹回屏内，夹的那一下不 save()）。
+ * 点一下 = soWyQuickTap：手机正显示着 → 关窗（同 🌙 的开 / 关手感）；否则窗口没开 / 拖出了屏 → 开窗，再走 soThrWeiyuViaEntry（设置里
+ * 「打开微谕 ›」那条路：模式自己的切换 + 中断确认 → 场景页签 → 点 微谕 入口）。不另写一套开手机的逻辑。
+ * 两颗都不在 #so-window 里：输入栏图标跟 🌙 一样用酒馆主题色；悬浮按钮挂进深色 / 浅色两档皮肤的根（style.css），跟随主题档读酒馆变量。
+ * 开关（2026-11-26 起）：手机「我」页的两行（块 soWyQkMeRows），经 env.quick（soWyQuickEnv）读写这里的全局设置；⚙ 里不再有这两行。
+ * 文案 DRAFT（待 owner 否决）。 */
+const WEIYU_QUICK_TEXT = {
+    tip: '打开微谕',   // 两个开关的文字（2026-11-26 起在手机「我」页）在块的 THEATER_WEIYU_TEXT.qkBar / qkFloat / qkNote
+    unread: (n) => '打开微谕 · ' + n + ' 条未读',   // 有未读时两颗按钮的 title / aria-label（n = 真实条数，不截到 99+）
+};
+const WEIYU_QUICK_BAR_ID = 'so-wyq-bar';
+const WEIYU_QUICK_FLOAT_ID = 'so-wyq-float';
+const WEIYU_QUICK_FLOAT_SIZE = 44;    // px：圆钮直径（style.css 同值）；量不到真尺寸（还没排版）时按它算
+const WEIYU_QUICK_FLOAT_KEEP_BOTTOM = 120;   // px：默认位置离屏幕底至少这么多——酒馆的输入栏 / 发送键在底部，默认绝不压在上面
+let soWyQuickResizeBound = false;      // 悬浮按钮在场时挂着的那一个 resize 监听（拆按钮时一并摘掉）
+
+function soWyQuickOn() { return ENABLE_THR_WEIYU_QUICK && ENABLE_SETTINGS_V2 && soThrWeiyuOn(); }
+
+// 按设置放 / 撤两颗按钮（init、设置勾选、refreshOracleEntries 时调）。在场且活着 = O(1) 早返回、不碰 DOM。
+function soWyQuickSync() {
+    if (!soWyQuickOn()) return;
+    const s = getSettings();
+    if (s.weiyuQuickBar === true) soWyQuickInjectBar(); else soDropEntries(WEIYU_QUICK_BAR_ID);
+    if (s.weiyuQuickFloat === true) soWyQuickMountFloat(); else soWyQuickUnmountFloat();
+    if (soThrWeiyuLooksOn()) soWyQuickLookPaint();   // 💬 外观：两颗按钮跟这个聊天的样子走（水晶 / 卷轴；手机 = 不挂）
+    soWyQuickBadgePaint();   // 未读角标：重挂的按钮当场带上；换聊天（CHAT_CHANGED → refreshOracleEntries → 这里）跟着那个聊天的手机走
+}
+
+// 💬 未读角标（Prince 2026-11-26 选 C）：输入栏图标 = 一个小红点（不带数），悬浮按钮 = 右上角红底数字（超过 99 = 99+）；0 = 都不挂。
+// 数 = 手机底部「对话」页签上那个数（块的 soWyTotalUnread：免打扰的聊天不算、拉黑的人被拒收的那条不算）；没开过机 / 没存手机 /
+// 更新版本存的手机 = 0。只读这个聊天存着的手机（不开手机、不写）。两颗都挂 data-so-wyq-unread（= 角标上的字），style.css 画点 / 画数。
+// 刷新点：每次 commit（soThrWeiyuAfterCommit）+ 每次同步（init、每批渲染、换聊天、按钮重挂）——不轮询；数没变 = 一个字节都不碰。
+function soWyQuickUnreadOf(st) { return soWyIsObj(st) && st.booted === true ? soWyTotalUnread(st) : 0; }
+function soWyQuickBadgeText(n) { return n > 99 ? '99+' : String(n); }
+function soWyQuickBadgePaint() {
+    const els = [document.getElementById(WEIYU_QUICK_BAR_ID), document.getElementById(WEIYU_QUICK_FLOAT_ID)].filter(Boolean);
+    if (!els.length) return;
+    let st = null;
+    try { st = soThrWeiyuState(); } catch (e) { st = null; }
+    const n = soWyQuickUnreadOf(st);
+    const v = n > 0 ? soWyQuickBadgeText(n) : null;
+    const tip = n > 0 ? WEIYU_QUICK_TEXT.unread(n) : WEIYU_QUICK_TEXT.tip;
+    for (const el of els) {
+        if (el.getAttribute('data-so-wyq-unread') === v && el.title === tip) continue;
+        if (v == null) el.removeAttribute('data-so-wyq-unread');
+        else el.setAttribute('data-so-wyq-unread', v);
+        el.title = tip;
+        el.setAttribute('aria-label', tip);
+    }
+}
+
+// 💬 外观（looks Task 15）：在场的一键按钮挂 / 摘 data-so-wy-look（style.css 换图标和底）。每次现读这个聊天存着的手机 + 世界用语（不用开手机，
+// 很便宜）；一颗都不在 = 什么都不读；样子没变 = 不碰 DOM（同步点每批渲染都来）。
+function soWyQuickLookPaint() {
+    const els = [document.getElementById(WEIYU_QUICK_BAR_ID), document.getElementById(WEIYU_QUICK_FLOAT_ID)].filter(Boolean);
+    if (!els.length) return;
+    let st = null;
+    try { st = soThrWeiyuState(); } catch (e) { st = null; }
+    const look = soThrWeiyuLookOf(st);
+    for (const el of els) soThrWeiyuLookAttr(el, look);
+}
+
+// 两颗按钮共用的点击：一次点按 = 一次 soWyQuickTap（失败只记日志，绝不抛进酒馆的事件链）。
+// 悬浮按钮拖完，makeDraggable 的 suppressNextClick 在把手（= 按钮本身）的捕获阶段把补发的那下 click stopPropagation + preventDefault。
+// 现行 DOM 规范里目标上的捕获 / 冒泡是两趟，stopPropagation 已经拦住这个监听；旧内核把两趟并成一趟时拦不住——所以这里再认一次 defaultPrevented：拖 ≠ 点。
+function soWyQuickClick(e) {
+    if (e && e.defaultPrevented) return;
+    if (e && e.preventDefault) { e.preventDefault(); e.stopPropagation(); }
+    Promise.resolve(soWyQuickTap()).catch((err) => console.warn('[Story Oracle] 微谕：一键打开失败', err));
+}
+
+// 「手机正显示着」= 窗口开着且够得着、⚙ 没盖在上面、在小剧场里、手机挂着且外框是打开的。
+function soWyQuickPhoneShowing() {
+    if (!win || win.style.display === 'none' || !windowIsReachable()) return false;
+    const panel = win.querySelector('#so-settings');
+    if (panel && panel.classList.contains('open')) return false;
+    if (!theaterMode || !soThrWeiyuPhone) return false;
+    const view = win.querySelector('#so-thr-weiyu-view');
+    return !!(view && view.classList.contains('open'));
+}
+
+// 点一下：手机正显示着 → 关窗（→ false）；否则开窗（关着 / 拖出了屏）再去手机（→ soThrWeiyuViaEntry 的结果）。
+async function soWyQuickTap() {
+    if (!soWyQuickOn() || !win) return false;
+    if (soWyQuickPhoneShowing()) { toggleWindow(false); return false; }
+    if (win.style.display === 'none' || !windowIsReachable()) toggleWindow(true);
+    return soThrWeiyuViaEntry();
+}
+
+// ① 输入栏图标：与 injectChatBarButton 同款的「活着就不动、否则拔光重建」；🌙 在栏里 → 紧跟在它后面，否则排在栏末（= 🌙 本来的位置）。
+function soWyQuickInjectBar() {
+    const bar = document.getElementById('leftSendForm');
+    if (!bar) return;
+    if (soEntryIsLive(WEIYU_QUICK_BAR_ID, bar)) return;
+    soDropEntries(WEIYU_QUICK_BAR_ID);
+    const btn = document.createElement('div');
+    btn.id = WEIYU_QUICK_BAR_ID;
+    btn.className = 'fa-solid fa-comment-dots interactable';
+    btn.title = WEIYU_QUICK_TEXT.tip;
+    btn.setAttribute('aria-label', WEIYU_QUICK_TEXT.tip);
+    btn.tabIndex = 0;
+    btn.addEventListener('click', soWyQuickClick);
+    const moon = document.getElementById('so-chatbar-button');
+    if (moon && moon.parentNode === bar) moon.after(soMarkEntryLive(btn));
+    else bar.appendChild(soMarkEntryLive(btn));
+}
+
+// 纯：悬浮按钮该放在哪。saved = {left, top}（存档；不是有限数 = 从没拖过）· view = {w, h} · size = 按钮边长。
+// 从没拖过 → 左缘内 12px、竖直居中，但底边离屏幕底至少 WEIYU_QUICK_FLOAT_KEEP_BOTTOM。左侧是因为神谕窗口与引导浮窗默认都贴右上——
+// 放右边会被开着的窗口盖住（它在窗口之下），「再点一下关窗」就够不着了。结果一律经 clampDragPos 夹回屏内（整颗都在屏内）。
+function soWyQuickFloatPos(saved, view, size) {
+    const sz = Number(size) > 0 ? Number(size) : WEIYU_QUICK_FLOAT_SIZE;
+    const sv = saved || {};
+    let left = Number(sv.left);
+    let top = Number(sv.top);
+    if (sv.left == null || sv.top == null || !Number.isFinite(left) || !Number.isFinite(top)) {
+        left = 12;
+        top = Math.min(Math.round(view.h / 2 - sz / 2), view.h - sz - WEIYU_QUICK_FLOAT_KEEP_BOTTOM);
+    }
+    return clampDragPos({ left, top, width: sz, height: sz }, view);
+}
+
+// 把悬浮按钮放到 soWyQuickFloatPos 说的位置（载入 + resize 时）。只改内联几何、从不 save()——夹回屏内是一时的适配，存档里仍是玩家拖到的地方。
+function soWyQuickPlaceFloat() {
+    const b = document.getElementById(WEIYU_QUICK_FLOAT_ID);
+    if (!b) return;
+    const s = getSettings();
+    const p = soWyQuickFloatPos({ left: s.weiyuQuickFloatLeft, top: s.weiyuQuickFloatTop },
+        { w: window.innerWidth, h: window.innerHeight }, b.offsetWidth || WEIYU_QUICK_FLOAT_SIZE);
+    b.style.right = 'auto';
+    b.style.left = p.left + 'px';
+    b.style.top = p.top + 'px';
+}
+
+// ② 悬浮按钮：在场且活着 → 一个字节都不碰（refreshOracleEntries 每次楼层渲染都会来；拖到一半被它摆回存档位置会跳一下）；
+// 否则拔光重建（一颗 <button>，点 = soWyQuickClick，拖 = makeDraggable 存进两个位置键），建好时夹一次位置。
+function soWyQuickMountFloat() {
+    if (soEntryIsLive(WEIYU_QUICK_FLOAT_ID, document.body)) return;
+    soDropEntries(WEIYU_QUICK_FLOAT_ID);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.id = WEIYU_QUICK_FLOAT_ID;
+    b.title = WEIYU_QUICK_TEXT.tip;
+    b.setAttribute('aria-label', WEIYU_QUICK_TEXT.tip);
+    b.innerHTML = '<i class="fa-solid fa-comment-dots" aria-hidden="true"></i>';
+    b.addEventListener('click', soWyQuickClick);
+    document.body.appendChild(soMarkEntryLive(b));
+    makeDraggable(b, b, { left: 'weiyuQuickFloatLeft', top: 'weiyuQuickFloatTop' }, { dragFromButtons: () => true });
+    soWyQuickPlaceFloat();
+    if (!soWyQuickResizeBound) {
+        window.addEventListener('resize', soWyQuickPlaceFloat);
+        soWyQuickResizeBound = true;
+    }
+}
+
+// 两个开关在手机「我」页（2026-11-26 Prince：「应该在手机里」——原先在 ⚙ 外观 → 窗口与按钮）。设置仍是全局的、键名不变（老玩家的按钮照旧在），
+// 手机块不碰 I/O：soThrWeiyuEnv 交出 env.quick = { get() → {bar, float}（每次现读）, set('bar' | 'float', on) → 写了没有 }。
+// set = 原先勾选框做的那三步：写设置 → save() → soWyQuickSync()（立刻放 / 撤那颗按钮，关掉 = 按钮连同它的监听一起拆掉）。别的键 = 不写、不存。
+const WEIYU_QUICK_KEYS = Object.freeze({ bar: 'weiyuQuickBar', float: 'weiyuQuickFloat' });
+function soWyQuickEnv() {
+    return {
+        get: () => { const s = getSettings(); return { bar: s.weiyuQuickBar === true, float: s.weiyuQuickFloat === true }; },
+        set: (key, on) => soWyQuickSet(key, on),
+    };
+}
+function soWyQuickSet(key, on) {
+    if (!soWyQuickOn() || !Object.prototype.hasOwnProperty.call(WEIYU_QUICK_KEYS, key)) return false;
+    getSettings()[WEIYU_QUICK_KEYS[key]] = on === true;
+    save();
+    soWyQuickSync();
+    return true;
+}
+
+// 撤悬浮按钮：拆节点（它身上的点击 / 拖动监听随节点一起没了）+ 摘掉 resize 监听。存着的位置不动（再打开还在原处）。
+function soWyQuickUnmountFloat() {
+    soDropEntries(WEIYU_QUICK_FLOAT_ID);
+    if (soWyQuickResizeBound) {
+        window.removeEventListener('resize', soWyQuickPlaceFloat);
+        soWyQuickResizeBound = false;
+    }
 }
 
 /* —— 🗂 论坛板 · living board —— */
@@ -40769,6 +45559,9 @@ const defaults = {
     ...(soThrRetriesOn() ? { theaterAutoRetries: 1 } : {}),   // 🎬 自动重试次数（0–3；1 = 之前的行为）
     ...(soThrWeiyuOn() ? { weiyuPics: null } : {}),   // 💬 微谕：导入的图片表（Lane B PicStore；null = 还没导入过）
     ...(soThrWeiyuWordsOn() ? { weiyuWords: null } : {}),   // 💬 微谕 · 世界用语：{v, def, cards, sets}（null = 默认现代、没有卡定过）
+    ...(soThrWeiyuSoundOn() ? { weiyuSound: false } : {}),   // 💬 微谕 · 声音（ENABLE_THR_WEIYU_SOUND）：铃声 / 提示音，整个酒馆用户一个开关，默认关
+    // 💬 微谕 · 一键进手机（ENABLE_THR_WEIYU_QUICK）：输入栏图标 / 悬浮按钮两个开关（默认关）+ 悬浮按钮拖到的位置（null = 默认左侧、半高，从没拖过）
+    ...(soWyQuickOn() ? { weiyuQuickBar: false, weiyuQuickFloat: false, weiyuQuickFloatLeft: null, weiyuQuickFloatTop: null } : {}),
     // Whether advisor mode runs THROUGH the curated preset (directive layered on
     // top, RP markers skipped) — same opt-in pattern as lorebookUsePreset.
     advisorUsePreset: false,
@@ -41258,7 +46051,7 @@ function soConnIssueError(mc) {
 function soConnTag(mc, e) {
     if (!mc || !mc.chosen) return e;
     if (e && typeof e === 'object') {
-        if (e.soConn) return e;
+        if (e.soConn || e.soForeignAbort === true) return e;   // 🧩 别家扩展拦的（soModeLiveResult 记的）：不是连接的事，不加前缀
         const text = soConnFailText(mc, String(e.message == null ? '' : e.message));
         try {
             Object.defineProperty(e, 'message', { value: text, writable: true, configurable: true, enumerable: false });
@@ -41274,14 +46067,55 @@ function soConnTag(mc, e) {
     w.soConn = { modeId: mc.modeId, label: mc.label, issue: null };
     return w;
 }
+// ⏹ ENABLE_STOP_FREE：神谕自己的中断错误（名字 AbortError；文字照中断信号自己的 reason——浏览器 fetch 被掐时抛的就是它，显示处看到的字与今天一样）。
+// 一律记进 soOwnAbortErrs：「别家中断」的判定（soIsForeignAbort）恒认得它是自己的。
+function soStopFreeAbortError(signal) {
+    const r = signal && typeof signal === 'object' ? signal.reason : undefined;
+    const e = new Error((r && typeof r.message === 'string' && r.message) || 'This operation was aborted');
+    e.name = 'AbortError';
+    soOwnAbortErrs.add(e);
+    return e;
+}
+// 读取器用：这一发自己的中断器已经掐了（旗关 = 恒 false）。
+function soStopFreeHit(signal) {
+    return ENABLE_STOP_FREE && !!signal && typeof signal === 'object' && signal.aborted === true;
+}
+// 直连的两个流式读取器：中断器一掐就取消正文流（reader.cancel）——挂着的 read 随之结束，丢了中断信号的包装层底下的连接也因此关掉。
+// 没有 cancel 的读取器 / 旗关 / 没信号 = 什么都不做。
+function soStopFreeCancelOnAbort(reader, signal) {
+    if (!ENABLE_STOP_FREE || !reader || typeof reader.cancel !== 'function' || !signal || typeof signal.addEventListener !== 'function') return;
+    const go = () => { try { const c = reader.cancel(); if (c && typeof c.catch === 'function') c.catch(() => {}); } catch (x) { /* ignore */ } };
+    if (signal.aborted) go(); else signal.addEventListener('abort', go, { once: true });
+}
+// 传输 promise 与这一发自己的中断信号赛跑（同小剧场引擎的 guard）：信号先掐 = 立刻以自己的中断错误收场；之后原 promise 的结果 / 错误一律丢掉
+//（挂着的 then 就是那个吞掉迟到拒绝的 catch）。进来时信号已经掐了 = 先让传输自己答一拍（setTimeout 0；理会中断的传输照旧用它自己的结局），
+// 不答再收场。旗关 / 没给信号 / 不是 promise = 原样返回同一个 p。
+function soStopFreeRace(p, signal) {
+    if (!ENABLE_STOP_FREE || !signal || typeof signal !== 'object' || typeof signal.addEventListener !== 'function') return p;
+    if (!p || typeof p.then !== 'function') return p;
+    return new Promise((resolve, reject) => {
+        let done = false;
+        let timer = null;
+        const off = () => {
+            try { signal.removeEventListener('abort', onAbort); } catch (x) { /* ignore */ }
+            if (timer) { try { clearTimeout(timer); } catch (x) { /* ignore */ } }
+        };
+        function onAbort() { if (done) return; done = true; off(); reject(soStopFreeAbortError(signal)); }
+        p.then((v) => { if (done) return; done = true; off(); resolve(v); }, (e) => { if (done) return; done = true; off(); reject(e); });
+        if (signal.aborted) { try { timer = setTimeout(onAbort, 0); } catch (x) { onAbort(); } }
+        else signal.addEventListener('abort', onAbort, { once: true });
+    });
+}
 // 包住一次传输调用。故意不是 async：主连接 = 原样返回 fn() 的同一个 promise（不多一拍）。
-function soConnRun(mc, fn, signal) {
-    if (!mc || !mc.chosen) return fn();
+// ⏹ ENABLE_STOP_FREE：带着中断信号的那一发同信号赛跑（soStopFreeRace）；noRace = 实时那条路（引擎自己赛跑、自己收场），不包。
+function soConnRun(mc, fn, signal, noRace) {
+    if (!mc || !mc.chosen) return (ENABLE_STOP_FREE && !noRace) ? soStopFreeRace(fn(), signal) : fn();
     if (mc.issue) return Promise.reject(soConnIssueError(mc));
     let p;
     const blank = mc.kind === 'direct' && !mc.apiKey;   // 复审 P1：没填密钥的选的连接（只在这一下同步调用期间算数）
     if (blank) soConnBlankAuth++;
     try { p = fn(); } catch (e) { p = Promise.reject(e); } finally { if (blank) soConnBlankAuth--; }
+    if (ENABLE_STOP_FREE && !noRace) p = soStopFreeRace(p, signal);
     return Promise.resolve(p).then(undefined, (e) => {
         if (isUserAbort(e) || (signal && signal.aborted)) {
             // 复审 M4：回复后自动步骤等到超时 = 这条连接的失败（点名 + 记录 + 提示）；玩家自己停 / 新回合作废 = 照旧不改名
@@ -45063,9 +49897,9 @@ function saveChatMetadata() {
 function serializeConvo(list) {
     const out = (Array.isArray(list) ? list : [])
         .filter((m) => m && (m.role === 'user' || m.role === 'assistant' || m.role === 'note') && typeof m.content === 'string')
-        .map((m) => soWithStopFields(m, soWithTheaterFields(m, soWithHideFields(m, soWithRawFields(m, soWithReplyVersionFields(m, (m.diagStamp && typeof m.diagStamp === 'object')
+        .map((m) => soWithPlainFields(m, soWithStopFields(m, soWithTheaterFields(m, soWithHideFields(m, soWithRawFields(m, soWithReplyVersionFields(m, (m.diagStamp && typeof m.diagStamp === 'object')
             ? { id: m.id, role: m.role, content: m.content, diagStamp: m.diagStamp }
-            : { id: m.id, role: m.role, content: m.content }))))));   // ✋ soWithStopFields：停下留下的那一版的指纹
+            : { id: m.id, role: m.role, content: m.content })))))));   // ✋ soWithStopFields：停下留下的那一版的指纹；✨ soWithPlainFields：当时是纯文本的那一版的指纹
     for (let i = out.length - 1, seen = false; i >= 0; i--) {
         if (!out[i].diagStamp) continue;
         if (seen) delete out[i].diagStamp; else seen = true;
@@ -55542,6 +60376,7 @@ async function maybePostReply(messageId, type) {
     if (isGenerating) {
         // 🎬 小剧场 IF 一趟持有生成态时落地的主线回复：排进待跑槽（与锁忙同一份记录），那一趟结束时补跑——不再悄悄丢掉。
         if (soThrConcOn() && (soThrParallelOn() ? soThrHolding() : soThrSendHolding)) pendingPostReplyRun = { messageId: idx, chatKey: fixChatKey(), messageRef: m, type };
+        if (soThrWeiyuCatchupOn() && plan.includes('scenes') && !(pendingPostReplyRun && pendingPostReplyRun.messageRef === m)) soThrWeiyuCuMark(null);   // 💬 立即跟上剧情：这条回复的手机同步不会跑了 → 记「没跟上」。旗关 = 没有这一行。
         return;                                             // 不在主聊天生成中途插手
     }
     // 身份钉在【入口】现拍一次，不要留到调用 runTrainer 那一行才现读 fixChatKey()——runTrainer 内部
@@ -60743,7 +65578,10 @@ function injectChatBarButton() {
     btn.title = '故事神谕 —— 点击开 / 关侧窗';
     btn.tabIndex = 0;
     btn.addEventListener('click', () => toggleWindow());   // 无参 = 切换开 / 关
-    bar.appendChild(soMarkEntryLive(btn));
+    // 💬 一键进手机的输入栏图标已经在栏里（🌙 后开的）→ 🌙 插到它前面，两颗的顺序恒为 🌙、💬。旗关 = 永远走 appendChild（与之前相同）。
+    const wyq = soWyQuickOn() ? document.getElementById(WEIYU_QUICK_BAR_ID) : null;
+    if (wyq && wyq.parentNode === bar) bar.insertBefore(soMarkEntryLive(btn), wyq);
+    else bar.appendChild(soMarkEntryLive(btn));
 }
 
 // 两个「把窗口叫回来」的入口（🌙 聊天栏 + 魔杖菜单两项）在宿主容器被重建后会变成哑巴节点，
@@ -62287,6 +67125,9 @@ function soBindMedia() {
 function syncChatBarButton() {
     if (getSettings().showChatBarButton) injectChatBarButton();
     else removeChatBarButton();
+    // 💬 微谕 · 一键进手机：两颗按钮跟 🌙 同一个同步点（init、refreshOracleEntries 的每批渲染 / 换聊天事件都经这里）——输入栏图标与 🌙 一起
+    // 按需重挂（顺序恒为 🌙、💬），悬浮按钮被谁拆了也补回来。两个都关着 = 什么都不建。旗关 = 不调。
+    if (soWyQuickOn()) soWyQuickSync();
 }
 
 /* ------------------------------------------------------------------ *
@@ -63112,6 +67953,7 @@ const SET_V2_COPY = {
     c2: '连接方式',
     c3: '地址',
     c4: '从服务商拉取模型列表',
+    c4Cors: '多半是跨域挡了：勾上下面的「经酒馆服务器转发」再拉一次。',   // DRAFT（2026-11-25 获取模型失败的提示；名字须与 c5Label 一致）
     c5Label: '经酒馆服务器转发',
     c5Help: '直连报 CORS 或 failed to fetch 时勾上：改由酒馆服务器代发，地址和密钥不变，「获取模型」也一样。',
     c6Label: '地址原样使用（不补 /v1）',
@@ -63921,6 +68763,10 @@ function soSetV2PaneConn() {
 <label class="so-field"><span>${C.c3}</span><input id="so-endpoint" type="text" placeholder="https://your-proxy.com/v1"></label>
 <label class="so-field"><span>API 密钥</span><input id="so-apikey" type="password" placeholder="sk-..."></label>
 <label class="so-field"><span>模型</span><div class="so-model-row"><input id="so-model" type="text" placeholder="gpt-4o-mini"><div class="so-iconbtn" id="so-model-fetch" title="${C.c4}"><i class="fa-solid fa-cloud-arrow-down"></i></div></div><select id="so-model-list" style="display:none"></select><div class="so-hint" id="so-model-hint"></div></label>
+<div data-so-conn-only="direct">
+${soSetV2CheckQ('so-direct-backend', C.c5Label, 'direct-backend', C.c5Help)}
+${soSetV2CheckQ('so-raw-url', C.c6Label, 'raw-url', C.c6Help)}
+</div>
 </div>
 <div id="so-profile-fields">
 <label class="so-field"><span>配置文件</span><div class="so-profile-row"><select id="so-profile"></select><div class="so-iconbtn" id="so-profile-refresh" title="刷新配置文件列表"><i class="fa-solid fa-rotate-right"></i></div></div></label>
@@ -63946,10 +68792,6 @@ function soSetV2PaneConn() {
 <label class="so-check"><input id="so-stream" type="checkbox"><span>${C.c16}</span></label>
 ${soSetV2CheckQ('so-sendtemp', C.c17Label, 'sendtemp', C.c17Help)}
 ${soSetV2Fold('conn', C.c13, `
-<div data-so-conn-only="direct">
-${soSetV2CheckQ('so-direct-backend', C.c5Label, 'direct-backend', C.c5Help)}
-${soSetV2CheckQ('so-raw-url', C.c6Label, 'raw-url', C.c6Help)}
-</div>
 <label class="so-field"><span>提示词后处理</span><select id="so-postproc"><option value="">${C.c7Off}</option><option value="merge">${C.c7Merge}</option><option value="semi">${C.c7Semi}</option><option value="strict">${C.c7Strict}</option></select></label>
 <div class="so-hint" id="so-postproc-hint">${C.c8}</div>
 <div class="so-line"><span class="so-line-t">${C.c12Label}</span><div class="so-iconbtn" id="so-extraparams-btn" title="打开附加参数设置"><i class="fa-solid fa-sliders"></i></div>${soSetV2Q('extraparams')}</div>${soSetV2HelpBox('extraparams', C.c12Help)}
@@ -64129,7 +68971,8 @@ function soSetV2PaneLook() {
 <label class="so-check"><input id="so-chatbar-toggle" type="checkbox"><span>${C.l7}</span></label>
 <label class="so-check"><input id="so-clickout-toggle" type="checkbox"><span>${C.l8}</span></label>
 ${soSetV2CheckQ('so-tools-header-toggle', C.l9Label, 'tools-header', C.l9Help)}${ENABLE_RENDER_CAP ? `
-<div class="so-line"><div class="so-check so-rcap-row"><label class="so-rcap-label"><input id="so-rcap-toggle" type="checkbox"><span>只显示最近</span></label><input id="so-rcap-n" class="text_pole so-rcap-n" type="number" min="10" max="5000" step="1"><span>条</span></div>${soSetV2Q('rcap')}</div>${soSetV2HelpBox('rcap', C.l10)}` : ''}`;
+<div class="so-line"><div class="so-check so-rcap-row"><label class="so-rcap-label"><input id="so-rcap-toggle" type="checkbox"><span>只显示最近</span></label><input id="so-rcap-n" class="text_pole so-rcap-n" type="number" min="10" max="5000" step="1"><span>条</span></div>${soSetV2Q('rcap')}</div>${soSetV2HelpBox('rcap', C.l10)}` : ''}${soFixClearRowOn() ? `
+<div class="so-line"><button type="button" class="so-theme-btn" id="so-fix-records-clear">${SO_FIX_CLEAR_TEXT.btn}</button>${soSetV2Q('fixclear')}</div>${soSetV2HelpBox('fixclear', SO_FIX_CLEAR_TEXT.hint)}` : ''}`;
     return soSetV2Group('so-set-beauty', C.g4Look, 'look', beauty) + soSetV2Group('so-set-window', C.g4Win, 'win', winBody);
 }
 
@@ -64315,19 +69158,16 @@ function soSetV2StatusText(key, facts) {
         default: return '';
     }
 }
-// 纯：每个折叠里「和默认不一样」的有几项。只在直连下才有的两项只在直连模式里算；附加参数三格算一项；提示词折叠数改过的模式提示词
+// 纯：每个折叠里「和默认不一样」的有几项。附加参数三格算一项；提示词折叠数改过的模式提示词
 //（普通聊天 = 和内置不同；其余 = 覆盖非空，与 applySysPromptModeUiState 同一判据）。
+// 2026-11-25：直连那两项（经酒馆服务器转发 / 地址原样使用）挪到了「模型」下面、不在连接折叠里了 → 不再计入它的「改了 N 项」。
 function soSetV2Changed(s, defs = defaults) {
     const st = s || {};
-    const d = defs || {};
     const filled = (v) => typeof v === 'string' && v.trim() !== '';
     let conn = 0;
     if ((st.promptPostProcessing || '') !== '') conn++;
     if (filled(st.extraIncludeBody) || filled(st.extraExcludeBody) || filled(st.extraIncludeHeaders)) conn++;
-    if (st.mode === 'direct') {
-        if (!!st.directViaBackend !== !!d.directViaBackend) conn++;
-        if (!!st.directRawUrl !== !!d.directRawUrl) conn++;
-    }
+    const d = defs || {};
     const read = !!st.applyRegex !== !!d.applyRegex ? 1 : 0;
     let prompt = 0;
     for (const def of SYSPROMPT_MODES) {
@@ -64899,6 +69739,7 @@ function bindControls() {
     // 「保留最近楼层」/「楼层浏览器」/「知识库」/「大总结」四项 2026-11-04 起住在左下角 ☰（Prince 定：开「工具按钮放标题栏」时标题栏太挤）——
     // 行与点击都在 soMountChatMenu 里（它在 bindControls 之后才建，这里绑不到）。
     if (ENABLE_RENDER_CAP) soBindRenderCapRow();   // TBW spec B · B3：设置 → 界面「只显示最近 N 条」
+    if (soFixClearRowOn()) win.querySelector('#so-fix-records-clear')?.addEventListener('click', () => { soFixRecordsClear(); });   // ✨ 重画安全：设置 → 窗口与按钮「清空本聊天的校正记录」
     // 📥📤 导出 / 导入对话（1.60.0 / 1.61.0）：⋯ 工具菜单【不】设入口（Prince 2026-08-09 定案）。
     // 唯二的入口是 AI 气泡行上那对小按钮（见 addMessage）＋ 空页时的空态入口（见 renderEmptyState）。
     win.querySelector('#so-summary-close').addEventListener('click', () => win.querySelector('#so-summary').classList.remove('open'));
@@ -74572,7 +79413,7 @@ function soModeSend(owner, mc, req, todayThunk) {
     const r = req || {};
     if (!owner || !soModeLiveNow(r.s || getSettings(), owner)) return soConnRun(mc, todayThunk, r.signal);
     // 拒发 / 排队结局作为值从 soConnRun 里出来（soConnTag 不给它们加连接前缀），在外面才变成错误。
-    return soConnRun(mc, () => soModeLiveCall(owner, mc, r), r.signal).then((v) => {
+    return soConnRun(mc, () => soModeLiveCall(owner, mc, r), r.signal, true).then((v) => {   // ⏹ 实时：引擎自己同中断器赛跑（noRace）
         if (typeof v === 'string') return v;
         if (v && v.soLiveRefused) return Promise.reject(soModeRefusal(owner, v.soLiveRefused, r));
         if (v && v.soLiveQueue) return Promise.reject(Object.assign(new Error(v.soLiveQueue.text), { soLive: true, soLiveQueue: Object.assign({ owner, feature: r.feature || '' }, v.soLiveQueue) }));
@@ -74709,7 +79550,8 @@ function soModeLiveResult(r) {
         else if (msg === THEATER_PRESET_TOO_OLD) msg = LIVE_COPY.engineOld;   // owner #95：A 酒馆太旧 / 改过
         else if (msg === THEATER_PRESET_LOAD_FAILED) msg = LIVE_COPY.engineLoad;   // owner #95：B 这次没载入成功
         else msg = msg.split('\n' + THEATER_MAXTOK_400_HINT).join('\n' + LIVE_COPY.maxTok400);
-        throw Object.assign(new Error(msg), { soLive: true }, x.conn ? { soConn: Object.assign({}, x.conn) } : {});
+        // 🧩 别家中断（引擎的 foreignAbort，只在 ENABLE_FOREIGN_ABORT_NOTE 开着时有）：记一笔 soForeignAbort——外面那层 soConnRun 不给它加「…用的连接失败」（不是连接的事）。
+        throw Object.assign(new Error(msg), { soLive: true }, x.conn ? { soConn: Object.assign({}, x.conn) } : {}, x.foreignAbort === true ? { soForeignAbort: true } : {});
     }
     soLastFinishReason = typeof x.finish === 'string' ? x.finish : '';   // 空回复 / 截断的提示照旧有据
     return typeof x.text === 'string' ? x.text : '';
@@ -75312,6 +80154,92 @@ function soWithStopFields(m, o) {
     return o;
 }
 
+/* ✨ 重画安全（ENABLE_ROOM_REDRAW_SAFE，Xin 报障 2026-11-23）：房间重画时（loadConvoForChat / 加载更多 / soRepaintEntry）哪些回复保持纯文本。
+   ✨ 房的格式器是酒馆的 messageFormatting（全部显示正则 + 宏 + Markdown）。直播时只有解析成功的校正稿走过它；停下留下的、没解析成
+   校正稿的原样回复（没闭合的 <FixedReply> / <fix_think> 等）当时只是纯文本——以前它们第一次进格式器是在【重进 ✨ 时】，整房同步一口气画，
+   一条卡死就再也进不去这一房。现在：写入时就记下「当时是纯文本」（soPlain = 正文指纹，与 soStopped 同一套：✏ 改过 / 换版本自然对不上），
+   重画时照纯文本画；旧记录没有记号 → ✨ 房里按 soStopped / 原样标签认。超过 SO_REDRAW_PLAIN_MAX_CHARS 字的回复在任何房间都照纯文本画。 */
+const SO_REDRAW_PLAIN_MAX_CHARS = 40000;   // 字数（UTF-16 码元：中文一字 = 1）；「超过」才算，正好 40000 照常渲染
+// 「清空本聊天的校正记录」（设置 → 窗口与按钮）。文案 DRAFT，待 Prince 过目。
+const SO_FIX_CLEAR_TEXT = {
+    btn: '清空本聊天的校正记录',
+    hint: '一点 ✨ 就卡住时用：不用进 ✨，直接删掉这个聊天里 ✨ 的对话记录。故事正文、已经应用的校正和校正设置都不动。',
+    confirm: '清空这个聊天里 ✨ 校正的对话记录吗？故事正文、已经应用的校正和校正设置都不动。删掉的记录找不回来。',
+    done: '已清空这个聊天的校正记录。',
+    none: '这个聊天没有校正记录。',
+    busy: '✨ 正在生成，先停下再清空。',
+    noChat: '先打开一个聊天。',
+};
+function soRedrawPlainMark(entry) {
+    if (ENABLE_ROOM_REDRAW_SAFE && entry && typeof entry.content === 'string') entry.soPlain = fixFingerprint(entry.content);
+}
+function soRedrawPlainMarked(entry) {
+    return !!(ENABLE_ROOM_REDRAW_SAFE && entry && typeof entry.soPlain === 'string' && typeof entry.content === 'string'
+        && entry.soPlain === fixFingerprint(entry.content));
+}
+// 落盘 / 读回（serializeConvo 同一份白名单）：助手回复带着 soPlain。旗关 = 原样返回。
+function soWithPlainFields(m, o) {
+    if (ENABLE_ROOM_REDRAW_SAFE && m && m.role === 'assistant' && typeof m.soPlain === 'string' && m.soPlain) o.soPlain = m.soPlain;
+    return o;
+}
+// 这条回复重画时要不要保持纯文本。只看助手回复。旗关 = 恒 false。
+function soRedrawPlain(room, entry) {
+    if (!ENABLE_ROOM_REDRAW_SAFE || !entry || entry.role !== 'assistant') return false;
+    const t = typeof entry.content === 'string' ? entry.content : '';
+    if (t.length > SO_REDRAW_PLAIN_MAX_CHARS) return true;   // 任何房间
+    if (soRedrawPlainMarked(entry)) return true;              // 写入时记下的
+    // 旧记录（没有记号）：✨ 房里停下留下的，或还带着校正契约标签的原样回复（解析成功的那条存的是干净正文，不带这些标签）
+    return room === 'fix' && (soStopKeepMarked(entry) || /<\/?(?:FixedReply|fix_think)\b/i.test(t));
+}
+// 设置里那一行「清空本聊天的校正记录」在不在：有 ✨ 才有。
+function soFixClearRowOn() {
+    return ENABLE_ROOM_REDRAW_SAFE && ENABLE_REPLY_FIX;
+}
+// 这个聊天里 ✨ 房的全部记录键：默认那份 + 各具名聊天（__f<id>）。只认这两种形状，名字相像的别的键不碰。
+function soFixRecordKeys(md) {
+    if (!md || typeof md !== 'object') return [];
+    const base = convoMetaKeyFor('fix');
+    return Object.keys(md).filter((k) => k === base || k.startsWith(base + '__f'));
+}
+// 「清空本聊天的校正记录」：不进 ✨ 也能删掉这个聊天的 ✨ 记录 + 它们的「不发送」设置（storyOracle_convo_hide 里的 fix / fix::<id>），
+// 先确认、再 saveMetadata。✨ 正开着：窗口一起清空；✨ 正在生成：不清。返回是否清了。
+async function soFixRecordsClear() {
+    if (!ENABLE_ROOM_REDRAW_SAFE) return false;
+    const toast = (kind, msg) => { try { if (typeof toastr !== 'undefined') toastr[kind](msg); } catch (e) { /* ignore */ } };
+    const md0 = getChatMetadataSafe();
+    const chat0 = fixChatKey();
+    if (!md0 || chat0 === '::') { toast('info', SO_FIX_CLEAR_TEXT.noChat); return false; }   // 没打开聊天
+    const hideKeys = (md) => {
+        const box = md && md[SO_HIDE_META_KEY];
+        return (box && typeof box === 'object') ? Object.keys(box).filter((k) => k === 'fix' || k.startsWith('fix::')) : [];
+    };
+    const inRoom = () => convoStreamKey === 'fix';
+    if (inRoom() && isGenerating) { toast('info', SO_FIX_CLEAR_TEXT.busy); return false; }
+    if (!soFixRecordKeys(md0).length && !hideKeys(md0).length && !(inRoom() && convo.length)) { toast('info', SO_FIX_CLEAR_TEXT.none); return false; }
+    if (!(await uiConfirm(SO_FIX_CLEAR_TEXT.confirm))) return false;
+    // 确认框开着时可能换了聊天 / 开始生成：换了就不动（删的是哪个聊天要与玩家看到的一致）。
+    const md = getChatMetadataSafe();
+    if (!md || fixChatKey() !== chat0) return false;
+    if (inRoom() && isGenerating) { toast('info', SO_FIX_CLEAR_TEXT.busy); return false; }
+    for (const k of soFixRecordKeys(md)) delete md[k];
+    const hk = hideKeys(md);
+    if (hk.length) {
+        for (const k of hk) delete md[SO_HIDE_META_KEY][k];
+        if (!Object.keys(md[SO_HIDE_META_KEY]).length) delete md[SO_HIDE_META_KEY];
+    }
+    if (inRoom()) {
+        convo = [];
+        if (messagesEl) messagesEl.innerHTML = '';
+        loadConvoForChat();   // 读回的是刚删空的键 → 空房（画空态）
+    }
+    try {
+        const ctx = getCtx();
+        if (typeof ctx.saveMetadata === 'function') await ctx.saveMetadata(); else saveChatMetadata();
+    } catch (e) { console.warn('[Story Oracle] 清空校正记录：保存元数据失败', e); }
+    toast('success', SO_FIX_CLEAR_TEXT.done);
+    return true;
+}
+
 // 把错误的 cause 链拍成一句人话。存在的理由：profile（连接配置）模式走酒馆的
 // ConnectionManagerRequestService.sendRequest，而它把【任何】底层失败重新包装成
 //     throw new Error('API request failed', { cause: error })
@@ -75572,6 +80500,7 @@ async function generateReply(options = {}) {
     const clearTyping = showTyping(contentEl);
     setGenerating(true);
     abortCtl = new AbortController();
+    const replyCtl = abortCtl;   // 🧩 这一轮自己的中断器（模块级 abortCtl 会被别的运行改写 / 清空；别家中断的判定只认这一个）
     let modeRx;   // 🎚 Stage 3：实时流式那一发的显示规则画笔（mreq.onFull 第一笔时建；没走实时 = 一直 undefined）
     // ✋ ENABLE_STOP_KEEP：这一趟流到的原文（各条流式路的画笔旁边记一份）+ 开跑时的中止器 / 侧聊记录 / 房间 / 聊天（停下时据此认「还是同一处」）。
     // 旗关 = null，下面每一处都不做事。
@@ -75907,6 +80836,9 @@ async function generateReply(options = {}) {
                         + '可以让它「把刚才那版重发一次，头部带上 target」，或直接点常驻卡上的「🔨 生成」由锻造工序出稿。');
                 }
             }
+            // ✨ ENABLE_ROOM_REDRAW_SAFE：这条 ✨ 回复此刻在气泡里是纯文本（停下留下的 / 没解析成校正稿 / 旧版本上不挂卡）→ 记 soPlain 再落盘一次，
+            // 重画时照纯文本画、不再交给酒馆的格式器（解析成功的那条已经格式化过 = 带 so-rendered = 不记）。
+            if (ENABLE_ROOM_REDRAW_SAFE && fixMode && contentEl && !contentEl.classList.contains('so-rendered')) { soRedrawPlainMark(aEntry); persistConvo(); }
             // TBW spec A：回复已落进侧聊记录（新回复 / 重新生成的新版本 / 续写）→ 通知扩展。
             if (ENABLE_REPLY_VERSIONS) soSyncAllReplyTools();   // 新的「最新一条」到场 → 诊断等房的 ⏩🔄 挪过去
             if (ENABLE_HOOK_API_UI) soEmitHook('reply-done', { id: aEntry.id, room: convoStreamKey, mode: currentOracleMode(), kind: rv ? rv.kind : 'new', ...((sk && sk.kept) ? { stopped: true } : {}) });   // ✋ 停下留下的多一个 stopped:true（只加键）
@@ -75924,11 +80856,15 @@ async function generateReply(options = {}) {
             console.warn('[Story Oracle] 实时预设：这一条没有发出', err);
             return;
         }
-        const aborted = isUserAbort(err);
+        // 🧩 ENABLE_FOREIGN_ABORT_NOTE：像中断、可这一轮自己的中断器（abortCtl：停止键 / 换聊天 / 换房都掐它）没被掐 = 别的扩展拦的 → 当出错显示（带原话 + 「↻ 重试」）。
+        // 实时那两条路的别家中断早在引擎里变成了错误值；它们自己的中断（soThrAbortError）不会被认成别家的。
+        const foreign = !!replyCtl && soIsForeignAbort(err, replyCtl.signal);
+        const aborted = isUserAbort(err) && !foreign;
         // errChainMessage 而不是裸 err.message：profile 模式下酒馆把一切失败包成
         // 'API request failed'，真原因埋在 .cause 里（见该函数的注释）。
-        contentEl.textContent = aborted ? '(已停止)' : (err && err.soLive === true ? `错误：${err.message}`   // 🎚 实时：引擎已经过 explainProviderError，原样显示
-            : `错误：${explainProviderError(errChainMessage(err))}`);   // FIX 5：确定性 400 追加中文提示
+        contentEl.textContent = aborted ? '(已停止)' : (foreign ? `错误：${soForeignAbortText(err, true)}`   // 🧩 发没发出去看不出 = 说「中途打断」（数据库拦截器的错误码 = 没发出去）
+            : (err && err.soLive === true ? `错误：${err.message}`   // 🎚 实时：引擎已经过 explainProviderError，原样显示
+            : `错误：${explainProviderError(errChainMessage(err))}`));   // FIX 5：确定性 400 追加中文提示
         if (!aborted) {
             contentEl.classList.add('so-error');
             addRetryControl(assistantEl, aEntry);   // 失败（429 等）→ 常显「↻ 重试」，点它重发那一轮（不用重打）
@@ -79398,6 +84334,7 @@ async function callBackendForward(url, apiKey, body, signal, usageSeq) {
     const payload = buildBackendForwardPayload(url, apiKey, body, false, extra);
     if (soThrParallelOn()) signal = soThrOwnSignal(signal);   // 🎬 fu-1：这一发是神谕自己的（中转旁观者认它）
     const result = await ctx.ChatCompletionService.processRequest(payload, { presetName: undefined }, true, signal);
+    if (soStopFreeHit(signal)) throw soStopFreeAbortError(signal);   // ⏹ 掐了之后才回来的结果：不记用量、不交出去
     if (ENABLE_PROMPT_USAGE && usageSeq) soUsageReport(usageSeq, result);   // TBW spec A · A4：酒馆只回 {content} 时什么也记不到 → 显示估算
     return result?.content ?? '';
 }
@@ -79413,15 +84350,18 @@ async function streamBackendForward(url, apiKey, body, signal, onDelta, usageSeq
     const payload = buildBackendForwardPayload(url, apiKey, body, true, extra);
     if (soThrParallelOn()) signal = soThrOwnSignal(signal);   // 🎬 fu-1：这一发是神谕自己的（中转旁观者认它）
     const gen = await ctx.ChatCompletionService.processRequest(payload, { presetName: undefined }, true, signal);
+    if (soStopFreeHit(signal)) throw soStopFreeAbortError(signal);   // ⏹
     const iterator = (typeof gen === 'function') ? gen() : gen;
     let prev = '';
     for await (const chunk of iterator) {
+        if (soStopFreeHit(signal)) break;   // ⏹ 掐了：不再画字
         if (chunk && typeof chunk.text === 'string') {
             const delta = chunk.text.slice(prev.length);
             prev = chunk.text;
             if (delta) onDelta(delta);
         }
     }
+    if (soStopFreeHit(signal)) throw soStopFreeAbortError(signal);   // ⏹ 掐了之后流「正常结束」（TauriTavern 停流的样子）= 停下，不是跑完
     // TBW spec A · A4：酒馆的流式生成器只给累计文本，不带用量 —— usageSeq 这里只是接住，不会有报告（显示估算）。
     void usageSeq;
     return prev;
@@ -79438,13 +84378,16 @@ async function streamBackendForwardArc(url, apiKey, body, signal, onLive) {
     const payload = buildBackendForwardPayload(url, apiKey, body, true, extra);
     if (soThrParallelOn()) signal = soThrOwnSignal(signal);   // 🎬 fu-1：这一发是神谕自己的（中转旁观者认它）
     const gen = await ctx.ChatCompletionService.processRequest(payload, { presetName: undefined }, true, signal);
+    if (soStopFreeHit(signal)) throw soStopFreeAbortError(signal);   // ⏹
     const iterator = (typeof gen === 'function') ? gen() : gen;
     let content = '', reasoning = '';
     for await (const chunk of iterator) {
+        if (soStopFreeHit(signal)) break;   // ⏹ 掐了：不再报实时输出
         if (chunk && typeof chunk.text === 'string') content = chunk.text;
         if (chunk && chunk.state && typeof chunk.state.reasoning === 'string' && chunk.state.reasoning) reasoning = chunk.state.reasoning;
         if (onLive) onLive({ content, reasoning });
     }
+    if (soStopFreeHit(signal)) throw soStopFreeAbortError(signal);   // ⏹ 掐了之后的「正常结束」= 停下
     return content;
 }
 
@@ -79493,6 +84436,16 @@ async function fetchModelsViaBackend(endpoint, apiKey, raw, signal) {
     const data = await res.json();
     if (data && data.error) throw new Error('酒馆服务器代发模型请求失败——请核对直连地址与密钥（酒馆服务器控制台有详情）。');
     return data;
+}
+
+// 纯：「获取模型」失败时要不要补一句「去勾经酒馆服务器转发」。只在【没走】酒馆服务器、且错误是浏览器自己的网络类报错时给——
+// 跨域被拦在浏览器里就长这样（Chrome「Failed to fetch」/ 新版带主机名、Firefox「NetworkError when attempting…」、Safari「Load failed」）。
+// 超时 / 中止、服务器回了 HTTP 状态（我们自己抛的「HTTP 4xx …」）、请求头里有怪字符（「Failed to execute 'fetch'…」）都不算。
+function soModelFetchCorsHint(err, viaBackend) {
+    if (viaBackend || !err) return '';
+    if (err.name === 'TimeoutError' || err.name === 'AbortError') return '';
+    const msg = String(err.message || '');
+    return /^(failed to fetch|networkerror\b|load failed)/i.test(msg) ? SET_V2_COPY.c4Cors : '';
 }
 
 async function onFetchModels() {
@@ -79551,6 +84504,10 @@ async function onFetchModels() {
     } catch (err) {
         const aborted = err?.name === 'TimeoutError' || err?.name === 'AbortError';
         hint.textContent = aborted ? '请求超时。' : `获取模型失败：${err?.message || err}`;
+        // 🧹 设置面板 V2（2026-11-25）：直连、没勾转发、浏览器报的是网络类错误 → 另起一行指向正下方的「经酒馆服务器转发」。
+        // 旧版设置布局（旗关）不加：那里勾选框下面本来就有一行常驻说明。
+        const corsHint = ENABLE_SETTINGS_V2 ? soModelFetchCorsHint(err, !!s.directViaBackend) : '';
+        if (corsHint) hint.append(document.createElement('br'), corsHint);
         hint.classList.add('so-hint-error');
         sel.style.display = 'none';
         console.error('[Story Oracle] model fetch failed:', err);
@@ -79826,11 +84783,13 @@ async function callDirect(url, apiKey, body, signal, usageSeq) {
         body: JSON.stringify({ ...applyExtraBody(body, extra), stream: false }),
         signal,
     });
+    if (soStopFreeHit(signal)) throw soStopFreeAbortError(signal);   // ⏹ 掐了之后才回来的应答：不读、不交出去
     if (!res.ok) {
         const t = await res.text().catch(() => '');
         throw new Error(`HTTP ${res.status} ${res.statusText} ${t.slice(0, 300)}`);
     }
     const data = await res.json();
+    if (soStopFreeHit(signal)) throw soStopFreeAbortError(signal);   // ⏹ 不写 soLastFinishReason / 用量（那是下一发的）
     soLastFinishReason = data?.choices?.[0]?.finish_reason || '';   // FIX 4：留给空回复判据（cause D）
     if (ENABLE_PROMPT_USAGE && usageSeq) soUsageReport(usageSeq, data);   // TBW spec A · A4：服务商顺带报的用量（不改请求）
     return data?.choices?.[0]?.message?.content ?? '';
@@ -79861,18 +84820,20 @@ async function streamDirect(url, apiKey, body, signal, onDelta, usageSeq) {
         body: JSON.stringify({ ...applyExtraBody(body, extra), stream: true }),
         signal,
     });
+    if (soStopFreeHit(signal)) throw soStopFreeAbortError(signal);   // ⏹
     if (!res.ok || !res.body) {
         const t = await res.text().catch(() => '');
         throw new Error(`HTTP ${res.status} ${res.statusText} ${t.slice(0, 300)}`);
     }
     const reader = res.body.getReader();
+    soStopFreeCancelOnAbort(reader, signal);   // ⏹ 掐了 = 顺手把正文流也关掉（丢了中断信号的包装层底下，连接因此能断）
     const dec = new TextDecoder();
     let buf = '';
     let full = '';
     let raw = '', sawData = false, doneSeen = false, streamErr = '';   // raw=原始正文（供非 SSE 回退）；sawData=是否出现过 SSE 行
     while (true) {
         const { value, done } = await reader.read();
-        if (done) break;
+        if (done || soStopFreeHit(signal)) break;   // ⏹ 掐了：不再画字、不写 soLastFinishReason / 用量
         const chunk = dec.decode(value, { stream: true });
         raw += chunk;
         buf += chunk;
@@ -79892,6 +84853,7 @@ async function streamDirect(url, apiKey, body, signal, onDelta, usageSeq) {
         }
         if (doneSeen) break;
     }
+    if (soStopFreeHit(signal)) throw soStopFreeAbortError(signal);   // ⏹ 掐了之后流「正常结束」= 停下，不是跑完
     // TBW spec A · A4：没有 [DONE]、连接直接关掉时最后一行可能还留在 buf 里（用量块常在最后）——只看用量，正文处理照旧。
     if (ENABLE_PROMPT_USAGE && usageSeq && buf) soUsageReportSseLine(usageSeq, buf.trim());
     // FIX 3（cause C）：流里出现过 error 块 → 别静默返回被腰斩的正文；抛出去让 catch 显示错误 + 挂「↻ 重试」。
@@ -79920,16 +84882,18 @@ async function streamDirectArc(url, apiKey, body, signal, onLive) {
     if (getSettings().directViaBackend) return streamBackendForwardArc(url, apiKey, body, signal, onLive); // 经酒馆后端转发（避免 CORS）
     const extra = resolveExtraParams(getSettings()); // 附加参数（1.70.0）：坏文本在此抛错、绝不静默
     const res = await fetch(url, { method: 'POST', headers: applyExtraHeaders(directHeaders(apiKey), extra), body: JSON.stringify({ ...applyExtraBody(body, extra), stream: true }), signal });
+    if (soStopFreeHit(signal)) throw soStopFreeAbortError(signal);   // ⏹
     if (!res.ok || !res.body) {
         const t = await res.text().catch(() => '');
         throw new Error(`HTTP ${res.status} ${res.statusText} ${t.slice(0, 300)}`);
     }
     const reader = res.body.getReader();
+    soStopFreeCancelOnAbort(reader, signal);   // ⏹
     const dec = new TextDecoder();
     let buf = '', full = '', reasoning = '', raw = '', sawData = false, doneSeen = false, streamErr = '';   // raw=原始正文（供非 SSE 回退）；sawData=是否出现过 SSE 行
     while (true) {
         const { value, done } = await reader.read();
-        if (done) break;
+        if (done || soStopFreeHit(signal)) break;   // ⏹ 掐了：不再报实时输出、不写 soLastFinishReason
         const chunk = dec.decode(value, { stream: true });
         raw += chunk;
         buf += chunk;
@@ -79950,6 +84914,7 @@ async function streamDirectArc(url, apiKey, body, signal, onLive) {
         }
         if (doneSeen) break;
     }
+    if (soStopFreeHit(signal)) throw soStopFreeAbortError(signal);   // ⏹ 掐了之后的「正常结束」= 停下
     // FIX 3（cause C）：流里出现过 error 块 → 抛出去（别静默返回被腰斩的正文），交给 catch 显示错误 + 挂「↻ 重试」。
     if (streamErr) {
         // 文案待 Prince 否决权
@@ -80033,6 +84998,7 @@ async function callProfile(profileId, messages, maxTokens, overridePayload, sign
         { stream: false, extractData: true, signal: soThrParallelOn() ? soThrOwnSignal(signal) : signal },   // 🎬 fu-1：这一发是神谕自己的（中转旁观者认它）
         { ...extraParamsOverride(extra), ...soVertexAuthFill(profileId, ctx), ...soVertexRegionFill(profileId, ctx), ...(overridePayload || {}) },
     );
+    if (soStopFreeHit(signal)) throw soStopFreeAbortError(signal);   // ⏹ 掐了之后才回来的结果：不交出去
     return result?.content ?? '';
 }
 
@@ -80050,14 +85016,17 @@ async function callProfileStream(profileId, messages, maxTokens, overridePayload
         { stream: true, signal: soThrParallelOn() ? soThrOwnSignal(signal) : signal },   // 🎬 fu-1：这一发是神谕自己的（中转旁观者认它；写在参数里 = 垫在 sendRequest 之前的钉不动）
         { ...extraParamsOverride(extra), ...soVertexAuthFill(profileId, ctx), ...soVertexRegionFill(profileId, ctx), ...(overridePayload || {}) },
     );
+    if (soStopFreeHit(signal)) throw soStopFreeAbortError(signal);   // ⏹
     const iterator = (typeof gen === 'function') ? gen() : gen;
     let full = '';
     for await (const chunk of iterator) {
+        if (soStopFreeHit(signal)) break;   // ⏹ 掐了：不再画字
         if (chunk && typeof chunk.text === 'string') {
             full = chunk.text;
             onText(full);
         }
     }
+    if (soStopFreeHit(signal)) throw soStopFreeAbortError(signal);   // ⏹ 掐了之后流「正常结束」= 停下，不是跑完
     return full;
 }
 
@@ -80547,8 +85516,10 @@ function soRepaintEntry(entry) {
     const c = el.querySelector('.so-content');
     if (c) {
         c.dataset.soRaw = entry.content || '';
-        const pj = ENABLE_ORACLE_REGEX && entry.role === 'assistant' ? soPaintReplyText(entry) : null;   // TBW spec B · B6：画面接缝
-        if (pj && pj.active) soApplyPaint(c, pj, (t) => repaintHtmlForRoom(convoStreamKey, t, entry));
+        const plainNow = ENABLE_ROOM_REDRAW_SAFE && soRedrawPlain(convoStreamKey, entry);   // ✨ 重画安全：同 soDrawHistoryEntry
+        const pj = ENABLE_ORACLE_REGEX && entry.role === 'assistant' && !plainNow ? soPaintReplyText(entry) : null;   // TBW spec B · B6：画面接缝
+        if (plainNow) { /* 纯文本：addMessage 已写好 textContent */ }
+        else if (pj && pj.active) soApplyPaint(c, pj, (t) => repaintHtmlForRoom(convoStreamKey, t, entry));
         else {
             const html = repaintHtmlForRoom(convoStreamKey, entry.content || '', entry);
             if (html != null) { c.innerHTML = html; c.classList.add('so-rendered'); c.style.whiteSpace = 'normal'; }
@@ -81859,8 +86830,11 @@ function soDrawHistoryEntry(m) {
         const c = m._el.querySelector('.so-content');
         if (c && !c.classList.contains('so-rendered')) {
             c.dataset.soRaw = m.content || '';
-            const pj = ENABLE_ORACLE_REGEX ? soPaintReplyText(m) : null;   // TBW spec B · B6：显示规则插在今天的渲染器前面
-            if (pj && pj.active) soApplyPaint(c, pj, (t) => repaintHtmlForRoom(convoStreamKey, t, m));
+            // ✨ ENABLE_ROOM_REDRAW_SAFE：当时就是纯文本的 / 太长的回复 → 保持 addMessage 写好的纯文本（不跑神谕正则、不进格式器）。
+            const plainNow = ENABLE_ROOM_REDRAW_SAFE && soRedrawPlain(convoStreamKey, m);
+            const pj = (ENABLE_ORACLE_REGEX && !plainNow) ? soPaintReplyText(m) : null;   // TBW spec B · B6：显示规则插在今天的渲染器前面
+            if (plainNow) { /* 纯文本：addMessage 已写好 textContent */ }
+            else if (pj && pj.active) soApplyPaint(c, pj, (t) => repaintHtmlForRoom(convoStreamKey, t, m));
             else {
                 const html = repaintHtmlForRoom(convoStreamKey, m.content || '', m);
                 if (html != null) { c.innerHTML = html; c.classList.add('so-rendered'); c.style.whiteSpace = 'normal'; }
